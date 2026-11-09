@@ -59,7 +59,7 @@ export const proceduralBust: ParticleSource = (count) => {
     const j = Math.floor(Math.random() * (i + 1));
     for (let c = 0; c < 3; c++) { const t = pos[i * 3 + c]; pos[i * 3 + c] = pos[j * 3 + c]; pos[j * 3 + c] = t; }
     for (let c = 0; c < 3; c++) { const t = pos[i * 3 + c]!; pos[i * 3 + c] = pos[j * 3 + c]!; pos[j * 3 + c] = t; }
-  }
+    let t = kind[i]!; kind[i] = kind[j]!; kind[j] = t; t = rand[i]!; rand[i] = rand[j]!; rand[j] = t;
   return { positions: pos, kind, rand, count };
 };
 function gauss() { return Math.sqrt(-2 * Math.log(Math.random() + 1e-9)) * Math.cos(2 * Math.PI * Math.random()); }
