@@ -38,6 +38,7 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
   --color-background: var(--background);
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -73,9 +74,13 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --radius: 0.25rem;
+  --background: oklch(0.12 0.03 260);
+  --foreground: oklch(0.9 0.08 210);
+  --hud-accent: oklch(0.85 0.15 210);
+  --hud-warn: oklch(0.8 0.16 65);
+  --hud-surface: oklch(0.14 0.04 255 / 0.75);
+  --hud-line: oklch(0.85 0.15 210 / 0.3);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
@@ -153,3 +158,18 @@
     color: var(--color-foreground);
   }
 }
+
+.avatar-stage { position: fixed; inset: 0; overflow: hidden; background: var(--background); color: var(--foreground); font-family: var(--font-mono); }
+.hud { position: absolute; font-size: 11px; letter-spacing: 0.18em; line-height: 1.8; text-transform: uppercase; pointer-events: none; text-shadow: 0 0 8px var(--hud-line); }
+.hud-tr { top: 1.25rem; right: 1.5rem; text-align: right; }
+.hud-tl { top: 1.25rem; left: 1.5rem; opacity: 0.6; }
+.hud-val { color: var(--hud-accent); }
+.hud-warn { color: var(--hud-warn); }
+.hud-bar { position: absolute; bottom: 1.25rem; left: 50%; transform: translateX(-50%); display: flex; gap: 0.5rem; }
+.hud-btn { font: inherit; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.5rem 0.9rem; border: 1px solid var(--hud-line); background: var(--hud-surface); color: var(--foreground); border-radius: var(--radius); backdrop-filter: blur(6px); cursor: pointer; transition: border-color .2s, color .2s; }
+.hud-btn:hover { border-color: var(--hud-accent); color: var(--hud-accent); }
+.hud-btn-primary { border-color: var(--hud-accent); color: var(--hud-accent); }
+.hud-panel { position: absolute; right: 1.5rem; bottom: 4.5rem; width: 260px; padding: 1rem; display: grid; gap: 0.75rem; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; background: var(--hud-surface); border: 1px solid var(--hud-line); border-radius: var(--radius); backdrop-filter: blur(8px); }
+.hud-row { display: grid; gap: 0.3rem; }
+.hud-range { accent-color: var(--hud-accent); width: 100%; }
+.hud-select { font: inherit; background: var(--background); color: var(--foreground); border: 1px solid var(--hud-line); padding: 0.25rem; }
