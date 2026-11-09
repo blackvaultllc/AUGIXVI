@@ -95,6 +95,12 @@ const postShader = {
   }`,
 };
 
+type V<T> = { value: T };
+type Uniforms = Record<"uTime"|"uBreath"|"uTight"|"uSpeech"|"uFlare"|"uSweep"|"uContour"|"uDrift"|"uPixel"|"uAttractK"|"uCore"|"uWhite", V<number>> &
+  { uAttract: V<THREE.Vector3>; uLook: V<THREE.Vector2>; uColA: V<THREE.Color>; uColB: V<THREE.Color>; uColCore: V<THREE.Color>; uColVein: V<THREE.Color> };
+type PostU = { uTime: V<number>; uGlitch: V<number>; uRes: V<THREE.Vector2> };
+const rgb = (c: THREE.Color, v: readonly number[]) => c.setRGB(v[0]!, v[1]!, v[2]!);
+
 export type Inputs = { attract: THREE.Vector3; attractK: number; look: THREE.Vector2; sweep: number };
 
 export class AvatarRenderer {
@@ -153,21 +159,21 @@ export class AvatarRenderer {
   private onVis = () => { if (document.hidden) cancelAnimationFrame(this.raf); else { this.clock.getDelta(); this.start(); } };
   private start() { cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(this.tick); }
   applyTheme() {
-    const t = THEMES[this.settings.theme]; const U = this.mat.uniforms;
-    (U.uColA.value as THREE.Color).setRGB(...t.a); (U.uColB.value as THREE.Color).setRGB(...t.b);
-    (U.uColCore.value as THREE.Color).setRGB(...t.core); (U.uColVein.value as THREE.Color).setRGB(...t.vein);
+    const t = THEMES[this.settings.theme]; const U = this.mat.uniforms as unknown as Uniforms;
+    rgb(U.uColA.value, t.a); rgb(U.uColB.value, t.b);
+    rgb(U.uColCore.value, t.core); rgb(U.uColVein.value, t.vein);
   }
   updateSettings(s: Partial<RenderSettings>) {
     Object.assign(this.settings, s);
     if (s.bloom !== undefined) this.bloom.strength = s.bloom;
     if (s.theme) this.applyTheme();
-    if (s.maxParticles) this.drawCount = Math.min(this.drawCount, s.maxParticles, this.geo.attributes.position.count);
+    if (s.maxParticles) this.drawCount = Math.min(this.drawCount, s.maxParticles, this.geo.getAttribute("position").count);
   }
   private resize() {
     const w = this.host.clientWidth, h = this.host.clientHeight; if (!w || !h) return;
     this.renderer.setSize(w, h); this.composer.setSize(w, h);
     this.camera.aspect = w / h; this.camera.position.z = w / h < 1 ? 7.2 / (w / h) * 0.75 : 7.2; this.camera.updateProjectionMatrix();
-    (this.post.uniforms.uRes.value as THREE.Vector2).set(w, h);
+    (this.post.uniforms as unknown as PostU).uRes.value.set(w, h);
   }
   private tick = () => {
     this.raf = requestAnimationFrame(this.tick);
@@ -186,14 +192,14 @@ export class AvatarRenderer {
     this.sweep += (this.inputs.sweep - this.sweep) * (1 - Math.exp(-3 * dt));
     if (Math.random() < this.settings.glitch * dt * 0.4) this.glitchBurst = 0.25;
     this.glitchBurst = Math.max(0, this.glitchBurst - dt);
-    const U = this.mat.uniforms;
+    const U = this.mat.uniforms as unknown as Uniforms; const PU = this.post.uniforms as unknown as PostU;
     U.uTime.value = t; U.uBreath.value = this.p.breath; U.uTight.value = this.p.tight; U.uCore.value = this.p.core;
     U.uWhite.value = this.p.white; U.uContour.value = this.p.contour; U.uFlare.value = this.p.flare; U.uDrift.value = this.p.drift;
     U.uSpeech.value = this.bridge.state === "SPEAKING" ? this.bridge.speechLevel : 0;
     U.uSweep.value = this.sweep; (U.uAttract.value as THREE.Vector3).copy(this.attract); U.uAttractK.value = this.attractK;
     (U.uLook.value as THREE.Vector2).copy(this.look);
-    this.post.uniforms.uTime.value = t;
-    this.post.uniforms.uGlitch.value = Math.min(1, this.p.glitch + (this.glitchBurst > 0 ? this.settings.glitch : 0));
+    PU.uTime.value = t;
+    PU.uGlitch.value = Math.min(1, this.p.glitch + (this.glitchBurst > 0 ? this.settings.glitch : 0));
     this.adapt(dt);
     this.geo.setDrawRange(0, this.drawCount);
     this.composer.render(dt);
@@ -203,7 +209,7 @@ export class AvatarRenderer {
     this.frameTimes.push(dt * 1000);
     if (this.frameTimes.length < 60) return;
     const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length; this.frameTimes = [];
-    const max = Math.min(this.settings.maxParticles, this.geo.attributes.position.count);
+    const max = Math.min(this.settings.maxParticles, this.geo.getAttribute("position").count);
     if (avg > 20) this.drawCount = Math.max(15000, Math.floor(this.drawCount * 0.85));
     else if (avg < 15) this.drawCount = Math.min(max, Math.floor(this.drawCount * 1.08));
     this.onFrame?.({ fps: Math.round(1000 / avg), particles: this.drawCount });
