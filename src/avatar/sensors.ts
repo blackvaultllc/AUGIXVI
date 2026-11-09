@@ -57,7 +57,7 @@ export class Sensors {
     const loop = () => {
       if (this.stopped) return;
       an.getByteFrequencyData(f); an.getFloatTimeDomainData(td);
-      let e = 0; for (let i = from; i < f.length; i++) e += f[i]; e /= (f.length - from) * 255;
+      let e = 0; for (let i = from; i < f.length; i++) e += f[i]!; e /= (f.length - from) * 255;
       if (this.onset.push(e)) { if (this.snap.pushAudioOnset(performance.now())) this.fireSummon(); }
       let s = 0; for (const x of td) s += x * x; const rms = Math.sqrt(s / td.length);
       this.cb.onMicLevel(rms);
