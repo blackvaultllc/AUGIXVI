@@ -28,3 +28,7 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Avatar
+- All AI ↔ avatar wiring goes through `src/avatar/AvatarBridge.ts`; rendering/sensors never talk to the AI directly, so the stand-in `simulatedAI.ts` can be swapped for a real AI.
+- Avatar rules (snap detection, state params) stay in plain TS modules without three.js, so they are unit-testable (`src/test/avatar-rules.test.ts`).
