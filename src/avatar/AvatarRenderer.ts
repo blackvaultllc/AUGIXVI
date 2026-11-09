@@ -6,7 +6,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import type { AvatarBridge } from "./AvatarBridge";
 import { proceduralBust, type ParticleSource } from "./particleSource";
 import { spring, targetParams, type Params } from "./stateParams";
-import { filePoints, handPoints, makeProp } from "./props";
+import { armPoints, filePoints, handPoints, makeProp } from "./props";
 import { THEMES, type ThemeName } from "./themes";
 
 export type RenderSettings = { maxParticles: number; bloom: number; glitch: number; theme: ThemeName };
@@ -121,7 +121,7 @@ export class AvatarRenderer {
   private attract = new THREE.Vector3(0, 0.5, 2); private attractK = 0; private sweep = 0;
   private drawCount: number; private frameTimes: number[] = [];
   private firstFrame = false; private glitchBurst = 0; private ro: ResizeObserver;
-  private hands: THREE.Points[] = []; private file!: THREE.Points;
+  private hands: THREE.Points[] = []; private arms: THREE.Points[] = []; private file!: THREE.Points;
   private handForm = 0; private fileForm = 0; private pose = 0; private poseV = 0;
   onFrame?: (info: { fps: number; particles: number }) => void;
   inputs: Inputs = { attract: new THREE.Vector3(0, 0.5, 2), attractK: 0, look: new THREE.Vector2(), sweep: 0 };
@@ -150,6 +150,7 @@ export class AvatarRenderer {
     this.applyTheme();
     this.scene.add(new THREE.Points(this.geo, this.mat));
     for (const side of [-1, 1]) { const h = makeProp(handPoints(7000, side), 2.5); this.hands.push(h); this.scene.add(h); }
+    for (let i = 0; i < 2; i++) { const a = makeProp(armPoints(4000), 2.5); this.arms.push(a); this.scene.add(a); }
     this.file = makeProp(filePoints(6000), 3); this.scene.add(this.file);
     this.applyPropTheme();
     this.composer = new EffectComposer(this.renderer);
@@ -171,7 +172,7 @@ export class AvatarRenderer {
   }
   private applyPropTheme() {
     const t = THEMES[this.settings.theme];
-    for (const h of this.hands) { const U = h.material as THREE.ShaderMaterial; rgb(U.uniforms["uColA"]!.value, t.a); rgb(U.uniforms["uColB"]!.value, t.b); U.uniforms["uPixel"]!.value = this.renderer.getPixelRatio(); }
+    for (const h of [...this.hands, ...this.arms]) { const U = h.material as THREE.ShaderMaterial; rgb(U.uniforms["uColA"]!.value, t.a); rgb(U.uniforms["uColB"]!.value, t.b); U.uniforms["uPixel"]!.value = this.renderer.getPixelRatio(); }
     const F = this.file.material as THREE.ShaderMaterial; rgb(F.uniforms["uColA"]!.value, t.vein); rgb(F.uniforms["uColB"]!.value, t.core);
     F.uniforms["uPixel"]!.value = this.renderer.getPixelRatio(); F.uniforms["uSize"]!.value = 1.8;
   }
@@ -186,11 +187,20 @@ export class AvatarRenderer {
     const p = this.pose;
     this.hands.forEach((h, i) => {
       const side = i === 0 ? -1 : 1;
-      const restX = side * 1.25, restY = -1.25 + sp * 0.12 * Math.sin(t * 4 + i), restZ = 0.6;
+      const restX = side * 1.2, restY = -0.5 + sp * 0.12 * Math.sin(t * 4 + i), restZ = 0.8;
       const preX = side * 0.5, preY = -0.62 + Math.sin(t * 1.4) * 0.03, preZ = 1.9;
       h.position.set(THREE.MathUtils.lerp(restX, preX, p), THREE.MathUtils.lerp(restY, preY, p), THREE.MathUtils.lerp(restZ, preZ, p));
       h.rotation.set(THREE.MathUtils.lerp(-0.2, 0.9, p), side * THREE.MathUtils.lerp(0.1, -0.5, p), side * THREE.MathUtils.lerp(-0.25, -0.4, p) + sp * 0.1 * side);
       const M = (h.material as THREE.ShaderMaterial).uniforms; M["uTime"]!.value = t; M["uForm"]!.value = this.handForm; M["uGlow"]!.value = 0.8 + p * 0.5;
+      // upper arm: shoulder -> elbow (forearm end of the hand prop)
+      h.updateMatrixWorld();
+      const elbow = h.localToWorld(new THREE.Vector3(0, -0.9, 0));
+      const shoulder = new THREE.Vector3(side * 1.0, -0.5, 0.1);
+      const dir = elbow.clone().sub(shoulder); const len = dir.length();
+      const arm = this.arms[i]!;
+      arm.position.copy(shoulder); arm.scale.set(1, len, 1);
+      arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+      const A = (arm.material as THREE.ShaderMaterial).uniforms; A["uTime"]!.value = t; A["uForm"]!.value = this.handForm; A["uGlow"]!.value = 0.8 + p * 0.5;
     });
     this.file.position.set(0, -0.05 + Math.sin(t * 1.2) * 0.04, THREE.MathUtils.lerp(0.5, 2.15, this.fileForm));
     this.file.rotation.set(-0.15, Math.sin(t * 0.6) * 0.12, 0);
@@ -252,7 +262,7 @@ export class AvatarRenderer {
   dispose() {
     cancelAnimationFrame(this.raf); this.ro.disconnect(); document.removeEventListener("visibilitychange", this.onVis);
     this.geo.dispose(); this.mat.dispose();
-    for (const o of [...this.hands, this.file]) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); } this.bloom.dispose(); this.composer.dispose(); this.renderer.dispose();
+    for (const o of [...this.hands, ...this.arms, this.file]) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); } this.bloom.dispose(); this.composer.dispose(); this.renderer.dispose();
     this.renderer.domElement.remove();
   }
 }
