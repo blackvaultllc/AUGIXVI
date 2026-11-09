@@ -21,16 +21,41 @@ export function attachSimulatedAI(bridge: AvatarBridge) {
     };
     loop();
   };
-  const listen = () => { bridge.setState("LISTENING"); later(8000, () => bridge.state === "LISTENING" && bridge.setState("IDLE")); };
+  // Browser speech recognition (where supported) to catch "show/bring/front this file".
+  type Rec = { continuous: boolean; interimResults: boolean; onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void; onend: () => void; start: () => void; stop: () => void };
+  const W = window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec };
+  const RecCtor = W.SpeechRecognition ?? W.webkitSpeechRecognition;
+  let rec: Rec | null = null;
+  const handleText = (text: string) => {
+    if (isPresentCommand(text)) { clear(); bridge.present("file"); speak("Bringing it into view.", listen); return true; }
+    if (/\b(put (it )?away|close (it|the file)|dismiss)\b/i.test(text)) { clear(); bridge.present(null); speak("Done.", listen); return true; }
+    return false;
+  };
+  const startRec = () => {
+    if (!RecCtor || rec) return;
+    try {
+      rec = new RecCtor(); rec.continuous = false; rec.interimResults = false;
+      rec.onresult = (e) => { const r = e.results[0]?.[0]; if (r) handleText(r.transcript); };
+      rec.onend = () => { rec = null; };
+      rec.start();
+    } catch { rec = null; }
+  };
+  const listen = () => { bridge.setState("LISTENING"); startRec(); later(8000, () => bridge.state === "LISTENING" && bridge.setState("IDLE")); };
 
   const offs = [
     bridge.onSummon(() => { clear(); bridge.setState("GLITCH"); later(350, () => speak("What do you want?", listen)); }),
     bridge.onUserSpeechStart(() => { timers.forEach(clearTimeout); timers = []; }),
     bridge.onUserSpeechEnd(() => {
       if (bridge.state !== "LISTENING") return;
+      if (rec) return; // recognition result will decide
       bridge.setState("THINKING");
       later(1600, () => speak(REPLIES[Math.floor(Math.random() * REPLIES.length)] ?? REPLIES[0]!, () => bridge.setState("IDLE")));
     }),
   ];
-  return { dispose: () => { alive = false; clear(); offs.forEach((o) => o()); }, speak: (t: string) => { clear(); speak(t, () => bridge.setState("IDLE")); } };
+  return { handleText, dispose: () => { alive = false; clear(); rec?.stop(); offs.forEach((o) => o()); }, speak: (t: string) => { clear(); speak(t, () => bridge.setState("IDLE")); } };
+}
+
+/** "Hey, I'm going to front this file" / "show me the file" / "bring up the document". */
+export function isPresentCommand(text: string): boolean {
+  return /\b(front|show|bring|pull|present|open|hold)\b.*\b(file|document|doc|this|it)\b/i.test(text);
 }

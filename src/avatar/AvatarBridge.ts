@@ -11,6 +11,11 @@ export class AvatarBridge {
   private gestureCbs = new Set<Fn<Gesture>>();
   private speechStartCbs = new Set<Fn>();
   private speechEndCbs = new Set<Fn>();
+  presenting: string | null = null;
+  private presentCbs = new Set<Fn<string | null>>();
+  /** Hands pull an item (e.g. a file) out of nowhere into view. Pass null to put it away. */
+  present(label: string | null = "file") { this.presenting = label; this.presentCbs.forEach((c) => c(label)); }
+  onPresent(cb: Fn<string | null>) { this.presentCbs.add(cb); return () => this.presentCbs.delete(cb); }
   private analyser: AnalyserNode | null = null;
   private buf: Float32Array<ArrayBuffer> | null = null;
 

@@ -6,6 +6,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import type { AvatarBridge } from "./AvatarBridge";
 import { proceduralBust, type ParticleSource } from "./particleSource";
 import { spring, targetParams, type Params } from "./stateParams";
+import { filePoints, handPoints, makeProp } from "./props";
 import { THEMES, type ThemeName } from "./themes";
 
 export type RenderSettings = { maxParticles: number; bloom: number; glitch: number; theme: ThemeName };
@@ -120,6 +121,8 @@ export class AvatarRenderer {
   private attract = new THREE.Vector3(0, 0.5, 2); private attractK = 0; private sweep = 0;
   private drawCount: number; private frameTimes: number[] = [];
   private firstFrame = false; private glitchBurst = 0; private ro: ResizeObserver;
+  private hands: THREE.Points[] = []; private file!: THREE.Points;
+  private handForm = 0; private fileForm = 0; private pose = 0; private poseV = 0;
   onFrame?: (info: { fps: number; particles: number }) => void;
   inputs: Inputs = { attract: new THREE.Vector3(0, 0.5, 2), attractK: 0, look: new THREE.Vector2(), sweep: 0 };
 
@@ -146,6 +149,9 @@ export class AvatarRenderer {
     });
     this.applyTheme();
     this.scene.add(new THREE.Points(this.geo, this.mat));
+    for (const side of [-1, 1]) { const h = makeProp(handPoints(7000, side), 2.5); this.hands.push(h); this.scene.add(h); }
+    this.file = makeProp(filePoints(6000), 3); this.scene.add(this.file);
+    this.applyPropTheme();
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), settings.bloom, 0.6, 0.05);
@@ -163,10 +169,38 @@ export class AvatarRenderer {
     rgb(U.uColA.value, t.a); rgb(U.uColB.value, t.b);
     rgb(U.uColCore.value, t.core); rgb(U.uColVein.value, t.vein);
   }
+  private applyPropTheme() {
+    const t = THEMES[this.settings.theme];
+    for (const h of this.hands) { const U = h.material as THREE.ShaderMaterial; rgb(U.uniforms["uColA"]!.value, t.a); rgb(U.uniforms["uColB"]!.value, t.b); U.uniforms["uPixel"]!.value = this.renderer.getPixelRatio(); }
+    const F = this.file.material as THREE.ShaderMaterial; rgb(F.uniforms["uColA"]!.value, t.vein); rgb(F.uniforms["uColB"]!.value, t.core);
+    F.uniforms["uPixel"]!.value = this.renderer.getPixelRatio(); F.uniforms["uSize"]!.value = 1.8;
+  }
+  /** Hand pose: 0 = rest (low, near shoulders), 1 = presenting (forward, holding the item). */
+  private updateProps(dt: number, t: number) {
+    const presenting = this.bridge.presenting !== null;
+    const active = presenting || this.bridge.state !== "IDLE";
+    [this.pose, this.poseV] = spring(this.pose, this.poseV, presenting ? 1 : 0, 10, dt);
+    this.handForm += ((active ? 1 : 0.35) - this.handForm) * (1 - Math.exp(-2.5 * dt));
+    this.fileForm += ((presenting && this.pose > 0.6 ? 1 : 0) - this.fileForm) * (1 - Math.exp(-(presenting ? 1.6 : 4) * dt));
+    const sp = this.bridge.state === "SPEAKING" ? this.bridge.speechLevel : 0;
+    const p = this.pose;
+    this.hands.forEach((h, i) => {
+      const side = i === 0 ? -1 : 1;
+      const restX = side * 1.25, restY = -1.25 + sp * 0.12 * Math.sin(t * 4 + i), restZ = 0.6;
+      const preX = side * 0.5, preY = -0.62 + Math.sin(t * 1.4) * 0.03, preZ = 1.9;
+      h.position.set(THREE.MathUtils.lerp(restX, preX, p), THREE.MathUtils.lerp(restY, preY, p), THREE.MathUtils.lerp(restZ, preZ, p));
+      h.rotation.set(THREE.MathUtils.lerp(-0.2, 0.9, p), side * THREE.MathUtils.lerp(0.1, -0.5, p), side * THREE.MathUtils.lerp(-0.25, -0.4, p) + sp * 0.1 * side);
+      const M = (h.material as THREE.ShaderMaterial).uniforms; M["uTime"]!.value = t; M["uForm"]!.value = this.handForm; M["uGlow"]!.value = 0.8 + p * 0.5;
+    });
+    this.file.position.set(0, -0.05 + Math.sin(t * 1.2) * 0.04, THREE.MathUtils.lerp(0.5, 2.15, this.fileForm));
+    this.file.rotation.set(-0.15, Math.sin(t * 0.6) * 0.12, 0);
+    this.file.visible = this.fileForm > 0.01;
+    const F = (this.file.material as THREE.ShaderMaterial).uniforms; F["uTime"]!.value = t; F["uForm"]!.value = this.fileForm; F["uGlow"]!.value = 1.3;
+  }
   updateSettings(s: Partial<RenderSettings>) {
     Object.assign(this.settings, s);
     if (s.bloom !== undefined) this.bloom.strength = s.bloom;
-    if (s.theme) this.applyTheme();
+    if (s.theme) { this.applyTheme(); this.applyPropTheme(); }
     if (s.maxParticles) this.drawCount = Math.min(this.drawCount, s.maxParticles, this.geo.getAttribute("position").count);
   }
   private resize() {
@@ -200,6 +234,7 @@ export class AvatarRenderer {
     (U.uLook.value as THREE.Vector2).copy(this.look);
     PU.uTime.value = t;
     PU.uGlitch.value = Math.min(1, this.p.glitch + (this.glitchBurst > 0 ? this.settings.glitch : 0));
+    this.updateProps(dt, t);
     this.adapt(dt);
     this.geo.setDrawRange(0, this.drawCount);
     this.composer.render(dt);
@@ -216,7 +251,8 @@ export class AvatarRenderer {
   }
   dispose() {
     cancelAnimationFrame(this.raf); this.ro.disconnect(); document.removeEventListener("visibilitychange", this.onVis);
-    this.geo.dispose(); this.mat.dispose(); this.bloom.dispose(); this.composer.dispose(); this.renderer.dispose();
+    this.geo.dispose(); this.mat.dispose();
+    for (const o of [...this.hands, this.file]) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); } this.bloom.dispose(); this.composer.dispose(); this.renderer.dispose();
     this.renderer.domElement.remove();
   }
 }

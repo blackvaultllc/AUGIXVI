@@ -26,3 +26,12 @@ describe("snap detection", () => {
 it("maps intensity labels", () => {
   expect([intensityLabel(0.1), intensityLabel(0.5), intensityLabel(0.9)]).toEqual(["LOW", "MED", "HIGH"]);
 });
+
+import { isPresentCommand } from "@/avatar/simulatedAI";
+describe("present command", () => {
+  it("recognizes the user's phrasing", () => {
+    expect(isPresentCommand("Hey, I'm going to front this file")).toBe(true);
+    expect(isPresentCommand("show me the document")).toBe(true);
+    expect(isPresentCommand("what's the weather")).toBe(false);
+  });
+});
