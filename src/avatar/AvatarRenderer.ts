@@ -187,7 +187,7 @@ export class AvatarRenderer {
     this.hands.forEach((h, i) => {
       const side = i === 0 ? -1 : 1;
       const restX = side * 1.25, restY = -1.25 + sp * 0.12 * Math.sin(t * 4 + i), restZ = 0.6;
-      const preX = side * 0.62, preY = -0.55 + Math.sin(t * 1.4) * 0.03, preZ = 1.9;
+      const preX = side * 0.5, preY = -0.62 + Math.sin(t * 1.4) * 0.03, preZ = 1.9;
       h.position.set(THREE.MathUtils.lerp(restX, preX, p), THREE.MathUtils.lerp(restY, preY, p), THREE.MathUtils.lerp(restZ, preZ, p));
       h.rotation.set(THREE.MathUtils.lerp(-0.2, 0.9, p), side * THREE.MathUtils.lerp(0.1, -0.5, p), side * THREE.MathUtils.lerp(-0.25, -0.4, p) + sp * 0.1 * side);
       const M = (h.material as THREE.ShaderMaterial).uniforms; M["uTime"]!.value = t; M["uForm"]!.value = this.handForm; M["uGlow"]!.value = 0.8 + p * 0.5;
