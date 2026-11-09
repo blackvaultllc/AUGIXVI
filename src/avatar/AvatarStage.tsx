@@ -23,6 +23,8 @@ export function AvatarStage() {
   const [panel, setPanel] = useState(false);
   const [sensor, setSensor] = useState<SensorStatus | null>(null);
   const [ready, setReady] = useState(false);
+  const [presenting, setPresenting] = useState(false);
+  function togglePresent() { const b = bridgeRef.current; b.present(b.presenting ? null : "file"); }
 
   useEffect(() => {
     const bridge = bridgeRef.current;
@@ -30,15 +32,16 @@ export function AvatarStage() {
     rendRef.current = r; r.onFrame = (p) => { setPerf(p); setReady(true); };
     aiRef.current = attachSimulatedAI(bridge);
     const off = bridge.onStateChange(setState);
+    const offP = bridge.onPresent((l) => setPresenting(l !== null));
     const iv = window.setInterval(() => setLevel(bridge.state === "SPEAKING" ? bridge.speechLevel : bridge.state === "LISTENING" ? 0.5 : bridge.state === "THINKING" ? 0.4 : 0.1), 150);
     // mouse / touch fallback attractor
     const move = (e: PointerEvent) => { if (sensRef.current?.status.hands) return; aim(e.clientX / window.innerWidth, e.clientY / window.innerHeight, 0.6); };
     const leave = () => { if (!sensRef.current?.status.hands) release(); };
     window.addEventListener("pointermove", move); document.addEventListener("pointerleave", leave);
-    const key = (e: KeyboardEvent) => { if (e.key === "s" && !(e.target instanceof HTMLInputElement)) bridge.emitSummon(); };
+    const key = (e: KeyboardEvent) => { if (e.target instanceof HTMLInputElement) return; if (e.key === "s") bridge.emitSummon(); if (e.key === "p") togglePresent(); };
     window.addEventListener("keydown", key);
     return () => {
-      off(); clearInterval(iv); window.removeEventListener("pointermove", move); document.removeEventListener("pointerleave", leave); window.removeEventListener("keydown", key);
+      off(); offP(); clearInterval(iv); window.removeEventListener("pointermove", move); document.removeEventListener("pointerleave", leave); window.removeEventListener("keydown", key);
       aiRef.current?.dispose(); sensRef.current?.stop(); r.dispose();
     };
   }, []);
@@ -85,6 +88,7 @@ export function AvatarStage() {
       <div className="hud-bar">
         {!sensor && <button className="hud-btn hud-btn-primary" onClick={enableSensors}>Enable camera &amp; mic</button>}
         <button className="hud-btn" onClick={() => bridgeRef.current.emitSummon()}>Summon (S)</button>
+        <button className="hud-btn" onClick={togglePresent}>{presenting ? "Put away (P)" : "Present file (P)"}</button>
         <button className="hud-btn" onClick={() => setPanel((p) => !p)}>Settings</button>
       </div>
       {panel && (
