@@ -39,6 +39,7 @@ All AI integration goes through `src/avatar/AvatarBridge.ts`:
 | `connectAudioSource(node)` | Pipe real TTS audio (e.g. `MediaElementSourceNode`); RMS drives speech level. |
 | `onSummon(cb)` | Fired on finger snap (hand velocity spike + mic transient), button, or `S` key. |
 | `onGesture(cb)` | `snap` events (wave adjusts wing sweep). |
+| `present("file")` / `present(null)` | Hands pull a glowing file into view / put it away. Voice: "front this file", "put it away". |
 | `onUserSpeechStart/End(cb)` | Mic voice activity while LISTENING. |
 
 `src/avatar/simulatedAI.ts` is the stand-in AI; replace it by calling the same bridge methods from your real STT/LLM/TTS. Swap the particle shape by passing another `ParticleSource` to `AvatarRenderer`.
