@@ -27,3 +27,18 @@ npm run dev
 - TypeScript
 - React
 - Tailwind CSS
+
+## Living AI Avatar (`/avatar`)
+
+All AI integration goes through `src/avatar/AvatarBridge.ts`:
+
+| Method | Purpose |
+| --- | --- |
+| `setState("IDLE"\|"LISTENING"\|"THINKING"\|"SPEAKING"\|"GLITCH")` | Drive the avatar state (HUD reflects it). |
+| `setSpeechLevel(0..1)` | Manual mouth/wing amplitude. |
+| `connectAudioSource(node)` | Pipe real TTS audio (e.g. `MediaElementSourceNode`); RMS drives speech level. |
+| `onSummon(cb)` | Fired on finger snap (hand velocity spike + mic transient), button, or `S` key. |
+| `onGesture(cb)` | `snap` events (wave adjusts wing sweep). |
+| `onUserSpeechStart/End(cb)` | Mic voice activity while LISTENING. |
+
+`src/avatar/simulatedAI.ts` is the stand-in AI; replace it by calling the same bridge methods from your real STT/LLM/TTS. Swap the particle shape by passing another `ParticleSource` to `AvatarRenderer`.
