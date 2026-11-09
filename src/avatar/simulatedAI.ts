@@ -29,7 +29,7 @@ export function attachSimulatedAI(bridge: AvatarBridge) {
     bridge.onUserSpeechEnd(() => {
       if (bridge.state !== "LISTENING") return;
       bridge.setState("THINKING");
-      later(1600, () => speak(REPLIES[Math.floor(Math.random() * REPLIES.length)], () => bridge.setState("IDLE")));
+      later(1600, () => speak(REPLIES[Math.floor(Math.random() * REPLIES.length)] ?? REPLIES[0]!, () => bridge.setState("IDLE")));
     }),
   ];
   return { dispose: () => { alive = false; clear(); offs.forEach((o) => o()); }, speak: (t: string) => { clear(); speak(t, () => bridge.setState("IDLE")); } };

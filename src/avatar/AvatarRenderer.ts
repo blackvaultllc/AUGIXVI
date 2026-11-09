@@ -113,7 +113,7 @@ export class AvatarRenderer {
   private look = new THREE.Vector2(); private lookV = new THREE.Vector2();
   private attract = new THREE.Vector3(0, 0.5, 2); private attractK = 0; private sweep = 0;
   private drawCount: number; private frameTimes: number[] = [];
-  private glitchBurst = 0; private ro: ResizeObserver;
+  private firstFrame = false; private glitchBurst = 0; private ro: ResizeObserver;
   onFrame?: (info: { fps: number; particles: number }) => void;
   inputs: Inputs = { attract: new THREE.Vector3(0, 0.5, 2), attractK: 0, look: new THREE.Vector2(), sweep: 0 };
 
@@ -197,6 +197,7 @@ export class AvatarRenderer {
     this.adapt(dt);
     this.geo.setDrawRange(0, this.drawCount);
     this.composer.render(dt);
+    if (!this.firstFrame) { this.firstFrame = true; this.onFrame?.({ fps: 0, particles: this.drawCount }); }
   };
   private adapt(dt: number) {
     this.frameTimes.push(dt * 1000);

@@ -77,10 +77,10 @@ export class Sensors {
     const res = this.landmarker.detectForVideo(this.video, now);
     const lm = res.landmarks[0];
     if (!lm) { this.cb.onHandLost(); this.snap.resetHand(); this.lastPalmX = null; return; }
-    const palm = lm[9]; const x = 1 - palm.x, y = palm.y;
+    const P = (i: number) => lm[i]!; const palm = P(9); const x = 1 - palm.x, y = palm.y;
     this.cb.onPalm(x, y);
-    const size = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y) || 0.1;
-    const d = Math.hypot(lm[4].x - lm[12].x, lm[4].y - lm[12].y) / size;
+    const size = Math.hypot(P(0).x - P(9).x, P(0).y - P(9).y) || 0.1;
+    const d = Math.hypot(P(4).x - P(12).x, P(4).y - P(12).y) / size;
     if (this.snap.pushHand(now, d)) this.fireSummon();
     if (this.lastPalmX !== null) { const vx = (x - this.lastPalmX) / ((now - this.lastT) / 1000); if (Math.abs(vx) > 2.5) this.cb.onWave(vx); }
     this.lastPalmX = x; this.lastT = now;
