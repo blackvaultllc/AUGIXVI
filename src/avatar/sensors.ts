@@ -62,7 +62,9 @@ export class Sensors {
       let s = 0; for (const x of td) s += x * x; const rms = Math.sqrt(s / td.length);
       this.cb.onMicLevel(rms);
       const now = performance.now();
-      if (rms > 0.04 && this.bridge.state === "LISTENING") { if (!this.userSpeaking) { this.userSpeaking = true; this.bridge.emitUserSpeechStart(); } this.quietSince = now; }
+      // Barge-in: voice activity counts whenever the avatar is engaged (not IDLE),
+      // so the user can interrupt it mid-sentence instead of talking over it.
+      if (rms > 0.04 && this.bridge.state !== "IDLE") { if (!this.userSpeaking) { this.userSpeaking = true; this.bridge.emitUserSpeechStart(); } this.quietSince = now; }
       else if (this.userSpeaking && now - this.quietSince > 900) { this.userSpeaking = false; this.bridge.emitUserSpeechEnd(); }
       setTimeout(loop, 16);
     };

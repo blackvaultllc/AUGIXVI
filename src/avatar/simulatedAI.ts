@@ -4,7 +4,7 @@ const REPLIES = ["I hear you. Processing complete.", "Understood. Standing by fo
 
 /** Stand-in AI: replace with real STT/LLM/TTS by calling the same bridge methods. */
 export function attachSimulatedAI(bridge: AvatarBridge) {
-  let timers: number[] = []; let raf = 0; let alive = true;
+  let timers: number[] = []; let raf = 0; let alive = true; let userTalking = false;
   const clear = () => { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf); window.speechSynthesis?.cancel(); };
   const later = (ms: number, f: () => void) => timers.push(window.setTimeout(f, ms));
 
@@ -40,12 +40,23 @@ export function attachSimulatedAI(bridge: AvatarBridge) {
       rec.start();
     } catch { rec = null; }
   };
-  const listen = () => { bridge.setState("LISTENING"); startRec(); later(8000, () => bridge.state === "LISTENING" && bridge.setState("IDLE")); };
+  const listen = () => { bridge.setState("LISTENING"); startRec(); later(8000, () => bridge.state === "LISTENING" && !userTalking && bridge.setState("IDLE")); };
 
   const offs = [
     bridge.onSummon(() => { clear(); bridge.setState("GLITCH"); later(350, () => speak("What do you want?", listen)); }),
-    bridge.onUserSpeechStart(() => { timers.forEach(clearTimeout); timers = []; }),
+    bridge.onUserSpeechStart(() => {
+      userTalking = true;
+      // Barge-in: the user started talking — stop the avatar mid-sentence and listen.
+      if (bridge.state === "SPEAKING" || bridge.state === "THINKING" || bridge.state === "GLITCH") {
+        clear(); // cancels speechSynthesis, pending timers, and the amplitude loop
+        bridge.setSpeechLevel(0);
+        listen();
+      } else {
+        timers.forEach(clearTimeout); timers = [];
+      }
+    }),
     bridge.onUserSpeechEnd(() => {
+      userTalking = false;
       if (bridge.state !== "LISTENING") return;
       if (rec) return; // recognition result will decide
       bridge.setState("THINKING");
