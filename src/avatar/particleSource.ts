@@ -25,26 +25,26 @@ function profile(y: number): [number, number] | null {
 
 export const proceduralBust: ParticleSource = (count) => {
   const pos = new Float32Array(count * 3), kind = new Float32Array(count), rand = new Float32Array(count);
-  const nBody = Math.floor(count * 0.48), nCore = Math.floor(count * 0.04);
-  const LINES = 140;
+  const nBody = Math.floor(count * 0.48), nCore = Math.floor(count * 0.09);
+  const LINES = 95;
   for (let i = 0; i < count; i++) {
     let x = 0, y = 0, z = 0, k = 0;
     if (i < nBody) {
       let p: [number, number] | null = null;
-      while (!p) { y = -1.7 + Math.floor(Math.random() * LINES) / LINES * 3.32 + (Math.random() - 0.5) * 0.004; p = profile(y); }
+      while (!p) { y = -1.7 + Math.floor(Math.random() * LINES) / LINES * 3.32 + (Math.random() - 0.5) * 0.002; p = profile(y); }
       const a = (Math.random() * 1.15 - 0.075) * Math.PI; // front-biased hemisphere
       x = Math.cos(a) * p[0]; z = Math.sin(a) * p[1];
     } else if (i < nBody + nCore) {
-      k = 2; const r = Math.abs(gauss()) * 0.22;
+      k = 2; const r = Math.abs(gauss()) * 0.2;
       const t = Math.random() * Math.PI * 2, ph = Math.acos(Math.random() * 2 - 1);
       const chest = Math.random() < 0.15;
-      x = r * Math.sin(ph) * Math.cos(t) * 1.1; y = (chest ? -0.6 : 0.85) + r * Math.cos(ph) * 1.2; z = (chest ? 0.35 : 0.42) + Math.abs(r * Math.sin(ph) * Math.sin(t)) * 0.3;
+      x = r * Math.sin(ph) * Math.cos(t) * 1.5; y = (chest ? -0.6 : 0.85) + r * Math.cos(ph) * 1.2; z = (chest ? 0.32 : 0.48) + Math.abs(r * Math.sin(ph) * Math.sin(t)) * 0.3;
     } else {
       k = 1; const side = Math.random() < 0.5 ? -1 : 1;
       const u = Math.random() ** 0.8, v = Math.random();
       const ax = 0.9 + u * 4.8; const wz = -0.3 - v * 3;
-      const h = ridge(ax * side + 7, wz) * 0.9 * Math.exp(-((ax - 2.4) ** 2) / 6) + 0.4 * u;
-      x = ax * side; y = -1.2 + h; z = wz;
+      const h = ridge(ax * side + 7, wz) * 1.9 * Math.exp(-((ax - 2.6) ** 2) / 5) + 0.3 * u;
+      x = ax * side; y = -1.35 + h; z = wz;
       rand[i] = 0;
       // vein strength stored in rand's fractional part via separate encoding below
       const vein = Math.pow(1 - Math.abs(vnoise(ax * 1.3 + side * 3, wz * 1.3) * 2 - 1), 12);

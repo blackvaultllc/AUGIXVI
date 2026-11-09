@@ -31,7 +31,7 @@ void main(){
     // mouth ripple
     vFace = smoothstep(0.35, 0.0, length(vec2(p.x, (p.y - 0.62) * 1.6))) * step(0.1, p.z);
     p.z += vFace * uSpeech * 0.08 * sin(length(p.xy - vec2(0., 0.62)) * 60.0 - uTime * 18.0);
-    p += normalize(p - vec3(0., p.y, 0.) + 1e-4) * (aRand - 0.5) * 0.04 * (1.0 - uTight);
+    p += normalize(p - vec3(0., p.y, 0.) + 1e-4) * (aRand - 0.5) * 0.012 * (1.0 - uTight);
   } else {
     float side = sign(p.x);
     float ax = abs(p.x);
@@ -46,7 +46,7 @@ void main(){
   vec3 d = uAttract - p; float dl = length(d);
   p += d / (dl + 0.0001) * uAttractK * 0.25 * exp(-dl * 1.4);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  float sz = kind > 1.5 ? 3.5 : (kind > 0.5 ? 1.4 + vVein * 2.0 : 1.6);
+  float sz = kind > 1.5 ? 5.0 : (kind > 0.5 ? 1.4 + vVein * 2.0 : 1.6);
   gl_PointSize = sz * uPixel * (4.0 / -mv.z) * (0.7 + aRand * 0.6);
   gl_Position = projectionMatrix * mv;
 }`;
@@ -61,7 +61,7 @@ void main(){
   vec3 col;
   if (vKind > 1.5) {
     col = mix(uColCore, vec3(1.0, 0.95, 0.85), uWhite * 0.8) * uCore * (0.8 + 0.4 * sin(uTime * 3.0 + vRand * 6.28));
-    a *= 0.55;
+    a *= 0.35;
   } else if (vKind > 0.5) {
     float travel = pow(0.5 + 0.5 * sin(uTime * 2.0 - vRand * 3.0), 6.0);
     col = mix(uColB, uColA, vRand * 0.7) * 0.7;
