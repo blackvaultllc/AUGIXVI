@@ -89,3 +89,13 @@ export function filePoints(n: number): Float32Array {
   }
   return out;
 }
+
+/** Upper arm: unit-length tube along +y (scaled at runtime from shoulder to elbow). */
+export function armPoints(n: number): Float32Array {
+  const out = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const t = Math.random(); const a = Math.random() * Math.PI * 2; const r = 0.14 - t * 0.03;
+    out[i * 3] = Math.cos(a) * r; out[i * 3 + 1] = t; out[i * 3 + 2] = Math.sin(a) * r * 0.85;
+  }
+  return out;
+}
