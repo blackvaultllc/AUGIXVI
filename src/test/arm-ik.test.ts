@@ -47,4 +47,11 @@ describe("arm IK", () => {
     expect(left.target[0]).toBeCloseTo(-right.target[0]);
     expect(left.target[1]).toBeCloseTo(right.target[1]);
   });
+
+  it("gestures with speech and rests quietly while listening", () => {
+    const listening = armPose(1, 0, 1, 0);
+    const speaking = armPose(1, 0, 1, 1);
+    expect(speaking.target[1]).toBeGreaterThan(listening.target[1]);
+    expect(speaking.target[2]).toBeGreaterThan(listening.target[2]);
+  });
 });

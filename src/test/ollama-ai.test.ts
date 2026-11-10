@@ -87,7 +87,8 @@ describe("Ollama AI speech notifications", () => {
       messages: { role: string; content: string }[];
     };
     expect(request.model).toBe("llama3.1:8b");
-    expect(request.messages[0]?.content).toContain("You are AUGI, a living holographic AI.");
+    expect(request.messages[0]?.content).toContain("You are Osiris, AUGI's sovereign intelligence");
+    expect(request.messages[0]?.content).toContain("at most 2 short sentences");
     ai.dispose();
   });
 

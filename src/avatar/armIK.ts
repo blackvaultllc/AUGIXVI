@@ -61,7 +61,12 @@ export type ArmPose = { target: V3; pole: V3; palm: V3; curl: number };
 
 export function armPose(side: number, pose: number, t: number, speech: number, phase = 0): ArmPose {
   const bob = Math.sin(t * 1.3 + phase) * 0.025;
-  const rest: V3 = [side * 1.1, -1.3 + bob + speech * 0.1 * Math.sin(t * 4 + phase), 0.35];
+  const gesture = speech * (0.18 + 0.12 * Math.sin(t * 3.8 + phase));
+  const rest: V3 = [
+    side * (1.1 + gesture * 0.32),
+    -1.3 + bob + gesture * (0.7 + 0.3 * Math.sin(t * 5 + phase)),
+    0.35 + gesture * 0.35,
+  ];
   const present: V3 = [side * 0.46, -0.52 + bob, 1.45];
   return {
     target: lerp3(rest, present, pose),

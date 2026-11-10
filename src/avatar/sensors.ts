@@ -68,6 +68,15 @@ export class Sensors {
     this.onset.sensitivity = o.sensitivity;
   }
 
+  get cameraIsActive() {
+    const stream = this.video.srcObject;
+    return (
+      this.status.camera &&
+      stream instanceof MediaStream &&
+      stream.getVideoTracks().some((track) => track.enabled && track.readyState === "live")
+    );
+  }
+
   async start(): Promise<SensorStatus> {
     try {
       const v = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });

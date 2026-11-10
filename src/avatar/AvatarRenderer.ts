@@ -8,13 +8,17 @@ import { proceduralBust, type ParticleSource } from "./particleSource";
 import { spring, targetParams, type Params } from "./stateParams";
 import { filePoints, handPoints, limbPoints, makeProp } from "./props";
 import { ARM, armPose, handDirection, solveArm, type V3 } from "./armIK";
-import { THEMES, type ThemeName } from "./themes";
+import { getThemePalette, type ThemeChoice } from "./themes";
+import { SceneManager } from "./sceneManager";
+import type { MaterialKind } from "./worldCommands";
+import { AvatarLocomotion } from "./locomotion";
 
 export type RenderSettings = {
   maxParticles: number;
   bloom: number;
   glitch: number;
-  theme: ThemeName;
+  theme: ThemeChoice;
+  customColor: string;
 };
 
 const vert = /* glsl */ `
@@ -145,6 +149,10 @@ export class AvatarRenderer {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  private avatarRoot = new THREE.Group();
+  private character = new THREE.Group();
+  private sceneManager: SceneManager;
+  private locomotion: AvatarLocomotion;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
   private post: ShaderPass;
@@ -172,6 +180,8 @@ export class AvatarRenderer {
   private fileForm = 0;
   private pose = 0;
   private poseV = 0;
+  private legs: THREE.Group[] = [];
+  private legMaterial!: THREE.MeshStandardMaterial;
   onFrame?: (info: { fps: number; particles: number }) => void;
   inputs: Inputs = {
     attract: new THREE.Vector3(0, 0.5, 2),
@@ -193,7 +203,13 @@ export class AvatarRenderer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     this.renderer.setClearColor(0x02040a, 1);
     host.appendChild(this.renderer.domElement);
-    this.camera.position.set(0, 0.2, 7.2);
+    this.camera.position.set(0, -0.75, 11);
+    this.camera.lookAt(0, -0.8, 0);
+    this.scene.add(this.avatarRoot);
+    this.avatarRoot.add(this.character);
+    this.locomotion = new AvatarLocomotion(this.avatarRoot);
+    this.sceneManager = new SceneManager(this.scene);
+    this.addLegs();
     const data = source(settings.maxParticles);
     this.drawCount = data.count;
     this.geo = new THREE.BufferGeometry();
@@ -229,22 +245,22 @@ export class AvatarRenderer {
       },
     });
     this.applyTheme();
-    this.scene.add(new THREE.Points(this.geo, this.mat));
+    this.character.add(new THREE.Points(this.geo, this.mat));
     for (const side of [-1, 1]) {
       const h = makeProp(handPoints(7000, side), 2.5);
       h.scale.setScalar(1.25);
       this.hands.push(h);
-      this.scene.add(h);
+      this.character.add(h);
     }
     for (let i = 0; i < 2; i++) {
       const upper = makeProp(limbPoints(4500, 0.15, 0.12), 2.5);
       const forearm = makeProp(limbPoints(3500, 0.12, 0.075), 2.5);
       this.arms.push(upper);
       this.forearms.push(forearm);
-      this.scene.add(upper, forearm);
+      this.character.add(upper, forearm);
     }
     this.file = makeProp(filePoints(6000), 3);
-    this.scene.add(this.file);
+    this.character.add(this.file);
     this.applyPropTheme();
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
@@ -270,7 +286,7 @@ export class AvatarRenderer {
     this.raf = requestAnimationFrame(this.tick);
   }
   applyTheme() {
-    const t = THEMES[this.settings.theme];
+    const t = getThemePalette(this.settings.theme, this.settings.customColor);
     const U = this.mat.uniforms as unknown as Uniforms;
     rgb(U.uColA.value, t.a);
     rgb(U.uColB.value, t.b);
@@ -278,7 +294,7 @@ export class AvatarRenderer {
     rgb(U.uColVein.value, t.vein);
   }
   private applyPropTheme() {
-    const t = THEMES[this.settings.theme];
+    const t = getThemePalette(this.settings.theme, this.settings.customColor);
     for (const h of [...this.hands, ...this.arms, ...this.forearms]) {
       const U = h.material as THREE.ShaderMaterial;
       rgb(U.uniforms["uColA"]!.value, t.a);
@@ -290,6 +306,8 @@ export class AvatarRenderer {
     rgb(F.uniforms["uColB"]!.value, t.core);
     F.uniforms["uPixel"]!.value = this.renderer.getPixelRatio();
     F.uniforms["uSize"]!.value = 1.8;
+    this.legMaterial.color.setRGB(t.a[0]!, t.a[1]!, t.a[2]!);
+    this.legMaterial.emissive.setRGB(t.b[0]!, t.b[1]!, t.b[2]!);
   }
   /** Place fixed-length upper-arm and forearm tubes between the solved joints. */
   private updateProps(dt: number, t: number) {
@@ -348,7 +366,7 @@ export class AvatarRenderer {
   updateSettings(s: Partial<RenderSettings>) {
     Object.assign(this.settings, s);
     if (s.bloom !== undefined) this.bloom.strength = s.bloom;
-    if (s.theme) {
+    if (s.theme || s.customColor) {
       this.applyTheme();
       this.applyPropTheme();
     }
@@ -366,7 +384,8 @@ export class AvatarRenderer {
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
     this.camera.aspect = w / h;
-    this.camera.position.z = w / h < 1 ? (7.2 / (w / h)) * 0.75 : 7.2;
+    this.camera.position.z = w / h < 1 ? (11 / (w / h)) * 0.75 : 11;
+    this.camera.lookAt(0, -0.8, 0);
     this.camera.updateProjectionMatrix();
     (this.post.uniforms as unknown as PostU).uRes.value.set(w, h);
   }
@@ -374,6 +393,8 @@ export class AvatarRenderer {
     this.raf = requestAnimationFrame(this.tick);
     const dt = Math.min(this.clock.getDelta(), 0.05);
     const t = this.clock.elapsedTime;
+    this.moveAvatar(dt, t);
+    this.sceneManager.tick(dt);
     this.bridge.sampleAudio();
     const target = targetParams(this.bridge.state, this.bridge.speechLevel);
     for (const k of Object.keys(target) as (keyof Params)[]) {
@@ -415,6 +436,10 @@ export class AvatarRenderer {
     (U.uAttract.value as THREE.Vector3).copy(this.attract);
     U.uAttractK.value = this.attractK;
     (U.uLook.value as THREE.Vector2).copy(this.look);
+    if (this.locomotion.isWalking || this.locomotion.isLookingAround) {
+      U.uLook.value.x += Math.sin(t * 0.9) * 0.16;
+      U.uLook.value.y += Math.sin(t * 0.55) * 0.06;
+    }
     PU.uTime.value = t;
     PU.uGlitch.value = Math.min(
       1,
@@ -429,6 +454,86 @@ export class AvatarRenderer {
       this.onFrame?.({ fps: 0, particles: this.drawCount });
     }
   };
+  private addLegs() {
+    this.legMaterial = new THREE.MeshStandardMaterial({
+      color: 0x7ccfe8,
+      emissive: 0x123c54,
+      emissiveIntensity: 0.55,
+      roughness: 0.48,
+      metalness: 0.15,
+    });
+    for (const side of [-1, 1]) {
+      const leg = new THREE.Group();
+      leg.position.set(side * 0.28, -1.62, 0);
+      for (const [radiusTop, radiusBottom, height, y] of [
+        [0.12, 0.17, 0.72, -0.38],
+        [0.09, 0.12, 0.62, -0.99],
+      ]) {
+        const segment = new THREE.Mesh(
+          new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 10),
+          this.legMaterial,
+        );
+        segment.position.y = y!;
+        leg.add(segment);
+      }
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.17, 0.48), this.legMaterial);
+      foot.position.set(0, -1.48, 0.12);
+      leg.add(foot);
+      this.legs.push(leg);
+      this.character.add(leg);
+    }
+  }
+  private moveAvatar(dt: number, t: number) {
+    this.locomotion.tick(dt);
+    const speaking = this.bridge.state === "SPEAKING" ? this.bridge.speechLevel : 0;
+    this.character.rotation.z = Math.sin(t * 1.2) * 0.012 + Math.sin(t * 3.2) * speaking * 0.025;
+    this.character.position.x = Math.sin(t * 1.4) * 0.018 + Math.sin(t * 2.7) * speaking * 0.045;
+    this.legs.forEach((leg, index) => {
+      const side = index === 0 ? 0 : Math.PI;
+      const gait = this.locomotion.isMoving ? Math.sin(t * 7 + side) * 0.42 : 0;
+      leg.rotation.z =
+        gait + (this.locomotion.isMoving ? 0 : Math.sin(t * 1.1 + side) * speaking * 0.025);
+    });
+  }
+  shrink() {
+    this.locomotion.shrink();
+  }
+  grow() {
+    this.locomotion.grow();
+  }
+  walk() {
+    this.locomotion.walk();
+  }
+  lookAround() {
+    this.locomotion.lookAround();
+  }
+  comeBack() {
+    this.locomotion.comeBack();
+  }
+  stopWalking() {
+    this.locomotion.stop();
+  }
+  makeObject(kind: MaterialKind) {
+    return this.sceneManager.add(kind);
+  }
+  moveObject(
+    target: MaterialKind,
+    direction: "left" | "right" | "forward" | "back" | "up" | "down",
+  ) {
+    return this.sceneManager.move(target, direction);
+  }
+  reshapeObject(target: MaterialKind, kind: MaterialKind) {
+    return this.sceneManager.reshape(target, kind);
+  }
+  removeObject(target: MaterialKind) {
+    return this.sceneManager.remove(target);
+  }
+  driveCar() {
+    return this.sceneManager.drive();
+  }
+  stopDriving() {
+    this.sceneManager.stopDriving();
+  }
   private adapt(dt: number) {
     this.frameTimes.push(dt * 1000);
     if (this.frameTimes.length < 60) return;
@@ -445,10 +550,19 @@ export class AvatarRenderer {
     document.removeEventListener("visibilitychange", this.onVis);
     this.geo.dispose();
     this.mat.dispose();
+    this.sceneManager.dispose();
     for (const o of [...this.hands, ...this.arms, ...this.forearms, this.file]) {
       o.geometry.dispose();
       (o.material as THREE.Material).dispose();
     }
+    this.legs.forEach((leg) => {
+      leg.traverse((child) => {
+        if (child instanceof THREE.Mesh) child.geometry.dispose();
+      });
+    });
+    this.legs[0]?.children.forEach((child) => {
+      if (child instanceof THREE.Mesh) (child.material as THREE.Material).dispose();
+    });
     this.bloom.dispose();
     this.composer.dispose();
     this.renderer.dispose();
