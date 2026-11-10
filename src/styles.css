@@ -617,6 +617,15 @@
   min-width: 17rem;
   pointer-events: none;
 }
+.avatar-space-view__real-earth {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+}
+.avatar-space-view__real-earth canvas {
+  pointer-events: auto;
+}
 .avatar-space-view__landing-overlay {
   position: absolute;
   z-index: 10;

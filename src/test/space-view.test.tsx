@@ -16,7 +16,10 @@ describe("orbital Earth view", () => {
     );
 
     expect(screen.getByRole("main", { name: "Operator sign-in landing view" })).toBeInTheDocument();
-    expect(document.querySelector<HTMLButtonElement>(".avatar-space-view__earth")).toBeDisabled();
+    // The landing uses the real textured Spinning Earth, not the lightweight
+    // CSS planet (which stays available for the in-world orbital view).
+    expect(document.querySelector(".avatar-space-view__real-earth canvas")).not.toBeNull();
+    expect(document.querySelector<HTMLButtonElement>(".avatar-space-view__earth")).toBeNull();
     expect(screen.getByLabelText("Operator sign-in")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Enter Live Mode" })).toBeNull();
   });

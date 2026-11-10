@@ -1,5 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowDownToLine, LocateFixed, MapPin, Orbit } from "lucide-react";
+import { SpinningEarth } from "../components/SpinningEarth";
 import {
   EARTH_REGIONS,
   formatCoordinates,
@@ -80,6 +81,14 @@ export function SpaceView({
         aria-hidden="true"
       />
 
+      {/* On the landing page the real textured Spinning Earth IS the stage;
+          the sign-in card renders on top of it via the landing overlay. */}
+      {isLanding && (
+        <div className="avatar-space-view__real-earth" aria-hidden="true">
+          <SpinningEarth height={typeof window !== "undefined" ? window.innerHeight : 800} />
+        </div>
+      )}
+
       {!isLanding && (
         <header className="avatar-space-view__header">
           <p>OSIRIS · ORBITAL ENVIRONMENT</p>
@@ -89,40 +98,42 @@ export function SpaceView({
       )}
 
       <section className="avatar-space-view__content" aria-label="Earth and locations">
-        <button
-          className={`avatar-space-view__earth${zoomed ? " is-zoomed" : ""}`}
-          type="button"
-          onClick={() => !isLanding && setZoomed((current) => !current)}
-          disabled={isLanding}
-          aria-label={zoomed ? "Zoom out from Earth" : "Zoom into Earth"}
-          aria-pressed={zoomed}
-          aria-hidden={isLanding}
-          tabIndex={isLanding ? -1 : undefined}
-        >
-          <span className="avatar-space-view__earth-surface">
-            <span className="avatar-space-view__landmasses" aria-hidden="true">
-              <span className="avatar-space-view__land avatar-space-view__land--north-america" />
-              <span className="avatar-space-view__land avatar-space-view__land--south-america" />
-              <span className="avatar-space-view__land avatar-space-view__land--europe-africa" />
-              <span className="avatar-space-view__land avatar-space-view__land--asia" />
-              <span className="avatar-space-view__land avatar-space-view__land--oceania" />
+        {!isLanding && (
+          <button
+            className={`avatar-space-view__earth${zoomed ? " is-zoomed" : ""}`}
+            type="button"
+            onClick={() => !isLanding && setZoomed((current) => !current)}
+            disabled={isLanding}
+            aria-label={zoomed ? "Zoom out from Earth" : "Zoom into Earth"}
+            aria-pressed={zoomed}
+            aria-hidden={isLanding}
+            tabIndex={isLanding ? -1 : undefined}
+          >
+            <span className="avatar-space-view__earth-surface">
+              <span className="avatar-space-view__landmasses" aria-hidden="true">
+                <span className="avatar-space-view__land avatar-space-view__land--north-america" />
+                <span className="avatar-space-view__land avatar-space-view__land--south-america" />
+                <span className="avatar-space-view__land avatar-space-view__land--europe-africa" />
+                <span className="avatar-space-view__land avatar-space-view__land--asia" />
+                <span className="avatar-space-view__land avatar-space-view__land--oceania" />
+              </span>
+              <span className="avatar-space-view__clouds" />
+              {marker && (
+                <span
+                  className="avatar-space-view__marker"
+                  style={
+                    {
+                      "--marker-x": `${marker.x}%`,
+                      "--marker-y": `${marker.y}%`,
+                    } as CSSProperties
+                  }
+                />
+              )}
             </span>
-            <span className="avatar-space-view__clouds" />
-            {marker && (
-              <span
-                className="avatar-space-view__marker"
-                style={
-                  {
-                    "--marker-x": `${marker.x}%`,
-                    "--marker-y": `${marker.y}%`,
-                  } as CSSProperties
-                }
-              />
-            )}
-          </span>
-          <span className="avatar-space-view__earth-shadow" />
-          <span className="avatar-space-view__earth-glow" />
-        </button>
+            <span className="avatar-space-view__earth-shadow" />
+            <span className="avatar-space-view__earth-glow" />
+          </button>
+        )}
 
         {!isLanding && (
           <>
