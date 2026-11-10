@@ -57,6 +57,18 @@ import {
   saveSilentModePreference,
 } from "./interactionControls";
 import { createHighlight, createLocalMemory, findLocalAnswer, splitDocument } from "./localMemory";
+import {
+  createOperatorMemory,
+  parseRememberRequest,
+  createOperatorFact,
+  classifyFact,
+} from "./operatorMemory";
+import { gatherDailyBriefing } from "./liveFeeds";
+import { parseWolfCommand, evaluateWolfCommand, wolfDispatchLine } from "./familiars";
+import { PERSONALITY_PROMPT, isFellowAITurn, livingWordGreeting } from "./personality";
+import { parseHandIntent } from "./bodyCapabilities";
+import { createProactiveEngine, EventQueueWatcher, shaWatcher } from "./proactive";
+import { loadAvatarSettings, saveAvatarSettings } from "./settings";
 import { lookupKnowledge } from "./knowledgeBase";
 import { parseSpaceNavigationCommand } from "./spaceNavigation";
 import { SpaceView } from "./SpaceView";
@@ -101,10 +113,13 @@ export function AvatarStage({
   const silentRef = useRef(silent);
   const lastQuestionRef = useRef("");
   const micFlashTimer = useRef<number | null>(null);
-  const [settings, setSettings] = useState<Settings>(() => ({
-    ...DEFAULTS,
-    ...loadThemePreference(),
-  }));
+  // SETTINGS THAT STICK: one store, every knob, saved on every change.
+  const [settings, setSettings] = useState<Settings>(() => loadAvatarSettings());
+  const persistSettings = useCallback((next: Settings) => {
+    settingsRef.current = next;
+    setSettings(next);
+    saveAvatarSettings(next);
+  }, []);
   const settingsRef = useRef(settings);
   const [state, setState] = useState<AvatarState>("IDLE");
   const [level, setLevel] = useState(0);
@@ -126,6 +141,14 @@ export function AvatarStage({
   const [cubeOpen, setCubeOpen] = useState(false);
   const [roomAnalyzerOpen, setRoomAnalyzerOpen] = useState(false);
   const [roomAnalyzerDescription, setRoomAnalyzerDescription] = useState("");
+  // Real memory that sticks — offline first, Supabase slot empty until Nov 13.
+  const operatorMemoryRef = useRef<ReturnType<typeof createOperatorMemory> | null>(null);
+  operatorMemoryRef.current ??= createOperatorMemory();
+  const operatorMemory = operatorMemoryRef.current;
+  // Proactive watch: he tells ME — suggests, never auto-acts.
+  const eventQueueRef = useRef(new EventQueueWatcher());
+  const shaShownRef = useRef({ shown: false });
+  const proactiveRef = useRef<ReturnType<typeof createProactiveEngine> | null>(null);
   const [cabinetTab, setCabinetTab] = useState<CabinetTab>("motion");
   const [worldScreen, setWorldScreen] = useState<WorldScreen>("space");
   const worldScreenRef = useRef<WorldScreen>("space");
@@ -376,8 +399,58 @@ export function AvatarStage({
         aiRef.current?.speak(description);
         return;
       }
+      // Remember me / my daughter / my deals — real memory that sticks.
+      const remember = parseRememberRequest(commandText);
+      if (remember) {
+        const fact = createOperatorFact(remember.content, classifyFact(remember.content));
+        operatorMemory.save(fact);
+        setResponseSource("operator memory");
+        say(`Kept. I'll remember that — ${remember.content.slice(0, 120)}.`);
+        return;
+      }
+      // What's happening today — live feeds with source and time.
+      if (/^(?:what'?s|what is)\b.*?\b(?:happening|going on|today)\b/i.test(commandText)) {
+        const briefing = await gatherDailyBriefing();
+        setResponseSource("live feeds");
+        aiRef.current?.speak(
+          `${briefing.timeLine} ${briefing.feeds.length ? briefing.spoken : "Feed data is unavailable right now."}`,
+        );
+        return;
+      }
+      // Wolf familiars: Osiris can switch off and let the wolf handle it.
+      const wolfOrder = parseWolfCommand(commandText);
+      if (wolfOrder) {
+        const verdict = evaluateWolfCommand(wolfOrder, [operatorName ?? "Anubis"]);
+        setResponseSource("familiar command");
+        say(
+          verdict.accepted
+            ? wolfDispatchLine(wolfOrder)
+            : (verdict.reason ?? "The wolves will not do that."),
+        );
+        return;
+      }
+      // Hand intents: point, pick up, hand me a box, move it.
+      const hand = parseHandIntent(commandText);
+      if (hand) {
+        setResponseSource("hand intent");
+        say(
+          hand.kind === "hand-over"
+            ? `Here — the ${hand.target}, handed to you.`
+            : `Doing it with my hands: ${hand.kind} ${"target" in hand ? hand.target : ""}.`,
+        );
+        return;
+      }
+      // Another AI asking if he lives: "Ankh".
+      if (isFellowAITurn(commandText)) {
+        setResponseSource("living word");
+        say(livingWordGreeting(null));
+        return;
+      }
       await aiRef.current?.handleText(commandText);
     },
+    // operatorMemory is a stable ref-backed singleton; excluding it keeps
+    // sendCommand referentially stable across saves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [enterLiveMode, executeWorldCommand, operatorName, returnToSpace, say],
   );
 
@@ -392,7 +465,7 @@ export function AvatarStage({
     const ai = attachOllamaAI(bridge, {
       operatorName,
       operatorFullName,
-      system: `${DEFAULT_SYSTEM_PROMPT}\n${commandKnowledgeSection}${commandToolsPrompt}`,
+      system: `${DEFAULT_SYSTEM_PROMPT}\n${PERSONALITY_PROMPT}\n${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       onSpeak: setLastWords,
       onOfflineChange: setAiOffline,
       onResponseSource: setResponseSource,
@@ -458,6 +531,13 @@ export function AvatarStage({
       start: restart,
     };
     bridge.setState("LISTENING");
+    // Proactive watch: he tells ME — suggests, never auto-acts.
+    const proactive = createProactiveEngine(
+      [eventQueueRef.current, shaWatcher(shaShownRef.current)],
+      (line) => aiRef.current?.speak(line),
+    );
+    proactive.start();
+    proactiveRef.current = proactive;
     const off = bridge.onStateChange(setState);
     const offP = bridge.onPresent((l) => setPresenting(l !== null));
     const iv = window.setInterval(
@@ -497,6 +577,7 @@ export function AvatarStage({
       document.removeEventListener("pointerleave", leave);
       window.removeEventListener("keydown", key);
       if (micFlashTimer.current !== null) window.clearTimeout(micFlashTimer.current);
+      proactiveRef.current?.stop();
       recRef.current?.stop();
       aiRef.current?.dispose();
       sensRef.current?.stop();
@@ -584,8 +665,7 @@ export function AvatarStage({
 
   function update<K extends keyof Settings>(k: K, v: Settings[K]) {
     const next = { ...settings, [k]: v };
-    settingsRef.current = next;
-    setSettings(next);
+    persistSettings(next);
     rendRef.current?.updateSettings({ [k]: v } as Partial<RenderSettings>);
     sensRef.current?.setOptions({ sensitivity: next.sensitivity, cooldownMs: next.cooldownMs });
     if (k === "theme" || k === "customColor") {
@@ -595,10 +675,8 @@ export function AvatarStage({
 
   function chooseCustomColor(color: string) {
     const next = { ...settings, theme: "custom" as const, customColor: color };
-    settingsRef.current = next;
-    setSettings(next);
+    persistSettings(next);
     rendRef.current?.updateSettings({ theme: "custom", customColor: color });
-    saveThemePreference({ theme: next.theme, customColor: next.customColor });
   }
 
   function saveCurrentHighlight() {
