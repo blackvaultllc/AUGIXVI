@@ -7,7 +7,10 @@ const REPLIES = [
 ];
 
 /** Stand-in AI: replace with real STT/LLM/TTS by calling the same bridge methods. */
-export function attachSimulatedAI(bridge: AvatarBridge) {
+export function attachSimulatedAI(
+  bridge: AvatarBridge,
+  options: { subscribeToBridge?: boolean } = {},
+) {
   let timers: number[] = [];
   let raf = 0;
   let alive = true;
@@ -97,51 +100,58 @@ export function attachSimulatedAI(bridge: AvatarBridge) {
   };
   const listen = () => {
     bridge.setState("LISTENING");
-    startRec();
+    if (options.subscribeToBridge !== false) startRec();
     later(8000, () => bridge.state === "LISTENING" && !userTalking && bridge.setState("IDLE"));
   };
 
-  const offs = [
-    bridge.onSummon(() => {
-      clear();
-      bridge.setState("GLITCH");
-      later(350, () => speak("What do you want?", listen));
-    }),
-    bridge.onUserSpeechStart(() => {
-      userTalking = true;
-      // Barge-in: the user started talking — stop the avatar mid-sentence and listen.
-      if (bridge.state === "SPEAKING" || bridge.state === "THINKING" || bridge.state === "GLITCH") {
-        clear(); // cancels speechSynthesis, pending timers, and the amplitude loop
-        bridge.setSpeechLevel(0);
-        listen();
-      } else {
-        timers.forEach(clearTimeout);
-        timers = [];
-      }
-    }),
-    bridge.onUserSpeechEnd(() => {
-      userTalking = false;
-      if (bridge.state !== "LISTENING") return;
-      if (rec) return; // recognition result will decide
-      bridge.setState("THINKING");
-      later(1600, () =>
-        speak(REPLIES[Math.floor(Math.random() * REPLIES.length)] ?? REPLIES[0]!, () =>
-          bridge.setState("IDLE"),
-        ),
-      );
-    }),
-  ];
+  const offs =
+    options.subscribeToBridge === false
+      ? []
+      : [
+          bridge.onSummon(() => {
+            clear();
+            bridge.setState("GLITCH");
+            later(350, () => speak("What do you want?", listen));
+          }),
+          bridge.onUserSpeechStart(() => {
+            userTalking = true;
+            // Barge-in: the user started talking — stop the avatar mid-sentence and listen.
+            if (
+              bridge.state === "SPEAKING" ||
+              bridge.state === "THINKING" ||
+              bridge.state === "GLITCH"
+            ) {
+              clear(); // cancels speechSynthesis, pending timers, and the amplitude loop
+              bridge.setSpeechLevel(0);
+              listen();
+            } else {
+              timers.forEach(clearTimeout);
+              timers = [];
+            }
+          }),
+          bridge.onUserSpeechEnd(() => {
+            userTalking = false;
+            if (bridge.state !== "LISTENING") return;
+            if (rec) return; // recognition result will decide
+            bridge.setState("THINKING");
+            later(1600, () =>
+              speak(REPLIES[Math.floor(Math.random() * REPLIES.length)] ?? REPLIES[0]!, () =>
+                bridge.setState("IDLE"),
+              ),
+            );
+          }),
+        ];
   return {
     handleText,
+    speak: (text: string) => {
+      clear();
+      speak(text, listen);
+    },
     dispose: () => {
       alive = false;
       clear();
       rec?.stop();
       offs.forEach((o) => o());
-    },
-    speak: (t: string) => {
-      clear();
-      speak(t, () => bridge.setState("IDLE"));
     },
   };
 }

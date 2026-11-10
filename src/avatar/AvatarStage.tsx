@@ -1,11 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { AvatarRenderer, type RenderSettings } from "./AvatarRenderer";
 import { Sensors, type SensorStatus } from "./sensors";
 import { attachOllamaAI } from "./ollamaAI";
+import { CityView } from "./CityView";
+import {
+  parseCoreCommand,
+  reduceCoreCityState,
+  type CoreCityAction,
+  type CoreCityState,
+} from "./coreCityState";
 import { intensityLabel } from "./stateParams";
 import { THEMES, type ThemeName } from "./themes";
+import {
+  createReadOnlySupabaseClient,
+  type SupabaseConnectionStatus,
+} from "@/lib/supabase-readonly";
 
 type Settings = RenderSettings & { sensitivity: number; cooldownMs: number };
 const DEFAULTS: Settings = {
@@ -34,14 +45,45 @@ export function AvatarStage() {
   const [presenting, setPresenting] = useState(false);
   const [chat, setChat] = useState("");
   const [lastWords, setLastWords] = useState("No response yet.");
+  const [aiOffline, setAiOffline] = useState(false);
+  const [cityState, setCityState] = useState<CoreCityState>({ mode: "CORE_FULL" });
+  const [databaseStatus, setDatabaseStatus] = useState<SupabaseConnectionStatus>("not configured");
   const displayName = import.meta.env["VITE_AVATAR_NAME"] || "Assistant";
+  const cityOpen = cityState.mode === "CORE_SMALL";
+
+  const transitionCityState = useCallback((action: CoreCityAction) => {
+    setCityState((current) => reduceCoreCityState(current, action));
+  }, []);
+
   function togglePresent() {
     const b = bridgeRef.current;
     b.present(b.presenting ? null : "file");
   }
-  async function sendCommand(text: string) {
-    await aiRef.current?.handleText(text);
-  }
+  const sendCommand = useCallback(
+    async (text: string) => {
+      const parsed = parseCoreCommand(text);
+      if (parsed.action === "BACK_TO_CORE") {
+        transitionCityState(parsed.action);
+        aiRef.current?.speak("Back to core.");
+        return;
+      }
+      if (parsed.action === "SHOW_CITY") {
+        transitionCityState(parsed.action);
+        aiRef.current?.speak("Opening city view.");
+        return;
+      }
+      if (parsed.action === "WAKE_CORE") {
+        transitionCityState(parsed.action);
+        if (!parsed.message) {
+          bridgeRef.current.emitSummon();
+          return;
+        }
+      }
+      if (!parsed.message) return;
+      await aiRef.current?.handleText(parsed.message);
+    },
+    [transitionCityState],
+  );
 
   useEffect(() => {
     const bridge = bridgeRef.current;
@@ -53,6 +95,7 @@ export function AvatarStage() {
     };
     const ai = attachOllamaAI(bridge, {
       onSpeak: setLastWords,
+      onOfflineChange: setAiOffline,
     });
     aiRef.current = ai;
     // Speech recognition feeds Ollama; gestures ("front the file") stay local.
@@ -134,6 +177,22 @@ export function AvatarStage() {
       sensRef.current?.stop();
       r.dispose();
     };
+  }, [sendCommand]);
+
+  useEffect(() => {
+    const client = createReadOnlySupabaseClient();
+    let active = true;
+    const check = () => {
+      void client.checkConnection().then((status) => {
+        if (active) setDatabaseStatus(status);
+      });
+    };
+    check();
+    const interval = window.setInterval(check, 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
   function aim(nx: number, ny: number, k: number) {
@@ -184,135 +243,171 @@ export function AvatarStage() {
   }
 
   return (
-    <div className="avatar-stage" data-scene-ready={ready ? "" : undefined}>
-      <div ref={host} className="absolute inset-0" />
-      <div className="avatar-hud avatar-hud--tr">
-        <div>
-          STATUS: <span className="avatar-hud__value">{state}</span>
-        </div>
-        <div>
-          INTENSITY: <span className="avatar-hud__value">{intensityLabel(level)}</span>
-        </div>
-      </div>
-      <div className="avatar-hud avatar-hud--tl">
-        <div>
-          {perf.fps} FPS · {(perf.particles / 1000).toFixed(0)}K PTS
-        </div>
-        <div>
-          CAM {sensor?.camera ? "ON" : "OFF"} · MIC {sensor?.mic ? "ON" : "OFF"} · HANDS{" "}
-          {sensor?.hands ? "ON" : "OFF"}
-        </div>
-        {sensor?.error && <div className="avatar-hud__warning">{sensor.error}</div>}
-      </div>
-      <div className="avatar-hud avatar-hud--commands">
-        <div className="avatar-hud__last-words" aria-live="polite">
-          <div className="avatar-hud__last-words-label">{displayName}&apos;s last words</div>
-          <p>{lastWords}</p>
-        </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const t = chat.trim();
-            if (!t) return;
-            setChat("");
-            void sendCommand(t);
-          }}
-        >
-          <label className="sr-only" htmlFor="avatar-command">
-            Command for {displayName}
-          </label>
-          <div className="avatar-hud__command-row">
-            <input
-              id="avatar-command"
-              className="avatar-hud__input"
-              placeholder="Type a command…"
-              value={chat}
-              onChange={(e) => setChat(e.target.value)}
-            />
-            <button className="avatar-hud__send" type="submit" disabled={!chat.trim()}>
-              Send
-            </button>
+    <>
+      {cityOpen && <CityView />}
+      <div
+        className={`avatar-stage${cityOpen ? " avatar-stage--city" : ""}`}
+        data-scene-ready={ready ? "" : undefined}
+      >
+        <div ref={host} className="absolute inset-0" />
+        <div className="avatar-hud avatar-hud--tr">
+          {aiOffline && (
+            <div className="avatar-hud__offline" role="status">
+              <span>OFFLINE</span>
+              <button
+                className="avatar-hud__retry"
+                onClick={() => void aiRef.current?.retry()}
+                type="button"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          <div>
+            STATUS: <span className="avatar-hud__value">{state}</span>
           </div>
-        </form>
-      </div>
-      <div className="avatar-hud__bar">
-        {!sensor && (
-          <button
-            className="avatar-hud__button avatar-hud__button--primary"
-            onClick={enableSensors}
-          >
-            Enable camera &amp; mic
-          </button>
-        )}
-        <button className="avatar-hud__button" onClick={() => bridgeRef.current.emitSummon()}>
-          Summon (S)
-        </button>
-        <button className="avatar-hud__button" onClick={togglePresent}>
-          {presenting ? "Put away (P)" : "Present file (P)"}
-        </button>
-        <button className="avatar-hud__button" onClick={() => setPanel((p) => !p)}>
-          Settings
-        </button>
-      </div>
-      {panel && (
-        <div className="avatar-hud__panel">
-          <Slider
-            label="Particles"
-            min={20000}
-            max={120000}
-            step={5000}
-            value={settings.maxParticles}
-            onChange={(v) => update("maxParticles", v)}
-            fmt={(v) => `${v / 1000}K`}
-          />
-          <Slider
-            label="Bloom"
-            min={0}
-            max={2.5}
-            step={0.05}
-            value={settings.bloom}
-            onChange={(v) => update("bloom", v)}
-          />
-          <Slider
-            label="Glitch"
-            min={0}
-            max={1}
-            step={0.05}
-            value={settings.glitch}
-            onChange={(v) => update("glitch", v)}
-          />
-          <Slider
-            label="Snap sensitivity"
-            min={0}
-            max={1}
-            step={0.05}
-            value={settings.sensitivity}
-            onChange={(v) => update("sensitivity", v)}
-          />
-          <Slider
-            label="Cooldown"
-            min={200}
-            max={3000}
-            step={50}
-            value={settings.cooldownMs}
-            onChange={(v) => update("cooldownMs", v)}
-            fmt={(v) => `${v}ms`}
-          />
-          <label className="avatar-hud__row">
-            Theme
-            <select
-              className="avatar-hud__select"
-              value={settings.theme}
-              onChange={(e) => update("theme", e.target.value as ThemeName)}
-            >
-              {Object.keys(THEMES).map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </label>
+          <div>
+            INTENSITY: <span className="avatar-hud__value">{intensityLabel(level)}</span>
+          </div>
         </div>
-      )}
-    </div>
+        <div className="avatar-hud avatar-hud--tl">
+          <div className="avatar-hud__db-status">DB: {databaseStatus.toUpperCase()}</div>
+          <div>
+            {perf.fps} FPS · {(perf.particles / 1000).toFixed(0)}K PTS
+          </div>
+          <div>
+            CAM {sensor?.camera ? "ON" : "OFF"} · MIC {sensor?.mic ? "ON" : "OFF"} · HANDS{" "}
+            {sensor?.hands ? "ON" : "OFF"}
+          </div>
+          {sensor?.error && <div className="avatar-hud__warning">{sensor.error}</div>}
+        </div>
+        <div className="avatar-hud avatar-hud--commands">
+          <div className="avatar-hud__last-words" aria-live="polite">
+            <div className="avatar-hud__last-words-label">{displayName}&apos;s last words</div>
+            <p>{lastWords}</p>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const t = chat.trim();
+              if (!t) return;
+              setChat("");
+              void sendCommand(t);
+            }}
+          >
+            <label className="sr-only" htmlFor="avatar-command">
+              Command for {displayName}
+            </label>
+            <div className="avatar-hud__command-row">
+              <input
+                id="avatar-command"
+                className="avatar-hud__input"
+                placeholder="Type a command…"
+                value={chat}
+                onChange={(e) => setChat(e.target.value)}
+              />
+              <button className="avatar-hud__send" type="submit" disabled={!chat.trim()}>
+                Send
+              </button>
+            </div>
+          </form>
+        </div>
+        <div className="avatar-hud__bar">
+          {cityOpen ? (
+            <button
+              className="avatar-hud__button avatar-hud__button--primary"
+              onClick={() => transitionCityState("BACK_TO_CORE")}
+              type="button"
+            >
+              Back to Core
+            </button>
+          ) : (
+            <button
+              className="avatar-hud__button"
+              onClick={() => transitionCityState("SHOW_CITY")}
+              type="button"
+            >
+              City
+            </button>
+          )}
+          {!sensor && (
+            <button
+              className="avatar-hud__button avatar-hud__button--primary"
+              onClick={enableSensors}
+            >
+              Enable camera &amp; mic
+            </button>
+          )}
+          <button className="avatar-hud__button" onClick={() => bridgeRef.current.emitSummon()}>
+            Summon (S)
+          </button>
+          <button className="avatar-hud__button" onClick={togglePresent}>
+            {presenting ? "Put away (P)" : "Present file (P)"}
+          </button>
+          <button className="avatar-hud__button" onClick={() => setPanel((p) => !p)}>
+            Settings
+          </button>
+        </div>
+        {panel && (
+          <div className="avatar-hud__panel">
+            <Slider
+              label="Particles"
+              min={20000}
+              max={120000}
+              step={5000}
+              value={settings.maxParticles}
+              onChange={(v) => update("maxParticles", v)}
+              fmt={(v) => `${v / 1000}K`}
+            />
+            <Slider
+              label="Bloom"
+              min={0}
+              max={2.5}
+              step={0.05}
+              value={settings.bloom}
+              onChange={(v) => update("bloom", v)}
+            />
+            <Slider
+              label="Glitch"
+              min={0}
+              max={1}
+              step={0.05}
+              value={settings.glitch}
+              onChange={(v) => update("glitch", v)}
+            />
+            <Slider
+              label="Snap sensitivity"
+              min={0}
+              max={1}
+              step={0.05}
+              value={settings.sensitivity}
+              onChange={(v) => update("sensitivity", v)}
+            />
+            <Slider
+              label="Cooldown"
+              min={200}
+              max={3000}
+              step={50}
+              value={settings.cooldownMs}
+              onChange={(v) => update("cooldownMs", v)}
+              fmt={(v) => `${v}ms`}
+            />
+            <label className="avatar-hud__row">
+              Theme
+              <select
+                className="avatar-hud__select"
+                value={settings.theme}
+                onChange={(e) => update("theme", e.target.value as ThemeName)}
+              >
+                {Object.keys(THEMES).map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

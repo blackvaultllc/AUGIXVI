@@ -15,6 +15,25 @@ export type SensorOptions = {
   handModelUrl?: string | undefined;
 };
 
+export const DEFAULT_MEDIAPIPE_WASM_ROOT =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm";
+export const DEFAULT_MEDIAPIPE_HAND_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+export function getVisionAssetCandidates(wasmRoot?: string, handModelUrl?: string) {
+  const configured = {
+    wasmRoot: wasmRoot || DEFAULT_MEDIAPIPE_WASM_ROOT,
+    handModelUrl: handModelUrl || DEFAULT_MEDIAPIPE_HAND_MODEL_URL,
+  };
+  const defaults = {
+    wasmRoot: DEFAULT_MEDIAPIPE_WASM_ROOT,
+    handModelUrl: DEFAULT_MEDIAPIPE_HAND_MODEL_URL,
+  };
+  const hasOverride =
+    configured.wasmRoot !== defaults.wasmRoot || configured.handModelUrl !== defaults.handModelUrl;
+  return hasOverride ? [configured, defaults] : [defaults];
+}
+
 /** Owns camera + mic streams (one of each), hand tracking and snap detection. */
 export class Sensors {
   video = document.createElement("video");
@@ -74,19 +93,32 @@ export class Sensors {
       this.snap.opts.requireAudio = false;
     }
     if (this.status.camera) {
-      if (!this.opts.wasmRoot || !this.opts.handModelUrl) {
-        this.status.error =
-          "Hand tracking is not configured. Set the vision asset URLs in the environment.";
-        return this.status;
-      }
       try {
         const { FilesetResolver, HandLandmarker } = await import("@mediapipe/tasks-vision");
-        const fs = await FilesetResolver.forVisionTasks(this.opts.wasmRoot);
-        this.landmarker = await HandLandmarker.createFromOptions(fs, {
-          baseOptions: { modelAssetPath: this.opts.handModelUrl, delegate: "GPU" },
-          runningMode: "VIDEO",
-          numHands: 1,
-        });
+        const candidates = getVisionAssetCandidates(
+          this.opts.wasmRoot || import.meta.env["VITE_MEDIAPIPE_WASM_ROOT"],
+          this.opts.handModelUrl || import.meta.env["VITE_MEDIAPIPE_HAND_MODEL_URL"],
+        );
+        for (const candidate of candidates) {
+          try {
+            const fs = await FilesetResolver.forVisionTasks(candidate.wasmRoot);
+            this.landmarker = await HandLandmarker.createFromOptions(fs, {
+              baseOptions: { modelAssetPath: candidate.handModelUrl, delegate: "GPU" },
+              runningMode: "VIDEO",
+              numHands: 1,
+            });
+            break;
+          } catch (error) {
+            console.warn("Hand tracking asset configuration failed to load.", error);
+          }
+        }
+        if (!this.landmarker) {
+          this.status.error =
+            candidates.length > 1
+              ? "HAND TRACKING IS NOT CONFIGURED — configured and default vision assets both failed to load. Using mouse/touch."
+              : "Hand tracking failed to load — using mouse/touch.";
+          return this.status;
+        }
         if (this.stopped) {
           this.landmarker.close();
           return this.status;

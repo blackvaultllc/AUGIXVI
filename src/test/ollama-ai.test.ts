@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AvatarBridge } from "@/avatar/AvatarBridge";
-import { attachOllamaAI } from "@/avatar/ollamaAI";
+import { attachOllamaAI, getOllamaRetryDelay } from "@/avatar/ollamaAI";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -93,7 +94,8 @@ describe("Ollama AI speech notifications", () => {
   it("uses the offline reply when Ollama cannot be reached", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
     const voice = { speak: vi.fn(), stop: vi.fn() };
-    const ai = attachOllamaAI(new AvatarBridge(), { voice });
+    const onOfflineChange = vi.fn();
+    const ai = attachOllamaAI(new AvatarBridge(), { voice, onOfflineChange });
 
     await expect(ai.handleText("Hello")).resolves.toBe(
       "My mind is offline. Check the Ollama server.",
@@ -102,6 +104,63 @@ describe("Ollama AI speech notifications", () => {
       "My mind is offline. Check the Ollama server.",
       expect.any(Function),
     );
+    expect(ai.isOffline()).toBe(true);
+    expect(onOfflineChange).toHaveBeenLastCalledWith(true);
+    ai.dispose();
+  });
+
+  it("uses simulated offline replies without repeating the offline notice", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn(() => 1),
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    class MockUtterance {
+      rate = 1;
+      pitch = 1;
+      constructor(readonly text: string) {}
+    }
+    vi.stubGlobal("SpeechSynthesisUtterance", MockUtterance);
+    vi.stubGlobal("speechSynthesis", { speak: vi.fn(), cancel: vi.fn() });
+    const voice = { speak: vi.fn(), stop: vi.fn() };
+    const onSpeak = vi.fn();
+    const ai = attachOllamaAI(new AvatarBridge(), { voice, onSpeak });
+
+    await ai.handleText("First request");
+    const offlineReply = await ai.handleText("Second request");
+
+    expect(offlineReply).toMatch(/^Offline mode\./);
+    expect(voice.speak).toHaveBeenCalledOnce();
+    expect(onSpeak).toHaveBeenCalledTimes(2);
+    expect(onSpeak).not.toHaveBeenLastCalledWith("My mind is offline. Check the Ollama server.");
+    ai.dispose();
+  });
+
+  it("recovers through Retry and uses capped exponential backoff", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValueOnce(new Error("offline"))
+        .mockResolvedValueOnce(new Response("", { status: 200 })),
+    );
+    const onOfflineChange = vi.fn();
+    const ai = attachOllamaAI(new AvatarBridge(), {
+      voice: { speak: vi.fn(), stop: vi.fn() },
+      onOfflineChange,
+    });
+
+    await ai.handleText("Hello");
+    await expect(ai.retry()).resolves.toBe(true);
+
+    expect(ai.isOffline()).toBe(false);
+    expect(onOfflineChange.mock.calls).toEqual([[true], [false]]);
+    expect([0, 1, 2, 3, 4, 5, 6].map(getOllamaRetryDelay)).toEqual([
+      1000, 2000, 4000, 8000, 16000, 30000, 30000,
+    ]);
     ai.dispose();
   });
 });

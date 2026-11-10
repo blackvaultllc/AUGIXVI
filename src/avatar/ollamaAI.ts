@@ -1,4 +1,5 @@
 import type { AvatarBridge } from "./AvatarBridge";
+import { attachSimulatedAI } from "./simulatedAI";
 import { createVoiceProvider, type VoiceProvider } from "./voice";
 
 /** Ollama adapter; speech, gestures, and state stay behind the avatar bridge. */
@@ -12,6 +13,7 @@ export type OllamaAIOptions = {
   onSpeak?: (text: string) => void;
   /** Override TTS in tests or alternative embeddings. */
   voice?: VoiceProvider;
+  onOfflineChange?: (offline: boolean) => void;
 };
 
 const DEFAULT_SYSTEM =
@@ -23,8 +25,18 @@ export type OllamaAI = {
   handleText(text: string): Promise<string>;
   /** Make AUGI speak arbitrary text through TTS. */
   speak(text: string): void;
+  /** Retry the configured Ollama server immediately. */
+  retry(): Promise<boolean>;
+  isOffline(): boolean;
   dispose(): void;
 };
+
+const OFFLINE_NOTICE = "My mind is offline. Check the Ollama server.";
+const REQUEST_TIMEOUT_MS = 8000;
+
+export function getOllamaRetryDelay(retryCount: number): number {
+  return Math.min(1000 * 2 ** retryCount, 30_000);
+}
 
 export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {}): OllamaAI {
   const model = opts.model || import.meta.env["VITE_OLLAMA_MODEL"] || "llama3.1:8b";
@@ -35,11 +47,18 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
   ).replace(/\/+$/, "");
   const system = opts.system ?? DEFAULT_SYSTEM;
   const onSpeak = opts.onSpeak;
+  const onOfflineChange = opts.onOfflineChange;
   const voice = opts.voice ?? createVoiceProvider(bridge);
   const history: { role: string; content: string }[] = [];
 
   let timers: number[] = [];
   let disposed = false;
+  let offline = false;
+  let offlineNoticeSpoken = false;
+  let retryTimer = 0;
+  let retryCount = 0;
+  let retrying = false;
+  let fallbackAI: ReturnType<typeof attachSimulatedAI> | null = null;
   let requestController: AbortController | null = null;
 
   const clearTimers = () => {
@@ -55,6 +74,47 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     void voice.speak(text, then);
   };
 
+  const getFallbackAI = () => {
+    fallbackAI ??= attachSimulatedAI(bridge, { subscribeToBridge: false });
+    return fallbackAI;
+  };
+
+  const setOffline = (next: boolean) => {
+    if (offline === next) return;
+    offline = next;
+    onOfflineChange?.(next);
+    if (!next) {
+      offlineNoticeSpoken = false;
+      retryCount = 0;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      retryTimer = 0;
+      fallbackAI?.dispose();
+      fallbackAI = null;
+      bridge.setSpeechLevel(0);
+      if (bridge.state === "SPEAKING") listen();
+    }
+  };
+
+  const scheduleRetry = () => {
+    if (!offline || disposed || retryTimer) return;
+    const delay = getOllamaRetryDelay(retryCount);
+    retryCount += 1;
+    retryTimer = window.setTimeout(() => {
+      retryTimer = 0;
+      void retry();
+    }, delay);
+  };
+
+  const offlineReply = () => {
+    setOffline(true);
+    if (!offlineNoticeSpoken) {
+      offlineNoticeSpoken = true;
+      speak(OFFLINE_NOTICE, listen);
+      return OFFLINE_NOTICE;
+    }
+    return "";
+  };
+
   const listen = () => {
     if (!disposed) bridge.setState("LISTENING");
   };
@@ -62,6 +122,11 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
   async function ask(text: string): Promise<string> {
     const controller = new AbortController();
     requestController = controller;
+    let timedOut = false;
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
     try {
       const res = await fetch(`${baseUrl}/api/chat`, {
         method: "POST",
@@ -86,8 +151,41 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       const reply = (data.message?.content ?? "").trim();
       // qwen3-style thinking models wrap reasoning in  — strip it.
       return reply.replace(/<think>[\s\S]*?<\/think>/g, "").trim() || reply.trim();
+    } catch (error) {
+      if (controller.signal.aborted && !timedOut) {
+        throw new DOMException("Ollama request cancelled.", "AbortError");
+      }
+      if (timedOut) throw new Error("Ollama request timed out.");
+      throw error;
     } finally {
+      window.clearTimeout(timeout);
       if (requestController === controller) requestController = null;
+    }
+  }
+
+  async function retry(): Promise<boolean> {
+    if (disposed || retrying) return false;
+    retrying = true;
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal });
+      if (!response.ok) throw new Error(`Ollama ${response.status}`);
+      setOffline(false);
+      return true;
+    } catch (error) {
+      if (!timedOut && !(error instanceof DOMException && error.name === "AbortError")) {
+        console.error("Ollama retry failed.", error);
+      }
+      scheduleRetry();
+      return false;
+    } finally {
+      retrying = false;
+      window.clearTimeout(timeout);
     }
   }
 
@@ -108,6 +206,19 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
 
   async function handleText(text: string): Promise<string> {
     if (disposed) return "";
+    if (offline) {
+      if (!offlineNoticeSpoken) return offlineReply();
+      const replies = [
+        "Offline mode. I hear you. Processing complete.",
+        "Offline mode. Understood. I am standing by.",
+        "Offline mode. Tell me more when you are ready.",
+      ];
+      const reply = replies[Math.floor(Math.random() * replies.length)] ?? replies[0]!;
+      shutUp();
+      onSpeak?.(reply);
+      getFallbackAI().speak(reply);
+      return reply;
+    }
     if (isQuietCommand(text)) {
       shutUp();
       bridge.setState("LISTENING");
@@ -118,13 +229,14 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     try {
       const reply = await ask(text);
       history.push({ role: "user", content: text }, { role: "assistant", content: reply });
+      setOffline(false);
       speak(reply, listen);
       return reply;
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return "";
-      const msg = "My mind is offline. Check the Ollama server.";
-      speak(msg, listen);
-      return msg;
+      setOffline(true);
+      scheduleRetry();
+      return offlineReply();
     }
   }
 
@@ -153,8 +265,12 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     },
     dispose: () => {
       disposed = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
       shutUp();
+      fallbackAI?.dispose();
       offs.forEach((o) => o());
     },
+    retry,
+    isOffline: () => offline,
   };
 }

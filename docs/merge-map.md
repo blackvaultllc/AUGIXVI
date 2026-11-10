@@ -71,6 +71,8 @@ The following non-secret settings are read from runtime/build environment:
 | `VITE_ELEVENLABS_VOICE_ID`      | `src/avatar/voice.ts`                                 | Public ElevenLabs voice ID    |
 | `VITE_MEDIAPIPE_WASM_ROOT`      | `src/avatar/AvatarStage.tsx`, `src/avatar/sensors.ts` | Vision runtime asset location |
 | `VITE_MEDIAPIPE_HAND_MODEL_URL` | `src/avatar/AvatarStage.tsx`, `src/avatar/sensors.ts` | Hand model asset location     |
+| `VITE_SUPABASE_URL`             | `src/lib/supabase-readonly.ts`                        | Supabase project URL          |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | `src/lib/supabase-readonly.ts`                        | Public/read-only client key   |
 
 The server-only `ELEVENLABS_API_KEY` and `ELEVENLABS_API_BASE_URL` are read per
 request by the TTS server function. All `VITE_` values are public
@@ -81,6 +83,10 @@ public TTS endpoint. Local `.env` files are ignored; only the empty
 `.env.example` is tracked. Local development loads the two server-only
 ElevenLabs settings from `.env.local`; production must receive them through
 server runtime secrets rather than build-time variables.
+Supabase access is a browser-side, GET-only client using only the public URL
+and publishable key. It reports connectivity and provides a `select` method;
+it has no insert/update/upsert/delete operations and performs no migration or
+schema changes.
 
 ## File-by-file map
 
@@ -104,12 +110,14 @@ server runtime secrets rather than build-time variables.
 | `src/avatar/elevenlabs.server.ts`       | Adapt       | New server-function module; keep the API key server-only, use the deck's cloud-key/server credential flow, and apply auth/rate limits before exposing paid TTS.                                                                                                                                   |
 | `src/avatar/AvatarRenderer.ts`          | Adapt       | New module path; mount beside the deck's `src/components/hud/HoloStage.tsx` without replacing `HoloStage` or its `CoreState` export. Integrate `THREE`/render lifecycle and theme inputs.                                                                                                         |
 | `src/avatar/AvatarStage.tsx`            | Adapt       | New module path; compose from `src/components/CommandDeck.tsx` or a deck-approved route. Avoid replacing deck `SettingsPanel`, `CommandOversight`, security-gated `src/routes/index.tsx`, or auth flow.                                                                                           |
+| `src/avatar/CityView.tsx`               | Adapt       | New placeholder component/slot; replace its child with the real deck City after merge. Preserve the deck office home and do not invent city data here.                                                                                                                                            |
 | `src/avatar/armIK.ts`                   | Move as-is  | New `src/avatar/armIK.ts`; exports `V3`, `ARM`, `ArmSolution`, `solveArm`, `ArmPose`, `armPose`, `handDirection`. No matching deck module/export found.                                                                                                                                           |
+| `src/avatar/coreCityState.ts`           | Adapt       | New state-machine module for `CORE_FULL` and `CORE_SMALL + CITY`; compose with the deck's route/panel state rather than replacing it.                                                                                                                                                             |
 | `src/avatar/ollamaAI.ts`                | Adapt       | New module path; `src/lib/ollama.ts` already exports deck chat (`streamChat`). Keep this adapter isolated or replace it with a bridge to the deck provider; never overwrite deck chat or expose its cloud key. Defaults are localhost Ollama and `llama3.1:8b`; endpoint/model are public config. |
 | `src/avatar/particleSource.ts`          | Move as-is  | New `src/avatar/particleSource.ts`; no matching deck module found.                                                                                                                                                                                                                                |
 | `src/avatar/props.ts`                   | Move as-is  | New `src/avatar/props.ts`; exports `makeProp`, `handPoints`, `filePoints`, `limbPoints`; no matching deck module found.                                                                                                                                                                           |
-| `src/avatar/sensors.ts`                 | Adapt       | New module path; requires browser camera/mic permissions and configured public vision asset URLs. Compose with deck permissions/lifecycle; no deck sensor module path found.                                                                                                                      |
-| `src/avatar/simulatedAI.ts`             | Adapt       | New module path; optional offline/demo adapter. Do not substitute for deck's `streamChat` or its key resolution.                                                                                                                                                                                  |
+| `src/avatar/sensors.ts`                 | Adapt       | New module path; requests browser camera/mic permission and tries configured public vision URLs before the built-in MediaPipe defaults. Compose with deck permissions/lifecycle; no deck sensor module path found.                                                                                |
+| `src/avatar/simulatedAI.ts`             | Adapt       | New module path; optional offline/demo adapter used for basic spoken replies while Ollama is offline. Do not substitute for deck's `streamChat` or its key resolution.                                                                                                                            |
 | `src/avatar/snapDetector.ts`            | Move as-is  | New `src/avatar/snapDetector.ts`; plain logic module, no path/export collision found.                                                                                                                                                                                                             |
 | `src/avatar/stateParams.ts`             | Move as-is  | New `src/avatar/stateParams.ts`; exports state animation helpers. Map deck state through an adapter, not by renaming deck state types.                                                                                                                                                            |
 | `src/avatar/themes.ts`                  | Adapt       | New module path; integrate with deck `SceneColors` from `src/lib/settings.ts`; avoid replacing deck presets.                                                                                                                                                                                      |
@@ -165,6 +173,7 @@ server runtime secrets rather than build-time variables.
 | `src/lib/error-page.ts`                 | Do not move | Exact-path conflict; retain deck error presentation.                                                                                                                                                                                                                                              |
 | `src/lib/lovable-error-reporting.ts`    | Do not move | Exact-path conflict; retain target-platform reporting.                                                                                                                                                                                                                                            |
 | `src/lib/utils.ts`                      | Do not move | Exact-path conflict; preserve deck utility behavior.                                                                                                                                                                                                                                              |
+| `src/lib/supabase-readonly.ts`          | Adapt       | New GET-only REST client using `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; no service key, writes, deletes, or migrations. Integrate with the deck's auth/RLS policy after its schema is available.                                                                                  |
 | `src/routeTree.gen.ts`                  | Do not move | Generated route tree conflicts; regenerate from deck routes after adding an adapted route.                                                                                                                                                                                                        |
 | `src/router.tsx`                        | Do not move | Exact-path conflict; retain deck router configuration.                                                                                                                                                                                                                                            |
 | `src/routes/README.md`                  | Adapt       | Exact-path conflict; merge route-generation guidance if still applicable.                                                                                                                                                                                                                         |
@@ -178,6 +187,9 @@ server runtime secrets rather than build-time variables.
 | `src/test/arm-ik.test.ts`               | Move as-is  | New test path; no same-path deck test.                                                                                                                                                                                                                                                            |
 | `src/test/avatar-rules.test.ts`         | Adapt       | New test path at inspected tree; retain tests that apply, and align mocked bridge/provider behavior to deck integration.                                                                                                                                                                          |
 | `src/test/ollama-ai.test.ts`            | Move/adapt  | New test path; update provider config mocks if Ollama is replaced by the deck AI adapter.                                                                                                                                                                                                         |
+| `src/test/core-city-state.test.ts`      | Move/adapt  | New Core/City reducer and voice-command parsing tests; retain deck state integration tests.                                                                                                                                                                                                       |
+| `src/test/sensors-config.test.ts`       | Move/adapt  | New test path for configured MediaPipe assets and defaults.                                                                                                                                                                                                                                       |
+| `src/test/supabase-readonly.test.ts`    | Move/adapt  | New test path verifying public-key GET-only connectivity and row reads; no database setup is required.                                                                                                                                                                                            |
 | `src/test/voice.test.ts`                | Move/adapt  | New voice fallback test; retain deck test setup and mock the server function without embedding credentials.                                                                                                                                                                                       |
 | `src/test/setup.ts`                     | Do not move | Exact-path conflict; preserve deck's test environment.                                                                                                                                                                                                                                            |
 | `tsconfig.json`                         | Adapt       | Exact-path conflict; merge only necessary type aliases/types and compiler settings.                                                                                                                                                                                                               |
@@ -198,7 +210,9 @@ server runtime secrets rather than build-time variables.
   Compose `AvatarStage` as a panel or secondary route; preserve the office home.
 - The avatar exports `AvatarStage`, `AvatarBridge`, `AvatarRenderer`,
   `solveArm`, `armPose`, `makeProp`, `handPoints`, `filePoints`, `limbPoints`,
-  `attachOllamaAI`, `createVoiceProvider`, and `requestElevenLabsAudio`.
+  `attachOllamaAI`, `createVoiceProvider`, `requestElevenLabsAudio`,
+  `reduceCoreCityState`, `parseCoreCommand`, `CityView`, and
+  `createReadOnlySupabaseClient`.
   No same-named deck exports were identified. Do not replace the deck's
   `Avatar`, `AvatarImage`, `AvatarFallback`, `streamChat`, `CoreState`, or
   `SceneColors`.
@@ -245,7 +259,10 @@ The avatar's unique component classes are `avatar-stage`, `avatar-hud`,
 `avatar-hud__last-words`, `avatar-hud__last-words-label`,
 `avatar-hud__command-row`, `avatar-hud__input`, `avatar-hud__send`,
 `avatar-hud__panel`, `avatar-hud__row`, `avatar-hud__range`, and
-`avatar-hud__select`. They are scoped beneath `.avatar-stage`. `sr-only` and
+`avatar-hud__select`, `avatar-hud__offline`, and `avatar-hud__retry`. They are
+scoped beneath `.avatar-stage`. The Core/City layout adds
+`.avatar-stage--city`, `.city-view`, and `.city-view__slot`; these must also be
+composed rather than replacing deck global styles. `sr-only` and
 `absolute inset-0` are generic utility classes, not avatar-owned global rules.
 
 The earlier short names `.hud`, `.hud-tr`, `.hud-tl`, `.hud-val`, `.hud-warn`,
