@@ -4,6 +4,8 @@ import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { AvatarRenderer, type RenderSettings } from "./AvatarRenderer";
 import { Sensors, type SensorStatus } from "./sensors";
 import { attachOllamaAI } from "./ollamaAI";
+import { CubePanel } from "./CubePanel";
+import { isCubePanelCommand } from "./cubeReference";
 import { CityView } from "./CityView";
 import {
   parseCoreCommand,
@@ -59,6 +61,7 @@ export function AvatarStage() {
   const [chat, setChat] = useState("");
   const [lastWords, setLastWords] = useState("No response yet.");
   const [aiOffline, setAiOffline] = useState(false);
+  const [cubeOpen, setCubeOpen] = useState(false);
   const [cityState, setCityState] = useState<CoreCityState>({ mode: "CORE_FULL" });
   const [databaseStatus, setDatabaseStatus] = useState<SupabaseConnectionStatus>("not configured");
   const displayName = import.meta.env["VITE_AVATAR_NAME"] || "Osiris";
@@ -81,9 +84,9 @@ export function AvatarStage() {
           renderer.shrink();
           say("Compact form.");
           break;
-        case "walk":
-          renderer.walk();
-          say("I am exploring.");
+        case "mode":
+          renderer.setLocomotionMode(command.mode);
+          say(command.mode === "idle" ? "Idle." : `${command.mode} mode.`);
           break;
         case "look":
           renderer.lookAround();
@@ -97,8 +100,22 @@ export function AvatarStage() {
           renderer.grow();
           say("Full size.");
           break;
+        case "speed":
+          say(`Movement speed ${renderer.setMovementSpeed(command.value).toFixed(2)}.`);
+          break;
         case "drive":
-          say(renderer.driveCar() ? "The car is moving." : "There is no car here to drive.");
+          say(
+            renderer.driveObject(command.target)
+              ? `The ${command.target} is moving.`
+              : `I cannot drive a ${command.target} here.`,
+          );
+          break;
+        case "walk-through":
+          say(
+            renderer.walkThroughObject(command.target)
+              ? `Walking through the ${command.target}.`
+              : `There is no traversable ${command.target} here.`,
+          );
           break;
         case "stop":
           renderer.stopWalking();
@@ -112,6 +129,14 @@ export function AvatarStage() {
               ? "Mountains are in the scene."
               : `The ${command.kind} is in the scene.`,
           );
+          break;
+        case "make-and-walk-through":
+          renderer.makeObject(command.kind);
+          if (renderer.walkThroughObject(command.kind)) {
+            say(`The ${command.kind} is built. I am walking through it.`);
+          } else {
+            say(`The ${command.kind} is built, but I cannot walk through that structure.`);
+          }
           break;
         case "move": {
           const count = renderer.moveObject(command.target, command.direction);
@@ -187,6 +212,11 @@ export function AvatarStage() {
         }
       }
       if (!parsed.message) return;
+      if (isCubePanelCommand(parsed.message)) {
+        setCubeOpen(true);
+        aiRef.current?.speak("Operator verification is required to open the cube.");
+        return;
+      }
       const worldCommand = parseWorldCommand(parsed.message);
       if (worldCommand) {
         executeWorldCommand(worldCommand);
@@ -388,6 +418,7 @@ export function AvatarStage() {
         style={stageStyle}
       >
         <div ref={host} className="absolute inset-0" />
+        {cubeOpen && <CubePanel onClose={() => setCubeOpen(false)} />}
         <div className="avatar-hud avatar-hud--tr">
           {aiOffline && (
             <div className="avatar-hud__offline" role="status">
@@ -478,9 +509,33 @@ export function AvatarStage() {
               </button>
               <button
                 className="avatar-hud__button"
-                onClick={() => executeWorldCommand({ type: "walk" })}
+                onClick={() => executeWorldCommand({ type: "mode", mode: "walk" })}
               >
                 Walk around
+              </button>
+              <button
+                className="avatar-hud__button"
+                onClick={() => executeWorldCommand({ type: "mode", mode: "run" })}
+              >
+                Run
+              </button>
+              <button
+                className="avatar-hud__button"
+                onClick={() => executeWorldCommand({ type: "mode", mode: "fly" })}
+              >
+                Fly
+              </button>
+              <button
+                className="avatar-hud__button"
+                onClick={() => executeWorldCommand({ type: "mode", mode: "jump" })}
+              >
+                Jump
+              </button>
+              <button
+                className="avatar-hud__button"
+                onClick={() => executeWorldCommand({ type: "stop" })}
+              >
+                Stop
               </button>
               <button
                 className="avatar-hud__button"
@@ -508,7 +563,7 @@ export function AvatarStage() {
           <button
             className="avatar-hud__button"
             onClick={() => bridgeRef.current.emitSummon()}
-            title="Summon Osiris (S)"
+            title="Summon assistant (S)"
           >
             Summon
           </button>

@@ -9,6 +9,7 @@ describe("avatar locomotion", () => {
 
     walker.walk();
     walker.tick(0.2);
+    walker.tick(0.2);
 
     expect(walker.isWalking).toBe(true);
     expect(root.position.x).toBeLessThan(0);
@@ -36,5 +37,44 @@ describe("avatar locomotion", () => {
     expect(walker.isLookingAround).toBe(true);
     walker.stop();
     expect(walker.isLookingAround).toBe(false);
+  });
+
+  it("supports bounded speed and walk, run, fly, jump, and idle modes", () => {
+    const root = new THREE.Group();
+    const walker = new AvatarLocomotion(root);
+
+    expect(walker.setSpeed(9)).toBe(3);
+    walker.setMode("run");
+    expect(walker.currentMode).toBe("run");
+    walker.tick(0.05);
+    walker.tick(0.05);
+    expect(root.position.x).toBeLessThan(0);
+
+    walker.setMode("fly");
+    walker.tick(0.05);
+    expect(root.position.y + root.scale.y * -3.2).toBeGreaterThan(-3.2);
+
+    walker.setMode("jump");
+    walker.tick(0.05);
+    expect(root.position.y + root.scale.y * -3.2).toBeGreaterThan(-3.2);
+    for (let frame = 0; frame < 20; frame++) walker.tick(0.05);
+    expect(walker.currentMode).toBe("idle");
+    expect(walker.setSpeed(0.01)).toBe(0.25);
+  });
+
+  it("follows a finite custom path through an object before stopping", () => {
+    const root = new THREE.Group();
+    const walker = new AvatarLocomotion(root);
+    expect(
+      walker.followPath([
+        { x: 0, z: 1 },
+        { x: 0, z: 0 },
+        { x: 0, z: -1 },
+      ]),
+    ).toBe(true);
+    for (let frame = 0; frame < 100; frame++) walker.tick(0.05);
+
+    expect(walker.currentMode).toBe("idle");
+    expect(root.position.z).toBeCloseTo(-1, 2);
   });
 });

@@ -1,42 +1,57 @@
-export type MaterialKind =
-  "car" | "blimp" | "balloon" | "mountain" | "tree" | "box" | "sphere" | "light";
+import type { LocomotionMode } from "./locomotion";
 
-export type WorldCommand =
-  | { type: "shrink" | "walk" | "come-back" | "grow" | "drive" | "stop" }
-  | { type: "look" }
-  | { type: "make"; kind: MaterialKind }
-  | {
-      type: "move";
-      target: MaterialKind;
-      direction: "left" | "right" | "forward" | "back" | "up" | "down";
-    }
-  | { type: "reshape"; target: MaterialKind; kind: MaterialKind }
-  | { type: "remove"; target: MaterialKind }
-  | { type: "unsupported"; operation: "make" | "reshape" | "move" | "remove"; request: string };
-
-type Direction = "left" | "right" | "forward" | "back" | "up" | "down";
-
-const aliases: Record<MaterialKind, string[]> = {
-  car: ["car", "vehicle", "automobile"],
-  blimp: ["blimp", "zeppelin", "airship"],
-  balloon: ["air balloon", "hot air balloon", "balloon"],
-  mountain: ["mountains", "mountain", "peak", "peaks"],
+export const MATERIAL_ALIASES = {
+  building: ["building", "buildings", "house", "houses"],
+  car: ["car", "cars", "vehicle", "vehicles", "automobile"],
+  blimp: ["blimp", "blimps", "zeppelin", "airship"],
+  balloon: ["air balloon", "hot air balloon", "balloon", "balloons"],
   tree: ["trees", "tree"],
+  mountain: ["mountains", "mountain", "peak", "peaks"],
+  door: ["door", "doors", "doorway", "portal"],
+  room: ["room", "rooms"],
   box: ["boxes", "box", "cube"],
   sphere: ["spheres", "sphere", "ball"],
   light: ["lights", "light", "lamp"],
-};
+} as const;
+
+export type MaterialKind = keyof typeof MATERIAL_ALIASES;
+export type Direction = "left" | "right" | "forward" | "back" | "up" | "down";
+export type WorldCommand =
+  | { type: "mode"; mode: LocomotionMode }
+  | { type: "shrink" | "come-back" | "grow" | "look" | "stop" }
+  | { type: "speed"; value: number }
+  | { type: "make"; kind: MaterialKind }
+  | { type: "make-and-walk-through"; kind: MaterialKind }
+  | { type: "move"; target: MaterialKind; direction: Direction }
+  | { type: "reshape"; target: MaterialKind; kind: MaterialKind }
+  | { type: "remove" | "walk-through" | "drive"; target: MaterialKind }
+  | {
+      type: "unsupported";
+      operation: "make" | "reshape" | "move" | "remove" | "walk-through" | "drive";
+      request: string;
+    };
 
 function findMaterialKind(name: string): MaterialKind | null {
   const normalized = name
     .toLowerCase()
     .replace(/^(?:a|an|the|some)\s+/, "")
     .trim();
-  return (
-    (Object.entries(aliases).find(([, names]) =>
-      names.some((alias) => normalized === alias || normalized.endsWith(` ${alias}`)),
-    )?.[0] as MaterialKind | undefined) ?? null
-  );
+  for (const [kind, names] of Object.entries(MATERIAL_ALIASES) as [
+    MaterialKind,
+    readonly string[],
+  ][]) {
+    if (names.some((alias) => normalized === alias || normalized.endsWith(` ${alias}`))) {
+      return kind;
+    }
+  }
+  return null;
+}
+
+function parseTarget(operation: "remove" | "walk-through" | "drive", value: string): WorldCommand {
+  const kind = findMaterialKind(value);
+  return kind
+    ? { type: operation, target: kind }
+    : { type: "unsupported", operation, request: value };
 }
 
 export function parseWorldCommand(text: string): WorldCommand | null {
@@ -44,16 +59,33 @@ export function parseWorldCommand(text: string): WorldCommand | null {
     .trim()
     .toLowerCase()
     .replace(/[.!?]+$/, "");
+  const exactMode = command.match(/^(?:please\s+)?(idle|walk|run|fly|jump|stop)$/);
+  if (exactMode) {
+    return exactMode[1] === "stop"
+      ? { type: "stop" }
+      : { type: "mode", mode: exactMode[1] as LocomotionMode };
+  }
+  if (/^(?:please\s+)?(?:walk around|explore)$/.test(command))
+    return { type: "mode", mode: "walk" };
   if (/^(?:please\s+)?shrink(?:\s+(?:down|small))?$/.test(command)) return { type: "shrink" };
-  if (/^(?:please\s+)?(?:walk(?:\s+around)?|explore)$/.test(command)) return { type: "walk" };
   if (/^(?:please\s+)?(?:come\s+back|return(?:\s+home)?|go\s+back)$/.test(command))
     return { type: "come-back" };
   if (/^(?:please\s+)?(?:grow(?:\s+back)?|full\s+size)$/.test(command)) return { type: "grow" };
   if (/^(?:please\s+)?look around(?:\s+you)?$/.test(command)) return { type: "look" };
-  if (/^(?:please\s+)?(?:drive(?:\s+the)?\s+car|drive\s+it)$/.test(command))
-    return { type: "drive" };
-  if (/^(?:please\s+)?(?:stop(?:\s+walking|\s+driving)?|stay)$/.test(command))
-    return { type: "stop" };
+
+  const speedMatch = command.match(/^(?:set\s+)?speed(?:\s+to)?\s+(\d+(?:\.\d+)?)$/);
+  if (speedMatch) return { type: "speed", value: Number(speedMatch[1]) };
+
+  const compoundMatch = command.match(
+    /^(?:make|build|create|materialize|spawn)\s+(.+?)\s+and\s+walk\s+through\s+(?:it|(?:the\s+)?(.+))$/,
+  );
+  if (compoundMatch) {
+    const request = compoundMatch[1]!.replace(/^(?:me\s+)?(?:a|an|the|some)\s+/, "").trim();
+    const kind = findMaterialKind(request);
+    return kind
+      ? { type: "make-and-walk-through", kind }
+      : { type: "unsupported", operation: "make", request };
+  }
 
   const makeMatch = command.match(/^(?:make|build|create|materialize|spawn)\s+(.+)$/);
   if (makeMatch) {
@@ -71,13 +103,6 @@ export function parseWorldCommand(text: string): WorldCommand | null {
     if (targetKind && kind) return { type: "reshape", target: targetKind, kind };
     return { type: "unsupported", operation: "reshape", request: reshapeMatch[2]! };
   }
-  if (/^(?:reshape|change|turn)\b/.test(command)) {
-    return {
-      type: "unsupported",
-      operation: "reshape",
-      request: command.replace(/^(?:reshape|change|turn)\s*/, ""),
-    };
-  }
 
   const moveMatch = command.match(
     /^(?:move|shift)\s+(?:the\s+|those\s+|these\s+)?(.+?)(?:\s+(left|right|forward|back|up|down))?$/,
@@ -94,20 +119,15 @@ export function parseWorldCommand(text: string): WorldCommand | null {
     return { type: "unsupported", operation: "move", request: moveMatch[1]! };
   }
 
-  const removeMatch = command.match(/^(?:remove|delete|clear)\s+(?:the\s+|those\s+)?(.+)$/);
-  if (removeMatch) {
-    const target = findMaterialKind(removeMatch[1]!);
-    if (target) return { type: "remove", target };
-    return { type: "unsupported", operation: "remove", request: removeMatch[1]! };
-  }
+  const walkThroughMatch = command.match(/^walk\s+through\s+(?:the\s+)?(.+)$/);
+  if (walkThroughMatch) return parseTarget("walk-through", walkThroughMatch[1]!);
 
-  if (/^(?:make|build|create|materialize|spawn)\b/.test(command)) {
-    return {
-      type: "unsupported",
-      operation: "make",
-      request: command.replace(/^(?:make|build|create|materialize|spawn)\s*/, ""),
-    };
-  }
+  const driveMatch = command.match(/^drive\s+(?:the\s+)?(.+)$/);
+  if (driveMatch) return parseTarget("drive", driveMatch[1]!);
+
+  const removeMatch = command.match(/^(?:remove|delete|clear)\s+(?:the\s+|those\s+)?(.+)$/);
+  if (removeMatch) return parseTarget("remove", removeMatch[1]!);
+
   return null;
 }
 

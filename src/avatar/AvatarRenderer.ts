@@ -7,11 +7,12 @@ import type { AvatarBridge } from "./AvatarBridge";
 import { proceduralBust, type ParticleSource } from "./particleSource";
 import { spring, targetParams, type Params } from "./stateParams";
 import { filePoints, handPoints, limbPoints, makeProp } from "./props";
+import { createParticleLeg, getLegGaitAngle } from "./particleLegs";
 import { ARM, armPose, handDirection, solveArm, type V3 } from "./armIK";
 import { getThemePalette, type ThemeChoice } from "./themes";
 import { SceneManager } from "./sceneManager";
 import type { MaterialKind } from "./worldCommands";
-import { AvatarLocomotion } from "./locomotion";
+import { AvatarLocomotion, type LocomotionMode } from "./locomotion";
 
 export type RenderSettings = {
   maxParticles: number;
@@ -181,7 +182,7 @@ export class AvatarRenderer {
   private pose = 0;
   private poseV = 0;
   private legs: THREE.Group[] = [];
-  private legMaterial!: THREE.MeshStandardMaterial;
+  private legParticles: THREE.Points[] = [];
   onFrame?: (info: { fps: number; particles: number }) => void;
   inputs: Inputs = {
     attract: new THREE.Vector3(0, 0.5, 2),
@@ -246,7 +247,7 @@ export class AvatarRenderer {
     });
     this.applyTheme();
     this.character.add(new THREE.Points(this.geo, this.mat));
-    for (const side of [-1, 1]) {
+    for (const side of [-1, 1] as const) {
       const h = makeProp(handPoints(7000, side), 2.5);
       h.scale.setScalar(1.25);
       this.hands.push(h);
@@ -295,7 +296,7 @@ export class AvatarRenderer {
   }
   private applyPropTheme() {
     const t = getThemePalette(this.settings.theme, this.settings.customColor);
-    for (const h of [...this.hands, ...this.arms, ...this.forearms]) {
+    for (const h of [...this.hands, ...this.arms, ...this.forearms, ...this.legParticles]) {
       const U = h.material as THREE.ShaderMaterial;
       rgb(U.uniforms["uColA"]!.value, t.a);
       rgb(U.uniforms["uColB"]!.value, t.b);
@@ -306,8 +307,11 @@ export class AvatarRenderer {
     rgb(F.uniforms["uColB"]!.value, t.core);
     F.uniforms["uPixel"]!.value = this.renderer.getPixelRatio();
     F.uniforms["uSize"]!.value = 1.8;
-    this.legMaterial.color.setRGB(t.a[0]!, t.a[1]!, t.a[2]!);
-    this.legMaterial.emissive.setRGB(t.b[0]!, t.b[1]!, t.b[2]!);
+    for (const leg of this.legParticles) {
+      const uniforms = (leg.material as THREE.ShaderMaterial).uniforms;
+      uniforms["uSize"]!.value = 2.4;
+      uniforms["uGlow"]!.value = 1.4;
+    }
   }
   /** Place fixed-length upper-arm and forearm tubes between the solved joints. */
   private updateProps(dt: number, t: number) {
@@ -455,32 +459,11 @@ export class AvatarRenderer {
     }
   };
   private addLegs() {
-    this.legMaterial = new THREE.MeshStandardMaterial({
-      color: 0x7ccfe8,
-      emissive: 0x123c54,
-      emissiveIntensity: 0.55,
-      roughness: 0.48,
-      metalness: 0.15,
-    });
-    for (const side of [-1, 1]) {
-      const leg = new THREE.Group();
-      leg.position.set(side * 0.28, -1.62, 0);
-      for (const [radiusTop, radiusBottom, height, y] of [
-        [0.12, 0.17, 0.72, -0.38],
-        [0.09, 0.12, 0.62, -0.99],
-      ]) {
-        const segment = new THREE.Mesh(
-          new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 10),
-          this.legMaterial,
-        );
-        segment.position.y = y!;
-        leg.add(segment);
-      }
-      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.17, 0.48), this.legMaterial);
-      foot.position.set(0, -1.48, 0.12);
-      leg.add(foot);
-      this.legs.push(leg);
-      this.character.add(leg);
+    for (const side of [-1, 1] as const) {
+      const particleLeg = createParticleLeg(side);
+      this.legs.push(particleLeg.root);
+      this.legParticles.push(...particleLeg.points);
+      this.character.add(particleLeg.root);
     }
   }
   private moveAvatar(dt: number, t: number) {
@@ -489,11 +472,15 @@ export class AvatarRenderer {
     this.character.rotation.z = Math.sin(t * 1.2) * 0.012 + Math.sin(t * 3.2) * speaking * 0.025;
     this.character.position.x = Math.sin(t * 1.4) * 0.018 + Math.sin(t * 2.7) * speaking * 0.045;
     this.legs.forEach((leg, index) => {
-      const side = index === 0 ? 0 : Math.PI;
-      const gait = this.locomotion.isMoving ? Math.sin(t * 7 + side) * 0.42 : 0;
-      leg.rotation.z =
-        gait + (this.locomotion.isMoving ? 0 : Math.sin(t * 1.1 + side) * speaking * 0.025);
+      leg.rotation.z = getLegGaitAngle(this.locomotion.isMoving, t, index === 0 ? 0 : 1, speaking);
     });
+    for (const particle of this.legParticles) {
+      const uniforms = (particle.material as THREE.ShaderMaterial).uniforms;
+      uniforms["uTime"]!.value = t;
+      uniforms["uForm"]!.value = 1;
+      uniforms["uGlow"]!.value = 1.4 + this.pose * 0.6;
+      uniforms["uSize"]!.value = 2.4;
+    }
   }
   shrink() {
     this.locomotion.shrink();
@@ -503,6 +490,28 @@ export class AvatarRenderer {
   }
   walk() {
     this.locomotion.walk();
+  }
+  run() {
+    this.locomotion.run();
+  }
+  fly() {
+    this.locomotion.fly();
+  }
+  jump() {
+    this.locomotion.jump();
+  }
+  idle() {
+    this.locomotion.idle();
+  }
+  setLocomotionMode(mode: LocomotionMode) {
+    this.locomotion.setMode(mode);
+  }
+  setMovementSpeed(speed: number) {
+    return this.locomotion.setSpeed(speed);
+  }
+  walkThroughObject(target: MaterialKind) {
+    const path = this.sceneManager.getWalkThroughPath(target);
+    return path ? this.locomotion.followPath(path) : false;
   }
   lookAround() {
     this.locomotion.lookAround();
@@ -528,8 +537,8 @@ export class AvatarRenderer {
   removeObject(target: MaterialKind) {
     return this.sceneManager.remove(target);
   }
-  driveCar() {
-    return this.sceneManager.drive();
+  driveObject(target: MaterialKind) {
+    return this.sceneManager.drive(target);
   }
   stopDriving() {
     this.sceneManager.stopDriving();
@@ -555,14 +564,10 @@ export class AvatarRenderer {
       o.geometry.dispose();
       (o.material as THREE.Material).dispose();
     }
-    this.legs.forEach((leg) => {
-      leg.traverse((child) => {
-        if (child instanceof THREE.Mesh) child.geometry.dispose();
-      });
-    });
-    this.legs[0]?.children.forEach((child) => {
-      if (child instanceof THREE.Mesh) (child.material as THREE.Material).dispose();
-    });
+    for (const leg of this.legParticles) {
+      leg.geometry.dispose();
+      (leg.material as THREE.Material).dispose();
+    }
     this.bloom.dispose();
     this.composer.dispose();
     this.renderer.dispose();

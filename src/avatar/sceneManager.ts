@@ -1,14 +1,18 @@
 import * as THREE from "three";
 import type { MaterialKind } from "./worldCommands";
+import { WORLD_RULES, type WorldPoint } from "./worldRules";
 
 type SceneEntity = { kind: MaterialKind; group: THREE.Group };
 type MoveDirection = "left" | "right" | "forward" | "back" | "up" | "down";
 
 const GROUND_Y = -3.2;
 const PALETTE: Record<MaterialKind, number> = {
+  building: 0x8292a8,
   car: 0xff653b,
   blimp: 0x55c9ff,
   balloon: 0xff7ac4,
+  door: 0x55d7d0,
+  room: 0x879bb2,
   mountain: 0x384d75,
   tree: 0x35b87a,
   box: 0xf0b84c,
@@ -41,7 +45,41 @@ function mesh(
 function buildObject(kind: MaterialKind): THREE.Group {
   const group = new THREE.Group();
   const color = PALETTE[kind];
-  if (kind === "car") {
+  if (kind === "building" || kind === "room") {
+    const wall = material(PALETTE[kind]);
+    const wallGeometry = new THREE.BoxGeometry(0.16, 2.5, 2.6);
+    for (const x of [-1.4, 1.4]) {
+      const side = new THREE.Mesh(wallGeometry, wall);
+      side.position.set(x, 1.25, 0);
+      group.add(side);
+    }
+    const back = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.5, 0.16), wall);
+    back.position.set(0, 1.25, -1.3);
+    group.add(back);
+    for (const x of [-0.95, 0.95]) {
+      const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.5, 0.16), wall);
+      frontPost.position.set(x, 1.25, 1.3);
+      group.add(frontPost);
+    }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(1, 0.7, 0.16), wall);
+    lintel.position.set(0, 2.15, 1.3);
+    group.add(lintel);
+    if (kind === "building") {
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.16, 2.8), material(0x53657b));
+      roof.position.y = 2.58;
+      group.add(roof);
+    }
+  } else if (kind === "door") {
+    const frame = material(PALETTE.door, true);
+    for (const x of [-0.62, 0.62]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.4, 0.14), frame);
+      post.position.set(x, 1.2, 0);
+      group.add(post);
+    }
+    const top = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.14, 0.14), frame);
+    top.position.y = 2.33;
+    group.add(top);
+  } else if (kind === "car") {
     group.add(mesh(new THREE.BoxGeometry(1.05, 0.32, 0.56), color, [0, 0.27, 0]));
     group.add(mesh(new THREE.BoxGeometry(0.52, 0.34, 0.48), 0x9bdcff, [0.02, 0.58, 0]));
     for (const x of [-0.36, 0.36]) {
@@ -85,7 +123,7 @@ function buildObject(kind: MaterialKind): THREE.Group {
 
 function disposeGroup(group: THREE.Group) {
   group.traverse((child) => {
-    if (!(child instanceof THREE.Mesh)) return;
+    if (!(child instanceof THREE.Mesh) && !(child instanceof THREE.Line)) return;
     child.geometry.dispose();
     const materials = Array.isArray(child.material) ? child.material : [child.material];
     materials.forEach((entry) => entry.dispose());
@@ -98,6 +136,7 @@ export class SceneManager {
   private drivingId: string | null = null;
   private driveDirection = 1;
   private ground: THREE.Group;
+  private worldLayout = new THREE.Group();
 
   constructor(private scene: THREE.Scene) {
     this.ground = new THREE.Group();
@@ -108,9 +147,73 @@ export class SceneManager {
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
     keyLight.position.set(-4, 8, 6);
     this.ground.add(grid, new THREE.AmbientLight(0xffffff, 1.15), keyLight);
-    this.scene.add(this.ground);
+    this.worldLayout.name = "avatar-world-layout";
+    this.addWorldLayout();
+    this.scene.add(this.ground, this.worldLayout);
     this.add("mountain", -2.9, -5.2);
     this.add("mountain", 2.8, -5.8);
+  }
+
+  private addWorldLayout() {
+    const groundLevel = GROUND_Y + 0.02;
+    const zoneColors = { safe: 0x27d8e8, forest: 0x55df83, hot: 0xff9b58 } as const;
+
+    for (const zone of WORLD_RULES.zones) {
+      const marker = new THREE.Mesh(
+        new THREE.RingGeometry(zone.radius - 0.055, zone.radius, 64),
+        new THREE.MeshBasicMaterial({
+          color: zoneColors[zone.kind],
+          transparent: true,
+          opacity: zone.kind === "safe" ? 0.38 : 0.28,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        }),
+      );
+      marker.rotation.x = -Math.PI / 2;
+      marker.position.set(zone.x, groundLevel, zone.z);
+      this.worldLayout.add(marker);
+    }
+
+    const route = new THREE.BufferGeometry().setFromPoints(
+      WORLD_RULES.walkRoute.map((point) => new THREE.Vector3(point.x, groundLevel + 0.01, point.z)),
+    );
+    this.worldLayout.add(
+      new THREE.Line(
+        route,
+        new THREE.LineBasicMaterial({ color: 0x4abbd0, transparent: true, opacity: 0.32 }),
+      ),
+    );
+
+    for (const [x, z] of [
+      [-6.25, -3.65],
+      [-3.65, -4.7],
+      [-6.25, -1.85],
+    ] as const) {
+      const tree = buildObject("tree");
+      tree.position.set(x, GROUND_Y, z);
+      this.worldLayout.add(tree);
+    }
+
+    for (const site of WORLD_RULES.encounterSites) {
+      const marker = mesh(
+        new THREE.IcosahedronGeometry(0.2, 0),
+        zoneColors.forest,
+        [site.x, groundLevel + 0.2, site.z],
+        { emissive: true },
+      );
+      this.worldLayout.add(marker);
+    }
+
+    for (const trainer of WORLD_RULES.trainerSites) {
+      const figure = new THREE.Group();
+      figure.position.set(trainer.x, GROUND_Y, trainer.z);
+      figure.add(
+        mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.42, 8), 0x83aaff, [0, 0.48, 0]),
+        mesh(new THREE.SphereGeometry(0.12, 12, 8), 0xffd5a5, [0, 0.78, 0]),
+        mesh(new THREE.SphereGeometry(0.055, 8, 6), 0xffe98a, [0, 1.02, 0], { emissive: true }),
+      );
+      this.worldLayout.add(figure);
+    }
   }
 
   add(kind: MaterialKind, x?: number, z?: number): string {
@@ -195,12 +298,25 @@ export class SceneManager {
     return entities.length;
   }
 
-  drive(): boolean {
-    const entry = [...this.entities.entries()].find(([, entity]) => entity.kind === "car");
+  drive(target: MaterialKind): boolean {
+    if (target !== "car") return false;
+    const entry = [...this.entities.entries()].find(([, entity]) => entity.kind === target);
     if (!entry) return false;
     this.drivingId = entry[0];
     this.driveDirection = 1;
     return true;
+  }
+
+  getWalkThroughPath(target: MaterialKind): WorldPoint[] | null {
+    if (target !== "building" && target !== "room" && target !== "door") return null;
+    const entity = [...this.entities.values()].find((entry) => entry.kind === target);
+    if (!entity) return null;
+    const { x, z } = entity.group.position;
+    return [
+      { x, z: z + 2.1 },
+      { x, z: z },
+      { x, z: z - 2.1 },
+    ];
   }
 
   stopDriving() {
@@ -225,11 +341,12 @@ export class SceneManager {
   }
 
   dispose() {
-    this.scene.remove(this.ground);
+    this.scene.remove(this.ground, this.worldLayout);
     for (const { group } of this.entities.values()) {
       this.scene.remove(group);
       disposeGroup(group);
     }
+    disposeGroup(this.worldLayout);
     this.ground.traverse((child) => {
       if (child instanceof THREE.Mesh || child instanceof THREE.GridHelper) {
         child.geometry.dispose();

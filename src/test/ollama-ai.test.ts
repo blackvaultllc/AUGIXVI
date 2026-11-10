@@ -65,7 +65,7 @@ describe("Ollama AI speech notifications", () => {
     ai.dispose();
   });
 
-  it("uses the default Ollama settings and original AUGI personality", async () => {
+  it("uses the default Ollama settings and generic operator-only instructions", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
@@ -87,7 +87,8 @@ describe("Ollama AI speech notifications", () => {
       messages: { role: string; content: string }[];
     };
     expect(request.model).toBe("llama3.1:8b");
-    expect(request.messages[0]?.content).toContain("You are Osiris, AUGI's sovereign intelligence");
+    expect(request.messages[0]?.content).toContain("You are Osiris");
+    expect(request.messages[0]?.content).toContain("designated Anubis, is in charge");
     expect(request.messages[0]?.content).toContain("at most 2 short sentences");
     ai.dispose();
   });

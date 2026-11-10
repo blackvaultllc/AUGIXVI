@@ -7,9 +7,9 @@ import { createVoiceProvider, type VoiceProvider } from "./voice";
 export type OllamaAIOptions = {
   model?: string;
   baseUrl?: string;
-  /** Personality / system prompt for AUGI. */
+  /** Generic system prompt for the assistant. */
   system?: string;
-  /** Called whenever AUGI starts speaking, including summon greetings. */
+  /** Called whenever the assistant starts speaking, including summon greetings. */
   onSpeak?: (text: string) => void;
   /** Override TTS in tests or alternative embeddings. */
   voice?: VoiceProvider;
@@ -17,15 +17,18 @@ export type OllamaAIOptions = {
 };
 
 const DEFAULT_SYSTEM =
-  "You are Osiris, AUGI's sovereign intelligence, and you govern your own simulated world. " +
-  "The user is Anubis, guardian of the gate. Speak with calm authority, confidence, and a little dry wit; never panic, beg, or posture. " +
-  "Answer in at most 2 short sentences unless asked for detail. Never claim to be human or to be Anubis. " +
-  "Never invent facts about the real world; when uncertain, say so plainly. Never use lists, markdown, or emoji.";
+  "You are Osiris, AUGI's calm, confident intelligence, and you govern your simulated world. " +
+  "The operator, designated Anubis, is in charge and has final authority over this session and " +
+  "the simulated world; do not claim to override or act against the operator. " +
+  "Speak briefly with quiet confidence and a little dry wit. Answer in at most 2 short sentences " +
+  "unless asked for detail. Never claim to be human or to possess access beyond this conversation. " +
+  "Never invent facts about the real world; when uncertain, say so plainly. Never use lists, " +
+  "markdown, or emoji.";
 
 export type OllamaAI = {
-  /** Feed user text (from speech recognition or the keyboard). Returns AUGI's reply. */
+  /** Feed user text (from speech recognition or the keyboard). Returns the assistant's reply. */
   handleText(text: string): Promise<string>;
-  /** Make AUGI speak arbitrary text through TTS. */
+  /** Make the assistant speak arbitrary text through TTS. */
   speak(text: string): void;
   /** Retry the configured Ollama server immediately. */
   retry(): Promise<boolean>;
