@@ -7,7 +7,7 @@ import type { AvatarBridge } from "./AvatarBridge";
 import { proceduralBust, type ParticleSource } from "./particleSource";
 import { spring, targetParams, type Params } from "./stateParams";
 import { filePoints, handPoints, limbPoints, makeProp } from "./props";
-import { createParticleLeg, getLegGaitAngle } from "./particleLegs";
+import { getLegGaitAngle } from "./particleLegs";
 import { ARM, armPose, handDirection, solveArm, type V3 } from "./armIK";
 import { getThemePalette, type ThemeChoice } from "./themes";
 import { SceneManager } from "./sceneManager";
@@ -25,8 +25,9 @@ export type RenderSettings = {
 const vert = /* glsl */ `
 attribute float aKind; attribute float aRand;
 uniform float uTime, uBreath, uTight, uSpeech, uFlare, uSweep, uContour, uDrift, uPixel, uAttractK;
-uniform vec3 uAttract; uniform vec2 uLook;
+uniform vec3 uAttract; uniform vec2 uLook, uLegSwing;
 varying float vKind; varying float vRand; varying float vLine; varying float vFace; varying float vVein;
+attribute float aLegSide;
 mat3 rotY(float a){float c=cos(a),s=sin(a);return mat3(c,0.,-s,0.,1.,0.,s,0.,c);}
 mat3 rotX(float a){float c=cos(a),s=sin(a);return mat3(1.,0.,0.,0.,c,s,0.,-s,c);}
 void main(){
@@ -51,6 +52,13 @@ void main(){
     p.x = side * (0.9 + (ax - 0.9) * (1.0 + uFlare * 0.15));
     p.y += sin(uTime * 0.6 + ax * 1.5) * 0.03;
     vLine = 0.0; vFace = 0.0;
+  }
+  if (abs(aLegSide) > 0.5) {
+    float angle = aLegSide < 0.0 ? uLegSwing.x : uLegSwing.y;
+    vec3 hip = vec3(aLegSide * 0.28, -1.48, 0.0);
+    vec3 offset = p - hip;
+    p.y = hip.y + cos(angle) * offset.y - sin(angle) * offset.z;
+    p.z = hip.z + sin(angle) * offset.y + cos(angle) * offset.z;
   }
   // drift
   p += vec3(sin(uTime*0.5+aRand*40.), cos(uTime*0.4+aRand*30.), sin(uTime*0.3+aRand*20.)) * 0.012 * uDrift;
@@ -131,6 +139,7 @@ type Uniforms = Record<
 > & {
   uAttract: V<THREE.Vector3>;
   uLook: V<THREE.Vector2>;
+  uLegSwing: V<THREE.Vector2>;
   uColA: V<THREE.Color>;
   uColB: V<THREE.Color>;
   uColCore: V<THREE.Color>;
@@ -181,8 +190,6 @@ export class AvatarRenderer {
   private fileForm = 0;
   private pose = 0;
   private poseV = 0;
-  private legs: THREE.Group[] = [];
-  private legParticles: THREE.Points[] = [];
   onFrame?: (info: { fps: number; particles: number }) => void;
   inputs: Inputs = {
     attract: new THREE.Vector3(0, 0.5, 2),
@@ -210,13 +217,13 @@ export class AvatarRenderer {
     this.avatarRoot.add(this.character);
     this.locomotion = new AvatarLocomotion(this.avatarRoot);
     this.sceneManager = new SceneManager(this.scene);
-    this.addLegs();
     const data = source(settings.maxParticles);
     this.drawCount = data.count;
     this.geo = new THREE.BufferGeometry();
     this.geo.setAttribute("position", new THREE.BufferAttribute(data.positions, 3));
     this.geo.setAttribute("aKind", new THREE.BufferAttribute(data.kind, 1));
     this.geo.setAttribute("aRand", new THREE.BufferAttribute(data.rand, 1));
+    this.geo.setAttribute("aLegSide", new THREE.BufferAttribute(data.legSide, 1));
     const u = (v: unknown) => ({ value: v });
     this.mat = new THREE.ShaderMaterial({
       vertexShader: vert,
@@ -237,6 +244,7 @@ export class AvatarRenderer {
         uAttract: u(new THREE.Vector3()),
         uAttractK: u(0),
         uLook: u(new THREE.Vector2()),
+        uLegSwing: u(new THREE.Vector2()),
         uCore: u(1),
         uWhite: u(0),
         uColA: u(new THREE.Color()),
@@ -296,7 +304,7 @@ export class AvatarRenderer {
   }
   private applyPropTheme() {
     const t = getThemePalette(this.settings.theme, this.settings.customColor);
-    for (const h of [...this.hands, ...this.arms, ...this.forearms, ...this.legParticles]) {
+    for (const h of [...this.hands, ...this.arms, ...this.forearms]) {
       const U = h.material as THREE.ShaderMaterial;
       rgb(U.uniforms["uColA"]!.value, t.a);
       rgb(U.uniforms["uColB"]!.value, t.b);
@@ -307,11 +315,6 @@ export class AvatarRenderer {
     rgb(F.uniforms["uColB"]!.value, t.core);
     F.uniforms["uPixel"]!.value = this.renderer.getPixelRatio();
     F.uniforms["uSize"]!.value = 1.8;
-    for (const leg of this.legParticles) {
-      const uniforms = (leg.material as THREE.ShaderMaterial).uniforms;
-      uniforms["uSize"]!.value = 2.4;
-      uniforms["uGlow"]!.value = 1.4;
-    }
   }
   /** Place fixed-length upper-arm and forearm tubes between the solved joints. */
   private updateProps(dt: number, t: number) {
@@ -458,29 +461,16 @@ export class AvatarRenderer {
       this.onFrame?.({ fps: 0, particles: this.drawCount });
     }
   };
-  private addLegs() {
-    for (const side of [-1, 1] as const) {
-      const particleLeg = createParticleLeg(side);
-      this.legs.push(particleLeg.root);
-      this.legParticles.push(...particleLeg.points);
-      this.character.add(particleLeg.root);
-    }
-  }
   private moveAvatar(dt: number, t: number) {
     this.locomotion.tick(dt);
     const speaking = this.bridge.state === "SPEAKING" ? this.bridge.speechLevel : 0;
     this.character.rotation.z = Math.sin(t * 1.2) * 0.012 + Math.sin(t * 3.2) * speaking * 0.025;
     this.character.position.x = Math.sin(t * 1.4) * 0.018 + Math.sin(t * 2.7) * speaking * 0.045;
-    this.legs.forEach((leg, index) => {
-      leg.rotation.z = getLegGaitAngle(this.locomotion.isMoving, t, index === 0 ? 0 : 1, speaking);
-    });
-    for (const particle of this.legParticles) {
-      const uniforms = (particle.material as THREE.ShaderMaterial).uniforms;
-      uniforms["uTime"]!.value = t;
-      uniforms["uForm"]!.value = 1;
-      uniforms["uGlow"]!.value = 1.4 + this.pose * 0.6;
-      uniforms["uSize"]!.value = 2.4;
-    }
+    const uniforms = this.mat.uniforms as unknown as Uniforms;
+    uniforms.uLegSwing.value.set(
+      getLegGaitAngle(this.locomotion.isMoving, t, 0, speaking),
+      getLegGaitAngle(this.locomotion.isMoving, t, 1, speaking),
+    );
   }
   shrink() {
     this.locomotion.shrink();
@@ -563,10 +553,6 @@ export class AvatarRenderer {
     for (const o of [...this.hands, ...this.arms, ...this.forearms, this.file]) {
       o.geometry.dispose();
       (o.material as THREE.Material).dispose();
-    }
-    for (const leg of this.legParticles) {
-      leg.geometry.dispose();
-      (leg.material as THREE.Material).dispose();
     }
     this.bloom.dispose();
     this.composer.dispose();

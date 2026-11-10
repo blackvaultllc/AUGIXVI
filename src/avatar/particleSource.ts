@@ -1,8 +1,11 @@
 /** Pluggable particle source. Replace with a mesh/image loader returning the same shape. */
+import { createParticleLegData } from "./particleLegs";
+
 export type ParticleData = {
   positions: Float32Array;
   kind: Float32Array;
   rand: Float32Array;
+  legSide: Float32Array;
   count: number;
 };
 export type ParticleSource = (count: number) => ParticleData;
@@ -39,22 +42,25 @@ function profile(y: number): [number, number] | null {
 export const proceduralBust: ParticleSource = (count) => {
   const pos = new Float32Array(count * 3),
     kind = new Float32Array(count),
-    rand = new Float32Array(count);
-  const nBody = Math.floor(count * 0.91);
+    rand = new Float32Array(count),
+    legSide = new Float32Array(count);
+  const legCount = Math.floor(count * 0.1);
+  const pointsPerLeg = Math.floor(legCount / 2);
+  const nBody = count - pointsPerLeg * 2;
   const LINES = 95;
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < nBody; i++) {
     let x = 0,
       y = 0,
       z = 0,
       k = 0;
-    if (i < nBody) {
+    if (i < Math.floor(nBody * 0.91)) {
       let p: [number, number] | null = null;
       while (!p) {
         y =
           -1.7 + (Math.floor(Math.random() * LINES) / LINES) * 3.32 + (Math.random() - 0.5) * 0.002;
         p = profile(y);
       }
-      const a = (Math.random() * 1.15 - 0.075) * Math.PI; // front-biased hemisphere
+      const a = (Math.random() * 1.15 - 0.075) * Math.PI;
       x = Math.cos(a) * p[0];
       z = Math.sin(a) * p[1];
     } else {
@@ -73,6 +79,13 @@ export const proceduralBust: ParticleSource = (count) => {
     kind[i] = k;
     rand[i] = Math.random();
   }
+  for (const [legIndex, side] of ([-1, 1] as const).entries()) {
+    const leg = createParticleLegData(pointsPerLeg, side);
+    const start = nBody + legIndex * pointsPerLeg;
+    pos.set(leg.positions, start * 3);
+    legSide.set(leg.sides, start);
+    for (let i = start; i < start + pointsPerLeg; i += 1) rand[i] = Math.random();
+  }
   // shuffle so drawRange scales density evenly
   for (let i = count - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -87,8 +100,11 @@ export const proceduralBust: ParticleSource = (count) => {
     t = rand[i]!;
     rand[i] = rand[j]!;
     rand[j] = t;
+    t = legSide[i]!;
+    legSide[i] = legSide[j]!;
+    legSide[j] = t;
   }
-  return { positions: pos, kind, rand, count };
+  return { positions: pos, kind, rand, legSide, count };
 };
 function gauss() {
   return Math.sqrt(-2 * Math.log(Math.random() + 1e-9)) * Math.cos(2 * Math.PI * Math.random());
