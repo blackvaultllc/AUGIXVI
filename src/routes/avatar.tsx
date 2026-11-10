@@ -7,9 +7,15 @@ export const Route = createFileRoute("/avatar")({
   head: () => ({
     meta: [
       { title: "Avatar — Living AI Interface" },
-      { name: "description", content: "Glowing particle bust that follows your hand, reacts to snaps and speaks." },
+      {
+        name: "description",
+        content: "Glowing particle bust that follows your hand, reacts to snaps and speaks.",
+      },
       { property: "og:title", content: "Avatar — Living AI Interface" },
-      { property: "og:description", content: "Glowing particle bust that follows your hand, reacts to snaps and speaks." },
+      {
+        property: "og:description",
+        content: "Glowing particle bust that follows your hand, reacts to snaps and speaks.",
+      },
     ],
   }),
 });

@@ -1,4 +1,9 @@
-export type SnapOptions = { sensitivity: number; cooldownMs: number; requireAudio: boolean; windowMs?: number };
+export type SnapOptions = {
+  sensitivity: number;
+  cooldownMs: number;
+  requireAudio: boolean;
+  windowMs?: number;
+};
 
 /** Fires when a thumb–middle fingertip velocity spike and an audio transient coincide. */
 export class SnapDetector {
@@ -10,18 +15,26 @@ export class SnapDetector {
   constructor(public opts: SnapOptions) {}
 
   /** Velocity threshold in hand-widths/sec; higher sensitivity → lower threshold. */
-  get velocityThreshold() { return 12 - this.opts.sensitivity * 8; }
+  get velocityThreshold() {
+    return 12 - this.opts.sensitivity * 8;
+  }
 
   pushHand(t: number, dist: number): boolean {
     if (this.lastDist !== null && t > this.lastT) {
       const v = Math.abs(dist - this.lastDist) / ((t - this.lastT) / 1000);
       if (v > this.velocityThreshold) this.handSpikeAt = t;
     }
-    this.lastDist = dist; this.lastT = t;
+    this.lastDist = dist;
+    this.lastT = t;
     return this.check(t);
   }
-  pushAudioOnset(t: number): boolean { this.audioSpikeAt = t; return this.check(t); }
-  resetHand() { this.lastDist = null; }
+  pushAudioOnset(t: number): boolean {
+    this.audioSpikeAt = t;
+    return this.check(t);
+  }
+  resetHand() {
+    this.lastDist = null;
+  }
 
   private check(t: number): boolean {
     if (t - this.lastFire < this.opts.cooldownMs) return false;
@@ -29,7 +42,8 @@ export class SnapDetector {
     const hand = t - this.handSpikeAt <= w;
     const audio = t - this.audioSpikeAt <= w;
     if (hand && (audio || !this.opts.requireAudio)) {
-      this.lastFire = t; this.handSpikeAt = this.audioSpikeAt = -Infinity;
+      this.lastFire = t;
+      this.handSpikeAt = this.audioSpikeAt = -Infinity;
       return true;
     }
     return false;

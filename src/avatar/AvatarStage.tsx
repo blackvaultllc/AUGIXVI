@@ -33,7 +33,8 @@ export function AvatarStage() {
   const [ready, setReady] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [chat, setChat] = useState("");
-  const [lastWords, setLastWords] = useState("AUGI hasn't spoken yet.");
+  const [lastWords, setLastWords] = useState("No response yet.");
+  const displayName = import.meta.env["VITE_AVATAR_NAME"] || "Assistant";
   function togglePresent() {
     const b = bridgeRef.current;
     b.present(b.presenting ? null : "file");
@@ -51,7 +52,6 @@ export function AvatarStage() {
       setReady(true);
     };
     const ai = attachOllamaAI(bridge, {
-      model: "llama3.1:8b",
       onSpeak: setLastWords,
     });
     aiRef.current = ai;
@@ -165,7 +165,12 @@ export function AvatarStage() {
         },
         onMicLevel: () => {},
       },
-      { sensitivity: settings.sensitivity, cooldownMs: settings.cooldownMs },
+      {
+        sensitivity: settings.sensitivity,
+        cooldownMs: settings.cooldownMs,
+        wasmRoot: import.meta.env["VITE_MEDIAPIPE_WASM_ROOT"],
+        handModelUrl: import.meta.env["VITE_MEDIAPIPE_HAND_MODEL_URL"],
+      },
     );
     sensRef.current = s;
     setSensor(await s.start());
@@ -181,15 +186,15 @@ export function AvatarStage() {
   return (
     <div className="avatar-stage" data-scene-ready={ready ? "" : undefined}>
       <div ref={host} className="absolute inset-0" />
-      <div className="hud hud-tr">
+      <div className="avatar-hud avatar-hud--tr">
         <div>
-          STATUS: <span className="hud-val">{state}</span>
+          STATUS: <span className="avatar-hud__value">{state}</span>
         </div>
         <div>
-          INTENSITY: <span className="hud-val">{intensityLabel(level)}</span>
+          INTENSITY: <span className="avatar-hud__value">{intensityLabel(level)}</span>
         </div>
       </div>
-      <div className="hud hud-tl">
+      <div className="avatar-hud avatar-hud--tl">
         <div>
           {perf.fps} FPS · {(perf.particles / 1000).toFixed(0)}K PTS
         </div>
@@ -197,11 +202,11 @@ export function AvatarStage() {
           CAM {sensor?.camera ? "ON" : "OFF"} · MIC {sensor?.mic ? "ON" : "OFF"} · HANDS{" "}
           {sensor?.hands ? "ON" : "OFF"}
         </div>
-        {sensor?.error && <div className="hud-warn">{sensor.error}</div>}
+        {sensor?.error && <div className="avatar-hud__warning">{sensor.error}</div>}
       </div>
-      <div className="hud hud-br">
-        <div className="hud-last-words" aria-live="polite">
-          <div className="hud-last-words-label">AUGI&apos;S LAST WORDS</div>
+      <div className="avatar-hud avatar-hud--commands">
+        <div className="avatar-hud__last-words" aria-live="polite">
+          <div className="avatar-hud__last-words-label">{displayName}&apos;s last words</div>
           <p>{lastWords}</p>
         </div>
         <form
@@ -214,40 +219,43 @@ export function AvatarStage() {
           }}
         >
           <label className="sr-only" htmlFor="avatar-command">
-            Command for AUGI
+            Command for {displayName}
           </label>
-          <div className="hud-command-row">
+          <div className="avatar-hud__command-row">
             <input
               id="avatar-command"
-              className="hud-input"
+              className="avatar-hud__input"
               placeholder="Type a command…"
               value={chat}
               onChange={(e) => setChat(e.target.value)}
             />
-            <button className="hud-send" type="submit" disabled={!chat.trim()}>
+            <button className="avatar-hud__send" type="submit" disabled={!chat.trim()}>
               Send
             </button>
           </div>
         </form>
       </div>
-      <div className="hud-bar">
+      <div className="avatar-hud__bar">
         {!sensor && (
-          <button className="hud-btn hud-btn-primary" onClick={enableSensors}>
+          <button
+            className="avatar-hud__button avatar-hud__button--primary"
+            onClick={enableSensors}
+          >
             Enable camera &amp; mic
           </button>
         )}
-        <button className="hud-btn" onClick={() => bridgeRef.current.emitSummon()}>
+        <button className="avatar-hud__button" onClick={() => bridgeRef.current.emitSummon()}>
           Summon (S)
         </button>
-        <button className="hud-btn" onClick={togglePresent}>
+        <button className="avatar-hud__button" onClick={togglePresent}>
           {presenting ? "Put away (P)" : "Present file (P)"}
         </button>
-        <button className="hud-btn" onClick={() => setPanel((p) => !p)}>
+        <button className="avatar-hud__button" onClick={() => setPanel((p) => !p)}>
           Settings
         </button>
       </div>
       {panel && (
-        <div className="hud-panel">
+        <div className="avatar-hud__panel">
           <Slider
             label="Particles"
             min={20000}
@@ -290,10 +298,10 @@ export function AvatarStage() {
             onChange={(v) => update("cooldownMs", v)}
             fmt={(v) => `${v}ms`}
           />
-          <label className="hud-row">
+          <label className="avatar-hud__row">
             Theme
             <select
-              className="hud-select"
+              className="avatar-hud__select"
               value={settings.theme}
               onChange={(e) => update("theme", e.target.value as ThemeName)}
             >
@@ -318,13 +326,13 @@ function Slider(p: {
   fmt?: (v: number) => string;
 }) {
   return (
-    <label className="hud-row">
+    <label className="avatar-hud__row">
       <span>
-        {p.label} <span className="hud-val">{p.fmt ? p.fmt(p.value) : p.value}</span>
+        {p.label} <span className="avatar-hud__value">{p.fmt ? p.fmt(p.value) : p.value}</span>
       </span>
       <input
         type="range"
-        className="hud-range"
+        className="avatar-hud__range"
         min={p.min}
         max={p.max}
         step={p.step}

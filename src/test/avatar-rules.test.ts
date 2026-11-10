@@ -4,8 +4,12 @@ import { attachSimulatedAI } from "@/avatar/simulatedAI";
 import { SnapDetector } from "@/avatar/snapDetector";
 import { intensityLabel } from "@/avatar/stateParams";
 
-const mk = (requireAudio = true) => new SnapDetector({ sensitivity: 0.8, cooldownMs: 800, requireAudio });
-const spike = (d: SnapDetector, t: number) => { d.pushHand(t - 20, 0.1); return d.pushHand(t, 1.5); };
+const mk = (requireAudio = true) =>
+  new SnapDetector({ sensitivity: 0.8, cooldownMs: 800, requireAudio });
+const spike = (d: SnapDetector, t: number) => {
+  d.pushHand(t - 20, 0.1);
+  return d.pushHand(t, 1.5);
+};
 
 describe("snap detection", () => {
   it("fires only when hand spike and audio transient coincide", () => {
@@ -14,7 +18,8 @@ describe("snap detection", () => {
     expect(d.pushAudioOnset(1050)).toBe(true);
   });
   it("ignores a hand spike with no audio when mic is required", () => {
-    const d = mk(); spike(d, 1000);
+    const d = mk();
+    spike(d, 1000);
     expect(d.pushAudioOnset(1500)).toBe(false);
   });
   it("respects the 800ms cooldown", () => {
@@ -26,7 +31,11 @@ describe("snap detection", () => {
 });
 
 it("maps intensity labels", () => {
-  expect([intensityLabel(0.1), intensityLabel(0.5), intensityLabel(0.9)]).toEqual(["LOW", "MED", "HIGH"]);
+  expect([intensityLabel(0.1), intensityLabel(0.5), intensityLabel(0.9)]).toEqual([
+    "LOW",
+    "MED",
+    "HIGH",
+  ]);
 });
 
 import { isPresentCommand } from "@/avatar/simulatedAI";
@@ -43,7 +52,14 @@ describe("barge-in", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal("speechSynthesis", speechSynthesisMock);
-    vi.stubGlobal("SpeechSynthesisUtterance", class { constructor(public text: string) {} rate = 1; pitch = 1; });
+    vi.stubGlobal(
+      "SpeechSynthesisUtterance",
+      class {
+        constructor(public text: string) {}
+        rate = 1;
+        pitch = 1;
+      },
+    );
     speechSynthesisMock.cancel.mockClear();
     speechSynthesisMock.speak.mockClear();
   });

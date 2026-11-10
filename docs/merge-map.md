@@ -1,0 +1,220 @@
+# AUGIXVI to Voicewave Command Deck merge map
+
+This map compares the tracked AUGIXVI files with the read-only file tree of
+`blackvaultllc/voicewave-command-deck` at `HEAD` on 2026-11-10. No files in the
+deck repository were changed. “Move as-is” means the source is standalone; it
+does not mean its imports, route registration, environment, or dependencies can
+be copied without wiring them into the deck.
+
+## Integration summary
+
+- The deck has no `src/avatar/` module. That directory is the self-contained
+  feature boundary; preserve its module names and `AvatarBridge` as the only
+  AI-to-renderer interface.
+- `AvatarStage` is not a deck component name. Mount it from the deck's existing
+  `src/components/CommandDeck.tsx`/panel flow or a deliberately designed route;
+  do not replace the deck's security-gated `src/routes/index.tsx`.
+- AUGIXVI's `src/routes/avatar.tsx`, `src/routes/index.tsx`,
+  `src/routes/__root.tsx`, `src/router.tsx`, and generated
+  `src/routeTree.gen.ts` must not overwrite deck routing. Register an adapted
+  route through the deck's router conventions and regenerate its route tree.
+- Merge the avatar CSS from `src/styles.css` into the deck stylesheet. The
+  avatar selectors are now scoped and renamed to avoid the deck's existing
+  `.hud-panel`, `.hud-btn`, and `.hud-input` rules. Do not copy AUGIXVI's
+  complete global stylesheet over the deck's.
+- `AvatarBridge`, `AvatarRenderer`, `ARM`, `solveArm`, `armPose`,
+  `handDirection`, `makeProp`, `handPoints`, `filePoints`, and `limbPoints` do
+  not collide with deck exports at the inspected tree. The deck's `HoloStage`
+  and `CoreState` are distinct implementations and should be composed with,
+  not overwritten by, the avatar.
+- `src/components/ui/avatar.tsx` already exists in the deck and exports the
+  generic UI symbols `Avatar`, `AvatarImage`, and `AvatarFallback`; it is not
+  the 3D `AvatarStage` and should not be replaced by it.
+- The deck already has `SettingsPanel`, `CommandOversight`, `src/lib/ollama.ts`,
+  and a radar cloud-key interface (`src/lib/radar-keys.ts`). `attachOllamaAI`
+  is a separate adapter, not an export replacement for `streamChat`. Connect
+  commands/replies to deck state deliberately. If a future provider requires
+  an API key, resolve it through the deck's cloud-keys panel/server interface;
+  do not add a browser-side key or overload Ollama's URL/model settings.
+- The deck has exact-path counterparts for the project/configuration, shared
+  UI, routing, global styles, and selected test files listed below. These are
+  conflicts, not candidates for wholesale replacement. Merge only the
+  required behavior and retain deck-specific dependencies, auth, gate, and
+  settings.
+
+## API-key and environment audit
+
+No AUGIXVI application module expects an API key. The Ollama adapter makes an
+unauthenticated chat request, and the camera/hand-tracking feature downloads
+public model assets; neither has a key field. A repository scan found no
+hardcoded API-key value. The `.env.example` placeholders are empty and contain
+no endpoint values.
+
+`AGENTS.md` mentions `LOVABLE_API_KEY` only as a Lovable-managed secret for an
+optional connector/gateway; no AUGIXVI runtime source reads that variable or
+embeds its value. Keep that secret in Lovable's managed secrets, not in source
+or a `VITE_` variable. The deck's `src/lib/radar-keys.ts` is the existing
+user-managed radar-key panel/storage interface; do not copy credentials into
+avatar environment configuration.
+
+The following non-secret runtime settings are read from the build environment:
+
+| Variable                        | Consumer                                              | Purpose                       |
+| ------------------------------- | ----------------------------------------------------- | ----------------------------- |
+| `VITE_AVATAR_NAME`              | `src/avatar/AvatarStage.tsx`                          | Optional display label        |
+| `VITE_OLLAMA_BASE_URL`          | `src/avatar/ollamaAI.ts`                              | Ollama server origin          |
+| `VITE_OLLAMA_MODEL`             | `src/avatar/ollamaAI.ts`                              | Ollama model identifier       |
+| `VITE_MEDIAPIPE_WASM_ROOT`      | `src/avatar/AvatarStage.tsx`, `src/avatar/sensors.ts` | Vision runtime asset location |
+| `VITE_MEDIAPIPE_HAND_MODEL_URL` | `src/avatar/AvatarStage.tsx`, `src/avatar/sensors.ts` | Hand model asset location     |
+
+These `VITE_` values are public build-time configuration, never secrets. Do not
+place an API key in them. Copy only non-secret endpoint/model configuration as
+needed for the deck. Any keyed AI/cloud provider must use the deck's cloud-key
+panel and server-side credential flow. Local `.env` files are ignored; only
+the empty `.env.example` is tracked.
+
+## File-by-file map
+
+| AUGIXVI file                            | Disposition | Deck destination / collision                                                                                                                                                                                                                                                          |
+| --------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.gitignore`                            | Adapt       | Exact-path conflict. Merge ignore patterns; retain deck rules.                                                                                                                                                                                                                        |
+| `.lovable/project.json`                 | Do not move | Exact-path conflict; Lovable project metadata belongs to the target project.                                                                                                                                                                                                          |
+| `.prettierignore`                       | Adapt       | Exact-path conflict. Preserve deck-specific generated-file exclusions.                                                                                                                                                                                                                |
+| `.prettierrc`                           | Adapt       | Exact-path conflict. Keep the deck formatter policy.                                                                                                                                                                                                                                  |
+| `AGENTS.md`                             | Adapt       | Exact-path conflict. Carry only applicable avatar-specific instructions; preserve deck guidance.                                                                                                                                                                                      |
+| `README.md`                             | Adapt       | Exact-path conflict. Add an avatar integration section instead of replacing deck docs.                                                                                                                                                                                                |
+| `bun.lock`                              | Do not move | AUGIXVI dependency lock; merge dependency declarations into the deck's package manager and regenerate its lock.                                                                                                                                                                       |
+| `bunfig.toml`                           | Adapt       | Exact-path conflict. Retain the deck package-manager settings.                                                                                                                                                                                                                        |
+| `components.json`                       | Adapt       | Exact-path conflict; shadcn aliases/style choices may differ.                                                                                                                                                                                                                         |
+| `eslint.config.js`                      | Adapt       | Exact-path conflict; retain deck lint plugins/rules and include avatar-specific checks.                                                                                                                                                                                               |
+| `package.json`                          | Adapt       | Exact-path conflict. Merge only required dependencies/scripts; do not replace the deck manifest.                                                                                                                                                                                      |
+| `public/favicon.ico`                    | Do not move | Exact-path conflict; keep the deck's brand asset.                                                                                                                                                                                                                                     |
+| `public/robots.txt`                     | Adapt       | Exact-path conflict; preserve target deployment policy.                                                                                                                                                                                                                               |
+| `src/avatar/AvatarBridge.ts`            | Move as-is  | New `src/avatar/AvatarBridge.ts`; no same-path deck module.                                                                                                                                                                                                                           |
+| `src/avatar/env.d.ts`                   | Adapt       | Merge the public `ImportMetaEnv` properties with the deck's existing Vite environment type declarations; do not overwrite them.                                                                                                                                                       |
+| `src/avatar/AvatarRenderer.ts`          | Adapt       | New module path; mount beside the deck's `src/components/hud/HoloStage.tsx` without replacing `HoloStage` or its `CoreState` export. Integrate `THREE`/render lifecycle and theme inputs.                                                                                             |
+| `src/avatar/AvatarStage.tsx`            | Adapt       | New module path; compose from `src/components/CommandDeck.tsx` or a deck-approved route. Avoid replacing deck `SettingsPanel`, `CommandOversight`, security-gated `src/routes/index.tsx`, or auth flow.                                                                               |
+| `src/avatar/armIK.ts`                   | Move as-is  | New `src/avatar/armIK.ts`; exports `V3`, `ARM`, `ArmSolution`, `solveArm`, `ArmPose`, `armPose`, `handDirection`. No matching deck module/export found.                                                                                                                               |
+| `src/avatar/ollamaAI.ts`                | Adapt       | New module path; `src/lib/ollama.ts` already exports deck chat (`streamChat`). Keep this adapter isolated or replace it with a bridge to the deck provider; never overwrite deck chat or expose its cloud key. Configure endpoint/model from non-secret environment or deck settings. |
+| `src/avatar/particleSource.ts`          | Move as-is  | New `src/avatar/particleSource.ts`; no matching deck module found.                                                                                                                                                                                                                    |
+| `src/avatar/props.ts`                   | Move as-is  | New `src/avatar/props.ts`; exports `makeProp`, `handPoints`, `filePoints`, `limbPoints`; no matching deck module found.                                                                                                                                                               |
+| `src/avatar/sensors.ts`                 | Adapt       | New module path; requires browser camera/mic permissions and configured public vision asset URLs. Compose with deck permissions/lifecycle; no deck sensor module path found.                                                                                                          |
+| `src/avatar/simulatedAI.ts`             | Adapt       | New module path; optional offline/demo adapter. Do not substitute for deck's `streamChat` or its key resolution.                                                                                                                                                                      |
+| `src/avatar/snapDetector.ts`            | Move as-is  | New `src/avatar/snapDetector.ts`; plain logic module, no path/export collision found.                                                                                                                                                                                                 |
+| `src/avatar/stateParams.ts`             | Move as-is  | New `src/avatar/stateParams.ts`; exports state animation helpers. Map deck state through an adapter, not by renaming deck state types.                                                                                                                                                |
+| `src/avatar/themes.ts`                  | Adapt       | New module path; integrate with deck `SceneColors` from `src/lib/settings.ts`; avoid replacing deck presets.                                                                                                                                                                          |
+| `src/components/ui/accordion.tsx`       | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/alert-dialog.tsx`    | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/alert.tsx`           | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/aspect-ratio.tsx`    | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/avatar.tsx`          | Do not move | Exact-path conflict. Deck exports UI `Avatar`, `AvatarImage`, `AvatarFallback`; not the 3D avatar.                                                                                                                                                                                    |
+| `src/components/ui/badge.tsx`           | Do not move | Exact-path conflict; retain deck variants and imports.                                                                                                                                                                                                                                |
+| `src/components/ui/breadcrumb.tsx`      | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/button.tsx`          | Do not move | Exact-path conflict; retain deck variants and imports.                                                                                                                                                                                                                                |
+| `src/components/ui/calendar.tsx`        | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/card.tsx`            | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/carousel.tsx`        | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/chart.tsx`           | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/checkbox.tsx`        | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/collapsible.tsx`     | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/command.tsx`         | Do not move | Exact-path conflict; deck uses this command-menu primitive; distinct from typed avatar commands.                                                                                                                                                                                      |
+| `src/components/ui/context-menu.tsx`    | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/dialog.tsx`          | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/drawer.tsx`          | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/dropdown-menu.tsx`   | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/form.tsx`            | Do not move | Exact-path conflict; preserve deck form integration.                                                                                                                                                                                                                                  |
+| `src/components/ui/hover-card.tsx`      | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/input-otp.tsx`       | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/input.tsx`           | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/label.tsx`           | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/menubar.tsx`         | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/navigation-menu.tsx` | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/pagination.tsx`      | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/popover.tsx`         | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/progress.tsx`        | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/radio-group.tsx`     | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/resizable.tsx`       | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/scroll-area.tsx`     | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/select.tsx`          | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/separator.tsx`       | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/sheet.tsx`           | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/sidebar.tsx`         | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/skeleton.tsx`        | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/slider.tsx`          | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/sonner.tsx`          | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/switch.tsx`          | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/table.tsx`           | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/tabs.tsx`            | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/textarea.tsx`        | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/toggle-group.tsx`    | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/toggle.tsx`          | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/components/ui/tooltip.tsx`         | Do not move | Exact-path conflict; keep deck UI primitive.                                                                                                                                                                                                                                          |
+| `src/hooks/use-mobile.tsx`              | Do not move | Exact-path conflict; keep deck responsive hook.                                                                                                                                                                                                                                       |
+| `src/lib/error-capture.ts`              | Do not move | Exact-path conflict; retain deck error instrumentation.                                                                                                                                                                                                                               |
+| `src/lib/error-page.ts`                 | Do not move | Exact-path conflict; retain deck error presentation.                                                                                                                                                                                                                                  |
+| `src/lib/lovable-error-reporting.ts`    | Do not move | Exact-path conflict; retain target-platform reporting.                                                                                                                                                                                                                                |
+| `src/lib/utils.ts`                      | Do not move | Exact-path conflict; preserve deck utility behavior.                                                                                                                                                                                                                                  |
+| `src/routeTree.gen.ts`                  | Do not move | Generated route tree conflicts; regenerate from deck routes after adding an adapted route.                                                                                                                                                                                            |
+| `src/router.tsx`                        | Do not move | Exact-path conflict; retain deck router configuration.                                                                                                                                                                                                                                |
+| `src/routes/README.md`                  | Adapt       | Exact-path conflict; merge route-generation guidance if still applicable.                                                                                                                                                                                                             |
+| `src/routes/__root.tsx`                 | Do not move | Exact-path conflict; preserve deck shell/providers.                                                                                                                                                                                                                                   |
+| `src/routes/avatar.tsx`                 | Adapt       | New route path at inspected tree; only register if the deck product flow calls for a dedicated route. Keep deck security gates and route conventions.                                                                                                                                 |
+| `src/routes/index.tsx`                  | Do not move | Exact-path conflict; retain deck auth/AAL2/allowlist gate and lazy `CommandDeck` mount.                                                                                                                                                                                               |
+| `src/server.ts`                         | Do not move | Exact-path conflict; preserve deck server entry/middleware.                                                                                                                                                                                                                           |
+| `src/start.ts`                          | Do not move | Exact-path conflict; preserve deck CSRF/auth/error middleware.                                                                                                                                                                                                                        |
+| `src/styles.css`                        | Adapt       | Exact-path conflict. Cherry-pick only `.avatar-stage` and scoped `.avatar-hud*` rules; preserve deck global styles and `.hud-panel`, `.hud-btn`, `.hud-input`.                                                                                                                        |
+| `src/test/app-routing.test.tsx`         | Do not move | Exact-path conflict; extend deck route tests rather than replacing security-gate coverage.                                                                                                                                                                                            |
+| `src/test/arm-ik.test.ts`               | Move as-is  | New test path; no same-path deck test.                                                                                                                                                                                                                                                |
+| `src/test/avatar-rules.test.ts`         | Adapt       | New test path at inspected tree; retain tests that apply, and align mocked bridge/provider behavior to deck integration.                                                                                                                                                              |
+| `src/test/ollama-ai.test.ts`            | Move/adapt  | New test path; update provider config mocks if Ollama is replaced by the deck AI adapter.                                                                                                                                                                                             |
+| `src/test/setup.ts`                     | Do not move | Exact-path conflict; preserve deck's test environment.                                                                                                                                                                                                                                |
+| `tsconfig.json`                         | Adapt       | Exact-path conflict; merge only necessary type aliases/types and compiler settings.                                                                                                                                                                                                   |
+| `vite.config.ts`                        | Adapt       | Exact-path conflict; preserve deck plugins, server preset, and deployment config.                                                                                                                                                                                                     |
+| `vitest.config.ts`                      | Adapt       | Exact-path conflict; merge test discovery/setup only.                                                                                                                                                                                                                                 |
+| `.env.example`                          | Adapt       | Exact-path conflict; merge empty, non-secret avatar config names only. Do not copy values or introduce API-key variables.                                                                                                                                                             |
+| `docs/merge-map.md`                     | Move as-is  | New documentation path; retain or update after the deck integration is completed.                                                                                                                                                                                                     |
+
+## Export and style-name collision checklist
+
+### AUGIXVI public exports to retain or adapt
+
+- `AvatarBridge.ts`: `AvatarState`, `Gesture`, `AvatarBridge`.
+- `AvatarRenderer.ts`: `RenderSettings`, `Inputs`, `AvatarRenderer`.
+- `AvatarStage.tsx`: `AvatarStage`; currently the UI route component, not a deck
+  stage primitive.
+- `armIK.ts`: `V3`, `ARM`, `ArmSolution`, `solveArm`, `ArmPose`, `armPose`,
+  `handDirection`.
+- `ollamaAI.ts`: `OllamaAIOptions`, `OllamaAI`, `attachOllamaAI`.
+- `particleSource.ts`: `ParticleData`, `ParticleSource`, `proceduralBust`.
+- `props.ts`: `makeProp`, `handPoints`, `filePoints`, `limbPoints`.
+- `sensors.ts`: `SensorCallbacks`, `SensorStatus`, `SensorOptions`, `Sensors`.
+- `simulatedAI.ts`: `attachSimulatedAI`, `isPresentCommand`.
+- `snapDetector.ts`: `SnapOptions`, `SnapDetector`, `OnsetDetector`.
+- `stateParams.ts`: `Params`, `targetParams`, `spring`, `intensityLabel`.
+- `themes.ts`: `THEMES`, `ThemeName`.
+
+No same-named export was found for these in the deck file tree. The deck symbols
+to avoid replacing are `CommandDeck`, `HoloStage`, `CoreState`, `SettingsPanel`,
+`CommandOversight`, `Avatar`, `AvatarImage`, `AvatarFallback`, `streamChat`,
+`HudSettings`, `SceneColors`, and the `RadarKeys`/`RADAR_KEY_NAMES` API-key
+helpers. Adapt at composition boundaries; do not alias one implementation over
+another.
+
+### Avatar CSS classes
+
+The avatar's unique component classes are `avatar-stage`, `avatar-hud`,
+`avatar-hud--tr`, `avatar-hud--tl`, `avatar-hud--commands`,
+`avatar-hud__value`, `avatar-hud__warning`, `avatar-hud__bar`,
+`avatar-hud__button`, `avatar-hud__button--primary`,
+`avatar-hud__last-words`, `avatar-hud__last-words-label`,
+`avatar-hud__command-row`, `avatar-hud__input`, `avatar-hud__send`,
+`avatar-hud__panel`, `avatar-hud__row`, `avatar-hud__range`, and
+`avatar-hud__select`. They are scoped beneath `.avatar-stage`. `sr-only` and
+`absolute inset-0` are generic utility classes, not avatar-owned global rules.
+
+The earlier short names `.hud`, `.hud-tr`, `.hud-tl`, `.hud-val`, `.hud-warn`,
+`.hud-bar`, `.hud-btn`, `.hud-btn-primary`, `.hud-br`, `.hud-last-words`,
+`.hud-last-words-label`, `.hud-command-row`, `.hud-input`, `.hud-send`,
+`.hud-panel`, `.hud-row`, `.hud-range`, and `.hud-select` are not used by the
+current avatar UI. This matters because the deck already styles `.hud-panel`,
+`.hud-btn`, and `.hud-input` globally.

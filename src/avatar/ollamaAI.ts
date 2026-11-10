@@ -1,12 +1,6 @@
 import type { AvatarBridge } from "./AvatarBridge";
 
-/**
- * Real AI brain for AUGI via a local Ollama server (http://localhost:11434).
- * Ollama allows browser origins by default (CORS), so the page can talk to it directly.
- *
- * Speech, gestures and state flow through the same bridge contract as simulatedAI,
- * so the avatar rendering code never changes.
- */
+/** Ollama adapter; speech, gestures, and state stay behind the avatar bridge. */
 
 export type OllamaAIOptions = {
   model?: string;
@@ -18,8 +12,8 @@ export type OllamaAIOptions = {
 };
 
 const DEFAULT_SYSTEM =
-  "You are AUGI, a living holographic AI. You speak aloud, briefly and with personality — " +
-  "at most 2 sentences, never lists or markdown, no emoji. You are confident, a little wry, and helpful.";
+  "You are a helpful conversational assistant. Reply aloud in at most two short sentences, " +
+  "without lists, markdown, or emoji.";
 
 export type OllamaAI = {
   /** Feed user text (from speech recognition or the keyboard). Returns AUGI's reply. */
@@ -30,8 +24,8 @@ export type OllamaAI = {
 };
 
 export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {}): OllamaAI {
-  const model = opts.model ?? "llama3.1:8b";
-  const baseUrl = opts.baseUrl ?? "http://localhost:11434";
+  const model = opts.model ?? import.meta.env["VITE_OLLAMA_MODEL"];
+  const baseUrl = opts.baseUrl ?? import.meta.env["VITE_OLLAMA_BASE_URL"];
   const system = opts.system ?? DEFAULT_SYSTEM;
   const onSpeak = opts.onSpeak;
   const history: { role: string; content: string }[] = [];
@@ -81,6 +75,9 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
   };
 
   async function ask(text: string): Promise<string> {
+    if (!baseUrl)
+      throw new Error("Set VITE_OLLAMA_BASE_URL in the environment to enable AI responses.");
+    if (!model) throw new Error("Set VITE_OLLAMA_MODEL in the environment to enable AI responses.");
     const res = await fetch(`${baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -129,8 +126,8 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       history.push({ role: "user", content: text }, { role: "assistant", content: reply });
       speak(reply, listen);
       return reply;
-    } catch (e) {
-      const msg = "My mind is offline. Check the Ollama server.";
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "The AI request failed.";
       speak(msg, listen);
       return msg;
     }
