@@ -62,6 +62,19 @@ describe("avatar locomotion", () => {
     expect(walker.setSpeed(0.01)).toBe(0.25);
   });
 
+  it("keeps a full-size avatar full-size when flight is selected", () => {
+    const root = new THREE.Group();
+    const flyer = new AvatarLocomotion(root);
+
+    flyer.setMode("fly");
+    flyer.tick(0.05);
+
+    expect(flyer.currentMode).toBe("fly");
+    expect(flyer.isWalking).toBe(false);
+    expect(root.scale.x).toBe(1);
+    expect(root.position.y + root.scale.y * -3.2).toBeGreaterThan(-3.2);
+  });
+
   it("follows a finite custom path through an object before stopping", () => {
     const root = new THREE.Group();
     const walker = new AvatarLocomotion(root);

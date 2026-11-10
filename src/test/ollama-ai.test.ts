@@ -88,7 +88,8 @@ describe("Ollama AI speech notifications", () => {
     };
     expect(request.model).toBe("llama3.1:8b");
     expect(request.messages[0]?.content).toContain("You are Osiris");
-    expect(request.messages[0]?.content).toContain("designated Anubis, is in charge");
+    expect(request.messages[0]?.content).toContain("designated Anubis, who is in charge");
+    expect(request.messages[0]?.content).toContain("Yes, Anubis.");
     expect(request.messages[0]?.content).toContain("at most 2 short sentences");
     ai.dispose();
   });
@@ -99,11 +100,9 @@ describe("Ollama AI speech notifications", () => {
     const onOfflineChange = vi.fn();
     const ai = attachOllamaAI(new AvatarBridge(), { voice, onOfflineChange });
 
-    await expect(ai.handleText("Hello")).resolves.toBe(
-      "My mind is offline. Check the Ollama server.",
-    );
+    await expect(ai.handleText("Hello")).resolves.toContain("I am offline.");
     expect(voice.speak).toHaveBeenCalledWith(
-      "My mind is offline. Check the Ollama server.",
+      expect.stringContaining("I am offline."),
       expect.any(Function),
     );
     expect(ai.isOffline()).toBe(true);
@@ -111,7 +110,7 @@ describe("Ollama AI speech notifications", () => {
     ai.dispose();
   });
 
-  it("uses simulated offline replies without repeating the offline notice", async () => {
+  it("does not invent an offline answer when no saved knowledge matches", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
     vi.stubGlobal(
@@ -133,10 +132,43 @@ describe("Ollama AI speech notifications", () => {
     await ai.handleText("First request");
     const offlineReply = await ai.handleText("Second request");
 
-    expect(offlineReply).toMatch(/^Offline mode\./);
-    expect(voice.speak).toHaveBeenCalledOnce();
+    expect(offlineReply).toContain("do not have that in saved memory");
+    expect(voice.speak).toHaveBeenCalledTimes(2);
     expect(onSpeak).toHaveBeenCalledTimes(2);
-    expect(onSpeak).not.toHaveBeenLastCalledWith("My mind is offline. Check the Ollama server.");
+    expect(onSpeak).not.toHaveBeenLastCalledWith(expect.stringContaining("I am offline."));
+    ai.dispose();
+  });
+
+  it("uses saved local knowledge while offline and labels its source", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
+    const voice = { speak: vi.fn(), stop: vi.fn() };
+    const onResponseSource = vi.fn();
+    const ai = attachOllamaAI(new AvatarBridge(), {
+      voice,
+      onResponseSource,
+      findOfflineAnswer: () => ({ answer: "Use the saved checklist.", source: "saved memory" }),
+    });
+
+    await ai.handleText("First request");
+    await expect(ai.handleText("checklist")).resolves.toBe("Use the saved checklist.");
+    expect(onResponseSource).toHaveBeenLastCalledWith("saved memory");
+    expect(voice.speak).toHaveBeenLastCalledWith("Use the saved checklist.", expect.any(Function));
+    ai.dispose();
+  });
+
+  it("suppresses speech until explicitly unmuted", () => {
+    const voice = { speak: vi.fn(), stop: vi.fn() };
+    const onSpeak = vi.fn();
+    const ai = attachOllamaAI(new AvatarBridge(), { voice, onSpeak });
+
+    ai.setMuted(true);
+    ai.speak("This should remain silent.");
+    expect(voice.speak).not.toHaveBeenCalled();
+    expect(onSpeak).toHaveBeenCalledWith("This should remain silent.");
+
+    ai.setMuted(false);
+    ai.speak("Yes, Anubis.");
+    expect(voice.speak).toHaveBeenCalledWith("Yes, Anubis.", expect.any(Function));
     ai.dispose();
   });
 

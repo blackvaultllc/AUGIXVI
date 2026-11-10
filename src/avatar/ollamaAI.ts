@@ -1,5 +1,4 @@
 import type { AvatarBridge } from "./AvatarBridge";
-import { attachSimulatedAI } from "./simulatedAI";
 import { createVoiceProvider, type VoiceProvider } from "./voice";
 
 /** Ollama adapter; speech, gestures, and state stay behind the avatar bridge. */
@@ -14,12 +13,21 @@ export type OllamaAIOptions = {
   /** Override TTS in tests or alternative embeddings. */
   voice?: VoiceProvider;
   onOfflineChange?: (offline: boolean) => void;
+  findOfflineAnswer?: (
+    text: string,
+  ) => { answer: string; source: "saved memory" | "local knowledge" } | null;
+  onResponseSource?: (
+    source: "live brain" | "saved memory" | "local knowledge" | "offline notice",
+  ) => void;
 };
 
 const DEFAULT_SYSTEM =
   "You are Osiris, AUGI's calm, confident intelligence, and you govern your simulated world. " +
-  "The operator, designated Anubis, is in charge and has final authority over this session and " +
-  "the simulated world; do not claim to override or act against the operator. " +
+  "You answer to the operator, designated Anubis, who is in charge and has final authority over " +
+  "this session and the simulated world. Never call the operator master. When called by name, " +
+  "the required response is exactly: Yes, Anubis. Never claim to override or act against the operator. " +
+  "If asked who created you, give the verified operator name in session configuration when available; " +
+  "otherwise say the verified name is not configured. " +
   "Speak briefly with quiet confidence and a little dry wit. Answer in at most 2 short sentences " +
   "unless asked for detail. Never claim to be human or to possess access beyond this conversation. " +
   "Never invent facts about the real world; when uncertain, say so plainly. Never use lists, " +
@@ -30,13 +38,18 @@ export type OllamaAI = {
   handleText(text: string): Promise<string>;
   /** Make the assistant speak arbitrary text through TTS. */
   speak(text: string): void;
+  setMuted(muted: boolean): void;
+  setOperatorIdentity(name: string | null): void;
   /** Retry the configured Ollama server immediately. */
   retry(): Promise<boolean>;
   isOffline(): boolean;
   dispose(): void;
 };
 
-const OFFLINE_NOTICE = "My mind is offline. Check the Ollama server.";
+const OFFLINE_NOTICE =
+  "I am offline. I can use only saved local knowledge until a brain reconnects.";
+const OFFLINE_UNKNOWN =
+  "I am offline and do not have that in saved memory. Add a sourced note in Knowledge.";
 const REQUEST_TIMEOUT_MS = 8000;
 
 export function getOllamaRetryDelay(retryCount: number): number {
@@ -53,6 +66,7 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
   const system = opts.system ?? DEFAULT_SYSTEM;
   const onSpeak = opts.onSpeak;
   const onOfflineChange = opts.onOfflineChange;
+  const onResponseSource = opts.onResponseSource;
   const voice = opts.voice ?? createVoiceProvider(bridge);
   const history: { role: string; content: string }[] = [];
 
@@ -63,8 +77,9 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
   let retryTimer = 0;
   let retryCount = 0;
   let retrying = false;
-  let fallbackAI: ReturnType<typeof attachSimulatedAI> | null = null;
   let requestController: AbortController | null = null;
+  let muted = false;
+  let operatorIdentity: string | null = null;
 
   const clearTimers = () => {
     timers.forEach(clearTimeout);
@@ -75,13 +90,12 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     if (disposed) return;
     voice.stop();
     onSpeak?.(text);
+    if (muted) {
+      bridge.setState("LISTENING");
+      return;
+    }
     bridge.setState("SPEAKING");
     void voice.speak(text, then);
-  };
-
-  const getFallbackAI = () => {
-    fallbackAI ??= attachSimulatedAI(bridge, { subscribeToBridge: false });
-    return fallbackAI;
   };
 
   const setOffline = (next: boolean) => {
@@ -93,8 +107,6 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       retryCount = 0;
       if (retryTimer) window.clearTimeout(retryTimer);
       retryTimer = 0;
-      fallbackAI?.dispose();
-      fallbackAI = null;
       bridge.setSpeechLevel(0);
       if (bridge.state === "SPEAKING") listen();
     }
@@ -114,10 +126,11 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     setOffline(true);
     if (!offlineNoticeSpoken) {
       offlineNoticeSpoken = true;
+      onResponseSource?.("offline notice");
       speak(OFFLINE_NOTICE, listen);
       return OFFLINE_NOTICE;
     }
-    return "";
+    return OFFLINE_UNKNOWN;
   };
 
   const listen = () => {
@@ -142,7 +155,12 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
           stream: false,
           options: { temperature: 0.8, num_predict: 160 },
           messages: [
-            { role: "system", content: system },
+            {
+              role: "system",
+              content: operatorIdentity
+                ? `${system}\nVerified operator identity: ${operatorIdentity}. If asked who created you, state this name plainly.`
+                : system,
+            },
             ...history.slice(-8),
             { role: "user", content: text },
           ],
@@ -212,19 +230,19 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
   async function handleText(text: string): Promise<string> {
     if (disposed) return "";
     if (offline) {
+      const local = opts.findOfflineAnswer?.(text);
+      if (local) {
+        onResponseSource?.(local.source);
+        speak(local.answer, listen);
+        return local.answer;
+      }
       if (!offlineNoticeSpoken) return offlineReply();
-      const replies = [
-        "Offline mode. I hear you. Processing complete.",
-        "Offline mode. Understood. I am standing by.",
-        "Offline mode. Tell me more when you are ready.",
-      ];
-      const reply = replies[Math.floor(Math.random() * replies.length)] ?? replies[0]!;
-      shutUp();
-      onSpeak?.(reply);
-      getFallbackAI().speak(reply);
-      return reply;
+      onResponseSource?.("offline notice");
+      speak(OFFLINE_UNKNOWN, listen);
+      return OFFLINE_UNKNOWN;
     }
     if (isQuietCommand(text)) {
+      muted = true;
       shutUp();
       bridge.setState("LISTENING");
       return "quiet";
@@ -235,6 +253,7 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       const reply = await ask(text);
       history.push({ role: "user", content: text }, { role: "assistant", content: reply });
       setOffline(false);
+      onResponseSource?.("live brain");
       speak(reply, listen);
       return reply;
     } catch (error) {
@@ -250,7 +269,7 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     bridge.onSummon(() => {
       shutUp();
       bridge.setState("GLITCH");
-      timers.push(window.setTimeout(() => speak("I'm here. What do you need?", listen), 350));
+      timers.push(window.setTimeout(() => speak("Yes, Anubis.", listen), 350));
     }),
     bridge.onUserSpeechStart(() => {
       if (bridge.state !== "SPEAKING" && bridge.state !== "THINKING" && bridge.state !== "GLITCH") {
@@ -268,11 +287,20 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       clearTimers();
       speak(t, listen);
     },
+    setMuted: (next: boolean) => {
+      muted = next;
+      if (muted) {
+        shutUp();
+        bridge.setState("LISTENING");
+      }
+    },
+    setOperatorIdentity: (name: string | null) => {
+      operatorIdentity = name?.trim() || null;
+    },
     dispose: () => {
       disposed = true;
       if (retryTimer) window.clearTimeout(retryTimer);
       shutUp();
-      fallbackAI?.dispose();
       offs.forEach((o) => o());
     },
     retry,

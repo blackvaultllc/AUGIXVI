@@ -60,7 +60,7 @@ export const proceduralBust: ParticleSource = (count) => {
           -1.7 + (Math.floor(Math.random() * LINES) / LINES) * 3.32 + (Math.random() - 0.5) * 0.002;
         p = profile(y);
       }
-      const a = (Math.random() * 1.15 - 0.075) * Math.PI;
+      const a = Math.random() * Math.PI * 2;
       x = Math.cos(a) * p[0];
       z = Math.sin(a) * p[1];
     } else {

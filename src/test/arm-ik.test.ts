@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ARM, armPose, solveArm, type V3 } from "@/avatar/armIK";
+import { ARM, armPose, flightArmPose, solveArm, type V3 } from "@/avatar/armIK";
 
 const distance = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
@@ -53,5 +53,15 @@ describe("arm IK", () => {
     const speaking = armPose(1, 0, 1, 1);
     expect(speaking.target[1]).toBeGreaterThan(listening.target[1]);
     expect(speaking.target[2]).toBeGreaterThan(listening.target[2]);
+  });
+
+  it("extends both flight arms forward and keeps the pose reachable", () => {
+    for (const side of [-1, 1]) {
+      const target = flightArmPose(side, 1.2, 0.4);
+      const result = solveArm(ARM.shoulder(side), target.target, target.pole);
+      expect(target.target[1]).toBeGreaterThan(1);
+      expect(result.clamped).toBe(false);
+      expect(distance(result.wrist, target.target)).toBeLessThan(1e-6);
+    }
   });
 });

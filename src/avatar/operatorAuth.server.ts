@@ -37,6 +37,10 @@ export const verifyOperatorAccess = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const expected = process.env["AUGI_OPERATOR_TOKEN"];
-    if (!expected || expected.length < 32) return { configured: false, authorized: false };
-    return { configured: true, authorized: await matchesSecret(data.token, expected) };
+    if (!expected || expected.length < 32) {
+      return { configured: false, authorized: false, operatorName: null };
+    }
+    const authorized = await matchesSecret(data.token, expected);
+    const operatorName = authorized ? process.env["OSIRIS_OPERATOR_NAME"]?.trim() || null : null;
+    return { configured: true, authorized, operatorName };
   });

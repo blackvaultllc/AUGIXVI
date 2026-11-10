@@ -438,6 +438,43 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+.avatar-stage .avatar-hud__response-source {
+  margin-top: 0.4rem;
+  color: var(--avatar-hud-accent);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.avatar-stage .avatar-hud__save-highlight {
+  margin-top: 0.4rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: var(--radius, 0.5rem);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.avatar-stage .avatar-hud__save-highlight:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.avatar-stage .avatar-hud__listening-flash {
+  display: inline-block;
+  width: 0.42rem;
+  height: 0.42rem;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.2;
+  vertical-align: 0.05em;
+}
+.avatar-stage .avatar-hud__listening-flash.is-active {
+  background: #ff4d6d;
+  opacity: 1;
+  box-shadow: 0 0 10px #ff4d6d;
+}
 .avatar-stage .avatar-hud__command-row {
   display: flex;
   gap: 0.5rem;
@@ -497,6 +534,65 @@
   border: 1px solid var(--avatar-hud-line);
   border-radius: var(--radius, 0.5rem);
   backdrop-filter: blur(8px);
+}
+.avatar-stage .avatar-hud__knowledge {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: 1.5rem;
+  width: min(32rem, calc(100vw - 3rem));
+  max-height: 72vh;
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: var(--radius, 0.5rem);
+  background: var(--avatar-hud-surface);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  font-size: 11px;
+  letter-spacing: normal;
+  line-height: 1.55;
+  text-transform: none;
+}
+.avatar-stage .avatar-hud__knowledge-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.avatar-stage .avatar-hud__knowledge-header h2,
+.avatar-stage .avatar-hud__knowledge h3 {
+  margin: 0.6rem 0 0.3rem;
+  color: var(--avatar-hud-accent);
+}
+.avatar-stage .avatar-hud__knowledge-header p,
+.avatar-stage .avatar-hud__knowledge > p {
+  margin: 0.35rem 0;
+}
+.avatar-stage .avatar-hud__knowledge-header button,
+.avatar-stage .avatar-hud__knowledge-upload input {
+  pointer-events: auto;
+}
+.avatar-stage .avatar-hud__knowledge-header button {
+  border: 1px solid var(--avatar-hud-line);
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.avatar-stage .avatar-hud__knowledge-upload {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.8rem 0;
+}
+.avatar-stage .avatar-hud__knowledge ul {
+  padding-left: 1.25rem;
+}
+.avatar-stage .avatar-hud__knowledge a {
+  color: var(--avatar-hud-accent);
+}
+.avatar-stage .avatar-hud__knowledge-error {
+  color: var(--avatar-hud-warn);
 }
 .avatar-stage .avatar-hud__row {
   display: grid;
@@ -585,6 +681,18 @@
   transform: none;
 }
 .avatar-stage--city .avatar-hud__bar > button:not(:first-child) {
+  display: none;
+}
+
+.avatar-stage--clear-screen .avatar-hud--commands,
+.avatar-stage--clear-screen .avatar-hud__bar,
+.avatar-stage--clear-screen .avatar-hud__panel,
+.avatar-stage--clear-screen .avatar-hud__knowledge,
+.avatar-stage--clear-screen .avatar-cube-backdrop {
+  display: none !important;
+}
+.avatar-stage--clear-screen .avatar-hud--tl > div:not(.avatar-hud__db-status):not(:nth-child(2)),
+.avatar-stage--clear-screen .avatar-hud--tl .avatar-hud__warning {
   display: none;
 }
 

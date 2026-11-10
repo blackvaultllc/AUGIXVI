@@ -55,8 +55,10 @@ export class AvatarLocomotion {
     this.mode = mode;
     this.returning = false;
     this.looking = false;
-    if (mode === "walk" || mode === "run" || mode === "fly") {
+    if (mode === "walk" || mode === "run") {
       this.scaleTarget = COMPACT_SCALE;
+    }
+    if (mode === "walk" || mode === "run" || mode === "fly") {
       if (!this.loopRoute) {
         this.waypoints = WORLD_RULES.walkRoute.map(
           (point) => new THREE.Vector3(point.x, 0, point.z),

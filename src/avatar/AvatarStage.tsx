@@ -23,6 +23,16 @@ import {
 } from "./themes";
 import { isCameraVisionRequest, parseWorldCommand, type MaterialKind } from "./worldCommands";
 import { describeCameraFrame } from "./vision";
+import { KnowledgePanel } from "./KnowledgePanel";
+import {
+  parseInteractionCommand,
+  loadClearScreenPreference,
+  loadSilentModePreference,
+  saveClearScreenPreference,
+  saveSilentModePreference,
+} from "./interactionControls";
+import { createHighlight, createLocalMemory, findLocalAnswer, splitDocument } from "./localMemory";
+import { lookupKnowledge } from "./knowledgeBase";
 import {
   createReadOnlySupabaseClient,
   type SupabaseConnectionStatus,
@@ -46,6 +56,12 @@ export function AvatarStage() {
   const sensRef = useRef<Sensors | null>(null);
   const aiRef = useRef<ReturnType<typeof attachOllamaAI> | null>(null);
   const recRef = useRef<{ stop: () => void } | null>(null);
+  const [silent, setSilent] = useState(loadSilentModePreference);
+  const memoryRef = useRef<ReturnType<typeof createLocalMemory> | null>(null);
+  memoryRef.current ??= createLocalMemory();
+  const silentRef = useRef(silent);
+  const lastQuestionRef = useRef("");
+  const micFlashTimer = useRef<number | null>(null);
   const [settings, setSettings] = useState<Settings>(() => ({
     ...DEFAULTS,
     ...loadThemePreference(),
@@ -60,7 +76,13 @@ export function AvatarStage() {
   const [presenting, setPresenting] = useState(false);
   const [chat, setChat] = useState("");
   const [lastWords, setLastWords] = useState("No response yet.");
+  const [responseSource, setResponseSource] = useState("awaiting response");
   const [aiOffline, setAiOffline] = useState(false);
+  const [clearScreen, setClearScreen] = useState(loadClearScreenPreference);
+  const [listeningFlash, setListeningFlash] = useState(false);
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
+  const [memoryCount, setMemoryCount] = useState(0);
+  const [memoryError, setMemoryError] = useState("");
   const [cubeOpen, setCubeOpen] = useState(false);
   const [cityState, setCityState] = useState<CoreCityState>({ mode: "CORE_FULL" });
   const [databaseStatus, setDatabaseStatus] = useState<SupabaseConnectionStatus>("not configured");
@@ -68,7 +90,10 @@ export function AvatarStage() {
   const cityOpen = cityState.mode === "CORE_SMALL";
   const themeAccent = getThemeAccent(settings.theme, settings.customColor);
 
-  const say = useCallback((text: string) => aiRef.current?.speak(text), []);
+  const say = useCallback((text: string) => {
+    setResponseSource("local command");
+    aiRef.current?.speak(text);
+  }, []);
 
   const executeWorldCommand = useCallback(
     (command: NonNullable<ReturnType<typeof parseWorldCommand>>) => {
@@ -192,8 +217,48 @@ export function AvatarStage() {
     b.present(b.presenting ? null : "file");
   }
   const sendCommand = useCallback(
-    async (text: string) => {
-      const parsed = parseCoreCommand(text);
+    async (text: string, source: "typed" | "voice" = "typed") => {
+      const applyInterfaceCommand = (type: "clear-screen" | "show-screen" | "silence") => {
+        if (type === "clear-screen") {
+          setClearScreen(true);
+          saveClearScreenPreference(true);
+        } else if (type === "show-screen") {
+          setClearScreen(false);
+          saveClearScreenPreference(false);
+        } else {
+          silentRef.current = true;
+          setSilent(true);
+          saveSilentModePreference(true);
+          aiRef.current?.setMuted(true);
+        }
+      };
+      let commandText = text;
+      const interaction = parseInteractionCommand(commandText);
+      if (interaction && interaction.type !== "wake") {
+        applyInterfaceCommand(interaction.type);
+        return;
+      }
+      if (interaction?.type === "wake") {
+        silentRef.current = false;
+        setSilent(false);
+        saveSilentModePreference(false);
+        aiRef.current?.setMuted(false);
+        if (!interaction.remainder) {
+          setResponseSource("wake word");
+          aiRef.current?.speak("Yes, Anubis.");
+          return;
+        }
+        commandText = interaction.remainder;
+        const followUp = parseInteractionCommand(commandText);
+        if (followUp && followUp.type !== "wake") {
+          applyInterfaceCommand(followUp.type);
+          return;
+        }
+      } else if (silentRef.current && source === "voice") {
+        return;
+      }
+      lastQuestionRef.current = commandText;
+      const parsed = parseCoreCommand(commandText);
       if (parsed.action === "BACK_TO_CORE") {
         transitionCityState(parsed.action);
         aiRef.current?.speak("Back to core.");
@@ -207,7 +272,11 @@ export function AvatarStage() {
       if (parsed.action === "WAKE_CORE") {
         transitionCityState(parsed.action);
         if (!parsed.message) {
-          bridgeRef.current.emitSummon();
+          silentRef.current = false;
+          setSilent(false);
+          saveSilentModePreference(false);
+          aiRef.current?.setMuted(false);
+          aiRef.current?.speak("Yes, Anubis.");
           return;
         }
       }
@@ -227,6 +296,7 @@ export function AvatarStage() {
         const description = await describeCameraFrame(
           sensors?.cameraIsActive ? sensors.video : null,
         );
+        setResponseSource("camera description");
         aiRef.current?.speak(description);
         return;
       }
@@ -246,8 +316,23 @@ export function AvatarStage() {
     const ai = attachOllamaAI(bridge, {
       onSpeak: setLastWords,
       onOfflineChange: setAiOffline,
+      onResponseSource: setResponseSource,
+      findOfflineAnswer: (text) => {
+        const memory = memoryRef.current;
+        if (!memory) return null;
+        try {
+          const remembered = findLocalAnswer(text, memory);
+          if (remembered) return remembered;
+          const known = lookupKnowledge(text);
+          return known ? { answer: known, source: "local knowledge" } : null;
+        } catch (error) {
+          setMemoryError(error instanceof Error ? error.message : "Local memory is unavailable.");
+          return null;
+        }
+      },
     });
     aiRef.current = ai;
+    ai.setMuted(silentRef.current);
     // Speech recognition feeds Ollama; gestures ("front the file") stay local.
     const W = window as unknown as {
       SpeechRecognition?: new () => Rec;
@@ -271,7 +356,7 @@ export function AvatarStage() {
         rec.interimResults = false;
         rec.onresult = (e) => {
           const t = e.results[e.results.length - 1]?.[0]?.transcript;
-          if (t) void sendCommand(t);
+          if (t) void sendCommand(t, "voice");
         };
         rec.onend = () => {
           rec = null;
@@ -311,7 +396,7 @@ export function AvatarStage() {
     document.addEventListener("pointerleave", leave);
     const key = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
-      if (e.key === "s") bridge.emitSummon();
+      if (e.key === "s") void sendCommand("Osiris", "voice");
       if (e.key === "p") togglePresent();
     };
     window.addEventListener("keydown", key);
@@ -322,12 +407,21 @@ export function AvatarStage() {
       window.removeEventListener("pointermove", move);
       document.removeEventListener("pointerleave", leave);
       window.removeEventListener("keydown", key);
+      if (micFlashTimer.current !== null) window.clearTimeout(micFlashTimer.current);
       recRef.current?.stop();
       aiRef.current?.dispose();
       sensRef.current?.stop();
       r.dispose();
     };
   }, [sendCommand]);
+
+  useEffect(() => {
+    try {
+      setMemoryCount(memoryRef.current?.list().length ?? 0);
+    } catch (error) {
+      setMemoryError(error instanceof Error ? error.message : "Local memory could not be loaded.");
+    }
+  }, []);
 
   useEffect(() => {
     const client = createReadOnlySupabaseClient();
@@ -372,7 +466,12 @@ export function AvatarStage() {
           if (r)
             r.inputs.sweep = THREE.MathUtils.clamp(r.inputs.sweep + Math.sign(vx) * 0.3, -1, 1);
         },
-        onMicLevel: () => {},
+        onMicLevel: (value) => {
+          if (value < 0.02) return;
+          setListeningFlash(true);
+          if (micFlashTimer.current !== null) window.clearTimeout(micFlashTimer.current);
+          micFlashTimer.current = window.setTimeout(() => setListeningFlash(false), 240);
+        },
       },
       {
         sensitivity: settings.sensitivity,
@@ -404,6 +503,32 @@ export function AvatarStage() {
     saveThemePreference({ theme: next.theme, customColor: next.customColor });
   }
 
+  function saveCurrentHighlight() {
+    const memory = memoryRef.current;
+    if (!memory || !lastQuestionRef.current || lastWords === "No response yet.") return;
+    try {
+      setMemoryCount(memory.save([createHighlight(lastQuestionRef.current, lastWords)]));
+      setMemoryError("");
+    } catch (error) {
+      setMemoryError(error instanceof Error ? error.message : "The highlight could not be saved.");
+    }
+  }
+
+  async function importKnowledgeFile(file: File) {
+    const memory = memoryRef.current;
+    if (!memory) return;
+    setMemoryError("");
+    try {
+      if (file.size > 500_000) throw new RangeError("Documents must be 500 KB or smaller.");
+      const records = splitDocument(file.name, await file.text());
+      setMemoryCount(memory.save(records));
+    } catch (error) {
+      setMemoryError(
+        error instanceof Error ? error.message : "The document could not be imported.",
+      );
+    }
+  }
+
   const stageStyle = {
     "--avatar-hud-accent": themeAccent,
     "--avatar-hud-line": `${themeAccent}80`,
@@ -413,14 +538,27 @@ export function AvatarStage() {
     <>
       {cityOpen && <CityView />}
       <div
-        className={`avatar-stage${cityOpen ? " avatar-stage--city" : ""}`}
+        className={`avatar-stage${cityOpen ? " avatar-stage--city" : ""}${clearScreen ? " avatar-stage--clear-screen" : ""}`}
         data-scene-ready={ready ? "" : undefined}
         style={stageStyle}
       >
         <div ref={host} className="absolute inset-0" />
-        {cubeOpen && <CubePanel onClose={() => setCubeOpen(false)} />}
+        {cubeOpen && (
+          <CubePanel
+            onClose={() => setCubeOpen(false)}
+            onAuthorized={(name) => aiRef.current?.setOperatorIdentity(name)}
+          />
+        )}
+        {knowledgeOpen && (
+          <KnowledgePanel
+            count={memoryCount}
+            error={memoryError}
+            onClose={() => setKnowledgeOpen(false)}
+            onImport={(file) => void importKnowledgeFile(file)}
+          />
+        )}
         <div className="avatar-hud avatar-hud--tr">
-          {aiOffline && (
+          {aiOffline && !clearScreen && (
             <div className="avatar-hud__offline" role="status">
               <span>OFFLINE</span>
               <button
@@ -433,7 +571,14 @@ export function AvatarStage() {
             </div>
           )}
           <div>
-            STATUS: <span className="avatar-hud__value">{state}</span>
+            STATUS:{" "}
+            <span className="avatar-hud__value">
+              <span
+                className={`avatar-hud__listening-flash${listeningFlash ? " is-active" : ""}`}
+              />
+              {state}
+              {aiOffline ? " · OFFLINE" : silent ? " · SILENT" : ""}
+            </span>
           </div>
           <div>
             INTENSITY: <span className="avatar-hud__value">{intensityLabel(level)}</span>
@@ -442,18 +587,31 @@ export function AvatarStage() {
         <div className="avatar-hud avatar-hud--tl">
           <div className="avatar-hud__db-status">DB: {databaseStatus.toUpperCase()}</div>
           <div>
-            {perf.fps} FPS · {(perf.particles / 1000).toFixed(0)}K PTS
+            {perf.fps} FPS {!clearScreen && `· ${(perf.particles / 1000).toFixed(0)}K PTS`}
           </div>
-          <div>
-            CAM {sensor?.camera ? "ON" : "OFF"} · MIC {sensor?.mic ? "ON" : "OFF"} · HANDS{" "}
-            {sensor?.hands ? "ON" : "OFF"}
-          </div>
-          {sensor?.error && <div className="avatar-hud__warning">{sensor.error}</div>}
+          {!clearScreen && (
+            <div>
+              CAM {sensor?.camera ? "ON" : "OFF"} · MIC {sensor?.mic ? "ON" : "OFF"} · HANDS{" "}
+              {sensor?.hands ? "ON" : "OFF"}
+            </div>
+          )}
+          {sensor?.error && !clearScreen && (
+            <div className="avatar-hud__warning">{sensor.error}</div>
+          )}
         </div>
         <div className="avatar-hud avatar-hud--commands">
           <div className="avatar-hud__last-words" aria-live="polite">
             <div className="avatar-hud__last-words-label">{displayName}&apos;s last words</div>
             <p>{lastWords}</p>
+            <div className="avatar-hud__response-source">Response: {responseSource}</div>
+            <button
+              className="avatar-hud__save-highlight"
+              type="button"
+              onClick={saveCurrentHighlight}
+              disabled={!lastQuestionRef.current || lastWords === "No response yet."}
+            >
+              Save highlight
+            </button>
           </div>
           <form
             onSubmit={(e) => {
@@ -499,6 +657,24 @@ export function AvatarStage() {
               City
             </button>
           )}
+          <button
+            className="avatar-hud__button"
+            onClick={() => {
+              const next = !clearScreen;
+              setClearScreen(next);
+              saveClearScreenPreference(next);
+            }}
+            type="button"
+          >
+            {clearScreen ? "Show screen" : "Clear screen"}
+          </button>
+          <button
+            className="avatar-hud__button"
+            onClick={() => setKnowledgeOpen((open) => !open)}
+            type="button"
+          >
+            Knowledge
+          </button>
           {!cityOpen && (
             <>
               <button
@@ -562,8 +738,9 @@ export function AvatarStage() {
           )}
           <button
             className="avatar-hud__button"
-            onClick={() => bridgeRef.current.emitSummon()}
+            onClick={() => void sendCommand("Osiris")}
             title="Summon assistant (S)"
+            type="button"
           >
             Summon
           </button>

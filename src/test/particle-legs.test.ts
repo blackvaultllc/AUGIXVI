@@ -61,6 +61,19 @@ describe("particle legs", () => {
     expect(leftLegParticles).toBe(6000);
     expect(rightLegParticles).toBe(6000);
     expect(data.legSide.filter((side) => side === 0)).toHaveLength(108_000);
+
+    let frontBodyPoints = 0;
+    let backBodyPoints = 0;
+    for (let index = 0; index < data.positions.length / 3; index += 1) {
+      const y = data.positions[index * 3 + 1]!;
+      const z = data.positions[index * 3 + 2]!;
+      if (y > -0.5 && y < 0.1 && data.legSide[index] === 0) {
+        if (z > 0.25) frontBodyPoints += 1;
+        if (z < -0.25) backBodyPoints += 1;
+      }
+    }
+    expect(frontBodyPoints).toBeGreaterThan(1000);
+    expect(backBodyPoints).toBeGreaterThan(1000);
   });
 
   it("keeps the alternating swing at full and compact scales", () => {

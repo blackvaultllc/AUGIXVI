@@ -16,7 +16,13 @@ const BASE_OPTIONS: { value: NumberBase; label: string }[] = [
   { value: 16, label: "Hexadecimal" },
 ];
 
-export function CubePanel({ onClose }: { onClose: () => void }) {
+export function CubePanel({
+  onClose,
+  onAuthorized,
+}: {
+  onClose: () => void;
+  onAuthorized?: (operatorName: string) => void;
+}) {
   const closeButton = useRef<HTMLButtonElement>(null);
   const closeHandler = useRef(onClose);
   closeHandler.current = onClose;
@@ -48,6 +54,7 @@ export function CubePanel({ onClose }: { onClose: () => void }) {
     try {
       const result = await verifyOperatorAccess({ data: { token: operatorToken } });
       setOperatorToken("");
+      if (result.authorized && result.operatorName) onAuthorized?.(result.operatorName);
       setOperatorStatus(
         !result.configured ? "not-configured" : result.authorized ? "open" : "denied",
       );

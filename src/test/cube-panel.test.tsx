@@ -13,7 +13,11 @@ describe("hidden cube reference panel", () => {
   });
 
   it("keeps the cube locked when server operator access is not configured", async () => {
-    vi.mocked(verifyOperatorAccess).mockResolvedValue({ configured: false, authorized: false });
+    vi.mocked(verifyOperatorAccess).mockResolvedValue({
+      configured: false,
+      authorized: false,
+      operatorName: null,
+    });
     render(<CubePanel onClose={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText("Operator token"), { target: { value: "private" } });
@@ -24,7 +28,11 @@ describe("hidden cube reference panel", () => {
   });
 
   it("shows conversions only after server verification succeeds", async () => {
-    vi.mocked(verifyOperatorAccess).mockResolvedValue({ configured: true, authorized: true });
+    vi.mocked(verifyOperatorAccess).mockResolvedValue({
+      configured: true,
+      authorized: true,
+      operatorName: null,
+    });
     render(<CubePanel onClose={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText("Operator token"), { target: { value: "private" } });
@@ -42,7 +50,11 @@ describe("hidden cube reference panel", () => {
   });
 
   it("denies invalid tokens without showing cube contents", async () => {
-    vi.mocked(verifyOperatorAccess).mockResolvedValue({ configured: true, authorized: false });
+    vi.mocked(verifyOperatorAccess).mockResolvedValue({
+      configured: true,
+      authorized: false,
+      operatorName: null,
+    });
     render(<CubePanel onClose={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText("Operator token"), { target: { value: "private" } });
@@ -53,7 +65,11 @@ describe("hidden cube reference panel", () => {
   });
 
   it("supports changing the input base and closing after unlock", async () => {
-    vi.mocked(verifyOperatorAccess).mockResolvedValue({ configured: true, authorized: true });
+    vi.mocked(verifyOperatorAccess).mockResolvedValue({
+      configured: true,
+      authorized: true,
+      operatorName: null,
+    });
     const onClose = vi.fn();
     render(<CubePanel onClose={onClose} />);
 
@@ -66,6 +82,21 @@ describe("hidden cube reference panel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("passes the verified server-configured operator name to the local assistant", async () => {
+    vi.mocked(verifyOperatorAccess).mockResolvedValue({
+      configured: true,
+      authorized: true,
+      operatorName: "Configured operator",
+    });
+    const onAuthorized = vi.fn();
+    render(<CubePanel onClose={vi.fn()} onAuthorized={onAuthorized} />);
+
+    fireEvent.change(screen.getByLabelText("Operator token"), { target: { value: "private" } });
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+
+    await waitFor(() => expect(onAuthorized).toHaveBeenCalledWith("Configured operator"));
   });
 
   it("closes with Escape", () => {

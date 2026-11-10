@@ -8,7 +8,7 @@ import { proceduralBust, type ParticleSource } from "./particleSource";
 import { spring, targetParams, type Params } from "./stateParams";
 import { filePoints, handPoints, limbPoints, makeProp } from "./props";
 import { getLegGaitAngle } from "./particleLegs";
-import { ARM, armPose, handDirection, solveArm, type V3 } from "./armIK";
+import { ARM, armPose, flightArmPose, handDirection, solveArm, type V3 } from "./armIK";
 import { getThemePalette, type ThemeChoice } from "./themes";
 import { SceneManager } from "./sceneManager";
 import type { MaterialKind } from "./worldCommands";
@@ -186,6 +186,8 @@ export class AvatarRenderer {
   private arms: THREE.Points[] = [];
   private forearms: THREE.Points[] = [];
   private file!: THREE.Points;
+  private cape!: THREE.Points;
+  private capeBasePositions = new Float32Array();
   private handForm = 0;
   private fileForm = 0;
   private pose = 0;
@@ -253,8 +255,10 @@ export class AvatarRenderer {
         uColVein: u(new THREE.Color()),
       },
     });
+    this.cape = this.createCape();
     this.applyTheme();
     this.character.add(new THREE.Points(this.geo, this.mat));
+    this.character.add(this.cape);
     for (const side of [-1, 1] as const) {
       const h = makeProp(handPoints(7000, side), 2.5);
       h.scale.setScalar(1.25);
@@ -301,6 +305,40 @@ export class AvatarRenderer {
     rgb(U.uColB.value, t.b);
     rgb(U.uColCore.value, t.core);
     rgb(U.uColVein.value, t.vein);
+    (this.cape.material as THREE.PointsMaterial).color.setRGB(t.a[0]!, t.a[1]!, t.a[2]!);
+  }
+  private createCape() {
+    const rows = 30;
+    const columns = 49;
+    const count = rows * columns;
+    this.capeBasePositions = new Float32Array(count * 3);
+    let index = 0;
+    for (let row = 0; row < rows; row += 1) {
+      const progress = row / (rows - 1);
+      const width = 0.18 + progress * 0.75;
+      for (let column = 0; column < columns; column += 1) {
+        const across = (column / (columns - 1)) * 2 - 1;
+        this.capeBasePositions[index++] = across * width;
+        this.capeBasePositions[index++] = 0.32 - progress * 2.45;
+        this.capeBasePositions[index++] = -0.38 - Math.abs(across) * 0.06;
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(this.capeBasePositions.slice(), 3));
+    const palette = getThemePalette(this.settings.theme, this.settings.customColor);
+    const cape = new THREE.Points(
+      geometry,
+      new THREE.PointsMaterial({
+        color: new THREE.Color(palette.a[0]!, palette.a[1]!, palette.a[2]!),
+        size: 0.035,
+        transparent: true,
+        opacity: 0.72,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    cape.visible = false;
+    return cape;
   }
   private applyPropTheme() {
     const t = getThemePalette(this.settings.theme, this.settings.customColor);
@@ -329,7 +367,10 @@ export class AvatarRenderer {
     const p = this.pose;
     this.hands.forEach((h, i) => {
       const side = i === 0 ? -1 : 1;
-      const pose = armPose(side, p, t, sp, i);
+      const pose =
+        this.locomotion.currentMode === "fly"
+          ? flightArmPose(side, t, sp, i)
+          : armPose(side, p, t, sp, i);
       const shoulder = ARM.shoulder(side);
       const { elbow, wrist } = solveArm(shoulder, pose.target, pose.pole);
       const vector = (point: V3) => new THREE.Vector3(...point);
@@ -464,12 +505,27 @@ export class AvatarRenderer {
   private moveAvatar(dt: number, t: number) {
     this.locomotion.tick(dt);
     const speaking = this.bridge.state === "SPEAKING" ? this.bridge.speechLevel : 0;
-    this.character.rotation.z = Math.sin(t * 1.2) * 0.012 + Math.sin(t * 3.2) * speaking * 0.025;
+    const flying = this.locomotion.currentMode === "fly";
+    this.character.rotation.x += (0 - this.character.rotation.x) * (1 - Math.exp(-5 * dt));
+    const flightRoll = flying ? -Math.PI / 2 : 0;
+    this.character.rotation.z =
+      flightRoll + Math.sin(t * 1.2) * 0.012 + Math.sin(t * 3.2) * speaking * 0.025;
     this.character.position.x = Math.sin(t * 1.4) * 0.018 + Math.sin(t * 2.7) * speaking * 0.045;
+    this.cape.visible = flying;
+    const capePositions = this.cape.geometry.getAttribute("position") as THREE.BufferAttribute;
+    for (let i = 0; i < this.capeBasePositions.length; i += 3) {
+      const x = this.capeBasePositions[i]!;
+      const y = this.capeBasePositions[i + 1]!;
+      capePositions.array[i] = x + Math.sin(t * 2.3 + y * 3.2 + x * 2.4) * 0.06;
+      capePositions.array[i + 1] = y;
+      capePositions.array[i + 2] =
+        this.capeBasePositions[i + 2]! + Math.sin(t * 2.8 + y * 2.1 + x) * 0.08;
+    }
+    capePositions.needsUpdate = true;
     const uniforms = this.mat.uniforms as unknown as Uniforms;
     uniforms.uLegSwing.value.set(
-      getLegGaitAngle(this.locomotion.isMoving, t, 0, speaking),
-      getLegGaitAngle(this.locomotion.isMoving, t, 1, speaking),
+      getLegGaitAngle(this.locomotion.isWalking, t, 0, speaking),
+      getLegGaitAngle(this.locomotion.isWalking, t, 1, speaking),
     );
   }
   shrink() {
@@ -550,7 +606,7 @@ export class AvatarRenderer {
     this.geo.dispose();
     this.mat.dispose();
     this.sceneManager.dispose();
-    for (const o of [...this.hands, ...this.arms, ...this.forearms, this.file]) {
+    for (const o of [...this.hands, ...this.arms, ...this.forearms, this.file, this.cape]) {
       o.geometry.dispose();
       (o.material as THREE.Material).dispose();
     }

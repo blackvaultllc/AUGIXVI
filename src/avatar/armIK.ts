@@ -76,6 +76,16 @@ export function armPose(side: number, pose: number, t: number, speech: number, p
   };
 }
 
+export function flightArmPose(side: number, t: number, speech: number, phase = 0): ArmPose {
+  const gesture = speech * (0.05 + 0.035 * Math.sin(t * 3.8 + phase));
+  return {
+    target: [side * (0.18 + gesture), 1.28 + gesture, 0.28],
+    pole: [side * 0.55, 0.85, -0.35],
+    palm: [0, 0.25, 1],
+    curl: 0,
+  };
+}
+
 export function handDirection(elbow: V3, wrist: V3, side: number, curl: number): V3 {
   const forearm = norm(sub(wrist, elbow));
   return norm(add(forearm, [-side * 0.9 * curl, 0.7 * curl, 0]));
