@@ -169,7 +169,25 @@
 .hud-btn { font: inherit; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.5rem 0.9rem; border: 1px solid var(--hud-line); background: var(--hud-surface); color: var(--foreground); border-radius: var(--radius); backdrop-filter: blur(6px); cursor: pointer; transition: border-color .2s, color .2s; }
 .hud-btn:hover { border-color: var(--hud-accent); color: var(--hud-accent); }
 .hud-btn-primary { border-color: var(--hud-accent); color: var(--hud-accent); }
+.hud-br { position: absolute; right: 1.5rem; bottom: 4.5rem; width: min(26rem, calc(100vw - 3rem)); pointer-events: auto; text-transform: none; letter-spacing: normal; }
+.hud-last-words { margin-bottom: 0.5rem; padding: 0.75rem; border: 1px solid var(--hud-line); border-radius: var(--radius); background: var(--hud-surface); backdrop-filter: blur(8px); }
+.hud-last-words-label { color: var(--hud-accent); font-size: 10px; letter-spacing: 0.15em; }
+.hud-last-words p { margin: 0.35rem 0 0; max-height: 7rem; overflow-y: auto; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.hud-command-row { display: flex; gap: 0.5rem; }
+.hud-input { min-width: 0; flex: 1; font: inherit; font-size: 12px; padding: 0.5rem 0.75rem; background: var(--hud-surface); color: var(--foreground); border: 1px solid var(--hud-line); border-radius: var(--radius); backdrop-filter: blur(6px); outline: none; }
+.hud-send { font: inherit; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.5rem 0.75rem; border: 1px solid var(--hud-line); background: var(--hud-surface); color: var(--foreground); border-radius: var(--radius); cursor: pointer; }
+.hud-send:hover:not(:disabled) { border-color: var(--hud-accent); color: var(--hud-accent); }
+.hud-send:disabled { cursor: not-allowed; opacity: 0.5; }
+.hud-input:focus { border-color: var(--hud-accent); }
+.hud-input::placeholder { color: var(--muted-foreground, #64748b); }
+.hud-panel { z-index: 1; }
 .hud-panel { position: absolute; right: 1.5rem; bottom: 4.5rem; width: 260px; padding: 1rem; display: grid; gap: 0.75rem; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; background: var(--hud-surface); border: 1px solid var(--hud-line); border-radius: var(--radius); backdrop-filter: blur(8px); }
 .hud-row { display: grid; gap: 0.3rem; }
 .hud-range { accent-color: var(--hud-accent); width: 100%; }
 .hud-select { font: inherit; background: var(--background); color: var(--foreground); border: 1px solid var(--hud-line); padding: 0.25rem; }
+
+@media (max-width: 640px) {
+  .hud-br { left: 1rem; right: 1rem; bottom: 5.5rem; width: auto; }
+  .hud-bar { width: calc(100% - 2rem); flex-wrap: wrap; justify-content: center; }
+  .hud-btn { padding: 0.45rem 0.6rem; }
+}
