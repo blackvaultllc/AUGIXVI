@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { WORLD_RULES, type WorldPoint } from "./worldRules";
 
 const FOOT_Y = -3.2;
 const COMPACT_SCALE = 0.34;
@@ -7,8 +6,17 @@ const MIN_SPEED = 0.25;
 const MAX_SPEED = 3;
 const JUMP_SECONDS = 0.9;
 const JUMP_HEIGHT = 1.1;
+const DEFAULT_WALK_ROUTE = [
+  { x: 0, z: 0 },
+  { x: -2.2, z: 0.8 },
+  { x: -1.4, z: 2.8 },
+  { x: 1.6, z: 2.6 },
+  { x: 2.2, z: 0.6 },
+  { x: 0, z: 0 },
+] as const;
 
 export type LocomotionMode = "idle" | "walk" | "run" | "fly" | "jump";
+export type LocomotionPoint = Readonly<{ x: number; z: number }>;
 
 export class AvatarLocomotion {
   private scaleTarget = 1;
@@ -19,7 +27,7 @@ export class AvatarLocomotion {
   private waypointIndex = 0;
   private jumpElapsed = 0;
   private loopRoute = true;
-  private waypoints: THREE.Vector3[] = WORLD_RULES.walkRoute.map(
+  private waypoints: THREE.Vector3[] = DEFAULT_WALK_ROUTE.map(
     (point) => new THREE.Vector3(point.x, 0, point.z),
   );
 
@@ -60,9 +68,7 @@ export class AvatarLocomotion {
     }
     if (mode === "walk" || mode === "run" || mode === "fly") {
       if (!this.loopRoute) {
-        this.waypoints = WORLD_RULES.walkRoute.map(
-          (point) => new THREE.Vector3(point.x, 0, point.z),
-        );
+        this.waypoints = DEFAULT_WALK_ROUTE.map((point) => new THREE.Vector3(point.x, 0, point.z));
         this.waypointIndex = 0;
         this.loopRoute = true;
       }
@@ -108,7 +114,7 @@ export class AvatarLocomotion {
     this.looking = true;
   }
 
-  followPath(points: readonly WorldPoint[]) {
+  followPath(points: readonly LocomotionPoint[]) {
     if (points.length < 2) return false;
     this.setMode("walk");
     this.waypoints = points.map((point) => new THREE.Vector3(point.x, 0, point.z));

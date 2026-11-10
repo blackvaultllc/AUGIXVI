@@ -1,129 +1,237 @@
 import * as THREE from "three";
+import { getThemePalette, type ThemeChoice } from "./themes";
 import type { MaterialKind } from "./worldCommands";
-import { WORLD_RULES, type WorldPoint } from "./worldRules";
 
 type SceneEntity = { kind: MaterialKind; group: THREE.Group };
 type MoveDirection = "left" | "right" | "forward" | "back" | "up" | "down";
+type WorldPoint = Readonly<{ x: number; z: number }>;
 
 const GROUND_Y = -3.2;
-const PALETTE: Record<MaterialKind, number> = {
-  building: 0x8292a8,
-  car: 0xff653b,
-  blimp: 0x55c9ff,
-  balloon: 0xff7ac4,
-  door: 0x55d7d0,
-  room: 0x879bb2,
-  mountain: 0x384d75,
-  tree: 0x35b87a,
-  box: 0xf0b84c,
-  sphere: 0x9a78ff,
-  light: 0xffed91,
-};
+const DEFAULT_THEME_COLOR = "#22d3ee";
 
-function material(color: number, emissive = false) {
-  return new THREE.MeshStandardMaterial({
-    color,
-    emissive: emissive ? color : 0x000000,
-    emissiveIntensity: emissive ? 0.6 : 0,
-    roughness: 0.62,
-    metalness: 0.08,
-  });
-}
-
-function mesh(
-  geometry: THREE.BufferGeometry,
-  color: number,
-  position: [number, number, number],
-  options: { emissive?: boolean; scale?: [number, number, number] } = {},
+function appendLine(
+  output: number[],
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  segments = 36,
+  radius = 0.015,
 ) {
-  const object = new THREE.Mesh(geometry, material(color, options.emissive));
-  object.position.set(...position);
-  if (options.scale) object.scale.set(...options.scale);
-  return object;
+  for (let index = 0; index <= segments; index += 1) {
+    const point = start.clone().lerp(end, index / segments);
+    output.push(
+      point.x + (Math.random() - 0.5) * radius,
+      point.y + (Math.random() - 0.5) * radius,
+      point.z + (Math.random() - 0.5) * radius,
+    );
+  }
 }
 
-function buildObject(kind: MaterialKind): THREE.Group {
-  const group = new THREE.Group();
-  const color = PALETTE[kind];
+function appendBoxEdges(
+  output: number[],
+  center: THREE.Vector3,
+  width: number,
+  height: number,
+  depth: number,
+  segments = 28,
+) {
+  const [x, y, z] = center.toArray();
+  const corners = [
+    new THREE.Vector3(x - width / 2, y - height / 2, z - depth / 2),
+    new THREE.Vector3(x + width / 2, y - height / 2, z - depth / 2),
+    new THREE.Vector3(x - width / 2, y + height / 2, z - depth / 2),
+    new THREE.Vector3(x + width / 2, y + height / 2, z - depth / 2),
+    new THREE.Vector3(x - width / 2, y - height / 2, z + depth / 2),
+    new THREE.Vector3(x + width / 2, y - height / 2, z + depth / 2),
+    new THREE.Vector3(x - width / 2, y + height / 2, z + depth / 2),
+    new THREE.Vector3(x + width / 2, y + height / 2, z + depth / 2),
+  ];
+  const edges = [
+    [0, 1],
+    [0, 2],
+    [0, 4],
+    [1, 3],
+    [1, 5],
+    [2, 3],
+    [2, 6],
+    [3, 7],
+    [4, 5],
+    [4, 6],
+    [5, 7],
+    [6, 7],
+  ] as const;
+  for (const [from, to] of edges) appendLine(output, corners[from]!, corners[to]!, segments);
+}
+
+function appendEllipsoid(
+  output: number[],
+  center: THREE.Vector3,
+  radii: THREE.Vector3,
+  count: number,
+  shell = false,
+) {
+  for (let index = 0; index < count; index += 1) {
+    const y = Math.random() * 2 - 1;
+    const angle = Math.random() * Math.PI * 2;
+    const surfaceRadius = Math.sqrt(1 - y * y);
+    const scale = shell ? 0.86 + Math.random() * 0.14 : Math.cbrt(Math.random());
+    output.push(
+      center.x + Math.cos(angle) * surfaceRadius * radii.x * scale,
+      center.y + y * radii.y * scale,
+      center.z + Math.sin(angle) * surfaceRadius * radii.z * scale,
+    );
+  }
+}
+
+function appendCone(
+  output: number[],
+  base: THREE.Vector3,
+  radius: number,
+  height: number,
+  count: number,
+) {
+  for (let index = 0; index < count; index += 1) {
+    const y = Math.random() * height;
+    const angle = Math.random() * Math.PI * 2;
+    const edgeRadius = radius * (1 - y / height);
+    const r = edgeRadius * (0.65 + Math.random() * 0.35);
+    output.push(base.x + Math.cos(angle) * r, base.y + y, base.z + Math.sin(angle) * r);
+  }
+}
+
+function appendCylinder(
+  output: number[],
+  center: THREE.Vector3,
+  radius: number,
+  height: number,
+  count: number,
+) {
+  for (let index = 0; index < count; index += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const y = Math.random() * height - height / 2;
+    const r = radius * (0.8 + Math.random() * 0.2);
+    output.push(center.x + Math.cos(angle) * r, center.y + y, center.z + Math.sin(angle) * r);
+  }
+}
+
+function makeObjectPoints(kind: MaterialKind, density = 1): Float32Array {
+  const output: number[] = [];
+  const line = (from: [number, number, number], to: [number, number, number], count = 36) =>
+    appendLine(output, new THREE.Vector3(...from), new THREE.Vector3(...to), count);
+
   if (kind === "building" || kind === "room") {
-    const wall = material(PALETTE[kind]);
-    const wallGeometry = new THREE.BoxGeometry(0.16, 2.5, 2.6);
+    const y0 = 0;
+    const y1 = 2.5;
+    for (const z of [-1.3, 1.3]) {
+      for (const x of [-1.4, 1.4]) line([x, y0, z], [x, y1, z], 52);
+      if (z < 0) line([-1.4, y0, z], [1.4, y0, z], 58);
+      line([-1.4, y1, z], [1.4, y1, z], 58);
+    }
     for (const x of [-1.4, 1.4]) {
-      const side = new THREE.Mesh(wallGeometry, wall);
-      side.position.set(x, 1.25, 0);
-      group.add(side);
+      line([x, y0, -1.3], [x, y0, 1.3], 48);
+      line([x, y1, -1.3], [x, y1, 1.3], 48);
     }
-    const back = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.5, 0.16), wall);
-    back.position.set(0, 1.25, -1.3);
-    group.add(back);
-    for (const x of [-0.95, 0.95]) {
-      const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.5, 0.16), wall);
-      frontPost.position.set(x, 1.25, 1.3);
-      group.add(frontPost);
-    }
-    const lintel = new THREE.Mesh(new THREE.BoxGeometry(1, 0.7, 0.16), wall);
-    lintel.position.set(0, 2.15, 1.3);
-    group.add(lintel);
+    for (const x of [-0.95, 0.95]) line([x, y0, 1.3], [x, 2.1, 1.3], 46);
+    line([-0.95, 2.1, 1.3], [0.95, 2.1, 1.3], 40);
     if (kind === "building") {
-      const roof = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.16, 2.8), material(0x53657b));
-      roof.position.y = 2.58;
-      group.add(roof);
+      for (const x of [-1.4, 1.4]) line([x, 2.58, -1.3], [x, 2.58, 1.3], 40);
+      line([-1.4, 2.58, -1.3], [1.4, 2.58, -1.3], 42);
+      line([-1.4, 2.58, 1.3], [1.4, 2.58, 1.3], 42);
     }
   } else if (kind === "door") {
-    const frame = material(PALETTE.door, true);
-    for (const x of [-0.62, 0.62]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.4, 0.14), frame);
-      post.position.set(x, 1.2, 0);
-      group.add(post);
-    }
-    const top = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.14, 0.14), frame);
-    top.position.y = 2.33;
-    group.add(top);
+    line([-0.62, 0, 0], [-0.62, 2.4, 0], 56);
+    line([0.62, 0, 0], [0.62, 2.4, 0], 56);
+    line([-0.69, 2.33, 0], [0.69, 2.33, 0], 48);
   } else if (kind === "car") {
-    group.add(mesh(new THREE.BoxGeometry(1.05, 0.32, 0.56), color, [0, 0.27, 0]));
-    group.add(mesh(new THREE.BoxGeometry(0.52, 0.34, 0.48), 0x9bdcff, [0.02, 0.58, 0]));
-    for (const x of [-0.36, 0.36]) {
-      for (const z of [-0.29, 0.29]) {
-        const tire = mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.11, 12), 0x171b23, [x, 0.14, z]);
-        tire.rotation.z = Math.PI / 2;
-        group.add(tire);
+    appendBoxEdges(output, new THREE.Vector3(0, 0.3, 0), 1.2, 0.38, 0.68, 34);
+    appendBoxEdges(output, new THREE.Vector3(0, 0.67, -0.02), 0.72, 0.4, 0.54, 30);
+    for (const x of [-0.38, 0.38]) {
+      for (const z of [-0.34, 0.34]) {
+        for (let index = 0; index < 36; index += 1) {
+          const angle = (index / 36) * Math.PI * 2;
+          output.push(x + Math.cos(angle) * 0.14, 0.14 + Math.sin(angle) * 0.14, z);
+        }
       }
     }
   } else if (kind === "blimp") {
-    group.add(
-      mesh(new THREE.SphereGeometry(0.7, 24, 16), color, [0, 0, 0], { scale: [1.7, 0.58, 0.65] }),
-    );
-    group.add(mesh(new THREE.BoxGeometry(0.36, 0.18, 0.42), 0xd8eaff, [-1.12, 0, 0]));
-    group.add(mesh(new THREE.BoxGeometry(0.45, 0.2, 0.35), 0xd8eaff, [0, -0.5, 0]));
-    group.position.y = GROUND_Y + 4.5;
+    appendEllipsoid(output, new THREE.Vector3(), new THREE.Vector3(1.2, 0.42, 0.48), 1100, true);
+    appendBoxEdges(output, new THREE.Vector3(-1.25, 0, 0), 0.36, 0.2, 0.4, 16);
+    appendBoxEdges(output, new THREE.Vector3(0, -0.48, 0), 0.4, 0.16, 0.3, 16);
   } else if (kind === "balloon") {
-    group.add(mesh(new THREE.SphereGeometry(0.72, 24, 18), color, [0, 0.5, 0]));
-    group.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.55, 8), 0xdec99d, [0, -0.18, 0]));
-    group.add(mesh(new THREE.BoxGeometry(0.38, 0.24, 0.34), 0x825c3b, [0, -0.62, 0]));
-    group.position.y = GROUND_Y + 4;
+    appendEllipsoid(
+      output,
+      new THREE.Vector3(0, 0.5, 0),
+      new THREE.Vector3(0.65, 0.78, 0.58),
+      900,
+      true,
+    );
+    appendCylinder(output, new THREE.Vector3(0, -0.05, 0), 0.012, 0.55, 80);
+    appendBoxEdges(output, new THREE.Vector3(0, -0.45, 0), 0.36, 0.22, 0.32, 18);
   } else if (kind === "mountain") {
-    group.add(mesh(new THREE.ConeGeometry(1.05, 3.8, 7), color, [0, 1.9, 0]));
-    group.add(mesh(new THREE.ConeGeometry(0.75, 2.9, 7), 0x4c6288, [0.9, 1.45, -0.18]));
-    group.add(mesh(new THREE.ConeGeometry(0.68, 2.55, 7), 0x2a3c61, [-0.8, 1.27, 0.12]));
+    appendCone(output, new THREE.Vector3(0, 0, 0), 1.2, 3.8, Math.floor(4000 * density));
+    appendCone(output, new THREE.Vector3(0.92, 0, -0.16), 0.72, 2.85, Math.floor(2200 * density));
+    appendCone(output, new THREE.Vector3(-0.88, 0, 0.14), 0.67, 2.55, Math.floor(2000 * density));
   } else if (kind === "tree") {
-    group.add(mesh(new THREE.CylinderGeometry(0.12, 0.19, 0.9, 9), 0x815b3c, [0, 0.45, 0]));
-    group.add(mesh(new THREE.ConeGeometry(0.65, 1.15, 9), color, [0, 1.25, 0]));
-    group.add(mesh(new THREE.ConeGeometry(0.48, 0.92, 9), 0x2d945f, [0, 1.85, 0]));
+    appendCylinder(output, new THREE.Vector3(0, 0.48, 0), 0.17, 0.96, Math.floor(380 * density));
+    appendEllipsoid(
+      output,
+      new THREE.Vector3(0, 1.2, 0),
+      new THREE.Vector3(0.74, 0.8, 0.68),
+      Math.floor(1500 * density),
+    );
+    appendEllipsoid(
+      output,
+      new THREE.Vector3(0, 1.82, 0),
+      new THREE.Vector3(0.55, 0.68, 0.52),
+      Math.floor(1000 * density),
+    );
   } else if (kind === "box") {
-    group.add(mesh(new THREE.BoxGeometry(0.82, 0.82, 0.82), color, [0, 0.41, 0]));
+    appendBoxEdges(output, new THREE.Vector3(0, 0.41, 0), 0.82, 0.82, 0.82);
   } else if (kind === "sphere") {
-    group.add(mesh(new THREE.SphereGeometry(0.48, 24, 16), color, [0, 0.48, 0]));
+    appendEllipsoid(
+      output,
+      new THREE.Vector3(0, 0.48, 0),
+      new THREE.Vector3(0.48, 0.48, 0.48),
+      1100,
+      true,
+    );
   } else {
-    group.add(mesh(new THREE.SphereGeometry(0.19, 16, 12), color, [0, 1.1, 0], { emissive: true }));
-    group.add(new THREE.PointLight(color, 2, 8));
-    group.children[group.children.length - 1]!.position.y = 1.1;
+    appendEllipsoid(
+      output,
+      new THREE.Vector3(0, 1.1, 0),
+      new THREE.Vector3(0.2, 0.2, 0.2),
+      180,
+      true,
+    );
   }
+
+  return new Float32Array(output);
+}
+
+function makeParticleGroup(kind: MaterialKind, color: THREE.Color, density = 1) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(makeObjectPoints(kind, density), 3));
+  const particles = new THREE.Points(
+    geometry,
+    new THREE.PointsMaterial({
+      color,
+      size: 0.045,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+    }),
+  );
+  particles.frustumCulled = false;
+  const group = new THREE.Group();
+  group.name = `avatar-particle-${kind}`;
+  group.add(particles);
   return group;
 }
 
 function disposeGroup(group: THREE.Group) {
   group.traverse((child) => {
-    if (!(child instanceof THREE.Mesh) && !(child instanceof THREE.Line)) return;
+    if (!(child instanceof THREE.Points)) return;
     child.geometry.dispose();
     const materials = Array.isArray(child.material) ? child.material : [child.material];
     materials.forEach((entry) => entry.dispose());
@@ -135,98 +243,101 @@ export class SceneManager {
   private sequence = 0;
   private drivingId: string | null = null;
   private driveDirection = 1;
-  private ground: THREE.Group;
-  private worldLayout = new THREE.Group();
+  private readonly environment = new THREE.Group();
+  private theme: ThemeChoice;
+  private customColor: string;
 
-  constructor(private scene: THREE.Scene) {
-    this.ground = new THREE.Group();
-    this.ground.add(mesh(new THREE.PlaneGeometry(200, 200), 0x07101b, [0, GROUND_Y, 0]));
-    this.ground.children[0]!.rotation.x = -Math.PI / 2;
-    const grid = new THREE.GridHelper(100, 100, 0x16465b, 0x11283a);
-    grid.position.y = GROUND_Y + 0.012;
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
-    keyLight.position.set(-4, 8, 6);
-    this.ground.add(grid, new THREE.AmbientLight(0xffffff, 1.15), keyLight);
-    this.worldLayout.name = "avatar-world-layout";
-    this.addWorldLayout();
-    this.scene.add(this.ground, this.worldLayout);
-    this.add("mountain", -2.9, -5.2);
-    this.add("mountain", 2.8, -5.8);
+  constructor(
+    private scene: THREE.Scene,
+    theme: ThemeChoice = "cyan",
+    customColor = DEFAULT_THEME_COLOR,
+  ) {
+    this.theme = theme;
+    this.customColor = customColor;
+    this.environment.name = "avatar-particle-environment";
+    this.scene.add(this.environment);
+    this.createEnvironment();
   }
 
-  private addWorldLayout() {
-    const groundLevel = GROUND_Y + 0.02;
-    const zoneColors = { safe: 0x27d8e8, forest: 0x55df83, hot: 0xff9b58 } as const;
+  private get particleColor() {
+    const palette = getThemePalette(this.theme, this.customColor);
+    return new THREE.Color().setRGB(palette.a[0]!, palette.a[1]!, palette.a[2]!);
+  }
 
-    for (const zone of WORLD_RULES.zones) {
-      const marker = new THREE.Mesh(
-        new THREE.RingGeometry(zone.radius - 0.055, zone.radius, 64),
-        new THREE.MeshBasicMaterial({
-          color: zoneColors[zone.kind],
-          transparent: true,
-          opacity: zone.kind === "safe" ? 0.38 : 0.28,
-          side: THREE.DoubleSide,
-          depthWrite: false,
-        }),
-      );
-      marker.rotation.x = -Math.PI / 2;
-      marker.position.set(zone.x, groundLevel, zone.z);
-      this.worldLayout.add(marker);
-    }
-
-    const route = new THREE.BufferGeometry().setFromPoints(
-      WORLD_RULES.walkRoute.map((point) => new THREE.Vector3(point.x, groundLevel + 0.01, point.z)),
-    );
-    this.worldLayout.add(
-      new THREE.Line(
-        route,
-        new THREE.LineBasicMaterial({ color: 0x4abbd0, transparent: true, opacity: 0.32 }),
-      ),
-    );
-
-    for (const [x, z] of [
-      [-6.25, -3.65],
-      [-3.65, -4.7],
-      [-6.25, -1.85],
-    ] as const) {
-      const tree = buildObject("tree");
+  private createEnvironment() {
+    const color = this.particleColor;
+    const mountainLeft = makeParticleGroup("mountain", color, 0.72);
+    mountainLeft.position.set(-4.3, GROUND_Y, -5.3);
+    mountainLeft.scale.set(1.15, 1.15, 1.15);
+    const mountainRight = makeParticleGroup("mountain", color, 0.58);
+    mountainRight.position.set(4.5, GROUND_Y, -5.8);
+    mountainRight.scale.set(0.92, 0.92, 0.92);
+    const trees = [
+      [-6.25, -3.65, 0.82],
+      [-3.65, -4.7, 0.72],
+      [6.2, -3.8, 0.86],
+    ] as const;
+    this.environment.add(mountainLeft, mountainRight);
+    for (const [x, z, scale] of trees) {
+      const tree = makeParticleGroup("tree", color, 0.72);
       tree.position.set(x, GROUND_Y, z);
-      this.worldLayout.add(tree);
+      tree.scale.setScalar(scale);
+      this.environment.add(tree);
     }
 
-    for (const site of WORLD_RULES.encounterSites) {
-      const marker = mesh(
-        new THREE.IcosahedronGeometry(0.2, 0),
-        zoneColors.forest,
-        [site.x, groundLevel + 0.2, site.z],
-        { emissive: true },
-      );
-      this.worldLayout.add(marker);
+    const starPositions = new Float32Array(900 * 3);
+    for (let index = 0; index < starPositions.length; index += 3) {
+      starPositions[index] = (Math.random() - 0.5) * 24;
+      starPositions[index + 1] = Math.random() * 11 - 1;
+      starPositions[index + 2] = -9 - Math.random() * 8;
     }
+    const starsGeometry = new THREE.BufferGeometry();
+    starsGeometry.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+    const stars = new THREE.Points(
+      starsGeometry,
+      new THREE.PointsMaterial({
+        color,
+        size: 0.025,
+        transparent: true,
+        opacity: 0.58,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+      }),
+    );
+    stars.name = "avatar-particle-atmosphere";
+    this.environment.add(stars);
+  }
 
-    for (const trainer of WORLD_RULES.trainerSites) {
-      const figure = new THREE.Group();
-      figure.position.set(trainer.x, GROUND_Y, trainer.z);
-      figure.add(
-        mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.42, 8), 0x83aaff, [0, 0.48, 0]),
-        mesh(new THREE.SphereGeometry(0.12, 12, 8), 0xffd5a5, [0, 0.78, 0]),
-        mesh(new THREE.SphereGeometry(0.055, 8, 6), 0xffe98a, [0, 1.02, 0], { emissive: true }),
-      );
-      this.worldLayout.add(figure);
+  setTheme(theme: ThemeChoice, customColor: string) {
+    this.theme = theme;
+    this.customColor = customColor;
+    const color = this.particleColor;
+    this.environment.traverse((child) => {
+      if (child instanceof THREE.Points && child.material instanceof THREE.PointsMaterial) {
+        child.material.color.copy(color);
+      }
+    });
+    for (const { group } of this.entities.values()) {
+      group.traverse((child) => {
+        if (child instanceof THREE.Points && child.material instanceof THREE.PointsMaterial) {
+          child.material.color.copy(color);
+        }
+      });
     }
   }
 
   add(kind: MaterialKind, x?: number, z?: number): string {
     const id = `${kind}-${++this.sequence}`;
-    const group = buildObject(kind);
+    const group = makeParticleGroup(kind, this.particleColor);
     if (kind !== "blimp" && kind !== "balloon") group.position.y = GROUND_Y;
+    else group.position.y = GROUND_Y + (kind === "blimp" ? 4.5 : 4);
     if (kind === "mountain") {
       group.position.x = x ?? (this.sequence % 2 ? -1 : 1) * (1.5 + (this.sequence % 3));
       group.position.z = z ?? -5;
     } else {
       group.position.x = x ?? 0;
-      if (z !== undefined) group.position.z = z;
-      else if (kind !== "blimp" && kind !== "balloon") group.position.z = 0;
+      group.position.z = z ?? 0;
     }
     this.scene.add(group);
     this.entities.set(id, { kind, group });
@@ -269,7 +380,7 @@ export class SceneManager {
       const scale = entity.group.scale.clone();
       this.scene.remove(entity.group);
       disposeGroup(entity.group);
-      const group = buildObject(kind);
+      const group = makeParticleGroup(kind, this.particleColor);
       group.position.copy(position);
       group.rotation.copy(rotation);
       group.scale.copy(scale);
@@ -314,7 +425,7 @@ export class SceneManager {
     const { x, z } = entity.group.position;
     return [
       { x, z: z + 2.1 },
-      { x, z: z },
+      { x, z },
       { x, z: z - 2.1 },
     ];
   }
@@ -341,19 +452,12 @@ export class SceneManager {
   }
 
   dispose() {
-    this.scene.remove(this.ground, this.worldLayout);
+    this.scene.remove(this.environment);
     for (const { group } of this.entities.values()) {
       this.scene.remove(group);
       disposeGroup(group);
     }
-    disposeGroup(this.worldLayout);
-    this.ground.traverse((child) => {
-      if (child instanceof THREE.Mesh || child instanceof THREE.GridHelper) {
-        child.geometry.dispose();
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((entry) => entry.dispose());
-      }
-    });
+    disposeGroup(this.environment);
     this.entities.clear();
   }
 }

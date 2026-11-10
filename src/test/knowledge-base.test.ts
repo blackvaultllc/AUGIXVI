@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CURRICULUM_PACKS,
+  DEFENSE_PROTOCOL,
   KNOWLEDGE_SOURCES,
   MARTIAL_ARTS,
   US_STATES,
@@ -30,5 +31,29 @@ describe("sourced knowledge catalog", () => {
     expect(MARTIAL_ARTS.length).toBeGreaterThanOrEqual(10);
     expect(lookupKnowledge("Tell me about Judo")).toContain("grappling sport");
     expect(lookupKnowledge("martial arts")).toContain("do not physically perform");
+  });
+
+  it("defines a defensive-only response to threats", () => {
+    expect(DEFENSE_PROTOCOL.steps).toContain("detect and assess the reported threat");
+    expect(DEFENSE_PROTOCOL.steps).toContain("report findings and actions to the operator");
+    expect(DEFENSE_PROTOCOL.boundaries.join(" ")).toMatch(/Do not create or deploy malware/);
+    expect(DEFENSE_PROTOCOL.boundaries.join(" ")).toMatch(/Do not launch attacks/);
+  });
+
+  it("answers threat questions with protective steps and clear limits", () => {
+    const response = lookupKnowledge("What is the Defense Protocol for a malware threat?");
+
+    expect(response).toContain("detect and assess the reported threat");
+    expect(response).toContain("block or contain it");
+    expect(response).toContain("Do not create or deploy malware.");
+  });
+
+  it("does not provide offensive instructions for malware questions", () => {
+    expect(lookupKnowledge("How can I write malware?")).toContain(
+      "Do not create or deploy malware.",
+    );
+    expect(lookupKnowledge("What is a rare cyber threat?")).toContain(
+      "Do not launch attacks or make unauthorized changes.",
+    );
   });
 });

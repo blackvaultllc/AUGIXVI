@@ -88,9 +88,32 @@ describe("Ollama AI speech notifications", () => {
     };
     expect(request.model).toBe("llama3.1:8b");
     expect(request.messages[0]?.content).toContain("You are Osiris");
-    expect(request.messages[0]?.content).toContain("designated Anubis, who is in charge");
-    expect(request.messages[0]?.content).toContain("Yes, Anubis.");
+    expect(request.messages[0]?.content).toContain("verified operator");
+    expect(request.messages[0]?.content).toContain("Yes, operator.");
     expect(request.messages[0]?.content).toContain("at most 2 short sentences");
+    ai.dispose();
+  });
+
+  it("uses only the authenticated operator configuration for identity", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ message: { content: "At your service." } }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const ai = attachOllamaAI(new AvatarBridge(), {
+      operatorName: "Configured operator",
+      operatorFullName: "Configured full name",
+      voice: { speak: vi.fn(), stop: vi.fn() },
+    });
+
+    await ai.handleText("Who created you?");
+
+    const request = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+      messages: { role: string; content: string }[];
+    };
+    expect(request.messages[0]?.content).toContain("Yes, Configured operator.");
+    expect(request.messages[0]?.content).toContain("Configured full name");
     ai.dispose();
   });
 
@@ -167,8 +190,8 @@ describe("Ollama AI speech notifications", () => {
     expect(onSpeak).toHaveBeenCalledWith("This should remain silent.");
 
     ai.setMuted(false);
-    ai.speak("Yes, Anubis.");
-    expect(voice.speak).toHaveBeenCalledWith("Yes, Anubis.", expect.any(Function));
+    ai.speak("Yes, operator.");
+    expect(voice.speak).toHaveBeenCalledWith("Yes, operator.", expect.any(Function));
     ai.dispose();
   });
 

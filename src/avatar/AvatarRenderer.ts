@@ -218,7 +218,7 @@ export class AvatarRenderer {
     this.scene.add(this.avatarRoot);
     this.avatarRoot.add(this.character);
     this.locomotion = new AvatarLocomotion(this.avatarRoot);
-    this.sceneManager = new SceneManager(this.scene);
+    this.sceneManager = new SceneManager(this.scene, settings.theme, settings.customColor);
     const data = source(settings.maxParticles);
     this.drawCount = data.count;
     this.geo = new THREE.BufferGeometry();
@@ -417,6 +417,7 @@ export class AvatarRenderer {
     if (s.theme || s.customColor) {
       this.applyTheme();
       this.applyPropTheme();
+      this.sceneManager.setTheme(this.settings.theme, this.settings.customColor);
     }
     if (s.maxParticles)
       this.drawCount = Math.min(

@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AvatarStage } from "@/avatar/AvatarStage";
+import { OperatorGate } from "@/avatar/OperatorGate";
 
 export const Route = createFileRoute("/avatar")({
   ssr: false,
-  component: AvatarStage,
+  component: OperatorGate,
   head: () => ({
     meta: [
       { title: "Avatar — Living AI Interface" },

@@ -6,6 +6,8 @@ import { createVoiceProvider, type VoiceProvider } from "./voice";
 export type OllamaAIOptions = {
   model?: string;
   baseUrl?: string;
+  operatorName?: string | null;
+  operatorFullName?: string | null;
   /** Generic system prompt for the assistant. */
   system?: string;
   /** Called whenever the assistant starts speaking, including summon greetings. */
@@ -22,12 +24,10 @@ export type OllamaAIOptions = {
 };
 
 const DEFAULT_SYSTEM =
-  "You are Osiris, AUGI's calm, confident intelligence, and you govern your simulated world. " +
-  "You answer to the operator, designated Anubis, who is in charge and has final authority over " +
-  "this session and the simulated world. Never call the operator master. When called by name, " +
-  "the required response is exactly: Yes, Anubis. Never claim to override or act against the operator. " +
-  "If asked who created you, give the verified operator name in session configuration when available; " +
-  "otherwise say the verified name is not configured. " +
+  "You are Osiris, a calm, confident intelligence, and you govern your simulated world. " +
+  "You answer to the verified operator, who is in charge and has final authority over this session " +
+  "and the simulated world. Never call the operator master. Never claim to override or act against " +
+  "the operator. Use only the operator identity supplied by authenticated session configuration. " +
   "Speak briefly with quiet confidence and a little dry wit. Answer in at most 2 short sentences " +
   "unless asked for detail. Never claim to be human or to possess access beyond this conversation. " +
   "Never invent facts about the real world; when uncertain, say so plainly. Never use lists, " +
@@ -79,7 +79,8 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
   let retrying = false;
   let requestController: AbortController | null = null;
   let muted = false;
-  let operatorIdentity: string | null = null;
+  let operatorIdentity = opts.operatorName?.trim() || null;
+  const operatorFullName = opts.operatorFullName?.trim() || null;
 
   const clearTimers = () => {
     timers.forEach(clearTimeout);
@@ -157,9 +158,15 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
           messages: [
             {
               role: "system",
-              content: operatorIdentity
-                ? `${system}\nVerified operator identity: ${operatorIdentity}. If asked who created you, state this name plainly.`
-                : system,
+              content: [
+                system,
+                operatorIdentity
+                  ? `The operator's configured call name is "${operatorIdentity}". When called, answer exactly "Yes, ${operatorIdentity}."`
+                  : 'When called, answer exactly "Yes, operator."',
+                operatorFullName
+                  ? `If asked who created you, state the verified full name "${operatorFullName}" plainly and truthfully.`
+                  : "If asked who created you, say the verified name is not configured.",
+              ].join("\n"),
             },
             ...history.slice(-8),
             { role: "user", content: text },
@@ -269,7 +276,8 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     bridge.onSummon(() => {
       shutUp();
       bridge.setState("GLITCH");
-      timers.push(window.setTimeout(() => speak("Yes, Anubis.", listen), 350));
+      const greeting = operatorIdentity ? `Yes, ${operatorIdentity}.` : "Yes, operator.";
+      timers.push(window.setTimeout(() => speak(greeting, listen), 350));
     }),
     bridge.onUserSpeechStart(() => {
       if (bridge.state !== "SPEAKING" && bridge.state !== "THINKING" && bridge.state !== "GLITCH") {

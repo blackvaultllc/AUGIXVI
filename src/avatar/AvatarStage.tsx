@@ -1,18 +1,37 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import * as THREE from "three";
+import {
+  Activity,
+  ArrowUp,
+  BookOpen,
+  Camera,
+  Expand,
+  Eye,
+  LogOut,
+  Mic,
+  MicOff,
+  Plane,
+  Presentation,
+  Settings,
+  Shrink,
+  Sparkles,
+  Square,
+  Undo2,
+  type LucideIcon,
+} from "lucide-react";
 import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { AvatarRenderer, type RenderSettings } from "./AvatarRenderer";
 import { Sensors, type SensorStatus } from "./sensors";
 import { attachOllamaAI } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
 import { isCubePanelCommand } from "./cubeReference";
-import { CityView } from "./CityView";
-import {
-  parseCoreCommand,
-  reduceCoreCityState,
-  type CoreCityAction,
-  type CoreCityState,
-} from "./coreCityState";
 import { intensityLabel } from "./stateParams";
 import {
   getThemeAccent,
@@ -39,6 +58,7 @@ import {
 } from "@/lib/supabase-readonly";
 
 type Settings = RenderSettings & { sensitivity: number; cooldownMs: number };
+type CabinetTab = "scene" | "motion" | "tools" | "settings";
 const DEFAULTS: Settings = {
   maxParticles: 120000,
   bloom: 1.1,
@@ -49,13 +69,23 @@ const DEFAULTS: Settings = {
   cooldownMs: 800,
 };
 
-export function AvatarStage() {
+export function AvatarStage({
+  onSignOut,
+  operatorName,
+  operatorFullName,
+  signOutError,
+}: {
+  onSignOut: () => void;
+  operatorName: string | null;
+  operatorFullName: string | null;
+  signOutError: string;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const bridgeRef = useRef(new AvatarBridge());
   const rendRef = useRef<AvatarRenderer | null>(null);
   const sensRef = useRef<Sensors | null>(null);
   const aiRef = useRef<ReturnType<typeof attachOllamaAI> | null>(null);
-  const recRef = useRef<{ stop: () => void } | null>(null);
+  const recRef = useRef<{ stop: () => void; start: () => void } | null>(null);
   const [silent, setSilent] = useState(loadSilentModePreference);
   const memoryRef = useRef<ReturnType<typeof createLocalMemory> | null>(null);
   memoryRef.current ??= createLocalMemory();
@@ -70,8 +100,9 @@ export function AvatarStage() {
   const [state, setState] = useState<AvatarState>("IDLE");
   const [level, setLevel] = useState(0);
   const [perf, setPerf] = useState({ fps: 0, particles: 0 });
-  const [panel, setPanel] = useState(false);
   const [sensor, setSensor] = useState<SensorStatus | null>(null);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
   const [ready, setReady] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [chat, setChat] = useState("");
@@ -84,10 +115,9 @@ export function AvatarStage() {
   const [memoryCount, setMemoryCount] = useState(0);
   const [memoryError, setMemoryError] = useState("");
   const [cubeOpen, setCubeOpen] = useState(false);
-  const [cityState, setCityState] = useState<CoreCityState>({ mode: "CORE_FULL" });
+  const [cabinetTab, setCabinetTab] = useState<CabinetTab>("motion");
   const [databaseStatus, setDatabaseStatus] = useState<SupabaseConnectionStatus>("not configured");
   const displayName = import.meta.env["VITE_AVATAR_NAME"] || "Osiris";
-  const cityOpen = cityState.mode === "CORE_SMALL";
   const themeAccent = getThemeAccent(settings.theme, settings.customColor);
 
   const say = useCallback((text: string) => {
@@ -208,10 +238,6 @@ export function AvatarStage() {
     [say],
   );
 
-  const transitionCityState = useCallback((action: CoreCityAction) => {
-    setCityState((current) => reduceCoreCityState(current, action));
-  }, []);
-
   function togglePresent() {
     const b = bridgeRef.current;
     b.present(b.presenting ? null : "file");
@@ -245,7 +271,7 @@ export function AvatarStage() {
         aiRef.current?.setMuted(false);
         if (!interaction.remainder) {
           setResponseSource("wake word");
-          aiRef.current?.speak("Yes, Anubis.");
+          aiRef.current?.speak(operatorName ? `Yes, ${operatorName}.` : "Yes, operator.");
           return;
         }
         commandText = interaction.remainder;
@@ -258,40 +284,18 @@ export function AvatarStage() {
         return;
       }
       lastQuestionRef.current = commandText;
-      const parsed = parseCoreCommand(commandText);
-      if (parsed.action === "BACK_TO_CORE") {
-        transitionCityState(parsed.action);
-        aiRef.current?.speak("Back to core.");
-        return;
-      }
-      if (parsed.action === "SHOW_CITY") {
-        transitionCityState(parsed.action);
-        aiRef.current?.speak("Opening city view.");
-        return;
-      }
-      if (parsed.action === "WAKE_CORE") {
-        transitionCityState(parsed.action);
-        if (!parsed.message) {
-          silentRef.current = false;
-          setSilent(false);
-          saveSilentModePreference(false);
-          aiRef.current?.setMuted(false);
-          aiRef.current?.speak("Yes, Anubis.");
-          return;
-        }
-      }
-      if (!parsed.message) return;
-      if (isCubePanelCommand(parsed.message)) {
+      if (!commandText) return;
+      if (isCubePanelCommand(commandText)) {
         setCubeOpen(true);
         aiRef.current?.speak("Operator verification is required to open the cube.");
         return;
       }
-      const worldCommand = parseWorldCommand(parsed.message);
+      const worldCommand = parseWorldCommand(commandText);
       if (worldCommand) {
         executeWorldCommand(worldCommand);
         return;
       }
-      if (isCameraVisionRequest(parsed.message)) {
+      if (isCameraVisionRequest(commandText)) {
         const sensors = sensRef.current;
         const description = await describeCameraFrame(
           sensors?.cameraIsActive ? sensors.video : null,
@@ -300,9 +304,9 @@ export function AvatarStage() {
         aiRef.current?.speak(description);
         return;
       }
-      await aiRef.current?.handleText(parsed.message);
+      await aiRef.current?.handleText(commandText);
     },
-    [executeWorldCommand, transitionCityState],
+    [executeWorldCommand, operatorName],
   );
 
   useEffect(() => {
@@ -314,6 +318,8 @@ export function AvatarStage() {
       setReady(true);
     };
     const ai = attachOllamaAI(bridge, {
+      operatorName,
+      operatorFullName,
       onSpeak: setLastWords,
       onOfflineChange: setAiOffline,
       onResponseSource: setResponseSource,
@@ -347,6 +353,7 @@ export function AvatarStage() {
       start: () => void;
       stop: () => void;
     };
+    setVoiceAvailable(Boolean(RecCtor));
     let rec: Rec | null = null;
     const restart = () => {
       if (!RecCtor || rec) return;
@@ -360,14 +367,23 @@ export function AvatarStage() {
         };
         rec.onend = () => {
           rec = null;
+          setVoiceListening(false);
         };
         rec.start();
+        setVoiceListening(true);
       } catch {
         rec = null;
+        setVoiceListening(false);
       }
     };
     restart();
-    recRef.current = { stop: () => rec?.stop() };
+    recRef.current = {
+      stop: () => {
+        rec?.stop();
+        setVoiceListening(false);
+      },
+      start: restart,
+    };
     bridge.setState("LISTENING");
     const off = bridge.onStateChange(setState);
     const offP = bridge.onPresent((l) => setPresenting(l !== null));
@@ -413,7 +429,7 @@ export function AvatarStage() {
       sensRef.current?.stop();
       r.dispose();
     };
-  }, [sendCommand]);
+  }, [sendCommand, operatorFullName, operatorName]);
 
   useEffect(() => {
     try {
@@ -535,75 +551,70 @@ export function AvatarStage() {
   } as CSSProperties;
 
   return (
-    <>
-      {cityOpen && <CityView />}
-      <div
-        className={`avatar-stage${cityOpen ? " avatar-stage--city" : ""}${clearScreen ? " avatar-stage--clear-screen" : ""}`}
-        data-scene-ready={ready ? "" : undefined}
-        style={stageStyle}
-      >
-        <div ref={host} className="absolute inset-0" />
-        {cubeOpen && (
-          <CubePanel
-            onClose={() => setCubeOpen(false)}
-            onAuthorized={(name) => aiRef.current?.setOperatorIdentity(name)}
-          />
+    <div
+      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}`}
+      data-scene-ready={ready ? "" : undefined}
+      style={stageStyle}
+    >
+      <div ref={host} className="absolute inset-0" />
+      {cubeOpen && (
+        <CubePanel
+          onClose={() => setCubeOpen(false)}
+          onAuthorized={(name) => aiRef.current?.setOperatorIdentity(name)}
+        />
+      )}
+      {knowledgeOpen && (
+        <KnowledgePanel
+          count={memoryCount}
+          error={memoryError}
+          onClose={() => setKnowledgeOpen(false)}
+          onImport={(file) => void importKnowledgeFile(file)}
+        />
+      )}
+      <div className="avatar-hud avatar-hud--tr">
+        {aiOffline && !clearScreen && (
+          <div className="avatar-hud__offline" role="status">
+            <span>OFFLINE</span>
+            <button
+              className="avatar-hud__retry"
+              onClick={() => void aiRef.current?.retry()}
+              type="button"
+            >
+              Retry
+            </button>
+          </div>
         )}
-        {knowledgeOpen && (
-          <KnowledgePanel
-            count={memoryCount}
-            error={memoryError}
-            onClose={() => setKnowledgeOpen(false)}
-            onImport={(file) => void importKnowledgeFile(file)}
-          />
+        <div>
+          STATUS:{" "}
+          <span className="avatar-hud__value">
+            <span className={`avatar-hud__listening-flash${listeningFlash ? " is-active" : ""}`} />
+            {state}
+            {aiOffline ? " · OFFLINE" : silent ? " · SILENT" : ""}
+          </span>
+        </div>
+        <div>
+          INTENSITY: <span className="avatar-hud__value">{intensityLabel(level)}</span>
+        </div>
+      </div>
+      <div className="avatar-hud avatar-hud--tl">
+        <div className="avatar-hud__db-status">DB: {databaseStatus.toUpperCase()}</div>
+        <div>
+          {perf.fps} FPS {!clearScreen && `· ${(perf.particles / 1000).toFixed(0)}K PTS`}
+        </div>
+        {!clearScreen && (
+          <div>
+            CAM {sensor?.camera ? "ON" : "OFF"} · MIC {sensor?.mic ? "ON" : "OFF"} · HANDS{" "}
+            {sensor?.hands ? "ON" : "OFF"}
+          </div>
         )}
-        <div className="avatar-hud avatar-hud--tr">
-          {aiOffline && !clearScreen && (
-            <div className="avatar-hud__offline" role="status">
-              <span>OFFLINE</span>
-              <button
-                className="avatar-hud__retry"
-                onClick={() => void aiRef.current?.retry()}
-                type="button"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-          <div>
-            STATUS:{" "}
-            <span className="avatar-hud__value">
-              <span
-                className={`avatar-hud__listening-flash${listeningFlash ? " is-active" : ""}`}
-              />
-              {state}
-              {aiOffline ? " · OFFLINE" : silent ? " · SILENT" : ""}
-            </span>
-          </div>
-          <div>
-            INTENSITY: <span className="avatar-hud__value">{intensityLabel(level)}</span>
-          </div>
-        </div>
-        <div className="avatar-hud avatar-hud--tl">
-          <div className="avatar-hud__db-status">DB: {databaseStatus.toUpperCase()}</div>
-          <div>
-            {perf.fps} FPS {!clearScreen && `· ${(perf.particles / 1000).toFixed(0)}K PTS`}
-          </div>
-          {!clearScreen && (
-            <div>
-              CAM {sensor?.camera ? "ON" : "OFF"} · MIC {sensor?.mic ? "ON" : "OFF"} · HANDS{" "}
-              {sensor?.hands ? "ON" : "OFF"}
-            </div>
-          )}
-          {sensor?.error && !clearScreen && (
-            <div className="avatar-hud__warning">{sensor.error}</div>
-          )}
-        </div>
-        <div className="avatar-hud avatar-hud--commands">
-          <div className="avatar-hud__last-words" aria-live="polite">
-            <div className="avatar-hud__last-words-label">{displayName}&apos;s last words</div>
-            <p>{lastWords}</p>
-            <div className="avatar-hud__response-source">Response: {responseSource}</div>
+        {sensor?.error && !clearScreen && <div className="avatar-hud__warning">{sensor.error}</div>}
+      </div>
+      <section className="avatar-hud avatar-hud--commands avatar-cabinet" aria-label="Osiris chat">
+        <div className="avatar-hud__last-words" aria-live="polite">
+          <div className="avatar-hud__last-words-label">{displayName}&apos;s last words</div>
+          <p>{lastWords}</p>
+          <div className="avatar-cabinet__response-meta">
+            <span className="avatar-hud__response-source">Response: {responseSource}</span>
             <button
               className="avatar-hud__save-highlight"
               type="button"
@@ -613,220 +624,327 @@ export function AvatarStage() {
               Save highlight
             </button>
           </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const t = chat.trim();
-              if (!t) return;
-              setChat("");
-              void sendCommand(t);
-            }}
-          >
-            <label className="sr-only" htmlFor="avatar-command">
-              Command for {displayName}
-            </label>
-            <div className="avatar-hud__command-row">
-              <input
-                id="avatar-command"
-                className="avatar-hud__input"
-                placeholder="Type a command…"
-                value={chat}
-                onChange={(e) => setChat(e.target.value)}
-              />
-              <button className="avatar-hud__send" type="submit" disabled={!chat.trim()}>
-                Send
-              </button>
-            </div>
-          </form>
         </div>
-        <div className="avatar-hud__bar">
-          {cityOpen ? (
-            <button
-              className="avatar-hud__button avatar-hud__button--primary"
-              onClick={() => transitionCityState("BACK_TO_CORE")}
-              type="button"
-            >
-              Back to Core
-            </button>
-          ) : (
-            <button
-              className="avatar-hud__button"
-              onClick={() => transitionCityState("SHOW_CITY")}
-              type="button"
-            >
-              City
-            </button>
+        <div className="avatar-cabinet__tabs" role="tablist" aria-label="Control categories">
+          <CabinetTabButton
+            icon={Sparkles}
+            id="scene"
+            label="Scene"
+            selected={cabinetTab === "scene"}
+            onSelect={setCabinetTab}
+          />
+          <CabinetTabButton
+            icon={Activity}
+            id="motion"
+            label="Motion"
+            selected={cabinetTab === "motion"}
+            onSelect={setCabinetTab}
+          />
+          <CabinetTabButton
+            icon={Eye}
+            id="tools"
+            label="Tools"
+            selected={cabinetTab === "tools"}
+            onSelect={setCabinetTab}
+          />
+          <CabinetTabButton
+            icon={Settings}
+            id="settings"
+            label="Settings"
+            selected={cabinetTab === "settings"}
+            onSelect={setCabinetTab}
+          />
+        </div>
+        <div
+          id="avatar-cabinet-panel"
+          className="avatar-cabinet__options"
+          role="tabpanel"
+          aria-labelledby={`avatar-cabinet-tab-${cabinetTab}`}
+          aria-label={`${cabinetTab} controls`}
+        >
+          {cabinetTab === "scene" && (
+            <CabinetGroup label="Avatar scale">
+              <div className="avatar-cabinet__option-grid">
+                <CabinetAction
+                  icon={Shrink}
+                  label="Compact"
+                  onClick={() => executeWorldCommand({ type: "shrink" })}
+                />
+                <CabinetAction
+                  icon={Expand}
+                  label="Full size"
+                  onClick={() => executeWorldCommand({ type: "grow" })}
+                />
+              </div>
+            </CabinetGroup>
           )}
-          <button
-            className="avatar-hud__button"
-            onClick={() => {
-              const next = !clearScreen;
-              setClearScreen(next);
-              saveClearScreenPreference(next);
-            }}
-            type="button"
-          >
-            {clearScreen ? "Show screen" : "Clear screen"}
-          </button>
-          <button
-            className="avatar-hud__button"
-            onClick={() => setKnowledgeOpen((open) => !open)}
-            type="button"
-          >
-            Knowledge
-          </button>
-          {!cityOpen && (
+          {cabinetTab === "motion" && (
+            <CabinetGroup label="Locomotion modes">
+              <div className="avatar-cabinet__option-grid">
+                <CabinetAction
+                  icon={Activity}
+                  label="Walk"
+                  onClick={() => executeWorldCommand({ type: "mode", mode: "walk" })}
+                />
+                <CabinetAction
+                  icon={Activity}
+                  label="Run"
+                  onClick={() => executeWorldCommand({ type: "mode", mode: "run" })}
+                />
+                <CabinetAction
+                  icon={Plane}
+                  label="Fly"
+                  onClick={() => executeWorldCommand({ type: "mode", mode: "fly" })}
+                />
+                <CabinetAction
+                  icon={ArrowUp}
+                  label="Jump"
+                  onClick={() => executeWorldCommand({ type: "mode", mode: "jump" })}
+                />
+                <CabinetAction
+                  icon={Square}
+                  label="Stop"
+                  onClick={() => executeWorldCommand({ type: "stop" })}
+                />
+                <CabinetAction
+                  icon={Undo2}
+                  label="Come back"
+                  onClick={() => executeWorldCommand({ type: "come-back" })}
+                />
+              </div>
+            </CabinetGroup>
+          )}
+          {cabinetTab === "tools" && (
             <>
-              <button
-                className="avatar-hud__button"
-                onClick={() => executeWorldCommand({ type: "shrink" })}
-              >
-                Shrink
-              </button>
-              <button
-                className="avatar-hud__button"
-                onClick={() => executeWorldCommand({ type: "mode", mode: "walk" })}
-              >
-                Walk around
-              </button>
-              <button
-                className="avatar-hud__button"
-                onClick={() => executeWorldCommand({ type: "mode", mode: "run" })}
-              >
-                Run
-              </button>
-              <button
-                className="avatar-hud__button"
-                onClick={() => executeWorldCommand({ type: "mode", mode: "fly" })}
-              >
-                Fly
-              </button>
-              <button
-                className="avatar-hud__button"
-                onClick={() => executeWorldCommand({ type: "mode", mode: "jump" })}
-              >
-                Jump
-              </button>
-              <button
-                className="avatar-hud__button"
-                onClick={() => executeWorldCommand({ type: "stop" })}
-              >
-                Stop
-              </button>
-              <button
-                className="avatar-hud__button"
-                onClick={() => executeWorldCommand({ type: "come-back" })}
-              >
-                Come back
-              </button>
-              <button
-                className="avatar-hud__button"
-                onClick={() => executeWorldCommand({ type: "grow" })}
-              >
-                Grow
-              </button>
+              <CabinetGroup label="Knowledge and sensors">
+                <div className="avatar-cabinet__option-grid">
+                  <CabinetAction
+                    icon={BookOpen}
+                    label="Knowledge"
+                    onClick={() => setKnowledgeOpen((open) => !open)}
+                  />
+                  <CabinetAction
+                    icon={Camera}
+                    label={sensor ? "Camera on" : "Camera + mic"}
+                    onClick={() => void enableSensors()}
+                    disabled={Boolean(sensor)}
+                  />
+                </div>
+              </CabinetGroup>
+              <CabinetGroup label="Presence">
+                <div className="avatar-cabinet__option-grid">
+                  <CabinetAction
+                    icon={Sparkles}
+                    label="Summon"
+                    onClick={() => void sendCommand("Osiris")}
+                  />
+                  <CabinetAction
+                    icon={Presentation}
+                    label={presenting ? "Put away" : "Present"}
+                    onClick={togglePresent}
+                  />
+                </div>
+              </CabinetGroup>
             </>
           )}
-          {!sensor && (
-            <button
-              className="avatar-hud__button avatar-hud__button--primary"
-              onClick={enableSensors}
-              title="Enable camera and microphone"
-            >
-              Cam + Mic
-            </button>
+          {cabinetTab === "settings" && (
+            <div className="avatar-cabinet__settings">
+              <CabinetGroup label="Interface and access">
+                <div className="avatar-cabinet__option-grid">
+                  <CabinetAction
+                    icon={Eye}
+                    label={clearScreen ? "Show screen" : "Clear screen"}
+                    onClick={() => {
+                      const next = !clearScreen;
+                      setClearScreen(next);
+                      saveClearScreenPreference(next);
+                    }}
+                  />
+                  <CabinetAction icon={LogOut} label="Sign out" onClick={() => void onSignOut()} />
+                </div>
+                {signOutError && (
+                  <p className="operator-auth__error" role="alert">
+                    {signOutError}
+                  </p>
+                )}
+              </CabinetGroup>
+              <CabinetGroup label="Rendering and theme">
+                <Slider
+                  label="Particles"
+                  min={20000}
+                  max={120000}
+                  step={5000}
+                  value={settings.maxParticles}
+                  onChange={(v) => update("maxParticles", v)}
+                  fmt={(v) => `${v / 1000}K`}
+                />
+                <Slider
+                  label="Bloom"
+                  min={0}
+                  max={2.5}
+                  step={0.05}
+                  value={settings.bloom}
+                  onChange={(v) => update("bloom", v)}
+                />
+                <Slider
+                  label="Glitch"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.glitch}
+                  onChange={(v) => update("glitch", v)}
+                />
+                <Slider
+                  label="Snap sensitivity"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.sensitivity}
+                  onChange={(v) => update("sensitivity", v)}
+                />
+                <Slider
+                  label="Cooldown"
+                  min={200}
+                  max={3000}
+                  step={50}
+                  value={settings.cooldownMs}
+                  onChange={(v) => update("cooldownMs", v)}
+                  fmt={(v) => `${v}ms`}
+                />
+                <label className="avatar-hud__row">
+                  Theme
+                  <select
+                    className="avatar-hud__select"
+                    value={settings.theme}
+                    onChange={(e) => update("theme", e.target.value as ThemeChoice)}
+                  >
+                    {Object.keys(THEMES).map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                    <option value="custom">Custom</option>
+                  </select>
+                </label>
+                <label className="avatar-hud__row">
+                  Custom glow / particles / core
+                  <input
+                    className="avatar-hud__color"
+                    type="color"
+                    value={settings.customColor}
+                    onChange={(e) => chooseCustomColor(e.target.value)}
+                  />
+                </label>
+              </CabinetGroup>
+            </div>
           )}
-          <button
-            className="avatar-hud__button"
-            onClick={() => void sendCommand("Osiris")}
-            title="Summon assistant (S)"
-            type="button"
-          >
-            Summon
-          </button>
-          <button
-            className="avatar-hud__button"
-            onClick={togglePresent}
-            title="Toggle presentation (P)"
-          >
-            {presenting ? "Put away" : "Present"}
-          </button>
-          <button className="avatar-hud__button" onClick={() => setPanel((p) => !p)}>
-            Settings
-          </button>
         </div>
-        {panel && (
-          <div className="avatar-hud__panel">
-            <Slider
-              label="Particles"
-              min={20000}
-              max={120000}
-              step={5000}
-              value={settings.maxParticles}
-              onChange={(v) => update("maxParticles", v)}
-              fmt={(v) => `${v / 1000}K`}
-            />
-            <Slider
-              label="Bloom"
-              min={0}
-              max={2.5}
-              step={0.05}
-              value={settings.bloom}
-              onChange={(v) => update("bloom", v)}
-            />
-            <Slider
-              label="Glitch"
-              min={0}
-              max={1}
-              step={0.05}
-              value={settings.glitch}
-              onChange={(v) => update("glitch", v)}
-            />
-            <Slider
-              label="Snap sensitivity"
-              min={0}
-              max={1}
-              step={0.05}
-              value={settings.sensitivity}
-              onChange={(v) => update("sensitivity", v)}
-            />
-            <Slider
-              label="Cooldown"
-              min={200}
-              max={3000}
-              step={50}
-              value={settings.cooldownMs}
-              onChange={(v) => update("cooldownMs", v)}
-              fmt={(v) => `${v}ms`}
-            />
-            <label className="avatar-hud__row">
-              Theme
-              <select
-                className="avatar-hud__select"
-                value={settings.theme}
-                onChange={(e) => update("theme", e.target.value as ThemeChoice)}
-              >
-                {Object.keys(THEMES).map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-                <option value="custom">Custom</option>
-              </select>
-            </label>
-            <label className="avatar-hud__row">
-              Custom glow / particles / core
-              <input
-                className="avatar-hud__color"
-                type="color"
-                value={settings.customColor}
-                onChange={(e) => chooseCustomColor(e.target.value)}
-              />
-            </label>
-          </div>
-        )}
-      </div>
-    </>
+        <form
+          className="avatar-cabinet__form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const t = chat.trim();
+            if (!t) return;
+            setChat("");
+            void sendCommand(t);
+          }}
+        >
+          <label className="sr-only" htmlFor="avatar-command">
+            Command for {displayName}
+          </label>
+          <input
+            id="avatar-command"
+            className="avatar-hud__input"
+            placeholder="Type a command…"
+            value={chat}
+            onChange={(e) => setChat(e.target.value)}
+          />
+          <button
+            className="avatar-cabinet__icon-button"
+            type="button"
+            onClick={() => (voiceListening ? recRef.current?.stop() : recRef.current?.start())}
+            disabled={!voiceAvailable}
+            aria-label={voiceListening ? "Stop voice input" : "Start voice input"}
+            title={
+              voiceAvailable ? "Toggle voice input" : "Voice input is unavailable in this browser"
+            }
+          >
+            {voiceListening ? <MicOff aria-hidden="true" /> : <Mic aria-hidden="true" />}
+          </button>
+          <button
+            className="avatar-hud__send"
+            type="submit"
+            disabled={!chat.trim()}
+            aria-label="Send command"
+          >
+            <Sparkles aria-hidden="true" />
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function CabinetTabButton({
+  icon: Icon,
+  id,
+  label,
+  selected,
+  onSelect,
+}: {
+  icon: LucideIcon;
+  id: CabinetTab;
+  label: string;
+  selected: boolean;
+  onSelect: (tab: CabinetTab) => void;
+}) {
+  return (
+    <button
+      id={`avatar-cabinet-tab-${id}`}
+      className="avatar-cabinet__tab"
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      aria-controls="avatar-cabinet-panel"
+      onClick={() => onSelect(id)}
+    >
+      <Icon aria-hidden="true" />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function CabinetAction({
+  icon: Icon,
+  label,
+  onClick,
+  disabled = false,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      className="avatar-cabinet__action"
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+    >
+      <Icon aria-hidden="true" />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function CabinetGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section className="avatar-cabinet__group" aria-label={label}>
+      <h3>{label}</h3>
+      {children}
+    </section>
   );
 }
 

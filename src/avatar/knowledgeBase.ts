@@ -117,6 +117,23 @@ export const DEFENSIVE_CYBERSECURITY_TOPICS = [
   "logging, detection, containment, and recovery",
 ] as const;
 
+export const DEFENSE_PROTOCOL = {
+  purpose: "Defensive response only.",
+  steps: [
+    "detect and assess the reported threat",
+    "block or contain it using authorized defensive controls",
+    "protect affected accounts, devices, and data",
+    "report findings and actions to the operator",
+    "support safe recovery and verify protective measures",
+  ],
+  boundaries: [
+    "Do not create or deploy malware.",
+    "Do not launch attacks or make unauthorized changes.",
+    "Knowing about a technique is not permission to use it.",
+    "Do not claim to have acted on a system without an authorized tool and verified result.",
+  ],
+} as const;
+
 export const PRACTICAL_SKILL_TOPICS = [
   "document literacy and source checking",
   "first-aid awareness and emergency-service escalation",
@@ -180,6 +197,9 @@ export const US_STATES = [
 
 export function lookupKnowledge(query: string): string | null {
   const normalized = query.toLocaleLowerCase();
+  if (/\b(defense protocol|security incident|cyber threat|malware|virus)\b/i.test(normalized)) {
+    return `Defense Protocol: ${DEFENSE_PROTOCOL.steps.join("; ")}. ${DEFENSE_PROTOCOL.boundaries.join(" ")}`;
+  }
   const art = MARTIAL_ARTS.find((entry) => normalized.includes(entry.name.toLocaleLowerCase()));
   if (art)
     return `${art.name}: ${art.focus} Practice with a qualified instructor and follow local safety rules.`;
@@ -193,7 +213,7 @@ export function lookupKnowledge(query: string): string | null {
     return "I do not have a verified state-facts dataset loaded. The state directory and NCES source links are available in my knowledge catalog; I will not guess a state fact.";
   }
   if (/\b(?:cybersecurity|secure my|protect my computer|defend my network)\b/i.test(normalized)) {
-    return `For defensive security, start with ${DEFENSIVE_CYBERSECURITY_TOPICS.slice(0, 4).join(", ")}. I can explain defensive concepts, but I will not run commands against systems.`;
+    return `For defensive security, start with ${DEFENSIVE_CYBERSECURITY_TOPICS.slice(0, 4).join(", ")}. ${DEFENSE_PROTOCOL.boundaries[0]} ${DEFENSE_PROTOCOL.boundaries[1]}`;
   }
   return null;
 }
