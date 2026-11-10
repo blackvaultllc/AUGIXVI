@@ -14,6 +14,7 @@ import {
   Camera,
   Expand,
   Eye,
+  Globe,
   LogOut,
   Mic,
   MicOff,
@@ -52,6 +53,8 @@ import {
 } from "./interactionControls";
 import { createHighlight, createLocalMemory, findLocalAnswer, splitDocument } from "./localMemory";
 import { lookupKnowledge } from "./knowledgeBase";
+import { parseSpaceNavigationCommand } from "./spaceNavigation";
+import { SpaceView } from "./SpaceView";
 import {
   createReadOnlySupabaseClient,
   type SupabaseConnectionStatus,
@@ -59,6 +62,7 @@ import {
 
 type Settings = RenderSettings & { sensitivity: number; cooldownMs: number };
 type CabinetTab = "scene" | "motion" | "tools" | "settings";
+type WorldScreen = "space" | "entering" | "live" | "returning";
 const DEFAULTS: Settings = {
   maxParticles: 120000,
   bloom: 1.1,
@@ -116,6 +120,9 @@ export function AvatarStage({
   const [memoryError, setMemoryError] = useState("");
   const [cubeOpen, setCubeOpen] = useState(false);
   const [cabinetTab, setCabinetTab] = useState<CabinetTab>("motion");
+  const [worldScreen, setWorldScreen] = useState<WorldScreen>("space");
+  const worldScreenRef = useRef<WorldScreen>("space");
+  const worldTransitionTimer = useRef<number | null>(null);
   const [databaseStatus, setDatabaseStatus] = useState<SupabaseConnectionStatus>("not configured");
   const displayName = import.meta.env["VITE_AVATAR_NAME"] || "Osiris";
   const themeAccent = getThemeAccent(settings.theme, settings.customColor);
@@ -124,6 +131,32 @@ export function AvatarStage({
     setResponseSource("local command");
     aiRef.current?.speak(text);
   }, []);
+
+  const transitionWorldScreen = useCallback((transition: "entering" | "returning") => {
+    if (worldTransitionTimer.current !== null) {
+      window.clearTimeout(worldTransitionTimer.current);
+    }
+    worldScreenRef.current = transition;
+    setWorldScreen(transition);
+    worldTransitionTimer.current = window.setTimeout(() => {
+      const destination = transition === "entering" ? "live" : "space";
+      worldScreenRef.current = destination;
+      setWorldScreen(destination);
+      worldTransitionTimer.current = null;
+    }, 950);
+  }, []);
+
+  const enterLiveMode = useCallback(() => {
+    if (worldScreenRef.current !== "space") return false;
+    transitionWorldScreen("entering");
+    return true;
+  }, [transitionWorldScreen]);
+
+  const returnToSpace = useCallback(() => {
+    if (worldScreenRef.current !== "live") return false;
+    transitionWorldScreen("returning");
+    return true;
+  }, [transitionWorldScreen]);
 
   const executeWorldCommand = useCallback(
     (command: NonNullable<ReturnType<typeof parseWorldCommand>>) => {
@@ -280,11 +313,28 @@ export function AvatarStage({
           applyInterfaceCommand(followUp.type);
           return;
         }
-      } else if (silentRef.current && source === "voice") {
+      } else if (
+        silentRef.current &&
+        source === "voice" &&
+        !parseSpaceNavigationCommand(commandText)
+      ) {
         return;
       }
       lastQuestionRef.current = commandText;
       if (!commandText) return;
+      const navigation = parseSpaceNavigationCommand(commandText);
+      if (navigation === "enter-live") {
+        const started = enterLiveMode();
+        if (started && (!silentRef.current || source === "typed")) {
+          say("Returning to my world.");
+        }
+        return;
+      }
+      if (navigation === "return-to-space") {
+        const started = returnToSpace();
+        if (started && (!silentRef.current || source === "typed")) say("Returning to orbit.");
+        return;
+      }
       if (isCubePanelCommand(commandText)) {
         setCubeOpen(true);
         aiRef.current?.speak("Operator verification is required to open the cube.");
@@ -306,7 +356,7 @@ export function AvatarStage({
       }
       await aiRef.current?.handleText(commandText);
     },
-    [executeWorldCommand, operatorName],
+    [enterLiveMode, executeWorldCommand, operatorName, returnToSpace, say],
   );
 
   useEffect(() => {
@@ -431,6 +481,15 @@ export function AvatarStage({
     };
   }, [sendCommand, operatorFullName, operatorName]);
 
+  useEffect(
+    () => () => {
+      if (worldTransitionTimer.current !== null) {
+        window.clearTimeout(worldTransitionTimer.current);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     try {
       setMemoryCount(memoryRef.current?.list().length ?? 0);
@@ -552,7 +611,7 @@ export function AvatarStage({
 
   return (
     <div
-      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}`}
+      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}`}
       data-scene-ready={ready ? "" : undefined}
       style={stageStyle}
     >
@@ -665,6 +724,7 @@ export function AvatarStage({
           {cabinetTab === "scene" && (
             <CabinetGroup label="Avatar scale">
               <div className="avatar-cabinet__option-grid">
+                <CabinetAction icon={Globe} label="Space view" onClick={returnToSpace} />
                 <CabinetAction
                   icon={Shrink}
                   label="Compact"
@@ -881,6 +941,13 @@ export function AvatarStage({
           </button>
         </form>
       </section>
+      {worldScreen !== "live" && (
+        <SpaceView
+          isEnteringLiveMode={worldScreen === "entering"}
+          isReturningToSpace={worldScreen === "returning"}
+          onEnterLiveMode={enterLiveMode}
+        />
+      )}
     </div>
   );
 }
