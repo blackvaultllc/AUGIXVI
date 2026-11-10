@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "blackvaultllc-augixvi",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "OSIRIS_OPERATOR_REGISTRY",
+        "class_name": "OperatorRegistry",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["OperatorRegistry"],
+    },
+  ],
+}

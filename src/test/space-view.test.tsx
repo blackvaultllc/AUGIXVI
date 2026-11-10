@@ -3,6 +3,24 @@ import { describe, expect, it, vi } from "vitest";
 import { SpaceView } from "@/avatar/SpaceView";
 
 describe("orbital Earth view", () => {
+  it("supports an Earth-only landing view with an interactive sign-in overlay", () => {
+    render(
+      <SpaceView
+        isLanding
+        isEnteringLiveMode={false}
+        isReturningToSpace={false}
+        onEnterLiveMode={vi.fn()}
+      >
+        <section aria-label="Operator sign-in">Sign in</section>
+      </SpaceView>,
+    );
+
+    expect(screen.getByRole("main", { name: "Operator sign-in landing view" })).toBeInTheDocument();
+    expect(document.querySelector<HTMLButtonElement>(".avatar-space-view__earth")).toBeDisabled();
+    expect(screen.getByLabelText("Operator sign-in")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enter Live Mode" })).toBeNull();
+  });
+
   it("offers a lightweight zoomable planet and enters Osiris's live world", () => {
     const onEnterLiveMode = vi.fn();
     render(

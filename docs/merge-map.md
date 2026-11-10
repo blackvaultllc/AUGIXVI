@@ -66,6 +66,12 @@ The hidden cube's `AUGI_OPERATOR_TOKEN` is a server-only access secret.
 the server returns it only after that token is verified, and the browser holds
 it in memory for the active assistant session. Neither variable is a Vite
 client variable, and `.env.example` contains only empty placeholders.
+The `/avatar` gate uses Supabase Auth with email/password and TOTP MFA. The
+server verifies sessions through the Supabase Auth user endpoint and requires
+an `aal2` session before the first verified account can atomically claim the
+Cloudflare Durable Object operator registry. No user-ID allowlist or Supabase
+service key is required. The initial first-claim flow intentionally means the
+first account to complete MFA after deployment becomes the operator.
 Camera vision captures a single frame only after an explicit request and sends
 it to the configured local Ollama vision model; AUGIXVI does not save it or
 identify people.
@@ -79,17 +85,17 @@ avatar environment configuration.
 
 The following non-secret settings are read from runtime/build environment:
 
-| Variable                        | Consumer                                              | Purpose                       |
-| ------------------------------- | ----------------------------------------------------- | ----------------------------- |
-| `VITE_AVATAR_NAME`              | `src/avatar/AvatarStage.tsx`                          | Optional display label        |
-| `VITE_OLLAMA_BASE_URL`          | `src/avatar/ollamaAI.ts`                              | Ollama server origin          |
-| `VITE_OLLAMA_MODEL`             | `src/avatar/ollamaAI.ts`                              | Ollama model identifier       |
-| `VITE_OLLAMA_VISION_MODEL`      | `src/avatar/vision.ts`                                | Local Ollama image model      |
-| `VITE_ELEVENLABS_VOICE_ID`      | `src/avatar/voice.ts`                                 | Public ElevenLabs voice ID    |
-| `VITE_MEDIAPIPE_WASM_ROOT`      | `src/avatar/AvatarStage.tsx`, `src/avatar/sensors.ts` | Vision runtime asset location |
-| `VITE_MEDIAPIPE_HAND_MODEL_URL` | `src/avatar/AvatarStage.tsx`, `src/avatar/sensors.ts` | Hand model asset location     |
-| `VITE_SUPABASE_URL`             | `src/lib/supabase-readonly.ts`                        | Supabase project URL          |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | `src/lib/supabase-readonly.ts`                        | Public/read-only client key   |
+| Variable                        | Consumer                                                                                           | Purpose                                                                |
+| ------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `VITE_AVATAR_NAME`              | `src/avatar/AvatarStage.tsx`                                                                       | Optional display label                                                 |
+| `VITE_OLLAMA_BASE_URL`          | `src/avatar/ollamaAI.ts`                                                                           | Ollama server origin                                                   |
+| `VITE_OLLAMA_MODEL`             | `src/avatar/ollamaAI.ts`                                                                           | Ollama model identifier                                                |
+| `VITE_OLLAMA_VISION_MODEL`      | `src/avatar/vision.ts`                                                                             | Local Ollama image model                                               |
+| `VITE_ELEVENLABS_VOICE_ID`      | `src/avatar/voice.ts`                                                                              | Public ElevenLabs voice ID                                             |
+| `VITE_MEDIAPIPE_WASM_ROOT`      | `src/avatar/AvatarStage.tsx`, `src/avatar/sensors.ts`                                              | Vision runtime asset location                                          |
+| `VITE_MEDIAPIPE_HAND_MODEL_URL` | `src/avatar/AvatarStage.tsx`, `src/avatar/sensors.ts`                                              | Hand model asset location                                              |
+| `VITE_SUPABASE_URL`             | `src/lib/supabase-readonly.ts`                                                                     | Supabase project URL                                                   |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | `src/lib/supabase-readonly.ts`, `src/avatar/OperatorGate.tsx`, `src/avatar/operatorAuth.server.ts` | Public Supabase client key for read-only access and Auth; not a secret |
 
 The server-only `ELEVENLABS_API_KEY` and `ELEVENLABS_API_BASE_URL` are read per
 request by the TTS server function. All `VITE_` values are public
@@ -142,7 +148,11 @@ schema changes.
 | `src/avatar/locomotion.ts`                                            | Move/adapt  | New world-space avatar movement and ground-contact controller; its route follows the local town, forest, and hot-zone layout. Keep its local Three.js transform logic with the renderer.                                                                                             |
 | `src/avatar/localMemory.ts`                                           | Adapt       | New bounded device-local highlight/document store with text matching; replace only through a deck-approved persistence contract. Do not invent a Supabase schema or add browser writes.                                                                                              |
 | `src/avatar/ollamaAI.ts`                                              | Adapt       | New module path; defaults to localhost Ollama and `llama3.1:8b`, then uses saved local matches/curated knowledge or an explicit offline-unknown reply. Adds mute state, verified identity context, and response-source events. No direct cloud-provider adapter exists.              |
-| `src/avatar/operatorAuth.server.ts`                                   | Adapt       | New server-side operator-token verification for the hidden cube; optional operator identity is returned only after verification. Integrate with the deck's authenticated server boundary and add abuse controls; never move token handling into browser code.                        |
+| `src/avatar/OperatorGate.tsx`                                         | Adapt       | Auth-only orbital landing with email/password, first-account setup, TOTP enrollment/challenge, persisted Supabase session, and a delayed transition; preserve the deck's existing auth boundary and keep avatar content hidden until server authorization.                           |
+| `src/avatar/OperatorRegistry.ts`                                      | Adapt       | Cloudflare Durable Object that atomically records the first TOTP-verified Supabase user as the operator; requires explicit owner bootstrap policy when adapting to another deployment.                                                                                               |
+| `src/avatar/operatorAuth.server.ts`                                   | Adapt       | Verifies Supabase sessions server-side, requires MFA `aal2`, and delegates first-owner claim/authorization to the Durable Object. Keep all verification server-side and never move token handling into browser code.                                                                 |
+| `exports.cloudflare.ts`                                               | Adapt       | Exports the operator registry class for the Cloudflare Worker runtime; merge into the deck's existing Cloudflare exports rather than replacing them.                                                                                                                                 |
+| `wrangler.jsonc`                                                      | Adapt       | Adds the Durable Object binding and initial SQLite-class migration to the existing Worker configuration; merge bindings and migration tags without replacing deck settings.                                                                                                          |
 | `src/avatar/particleLegs.ts`                                          | Adapt       | Samples thigh, knee, tapered shin, ankle, and forward-facing foot particle surfaces and provides alternating hip-swing angles; no separate prop material.                                                                                                                            |
 | `src/avatar/particleSource.ts`                                        | Move/adapt  | Combines full-circumference torso/core and articulated leg points into one shuffled particle dataset so the renderer applies one body shader, theme, and adaptive particle budget. Environment mountains remain separate `SceneManager` objects.                                     |
 | `src/avatar/props.ts`                                                 | Move as-is  | New `src/avatar/props.ts`; exports `makeProp`, `handPoints`, `filePoints`, `limbPoints`; no matching deck module found.                                                                                                                                                              |
@@ -242,7 +252,7 @@ schema changes.
 | `tsconfig.json`                                                       | Adapt       | Exact-path conflict; merge only necessary type aliases/types and compiler settings.                                                                                                                                                                                                  |
 | `vite.config.ts`                                                      | Adapt       | Exact-path conflict; preserve deck plugins, server preset, and deployment config.                                                                                                                                                                                                    |
 | `vitest.config.ts`                                                    | Adapt       | Exact-path conflict; merge test discovery/setup only.                                                                                                                                                                                                                                |
-| `.env.example`                                                        | Adapt       | Exact-path conflict; merge empty non-secret config, including `VITE_OLLAMA_VISION_MODEL` and `OSIRIS_OPERATOR_NAME`, plus server-only secret variable names. Never copy credential values or expose secrets via `VITE_`.                                                             |
+| `.env.example`                                                        | Adapt       | Exact-path conflict; merge empty non-secret config, including `VITE_OLLAMA_VISION_MODEL` and `OSIRIS_OPERATOR_NAME`, plus server-only secret variable names. No `OSIRIS_OPERATOR_USER_ID` is required. Never copy credential values or expose secrets via `VITE_`.                   |
 | `docs/merge-map.md`                                                   | Move as-is  | New documentation path; retain or update after the deck integration is completed.                                                                                                                                                                                                    |
 
 ## Dependency and integration conflicts

@@ -1,11 +1,14 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { verifySupabaseOperatorSession } from "./operatorAuth.server";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { getOperatorBootstrapStatus, verifySupabaseOperatorSession } from "./operatorAuth.server";
 import { AvatarStage } from "./AvatarStage";
+import { SpaceView } from "./SpaceView";
 
-type GateState = "checking" | "unconfigured" | "signed-out" | "verifying" | "authorized";
+type GateState =
+  "checking" | "unconfigured" | "signed-out" | "verifying" | "mfa" | "transitioning" | "authorized";
 const AUTH_CLIENT_SLOT = "__augixviOperatorAuthClient";
 type AuthWindow = Window & { [AUTH_CLIENT_SLOT]?: SupabaseClient | null };
+type MfaEnrollment = { qrCode: string; secret: string };
 
 function createAuthClient(): SupabaseClient | null {
   if (typeof window === "undefined") return null;
@@ -30,11 +33,29 @@ function createAuthClient(): SupabaseClient | null {
   return client;
 }
 
+function OperatorLanding({ children }: { children: ReactNode }) {
+  return (
+    <SpaceView
+      isLanding
+      isEnteringLiveMode={false}
+      isReturningToSpace={false}
+      onEnterLiveMode={() => undefined}
+    >
+      {children}
+    </SpaceView>
+  );
+}
+
 export function OperatorGate() {
   const [client] = useState(createAuthClient);
   const [state, setState] = useState<GateState>("checking");
+  const [operatorClaimed, setOperatorClaimed] = useState<boolean | null>(null);
+  const [registrationMode, setRegistrationMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [mfaFactorId, setMfaFactorId] = useState("");
+  const [mfaEnrollment, setMfaEnrollment] = useState<MfaEnrollment | null>(null);
   const [message, setMessage] = useState("");
   const [signOutError, setSignOutError] = useState("");
   const [operatorName, setOperatorName] = useState<string | null>(null);
@@ -43,6 +64,80 @@ export function OperatorGate() {
   const activeAccessTokenRef = useRef("");
   const verifiedTokenRef = useRef("");
   const verifyingTokenRef = useRef("");
+  const transitionTimeoutRef = useRef<number | null>(null);
+
+  const refreshBootstrapStatus = useCallback(async () => {
+    try {
+      const result = await getOperatorBootstrapStatus();
+      if (!result.configured) {
+        setOperatorClaimed(null);
+        setState("unconfigured");
+        return false;
+      }
+      setOperatorClaimed(result.claimed);
+      return true;
+    } catch {
+      setOperatorClaimed(null);
+      setState("unconfigured");
+      setMessage("Operator sign-in is unavailable. Please try again later.");
+      return false;
+    }
+  }, []);
+
+  const beginMfa = useCallback(
+    async (accessToken: string) => {
+      if (
+        !client ||
+        activeAccessTokenRef.current !== accessToken ||
+        verifyingTokenRef.current === accessToken
+      ) {
+        return;
+      }
+      verifyingTokenRef.current = accessToken;
+      try {
+        const { data, error } = await client.auth.mfa.listFactors();
+        if (error) throw error;
+
+        const verifiedFactor = data.totp[0];
+        if (verifiedFactor) {
+          setMfaFactorId(verifiedFactor.id);
+          setMfaEnrollment(null);
+          setCode("");
+          setState("mfa");
+          return;
+        }
+
+        const pendingFactor = data.all.find(
+          (factor) => factor.factor_type === "totp" && factor.status === "unverified",
+        );
+        if (pendingFactor) {
+          const { error: unenrollError } = await client.auth.mfa.unenroll({
+            factorId: pendingFactor.id,
+          });
+          if (unenrollError) throw unenrollError;
+        }
+
+        const { data: enrollment, error: enrollError } = await client.auth.mfa.enroll({
+          factorType: "totp",
+          friendlyName: "Operator device",
+        });
+        if (enrollError) throw enrollError;
+        setMfaFactorId(enrollment.id);
+        setMfaEnrollment({
+          qrCode: enrollment.totp.qr_code,
+          secret: enrollment.totp.secret,
+        });
+        setCode("");
+        setState("mfa");
+      } catch {
+        setState("signed-out");
+        setMessage("Multi-factor setup is unavailable. Please sign in and try again.");
+      } finally {
+        if (verifyingTokenRef.current === accessToken) verifyingTokenRef.current = "";
+      }
+    },
+    [client],
+  );
 
   const verifySession = useCallback(
     async (accessToken: string) => {
@@ -63,20 +158,31 @@ export function OperatorGate() {
         if (!result.configured) {
           await client.auth.signOut();
           setState("unconfigured");
+          setOperatorClaimed(null);
+          return;
+        }
+        if (result.requiresMfa) {
+          verifyingTokenRef.current = "";
+          await beginMfa(accessToken);
           return;
         }
         if (!result.authorized) {
           await client.auth.signOut();
           setOperatorName(null);
           setOperatorFullName(null);
+          setOperatorClaimed(true);
           setState("signed-out");
           setMessage("This account is not authorized for operator access.");
           return;
         }
-        setOperatorName(result.operatorName);
-        setOperatorFullName(result.operatorFullName);
+        setOperatorName(result.operatorName ?? null);
+        setOperatorFullName(result.operatorFullName ?? null);
+        setOperatorClaimed(true);
         verifiedTokenRef.current = accessToken;
-        setState("authorized");
+        setState("transitioning");
+        transitionTimeoutRef.current = window.setTimeout(() => {
+          if (activeAccessTokenRef.current === accessToken) setState("authorized");
+        }, 900);
       } catch {
         if (activeAccessTokenRef.current === accessToken) {
           setState("signed-out");
@@ -86,7 +192,7 @@ export function OperatorGate() {
         if (verifyingTokenRef.current === accessToken) verifyingTokenRef.current = "";
       }
     },
-    [client],
+    [beginMfa, client],
   );
 
   useEffect(() => {
@@ -95,6 +201,7 @@ export function OperatorGate() {
       return;
     }
     let active = true;
+    void refreshBootstrapStatus();
     const {
       data: { subscription },
     } = client.auth.onAuthStateChange((event, session) => {
@@ -103,13 +210,24 @@ export function OperatorGate() {
         activeAccessTokenRef.current = "";
         verifiedTokenRef.current = "";
         verifyingTokenRef.current = "";
+        if (transitionTimeoutRef.current !== null) {
+          window.clearTimeout(transitionTimeoutRef.current);
+          transitionTimeoutRef.current = null;
+        }
         setOperatorName(null);
         setOperatorFullName(null);
-        setState("signed-out");
+        setMfaFactorId("");
+        setMfaEnrollment(null);
+        setState((current) => (current === "unconfigured" ? current : "signed-out"));
         return;
       }
       activeAccessTokenRef.current = session.access_token;
-      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      if (
+        event === "INITIAL_SESSION" ||
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "MFA_CHALLENGE_VERIFIED"
+      ) {
         window.setTimeout(() => {
           if (active && activeAccessTokenRef.current === session.access_token) {
             void verifySession(session.access_token);
@@ -121,8 +239,11 @@ export function OperatorGate() {
     return () => {
       active = false;
       subscription.unsubscribe();
+      if (transitionTimeoutRef.current !== null) {
+        window.clearTimeout(transitionTimeoutRef.current);
+      }
     };
-  }, [client, verifySession]);
+  }, [client, refreshBootstrapStatus, verifySession]);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -144,6 +265,71 @@ export function OperatorGate() {
       await verifySession(data.session.access_token);
     } catch {
       setMessage("Sign-in is unavailable. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createOperatorAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!client || busy || operatorClaimed !== false) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const bootstrapStatus = await getOperatorBootstrapStatus();
+      if (!bootstrapStatus.configured) {
+        setOperatorClaimed(null);
+        setState("unconfigured");
+        return;
+      }
+      if (bootstrapStatus.claimed) {
+        setOperatorClaimed(true);
+        setRegistrationMode(false);
+        setMessage("The operator account is already set up. Sign in to continue.");
+        return;
+      }
+      const { data, error } = await client.auth.signUp({
+        email: email.trim(),
+        password,
+      });
+      setPassword("");
+      if (error) {
+        setMessage("Operator account setup failed. Check the details and try again.");
+        return;
+      }
+      if (!data.session) {
+        setRegistrationMode(false);
+        setMessage("Check the confirmation email, then sign in to finish setup.");
+        return;
+      }
+      activeAccessTokenRef.current = data.session.access_token;
+      await verifySession(data.session.access_token);
+    } catch {
+      setMessage("Operator account setup is unavailable. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyMfa(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!client || busy || !mfaFactorId) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const { data, error } = await client.auth.mfa.challengeAndVerify({
+        factorId: mfaFactorId,
+        code,
+      });
+      if (error || !data.access_token) {
+        setMessage("Verification code was not accepted. Try again.");
+        return;
+      }
+      setCode("");
+      activeAccessTokenRef.current = data.access_token;
+      await verifySession(data.access_token);
+    } catch {
+      setMessage("Multi-factor verification failed. Check the code and try again.");
     } finally {
       setBusy(false);
     }
@@ -177,34 +363,99 @@ export function OperatorGate() {
     );
   }
 
+  if (state === "transitioning") {
+    return <main className="operator-auth-transition" aria-label="Opening operator interface" />;
+  }
+
   if (state === "checking" || state === "verifying") {
     return (
-      <main className="operator-auth" aria-live="polite">
-        <p>{state === "checking" ? "Checking operator session…" : "Verifying operator access…"}</p>
-      </main>
+      <OperatorLanding>
+        <section className="operator-auth__card" aria-live="polite">
+          <p>
+            {state === "checking" ? "Checking operator session…" : "Verifying operator access…"}
+          </p>
+        </section>
+      </OperatorLanding>
     );
   }
 
   if (state === "unconfigured") {
     return (
-      <main className="operator-auth" aria-labelledby="operator-auth-title">
-        <section className="operator-auth__card">
+      <OperatorLanding>
+        <section className="operator-auth__card" aria-labelledby="operator-auth-title">
           <h1 id="operator-auth-title">Sign-in not configured</h1>
           <p>
-            Operator sign-in is unavailable until Supabase Auth and its operator allowlist are
+            Operator sign-in is unavailable until Supabase Auth and the operator registry are
             configured.
           </p>
+          {message && (
+            <p className="operator-auth__error" role="alert">
+              {message}
+            </p>
+          )}
         </section>
-      </main>
+      </OperatorLanding>
+    );
+  }
+
+  if (state === "mfa") {
+    return (
+      <OperatorLanding>
+        <section className="operator-auth__card" aria-labelledby="operator-auth-title">
+          <h1 id="operator-auth-title">Two-step verification</h1>
+          {mfaEnrollment ? (
+            <div className="operator-auth__enrollment">
+              <p>Scan this code with an authenticator app, or enter the setup key manually.</p>
+              <img src={mfaEnrollment.qrCode} alt="Authenticator setup QR code" />
+              <code>{mfaEnrollment.secret}</code>
+            </div>
+          ) : (
+            <p>Enter the current code from your authenticator app.</p>
+          )}
+          <form className="operator-auth__form" onSubmit={(event) => void verifyMfa(event)}>
+            <label>
+              Verification code
+              <input
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                maxLength={8}
+                pattern="[0-9]{6,8}"
+                value={code}
+                onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 8))}
+                required
+              />
+            </label>
+            {message && (
+              <p className="operator-auth__error" role="alert">
+                {message}
+              </p>
+            )}
+            <button type="submit" disabled={busy || code.length < 6}>
+              {busy ? "Verifying…" : "Verify"}
+            </button>
+          </form>
+        </section>
+      </OperatorLanding>
     );
   }
 
   return (
-    <main className="operator-auth" aria-labelledby="operator-auth-title">
-      <section className="operator-auth__card">
-        <h1 id="operator-auth-title">Operator sign-in</h1>
-        <p>Sign in to continue.</p>
-        <form className="operator-auth__form" onSubmit={(event) => void signIn(event)}>
+    <OperatorLanding>
+      <section className="operator-auth__card" aria-labelledby="operator-auth-title">
+        <h1 id="operator-auth-title">
+          {registrationMode ? "Set up operator account" : "Operator sign-in"}
+        </h1>
+        <p>
+          {registrationMode
+            ? "Create the first operator account for this installation."
+            : "Sign in to continue."}
+        </p>
+        <form
+          className="operator-auth__form"
+          onSubmit={(event) =>
+            void (registrationMode ? createOperatorAccount(event) : signIn(event))
+          }
+        >
           <label>
             Email
             <input
@@ -218,10 +469,11 @@ export function OperatorGate() {
           <label>
             Password
             <input
-              autoComplete="current-password"
+              autoComplete={registrationMode ? "new-password" : "current-password"}
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              minLength={8}
               required
             />
           </label>
@@ -231,10 +483,28 @@ export function OperatorGate() {
             </p>
           )}
           <button type="submit" disabled={busy}>
-            {busy ? "Signing in…" : "Sign in"}
+            {busy
+              ? registrationMode
+                ? "Setting up…"
+                : "Signing in…"
+              : registrationMode
+                ? "Create operator account"
+                : "Sign in"}
           </button>
         </form>
+        {operatorClaimed === false && (
+          <button
+            className="operator-auth__mode"
+            type="button"
+            onClick={() => {
+              setRegistrationMode((current) => !current);
+              setMessage("");
+            }}
+          >
+            {registrationMode ? "Back to sign in" : "Set up first operator account"}
+          </button>
+        )}
       </section>
-    </main>
+    </OperatorLanding>
   );
 }

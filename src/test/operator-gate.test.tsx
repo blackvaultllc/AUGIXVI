@@ -5,6 +5,7 @@ import { OperatorGate } from "@/avatar/OperatorGate";
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
+  bootstrapStatus: vi.fn(),
   verifySession: vi.fn(),
 }));
 
@@ -13,6 +14,7 @@ vi.mock("@supabase/supabase-js", () => ({
 }));
 
 vi.mock("@/avatar/operatorAuth.server", () => ({
+  getOperatorBootstrapStatus: mocks.bootstrapStatus,
   verifySupabaseOperatorSession: mocks.verifySession,
 }));
 
@@ -49,6 +51,13 @@ function createAuthMock() {
     ),
     signInWithPassword: vi.fn(),
     signOut: vi.fn().mockResolvedValue({ error: null }),
+    signUp: vi.fn(),
+    mfa: {
+      listFactors: vi.fn(),
+      unenroll: vi.fn(),
+      enroll: vi.fn(),
+      challengeAndVerify: vi.fn(),
+    },
   };
   return {
     ...auth,
@@ -66,7 +75,18 @@ describe("operator sign-in gate", () => {
     vi.stubEnv("VITE_SUPABASE_URL", "https://project.invalid");
     vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "public-placeholder");
     auth = createAuthMock();
+    auth.mfa.listFactors.mockResolvedValue({ data: { all: [], totp: [] }, error: null });
+    auth.mfa.unenroll.mockResolvedValue({ data: {}, error: null });
+    auth.mfa.enroll.mockResolvedValue({
+      data: { id: "factor", totp: { qr_code: "data:image/svg+xml,test", secret: "setup-secret" } },
+      error: null,
+    });
+    auth.mfa.challengeAndVerify.mockResolvedValue({
+      data: { access_token: "aal2-session" },
+      error: null,
+    });
     mocks.createClient.mockReset().mockReturnValue({ auth });
+    mocks.bootstrapStatus.mockReset().mockResolvedValue({ configured: true, claimed: false });
     mocks.verifySession.mockReset();
   });
 
@@ -99,6 +119,9 @@ describe("operator sign-in gate", () => {
 
     expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Set up first operator account" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.queryByTestId("avatar-stage")).not.toBeInTheDocument();
     expect(mocks.createClient).toHaveBeenCalledWith(
@@ -121,7 +144,7 @@ describe("operator sign-in gate", () => {
 
     render(<OperatorGate />);
 
-    expect(await screen.findByTestId("avatar-stage")).toBeInTheDocument();
+    expect(await screen.findByTestId("avatar-stage", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.getByTestId("avatar-stage")).toHaveAttribute(
       "data-operator-name",
       "Configured operator",
@@ -149,7 +172,7 @@ describe("operator sign-in gate", () => {
 
     fireEvent.submit(signInButton.closest("form")!);
 
-    expect(await screen.findByTestId("avatar-stage")).toBeInTheDocument();
+    expect(await screen.findByTestId("avatar-stage", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(auth.signInWithPassword).toHaveBeenCalledOnce();
     expect(mocks.verifySession).toHaveBeenCalledWith({ data: { accessToken: "session" } });
 
@@ -197,5 +220,79 @@ describe("operator sign-in gate", () => {
       await screen.findByRole("heading", { name: "Sign-in not configured" }),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("avatar-stage")).not.toBeInTheDocument();
+  });
+
+  it("hides first-account setup once an operator has claimed the registry", async () => {
+    mocks.bootstrapStatus.mockResolvedValue({ configured: true, claimed: true });
+
+    render(<OperatorGate />);
+
+    expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set up first operator account" })).toBeNull();
+  });
+
+  it("requires TOTP verification before authorizing the operator session", async () => {
+    auth.signInWithPassword.mockResolvedValue({
+      data: { session: { access_token: "aal1-session" } },
+      error: null,
+    });
+    mocks.verifySession
+      .mockResolvedValueOnce({
+        configured: true,
+        authorized: false,
+        requiresMfa: true,
+      })
+      .mockResolvedValueOnce({
+        configured: true,
+        authorized: true,
+        operatorName: null,
+        operatorFullName: null,
+      });
+
+    render(<OperatorGate />);
+    const signInButton = await screen.findByRole("button", { name: "Sign in" });
+    fireEvent.submit(signInButton.closest("form")!);
+
+    expect(await screen.findByAltText("Authenticator setup QR code")).toBeInTheDocument();
+    expect(auth.mfa.enroll).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId("avatar-stage")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Verification code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.submit(screen.getByRole("button", { name: "Verify" }).closest("form")!);
+
+    expect(await screen.findByTestId("avatar-stage", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(auth.mfa.challengeAndVerify).toHaveBeenCalledWith({
+      factorId: "factor",
+      code: "123456",
+    });
+  });
+
+  it("allows first-account setup only while the registry is unclaimed", async () => {
+    const password = crypto.randomUUID();
+    const email = ["operator", "example.invalid"].join(String.fromCharCode(64));
+    auth.signUp.mockResolvedValue({
+      data: { session: { access_token: "first-session" } },
+      error: null,
+    });
+    mocks.verifySession.mockResolvedValue({
+      configured: true,
+      authorized: false,
+      requiresMfa: true,
+    });
+
+    render(<OperatorGate />);
+    fireEvent.click(await screen.findByRole("button", { name: "Set up first operator account" }));
+
+    expect(screen.getByRole("heading", { name: "Set up operator account" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: email } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: password } });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Create operator account" }).closest("form")!,
+    );
+
+    expect(await screen.findByAltText("Authenticator setup QR code")).toBeInTheDocument();
+    expect(auth.signUp).toHaveBeenCalledWith({ email, password });
   });
 });

@@ -1,7 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 
 type OperatorTokenInput = { token: string };
 type OperatorSessionInput = { accessToken: string };
+type RegistryBinding = {
+  idFromName: (name: string) => unknown;
+  get: (id: unknown) => { fetch: (request: Request) => Promise<Response> };
+};
+type RequestWithCloudflareEnv = Request & {
+  runtime?: { cloudflare?: { env?: Record<string, unknown> } };
+};
 
 function isOperatorTokenInput(input: unknown): input is OperatorTokenInput {
   return (
@@ -29,6 +37,79 @@ async function matchesSecret(provided: string, expected: string): Promise<boolea
   return difference === 0;
 }
 
+function isOperatorSessionInput(input: unknown): input is OperatorSessionInput {
+  return (
+    typeof input === "object" &&
+    input !== null &&
+    "accessToken" in input &&
+    typeof input.accessToken === "string" &&
+    input.accessToken.length > 0 &&
+    input.accessToken.length <= 16_384
+  );
+}
+
+function getSupabaseConfig() {
+  const url = import.meta.env["VITE_SUPABASE_URL"]?.trim().replace(/\/+$/, "");
+  const publishableKey = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]?.trim();
+  return url && publishableKey ? { url, publishableKey } : null;
+}
+
+function getRegistryBinding(): RegistryBinding | null {
+  const request = getRequest() as RequestWithCloudflareEnv;
+  const binding: unknown = request.runtime?.cloudflare?.env?.["OSIRIS_OPERATOR_REGISTRY"];
+  if (
+    typeof binding !== "object" ||
+    binding === null ||
+    !("idFromName" in binding) ||
+    typeof binding.idFromName !== "function" ||
+    !("get" in binding) ||
+    typeof binding.get !== "function"
+  ) {
+    return null;
+  }
+  return binding as RegistryBinding;
+}
+
+function getRegistryStub() {
+  const binding = getRegistryBinding();
+  if (!binding) return null;
+  return binding.get(binding.idFromName("operator"));
+}
+
+async function requestRegistry(path: string, init?: RequestInit): Promise<Response | null> {
+  const stub = getRegistryStub();
+  if (!stub) return null;
+  return stub.fetch(new Request(`https://operator-registry${path}`, init));
+}
+
+async function readTokenClaims(
+  token: string,
+): Promise<{ subject: string; assuranceLevel: string } | null> {
+  const encodedPayload = token.split(".")[1];
+  if (!encodedPayload) return null;
+
+  try {
+    const base64 = encodedPayload.replace(/-/g, "+").replace(/_/g, "/");
+    const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const claims: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    if (
+      typeof claims !== "object" ||
+      claims === null ||
+      !("sub" in claims) ||
+      typeof claims.sub !== "string" ||
+      !("aal" in claims) ||
+      typeof claims.aal !== "string"
+    ) {
+      return null;
+    }
+    return { subject: claims.sub, assuranceLevel: claims.aal };
+  } catch (error) {
+    if (error instanceof SyntaxError || error instanceof DOMException) return null;
+    throw error;
+  }
+}
+
 export const verifyOperatorAccess = createServerFn({ method: "POST" })
   .validator((input: unknown): OperatorTokenInput => {
     if (!isOperatorTokenInput(input)) {
@@ -46,42 +127,54 @@ export const verifyOperatorAccess = createServerFn({ method: "POST" })
     return { configured: true, authorized, operatorName };
   });
 
+export const getOperatorBootstrapStatus = createServerFn({ method: "GET" }).handler(async () => {
+  if (!getSupabaseConfig()) return { configured: false, claimed: false };
+
+  const response = await requestRegistry("/status");
+  if (!response) return { configured: false, claimed: false };
+  if (!response.ok) {
+    throw new Error(`Operator registry status failed with status ${response.status}.`);
+  }
+  const result: unknown = await response.json();
+  const claimed =
+    typeof result === "object" &&
+    result !== null &&
+    "claimed" in result &&
+    typeof result.claimed === "boolean"
+      ? result.claimed
+      : null;
+  if (claimed === null) throw new Error("Operator registry returned an invalid status.");
+  return { configured: true, claimed };
+});
+
 export const verifySupabaseOperatorSession = createServerFn({ method: "POST" })
   .validator((input: unknown): OperatorSessionInput => {
-    if (
-      typeof input !== "object" ||
-      input === null ||
-      !("accessToken" in input) ||
-      typeof input.accessToken !== "string" ||
-      input.accessToken.length === 0 ||
-      input.accessToken.length > 16_384
-    ) {
+    if (!isOperatorSessionInput(input)) {
       throw new Error("Invalid operator session request.");
     }
-    return { accessToken: input.accessToken };
+    return input;
   })
   .handler(async ({ data }) => {
-    const url = import.meta.env["VITE_SUPABASE_URL"]?.trim().replace(/\/+$/, "");
-    const publishableKey = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]?.trim();
-    const operatorUserId = process.env["OSIRIS_OPERATOR_USER_ID"]?.trim();
-    if (!url || !publishableKey || !operatorUserId) {
+    const config = getSupabaseConfig();
+    if (!config || !getRegistryBinding()) {
       return {
         configured: false,
         authorized: false,
+        requiresMfa: false,
         operatorName: null,
         operatorFullName: null,
       };
     }
 
-    const response = await fetch(new URL("/auth/v1/user", url), {
+    const response = await fetch(new URL("/auth/v1/user", config.url), {
       method: "GET",
       headers: {
-        apikey: publishableKey,
+        apikey: config.publishableKey,
         Authorization: `Bearer ${data.accessToken}`,
       },
     });
     if (response.status === 401 || response.status === 403) {
-      return { configured: true, authorized: false };
+      return { configured: true, authorized: false, requiresMfa: false };
     }
     if (!response.ok) {
       throw new Error(`Supabase Auth session verification failed with status ${response.status}.`);
@@ -92,10 +185,75 @@ export const verifySupabaseOperatorSession = createServerFn({ method: "POST" })
       typeof user === "object" && user !== null && "id" in user && typeof user.id === "string"
         ? user.id
         : "";
-    const authorized = userId === operatorUserId;
+    const claims = await readTokenClaims(data.accessToken);
+    if (!userId || !claims || claims.subject !== userId) {
+      return { configured: true, authorized: false, requiresMfa: false };
+    }
+
+    const checkResponse = await requestRegistry("/check", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    if (!checkResponse) {
+      return {
+        configured: false,
+        authorized: false,
+        requiresMfa: false,
+        operatorName: null,
+        operatorFullName: null,
+      };
+    }
+    if (!checkResponse.ok) {
+      throw new Error(`Operator registry check failed with status ${checkResponse.status}.`);
+    }
+    const checkResult: unknown = await checkResponse.json();
+    const registryState =
+      typeof checkResult === "object" &&
+      checkResult !== null &&
+      "claimed" in checkResult &&
+      typeof checkResult.claimed === "boolean" &&
+      "isOwner" in checkResult &&
+      typeof checkResult.isOwner === "boolean"
+        ? { claimed: checkResult.claimed, isOwner: checkResult.isOwner }
+        : null;
+    if (!registryState) throw new Error("Operator registry returned an invalid identity check.");
+    if (registryState.claimed && !registryState.isOwner) {
+      return { configured: true, authorized: false, requiresMfa: false };
+    }
+    if (claims.assuranceLevel !== "aal2") {
+      return { configured: true, authorized: false, requiresMfa: true };
+    }
+
+    const registryResponse = await requestRegistry("/authorize", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    if (!registryResponse) {
+      return {
+        configured: false,
+        authorized: false,
+        requiresMfa: false,
+        operatorName: null,
+        operatorFullName: null,
+      };
+    }
+    if (!registryResponse.ok) {
+      throw new Error(
+        `Operator registry authorization failed with status ${registryResponse.status}.`,
+      );
+    }
+    const registryResult: unknown = await registryResponse.json();
+    const authorized =
+      typeof registryResult === "object" &&
+      registryResult !== null &&
+      "authorized" in registryResult &&
+      registryResult.authorized === true;
     return {
       configured: true,
       authorized,
+      requiresMfa: false,
       operatorName: authorized ? process.env["OSIRIS_OPERATOR_NAME"]?.trim() || null : null,
       operatorFullName: authorized
         ? process.env["OSIRIS_OPERATOR_FULL_NAME"]?.trim() || null
