@@ -31,7 +31,9 @@ export function parseInteractionCommand(text: string): InteractionCommand {
     return { type: "silence" };
   }
 
-  const wake = command.match(/^(?:(?:hey|okay|ok)\s+)?osiris\b[\s,!?;:]*(.*)$/i);
+  // Wake words: "Usir" (oo-SEER — the original ancient Egyptian name of
+  // Osiris, from "Dua Usir", Hail Osiris) and "Osiris" as backup.
+  const wake = command.match(/^(?:(?:hey|okay|ok)\s+)?(?:usir|osiris)\b[\s,!?;:]*(.*)$/i);
   if (wake) return { type: "wake", remainder: normalize(wake[1] ?? "") };
   return null;
 }

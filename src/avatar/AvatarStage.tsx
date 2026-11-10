@@ -28,6 +28,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { AvatarBridge, type AvatarState } from "./AvatarBridge";
+import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
 import { AvatarRenderer, type RenderSettings } from "./AvatarRenderer";
 import { Sensors, type SensorStatus } from "./sensors";
 import { attachOllamaAI } from "./ollamaAI";
@@ -44,6 +45,10 @@ import {
 import { isCameraVisionRequest, parseWorldCommand, type MaterialKind } from "./worldCommands";
 import { describeCameraFrame } from "./vision";
 import { KnowledgePanel } from "./KnowledgePanel";
+import { dispatchEarthFlight } from "../components/SpinningEarth";
+import { RoomAnalyzer } from "./RoomAnalyzer";
+import { commandKnowledgeSection, commandToolsPrompt } from "./command/commandKnowledge";
+import { parseRoomAnalyzeRequest } from "./command/analyze-requests";
 import {
   parseInteractionCommand,
   loadClearScreenPreference,
@@ -119,12 +124,16 @@ export function AvatarStage({
   const [memoryCount, setMemoryCount] = useState(0);
   const [memoryError, setMemoryError] = useState("");
   const [cubeOpen, setCubeOpen] = useState(false);
+  const [roomAnalyzerOpen, setRoomAnalyzerOpen] = useState(false);
+  const [roomAnalyzerDescription, setRoomAnalyzerDescription] = useState("");
   const [cabinetTab, setCabinetTab] = useState<CabinetTab>("motion");
   const [worldScreen, setWorldScreen] = useState<WorldScreen>("space");
   const worldScreenRef = useRef<WorldScreen>("space");
   const worldTransitionTimer = useRef<number | null>(null);
   const [databaseStatus, setDatabaseStatus] = useState<SupabaseConnectionStatus>("not configured");
   const displayName = import.meta.env["VITE_AVATAR_NAME"] || "Osiris";
+  // Wake-word response falls back to the owner's call sign when the
+  // verified operator name is not configured (handled inline below).
   const themeAccent = getThemeAccent(settings.theme, settings.customColor);
 
   const say = useCallback((text: string) => {
@@ -132,18 +141,28 @@ export function AvatarStage({
     aiRef.current?.speak(text);
   }, []);
 
+  /**
+   * ONE WORLD, ONE FLIGHT: "entering"/"returning" are no longer screen
+   * jumps. The Earth scene itself plays the continuous fly-in/fly-out
+   * (dispatchEarthFlight), and the particle world fades over the landed
+   * camera after the flight completes.
+   */
   const transitionWorldScreen = useCallback((transition: "entering" | "returning") => {
     if (worldTransitionTimer.current !== null) {
       window.clearTimeout(worldTransitionTimer.current);
     }
     worldScreenRef.current = transition;
     setWorldScreen(transition);
-    worldTransitionTimer.current = window.setTimeout(() => {
-      const destination = transition === "entering" ? "live" : "space";
-      worldScreenRef.current = destination;
-      setWorldScreen(destination);
-      worldTransitionTimer.current = null;
-    }, 950);
+    dispatchEarthFlight(transition === "entering" ? "fly-in" : "fly-out");
+    worldTransitionTimer.current = window.setTimeout(
+      () => {
+        const destination = transition === "entering" ? "live" : "space";
+        worldScreenRef.current = destination;
+        setWorldScreen(destination);
+        worldTransitionTimer.current = null;
+      },
+      transition === "entering" ? 2500 : 2400,
+    );
   }, []);
 
   const enterLiveMode = useCallback(() => {
@@ -304,7 +323,7 @@ export function AvatarStage({
         aiRef.current?.setMuted(false);
         if (!interaction.remainder) {
           setResponseSource("wake word");
-          aiRef.current?.speak(operatorName ? `Yes, ${operatorName}.` : "Yes, operator.");
+          aiRef.current?.speak(operatorName ? `Yes, ${operatorName}.` : "Yes, Anubis.");
           return;
         }
         commandText = interaction.remainder;
@@ -345,12 +364,15 @@ export function AvatarStage({
         executeWorldCommand(worldCommand);
         return;
       }
-      if (isCameraVisionRequest(commandText)) {
+      const roomAnalyze = parseRoomAnalyzeRequest(commandText);
+      if (roomAnalyze || isCameraVisionRequest(commandText)) {
+        if (roomAnalyze) setRoomAnalyzerOpen(true);
         const sensors = sensRef.current;
         const description = await describeCameraFrame(
           sensors?.cameraIsActive ? sensors.video : null,
         );
-        setResponseSource("camera description");
+        if (roomAnalyze) setRoomAnalyzerDescription(description);
+        setResponseSource(roomAnalyze ? "room analyze" : "camera description");
         aiRef.current?.speak(description);
         return;
       }
@@ -370,6 +392,7 @@ export function AvatarStage({
     const ai = attachOllamaAI(bridge, {
       operatorName,
       operatorFullName,
+      system: `${DEFAULT_SYSTEM_PROMPT}\n${commandKnowledgeSection}${commandToolsPrompt}`,
       onSpeak: setLastWords,
       onOfflineChange: setAiOffline,
       onResponseSource: setResponseSource,
@@ -620,6 +643,13 @@ export function AvatarStage({
         <CubePanel
           onClose={() => setCubeOpen(false)}
           onAuthorized={(name) => aiRef.current?.setOperatorIdentity(name)}
+        />
+      )}
+      {roomAnalyzerOpen && (
+        <RoomAnalyzer
+          open={roomAnalyzerOpen}
+          description={roomAnalyzerDescription}
+          onClose={() => setRoomAnalyzerOpen(false)}
         />
       )}
       {knowledgeOpen && (

@@ -1,15 +1,29 @@
-import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import {
+  Component,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Stars, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
 /**
  * The REAL Spinning Earth from blackvaultllc/infinitycomics — three.js sphere
  * with the actual NASA-derived textures (day / night lights / clouds /
- * specular / normal), orbiting satellites, meteor flybys every 8–15 s with a
- * WebAudio whoosh, starfield, atmosphere glow and the "Earth · Realm of
- * Mr. Infinity" label with an "Enter Live Mode" CTA. The sign-in card sits
- * ON TOP of the Earth itself.
+ * specular / normal), starfield, sun, moon, orbiting satellites, meteor
+ * flybys with a WebAudio whoosh, and the "Earth · Realm of Mr. Infinity"
+ * label with an "Enter Live Mode" CTA. The sign-in card sits ON TOP of the
+ * Earth itself.
+ *
+ * ONE WORLD: Osiris lives in this same scene. His glowing orb orbits the
+ * planet alongside the satellites, and "Enter Live Mode" is one continuous
+ * camera flight from orbit down to the surface — the particle world opens
+ * over the arriving camera. No screen jump, ever.
  */
 
 const EARTH_TEXTURES = {
@@ -19,6 +33,28 @@ const EARTH_TEXTURES = {
   specular: "/assets/world/earth/earth_specular.jpg",
   normal: "/assets/world/earth/earth_normal.jpg",
 } as const;
+
+const EARTH_RADIUS = 2.2;
+/** Osiris's orbital altitude (scene units) — riding with the satellites. */
+export const ORBIT_RADIUS = 3.15;
+const ORBIT_CAMERA: [number, number, number] = [0, 1.4, 8.6];
+const SURFACE_CAMERA: [number, number, number] = [0, EARTH_RADIUS + 0.5, 0.55];
+const FLIGHT_MS = 2400;
+
+/**
+ * Cross-component flight trigger: voice commands live in AvatarStage while
+ * the Canvas lives inside SpinningEarth, so fly-in/fly-out travels over a
+ * tiny module-level event instead of prop drilling through the gate.
+ */
+type EarthFlightEvent = "fly-in" | "fly-out";
+const flightListeners = new Set<(event: EarthFlightEvent) => void>();
+export function dispatchEarthFlight(event: EarthFlightEvent) {
+  flightListeners.forEach((listener) => listener(event));
+}
+
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
 
 function configureTexture(texture: THREE.Texture, color = false) {
   texture.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
@@ -52,7 +88,7 @@ function FallbackEarth() {
   return (
     <group ref={earth}>
       <mesh>
-        <sphereGeometry args={[2.2, 96, 96]} />
+        <sphereGeometry args={[EARTH_RADIUS, 96, 96]} />
         <meshPhysicalMaterial
           color="#174f8f"
           emissive="#08224a"
@@ -64,7 +100,7 @@ function FallbackEarth() {
         />
       </mesh>
       <mesh scale={1.035}>
-        <sphereGeometry args={[2.2, 96, 96]} />
+        <sphereGeometry args={[EARTH_RADIUS, 96, 96]} />
         <meshPhysicalMaterial
           color="#8bdcff"
           emissive="#4fbfff"
@@ -106,7 +142,7 @@ function Earth() {
   return (
     <group ref={earth}>
       <mesh castShadow receiveShadow>
-        <sphereGeometry args={[2.2, 128, 128]} />
+        <sphereGeometry args={[EARTH_RADIUS, 128, 128]} />
         <meshPhysicalMaterial
           map={dayMap}
           roughness={0.58}
@@ -123,7 +159,7 @@ function Earth() {
       </mesh>
       {/* Night-side city lights */}
       <mesh scale={1.002}>
-        <sphereGeometry args={[2.2, 128, 128]} />
+        <sphereGeometry args={[EARTH_RADIUS, 128, 128]} />
         <meshStandardMaterial
           map={nightMap}
           emissiveMap={nightMap}
@@ -139,7 +175,7 @@ function Earth() {
       </mesh>
       {/* Drifting cloud layer */}
       <mesh ref={clouds} scale={1.012}>
-        <sphereGeometry args={[2.2, 128, 128]} />
+        <sphereGeometry args={[EARTH_RADIUS, 128, 128]} />
         <meshPhysicalMaterial
           map={cloudsMap}
           alphaMap={cloudsMap}
@@ -154,7 +190,7 @@ function Earth() {
       </mesh>
       {/* Atmospheric rim glow */}
       <mesh scale={1.038}>
-        <sphereGeometry args={[2.2, 128, 128]} />
+        <sphereGeometry args={[EARTH_RADIUS, 128, 128]} />
         <meshPhysicalMaterial
           color="#8bdcff"
           emissive="#4fbfff"
@@ -169,7 +205,7 @@ function Earth() {
         />
       </mesh>
       <mesh scale={1.09}>
-        <sphereGeometry args={[2.2, 96, 96]} />
+        <sphereGeometry args={[EARTH_RADIUS, 96, 96]} />
         <meshPhysicalMaterial
           color="#2d9dff"
           emissive="#2d9dff"
@@ -379,6 +415,81 @@ function playWhoosh() {
   }
 }
 
+/**
+ * Osiris IN THE SCENE: a glowing orb riding his own orbit among the
+ * satellites. While the camera flies down he falls with it, shrinking as
+ * the particle world takes over.
+ */
+function OsirisOrbiter({ paused, descending }: { paused: boolean; descending: boolean }) {
+  const group = useRef<THREE.Group>(null);
+  const angle = useRef(Math.PI * 0.35);
+  useFrame((_, dt) => {
+    const g = group.current;
+    if (!g) return;
+    if (descending) {
+      g.scale.multiplyScalar(Math.max(0.01, 1 - dt * 1.1));
+      return;
+    }
+    if (!paused) angle.current += dt * 0.24;
+    const wobble = Math.sin(angle.current * 2.2) * 0.12;
+    g.position.set(
+      Math.cos(angle.current) * ORBIT_RADIUS,
+      wobble,
+      Math.sin(angle.current) * ORBIT_RADIUS,
+    );
+    g.scale.setScalar(1);
+  });
+  return (
+    <group
+      ref={group}
+      position={[
+        ORBIT_RADIUS * Math.cos(Math.PI * 0.35),
+        0,
+        ORBIT_RADIUS * Math.sin(Math.PI * 0.35),
+      ]}
+    >
+      <mesh>
+        <sphereGeometry args={[0.14, 24, 24]} />
+        <meshBasicMaterial color="#7ef0ff" toneMapped={false} />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[0.24, 24, 24]} />
+        <meshBasicMaterial
+          color="#38bdf8"
+          transparent
+          opacity={0.35}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      <pointLight color="#7ef0ff" intensity={1.5} distance={2.2} />
+    </group>
+  );
+}
+
+/** The flight controller: drives the camera from orbit to the surface. */
+function FlightRig({ progress }: { progress: React.RefObject<number> }) {
+  const { camera } = useThree();
+  const orbit = useMemo(() => new THREE.Vector3(...ORBIT_CAMERA), []);
+  const surface = useMemo(() => new THREE.Vector3(...SURFACE_CAMERA), []);
+  const target = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({ clock }) => {
+    const t = easeInOutCubic(THREE.MathUtils.clamp(progress.current ?? 0, 0, 1));
+    camera.position.lerpVectors(orbit, surface, t);
+    if (t === 0) {
+      // Gentle idle drift while parked in orbit.
+      camera.position.x += Math.sin(clock.elapsedTime * 0.16) * 0.2;
+      camera.position.y += Math.sin(clock.elapsedTime * 0.11) * 0.1;
+    } else {
+      // Arrival tremor — the air thickening as the ground comes up.
+      camera.position.x += Math.sin(clock.elapsedTime * 2) * 0.02 * t;
+    }
+    target.set(0, THREE.MathUtils.lerp(0, EARTH_RADIUS * 0.2, t), 0);
+    camera.lookAt(target);
+  });
+  return null;
+}
+
 type SpinningEarthProps = {
   /** Height of the scene container in px. */
   height?: number;
@@ -386,13 +497,68 @@ type SpinningEarthProps = {
   ctaLabel?: string;
   /** Optional overlay (e.g. the sign-in card) that sits ON the Earth. */
   children?: ReactNode;
+  /** Called the instant the fly-in lands (progress reaches 1). */
+  onFlightComplete?: () => void;
+  /** Hide the CTA / label (used while the particle world takes over). */
+  chromeVisible?: boolean;
 };
 
-export function SpinningEarth(props: SpinningEarthProps) {
-  return <SpinningEarthScene {...props} />;
-}
+export function SpinningEarth({
+  height = 480,
+  onEnter,
+  ctaLabel = "Enter Live Mode",
+  children,
+  onFlightComplete,
+  chromeVisible = true,
+}: SpinningEarthProps) {
+  const [meteorKey, setMeteorKey] = useState(0);
+  const progressRef = useRef(0);
+  const [flying, setFlying] = useState(false);
+  const [descending, setDescending] = useState(false);
+  const flightRaf = useRef(0);
 
-function SpinningEarthScene({ height, onEnter, ctaLabel, children }: SpinningEarthProps) {
+  const animateFlight = useCallback(
+    (from: number, to: number, durationMs: number) => {
+      cancelAnimationFrame(flightRaf.current);
+      const start = performance.now();
+      setFlying(true);
+      const step = (now: number) => {
+        const t = Math.min(1, (now - start) / durationMs);
+        progressRef.current = from + (to - from) * easeInOutCubic(t);
+        if (t < 1) {
+          flightRaf.current = requestAnimationFrame(step);
+        } else {
+          progressRef.current = to;
+          setFlying(false);
+          if (to > from) {
+            setDescending(true);
+            onFlightComplete?.();
+          } else {
+            setDescending(false);
+          }
+        }
+      };
+      flightRaf.current = requestAnimationFrame(step);
+    },
+    [onFlightComplete],
+  );
+
+  const flyIn = useCallback(() => {
+    if (flying) return;
+    setDescending(false);
+    animateFlight(progressRef.current, 1, FLIGHT_MS);
+  }, [animateFlight, flying]);
+
+  const flyOut = useCallback(() => {
+    if (flying) return;
+    setDescending(false);
+    animateFlight(progressRef.current, 0, FLIGHT_MS);
+  }, [animateFlight, flying]);
+
+  useEarthFlightSubscription(flyIn, flyOut);
+
+  useEffect(() => () => cancelAnimationFrame(flightRaf.current), []);
+
   // Random meteor flyby every 8–15s with a WebAudio whoosh
   useEffect(() => {
     let cancelled = false;
@@ -401,6 +567,7 @@ function SpinningEarthScene({ height, onEnter, ctaLabel, children }: SpinningEar
       const wait = 8000 + Math.random() * 7000;
       timer = setTimeout(() => {
         if (cancelled) return;
+        setMeteorKey((k) => k + 1);
         playWhoosh();
         loop();
       }, wait);
@@ -412,107 +579,124 @@ function SpinningEarthScene({ height, onEnter, ctaLabel, children }: SpinningEar
     };
   }, []);
 
+  void meteorKey;
+
   return (
     <div
       className="spinning-earth relative w-full overflow-hidden"
       style={{ height, background: "#02040d" }}
     >
-      <SceneWithMeteors />
-      {children}
-      {onEnter && (
+      <Canvas
+        shadows
+        camera={{ position: ORBIT_CAMERA, fov: 45 }}
+        gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+      >
+        <color attach="background" args={["#02040d"]} />
+        <Stars radius={120} depth={70} count={7000} factor={4} fade speed={0.22} />
+        <ambientLight intensity={0.32} color="#b7d8ff" />
+        <directionalLight position={[8, 5, 8]} intensity={2.8} color="#fff2cc" castShadow />
+        <group position={[12, 4.2, -10]}>
+          <pointLight intensity={4.5} color="#ffd080" distance={42} />
+          <mesh>
+            <sphereGeometry args={[0.85, 48, 48]} />
+            <meshBasicMaterial color="#fff6c8" toneMapped={false} />
+          </mesh>
+          <mesh scale={1.35}>
+            <sphereGeometry args={[0.85, 32, 32]} />
+            <meshBasicMaterial
+              color="#ffd27a"
+              transparent
+              opacity={0.45}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+          <mesh scale={1.9}>
+            <sphereGeometry args={[0.85, 32, 32]} />
+            <meshBasicMaterial
+              color="#ffb14a"
+              transparent
+              opacity={0.18}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+          <mesh scale={2.8}>
+            <sphereGeometry args={[0.85, 24, 24]} />
+            <meshBasicMaterial
+              color="#ff8a2a"
+              transparent
+              opacity={0.08}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
+        <group position={[-5.2, 2.1, -2.6]}>
+          <mesh>
+            <sphereGeometry args={[0.46, 48, 48]} />
+            <meshStandardMaterial
+              color="#e9e4d2"
+              emissive="#5b4a2a"
+              emissiveIntensity={0.22}
+              roughness={0.95}
+              metalness={0}
+            />
+          </mesh>
+          <mesh scale={1.25}>
+            <sphereGeometry args={[0.46, 24, 24]} />
+            <meshBasicMaterial
+              color="#ffd9a0"
+              transparent
+              opacity={0.12}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
+        <Satellites />
+        <Meteor />
+        <OsirisOrbiter paused={flying} descending={descending} />
+        <FlightRig progress={progressRef} />
+        <EarthTextureBoundary fallback={<FallbackEarth />}>
+          <Suspense fallback={<FallbackEarth />}>
+            <Earth />
+          </Suspense>
+        </EarthTextureBoundary>
+      </Canvas>
+      {chromeVisible && children}
+      {chromeVisible && onEnter && (
         <button
-          onClick={onEnter}
+          onClick={() => {
+            playWhoosh();
+            flyIn();
+            onEnter();
+          }}
           className="spinning-earth__cta absolute bottom-6 left-1/2 z-20 -translate-x-1/2 border border-[oklch(0.78_0.14_82/0.7)] bg-black/80 px-6 py-3 font-mono text-[0.65rem] uppercase tracking-[0.3em] text-[oklch(0.78_0.14_82)] backdrop-blur transition hover:bg-[oklch(0.78_0.14_82)] hover:text-black"
         >
           {ctaLabel}
         </button>
       )}
-      <div className="pointer-events-none absolute left-4 top-3 z-20 font-mono text-[0.55rem] uppercase tracking-[0.35em] text-[oklch(0.78_0.14_82/0.7)]">
-        Earth · Realm of Mr. Infinity
-      </div>
+      {chromeVisible && (
+        <div className="pointer-events-none absolute left-4 top-3 z-20 font-mono text-[0.55rem] uppercase tracking-[0.35em] text-[oklch(0.78_0.14_82/0.7)]">
+          Earth · Realm of Mr. Infinity
+        </div>
+      )}
     </div>
   );
 }
 
-function SceneWithMeteors() {
-  return (
-    <Canvas
-      shadows
-      camera={{ position: [0, 0.7, 8.2], fov: 45 }}
-      gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
-    >
-      <color attach="background" args={["#02040d"]} />
-      <Stars radius={120} depth={70} count={7000} factor={4} fade speed={0.22} />
-      <ambientLight intensity={0.32} color="#b7d8ff" />
-      <directionalLight position={[8, 5, 8]} intensity={2.8} color="#fff2cc" castShadow />
-      <group position={[12, 4.2, -10]}>
-        <pointLight intensity={4.5} color="#ffd080" distance={42} />
-        <mesh>
-          <sphereGeometry args={[0.85, 48, 48]} />
-          <meshBasicMaterial color="#fff6c8" toneMapped={false} />
-        </mesh>
-        <mesh scale={1.35}>
-          <sphereGeometry args={[0.85, 32, 32]} />
-          <meshBasicMaterial
-            color="#ffd27a"
-            transparent
-            opacity={0.45}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-        <mesh scale={1.9}>
-          <sphereGeometry args={[0.85, 32, 32]} />
-          <meshBasicMaterial
-            color="#ffb14a"
-            transparent
-            opacity={0.18}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-        <mesh scale={2.8}>
-          <sphereGeometry args={[0.85, 24, 24]} />
-          <meshBasicMaterial
-            color="#ff8a2a"
-            transparent
-            opacity={0.08}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-      </group>
-      <group position={[-5.2, 2.1, -2.6]}>
-        <mesh>
-          <sphereGeometry args={[0.46, 48, 48]} />
-          <meshStandardMaterial
-            color="#e9e4d2"
-            emissive="#5b4a2a"
-            emissiveIntensity={0.22}
-            roughness={0.95}
-            metalness={0}
-          />
-        </mesh>
-        <mesh scale={1.25}>
-          <sphereGeometry args={[0.46, 24, 24]} />
-          <meshBasicMaterial
-            color="#ffd9a0"
-            transparent
-            opacity={0.12}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-      </group>
-      <Satellites />
-      <Meteor />
-      <EarthTextureBoundary fallback={<FallbackEarth />}>
-        <Suspense fallback={<FallbackEarth />}>
-          <Earth />
-        </Suspense>
-      </EarthTextureBoundary>
-    </Canvas>
-  );
+function useEarthFlightSubscription(flyIn: () => void, flyOut: () => void) {
+  useEffect(() => {
+    const listener = (event: EarthFlightEvent) => {
+      if (event === "fly-in") flyIn();
+      else flyOut();
+    };
+    flightListeners.add(listener);
+    return () => {
+      flightListeners.delete(listener);
+    };
+  }, [flyIn, flyOut]);
 }
 
 export default SpinningEarth;

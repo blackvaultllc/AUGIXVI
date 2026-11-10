@@ -1471,3 +1471,72 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+/* ───── Room Analyzer (Command scope pop-up) ───── */
+.room-analyzer {
+  position: absolute;
+  z-index: 30;
+  top: max(4.5rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 0.7rem 0.85rem;
+  border: 1px solid oklch(0.7 0.12 205 / 42%);
+  border-radius: 0.6rem;
+  background: oklch(0.14 0.04 255 / 82%);
+  color: oklch(0.9 0.08 210);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6rem;
+  box-shadow: 0 0 1.6rem oklch(0.62 0.12 205 / 25%);
+  backdrop-filter: blur(6px);
+}
+.room-analyzer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.room-analyzer__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.room-analyzer__title svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--avatar-hud-accent);
+}
+.room-analyzer__close {
+  display: inline-flex;
+  padding: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: oklch(0.78 0.12 205 / 80%);
+  cursor: pointer;
+}
+.room-analyzer__close svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.room-analyzer__note {
+  margin: 0.4rem 0 0.5rem;
+  color: oklch(0.72 0.06 205 / 75%);
+  font-size: 0.54rem;
+  line-height: 1.5;
+}
+.room-analyzer__body {
+  min-height: 2.6rem;
+  padding: 0.5rem;
+  border: 1px solid oklch(0.7 0.12 205 / 25%);
+  border-radius: 0.4rem;
+  background: oklch(0.1 0.03 255 / 70%);
+  font-size: 0.6rem;
+  line-height: 1.55;
+}
+.room-analyzer__body p {
+  margin: 0;
+}
+.room-analyzer__waiting {
+  color: oklch(0.72 0.06 205 / 65%);
+  animation: pulse-gold 1.6s ease-in-out infinite;
+}
