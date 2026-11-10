@@ -1,4 +1,5 @@
 import type { AvatarBridge } from "./AvatarBridge";
+import { createVoiceProvider, type VoiceProvider } from "./voice";
 
 /** Ollama adapter; speech, gestures, and state stay behind the avatar bridge. */
 
@@ -9,11 +10,13 @@ export type OllamaAIOptions = {
   system?: string;
   /** Called whenever AUGI starts speaking, including summon greetings. */
   onSpeak?: (text: string) => void;
+  /** Override TTS in tests or alternative embeddings. */
+  voice?: VoiceProvider;
 };
 
 const DEFAULT_SYSTEM =
-  "You are a helpful conversational assistant. Reply aloud in at most two short sentences, " +
-  "without lists, markdown, or emoji.";
+  "You are AUGI, a living holographic AI. You speak aloud, briefly and with personality — " +
+  "at most 2 sentences, never lists or markdown, no emoji. You are confident, a little wry, and helpful.";
 
 export type OllamaAI = {
   /** Feed user text (from speech recognition or the keyboard). Returns AUGI's reply. */
@@ -24,50 +27,32 @@ export type OllamaAI = {
 };
 
 export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {}): OllamaAI {
-  const model = opts.model ?? import.meta.env["VITE_OLLAMA_MODEL"];
-  const baseUrl = opts.baseUrl ?? import.meta.env["VITE_OLLAMA_BASE_URL"];
+  const model = opts.model || import.meta.env["VITE_OLLAMA_MODEL"] || "llama3.1:8b";
+  const baseUrl = (
+    opts.baseUrl ||
+    import.meta.env["VITE_OLLAMA_BASE_URL"] ||
+    "http://localhost:11434"
+  ).replace(/\/+$/, "");
   const system = opts.system ?? DEFAULT_SYSTEM;
   const onSpeak = opts.onSpeak;
+  const voice = opts.voice ?? createVoiceProvider(bridge);
   const history: { role: string; content: string }[] = [];
 
   let timers: number[] = [];
-  let raf = 0;
   let disposed = false;
+  let requestController: AbortController | null = null;
 
   const clearTimers = () => {
     timers.forEach(clearTimeout);
     timers = [];
-    cancelAnimationFrame(raf);
   };
 
-  /** Drive speechLevel the same way simulatedAI does (fake syllable envelope). */
   const speak = (text: string, then: () => void) => {
     if (disposed) return;
+    voice.stop();
     onSpeak?.(text);
     bridge.setState("SPEAKING");
-    const dur = 600 + text.length * 55;
-    const t0 = performance.now();
-    try {
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 0.95;
-      u.pitch = 0.8;
-      window.speechSynthesis?.speak(u);
-    } catch {
-      /* no TTS available */
-    }
-    const loop = () => {
-      if (disposed) return;
-      const e = performance.now() - t0;
-      if (e > dur) {
-        bridge.setSpeechLevel(0);
-        then();
-        return;
-      }
-      const syl = Math.abs(Math.sin(e / 95)) * (0.5 + 0.5 * Math.sin(e / 410));
-      bridge.setSpeechLevel(0.25 + syl * 0.75);
-      raf = requestAnimationFrame(loop);
-    };
-    loop();
+    void voice.speak(text, then);
   };
 
   const listen = () => {
@@ -75,34 +60,43 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
   };
 
   async function ask(text: string): Promise<string> {
-    if (!baseUrl)
-      throw new Error("Set VITE_OLLAMA_BASE_URL in the environment to enable AI responses.");
-    if (!model) throw new Error("Set VITE_OLLAMA_MODEL in the environment to enable AI responses.");
-    const res = await fetch(`${baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        stream: false,
-        options: { temperature: 0.8, num_predict: 160 },
-        messages: [
-          { role: "system", content: system },
-          ...history.slice(-8),
-          { role: "user", content: text },
-        ],
-      }),
-    });
-    if (!res.ok) throw new Error(`Ollama ${res.status}`);
-    const data = (await res.json()) as { message?: { content?: string } };
-    const reply = (data.message?.content ?? "").trim();
-    // qwen3-style thinking models wrap reasoning in  — strip it.
-    return reply.replace(/<think>[\s\S]*?<\/think>/g, "").trim() || reply.trim();
+    const controller = new AbortController();
+    requestController = controller;
+    try {
+      const res = await fetch(`${baseUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          stream: false,
+          options: { temperature: 0.8, num_predict: 160 },
+          messages: [
+            { role: "system", content: system },
+            ...history.slice(-8),
+            { role: "user", content: text },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error(`Ollama ${res.status}`);
+      const data = (await res.json()) as { message?: { content?: string } };
+      if (controller.signal.aborted) {
+        throw new DOMException("Ollama request cancelled.", "AbortError");
+      }
+      const reply = (data.message?.content ?? "").trim();
+      // qwen3-style thinking models wrap reasoning in  — strip it.
+      return reply.replace(/<think>[\s\S]*?<\/think>/g, "").trim() || reply.trim();
+    } finally {
+      if (requestController === controller) requestController = null;
+    }
   }
 
   /** Stop speaking immediately — used by "be quiet"-style commands and dispose. */
   const shutUp = () => {
     clearTimers();
-    window.speechSynthesis?.cancel();
+    requestController?.abort();
+    requestController = null;
+    voice.stop();
     bridge.setSpeechLevel(0);
   };
 
@@ -127,7 +121,8 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       speak(reply, listen);
       return reply;
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "The AI request failed.";
+      if (error instanceof DOMException && error.name === "AbortError") return "";
+      const msg = "My mind is offline. Check the Ollama server.";
       speak(msg, listen);
       return msg;
     }
@@ -139,6 +134,14 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       shutUp();
       bridge.setState("GLITCH");
       timers.push(window.setTimeout(() => speak("I'm here. What do you need?", listen), 350));
+    }),
+    bridge.onUserSpeechStart(() => {
+      if (bridge.state !== "SPEAKING" && bridge.state !== "THINKING" && bridge.state !== "GLITCH") {
+        return;
+      }
+      clearTimers();
+      shutUp();
+      listen();
     }),
   ];
 

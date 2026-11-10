@@ -35,14 +35,18 @@ export class AvatarBridge {
   }
   /** Connect real TTS output; RMS drives speech level automatically each frame. */
   connectAudioSource(node: AudioNode) {
+    this.disconnectAudioSource();
     this.analyser = node.context.createAnalyser();
     this.analyser.fftSize = 1024;
     node.connect(this.analyser);
+    this.analyser.connect(node.context.destination);
     this.buf = new Float32Array(this.analyser.fftSize);
   }
   disconnectAudioSource() {
     this.analyser?.disconnect();
     this.analyser = null;
+    this.buf = null;
+    this.setSpeechLevel(0);
   }
   /** Called by renderer per frame. */
   sampleAudio() {
