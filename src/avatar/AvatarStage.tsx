@@ -40,6 +40,14 @@ import { OfficeScene } from "./world/OfficeScene";
 import { parseTransformRequest, isTransformBackRequest, type TransformShape } from "./transforms";
 import { askCloud } from "./cloudBrain";
 import { CloudKeysPanel } from "./CloudKeysPanel";
+import { LabPanel } from "./LabPanel";
+import {
+  parseOracleSendCommand,
+  queueForOracle,
+  pickDocumentForOracle,
+  tunnelQueue,
+} from "./lab/wizard";
+import { CORE_LAW_PROMPT } from "./core/loyalty";
 import { greetOperator } from "./greeting";
 import {
   pickIdleActivity,
@@ -177,6 +185,7 @@ export function AvatarStage({
   const [officeOpen, setOfficeOpen] = useState(false);
   const [battleOpen, setBattleOpen] = useState(false);
   const [cloudKeysOpen, setCloudKeysOpen] = useState(false);
+  const [labOpen, setLabOpen] = useState(false);
   const [worldScreen, setWorldScreen] = useState<WorldScreen>("space");
   const worldScreenRef = useRef<WorldScreen>("space");
   const worldTransitionTimer = useRef<number | null>(null);
@@ -437,6 +446,49 @@ export function AvatarStage({
         if (started && (!silentRef.current || source === "typed")) say("Returning to orbit.");
         return;
       }
+      // THE INVESTIGATIVE LAB + THE WIZARD'S TOOLS (operator only).
+      if (
+        /^(?:open\s+)?(?:my\s+)?lab$|\/lab|^file\s*(?:#?1|one)$/i.test(commandText) ||
+        /^(?:open\s+)?file\s*(?:#?1|one)$|^(?:open\s+)?file\s*(?:#?2|two)$/i.test(commandText) ||
+        /^(?:open\s+)?(?:my\s+)?apothecary$/i.test(commandText)
+      ) {
+        setLabOpen(true);
+        const target = /^file\s*(?:#?2|two)/i.test(commandText)
+          ? "File #2 — Tree of Life is open."
+          : /apoth/i.test(commandText)
+            ? "The apothecary file is open."
+            : "Your lab is open — File #1 is the cancer blood-training lab.";
+        say(target);
+        return;
+      }
+      // Oracle tunnel: ONLY on the operator's explicit say.
+      const oracleSend = parseOracleSendCommand(commandText);
+      if (oracleSend) {
+        const doc = pickDocumentForOracle("apothecary");
+        if (doc) {
+          queueForOracle(doc.title, doc.body);
+          say(
+            `Queued for Oracle on Hyrule Herb: "${doc.title}". It sends when you tell me to push the tunnel.`,
+          );
+        } else {
+          say("Nothing matched in the lab to send — tell me which document.");
+        }
+        return;
+      }
+      if (
+        tunnelQueue().some((t) => !t.sent) &&
+        /^(?:push|flush)\s+(?:the\s+)?tunnel$/i.test(commandText)
+      ) {
+        say(
+          "The tunnel queue is waiting. Oracle's receiver endpoint is not configured yet — nothing leaves until it is.",
+        );
+        return;
+      }
+      if (/what am i studying|my quest log|where did i leave off/i.test(commandText)) {
+        setLabOpen(true);
+        say("Quest log is open — your tracker shows exactly where you left off.");
+        return;
+      }
       // CLOUD KEYS PANEL: green/red lights, operator only.
       if (commandText === "/cloudkeys" || /open\s+(?:the\s+)?cloud\s+keys?/i.test(commandText)) {
         setCloudKeysOpen(true);
@@ -635,7 +687,9 @@ export function AvatarStage({
     const ai = attachOllamaAI(bridge, {
       operatorName,
       operatorFullName,
-      system: `${DEFAULT_SYSTEM_PROMPT}\n${PERSONALITY_PROMPT}\n${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
+      system: `${DEFAULT_SYSTEM_PROMPT}${CORE_LAW_PROMPT}
+${PERSONALITY_PROMPT}
+${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       onSpeak: (text) => {
         setLastWords(text);
         // When he is talking to me he faces me, alert.
@@ -1258,6 +1312,7 @@ export function AvatarStage({
         onTurn={(turn) => aiRef.current?.speak(turn.outcome)}
       />
       {cloudKeysOpen && <CloudKeysPanel onClose={() => setCloudKeysOpen(false)} />}
+      {labOpen && <LabPanel onClose={() => setLabOpen(false)} />}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />

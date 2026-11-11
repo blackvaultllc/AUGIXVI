@@ -344,6 +344,23 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "open cloud keys",
   },
 
+  {
+    command: "/lab",
+    description:
+      "Open the investigative lab — File #1 CAR-T blood-training, File #2 Tree of Life, science core with the 118-element periodic table, the apothecary, knowledge graph, spellbook, quest log and the Book of Secrets.",
+    category: "system",
+    voice: true,
+    example: "open my lab",
+  },
+  {
+    command: "/oracle",
+    description:
+      "Give a lab document to Oracle, the apothecary keeper on Hyrule Herb — queued in the tunnel, sends only when you say push the tunnel.",
+    category: "system",
+    voice: true,
+    example: "hey, can you give that to Oracle",
+  },
+
   // SYSTEM — knowledge and the familiars
   {
     command: "/summon",
