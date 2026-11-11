@@ -155,10 +155,14 @@ describe("Ollama AI speech notifications", () => {
     await ai.handleText("First request");
     const offlineReply = await ai.handleText("Second request");
 
-    expect(offlineReply).toContain("do not have that in saved memory");
-    expect(voice.speak).toHaveBeenCalledTimes(2);
-    expect(onSpeak).toHaveBeenCalledTimes(2);
-    expect(onSpeak).not.toHaveBeenLastCalledWith(expect.stringContaining("I am offline."));
+    // ANTI-LOOP FIX: the second unknown offline reply is suppressed — he does
+    // not repeat himself; he waits for the next real message.
+    expect(offlineReply).toBe("");
+    expect(voice.speak).toHaveBeenCalledTimes(1);
+    expect(onSpeak).toHaveBeenCalledTimes(1);
+    expect(onSpeak).not.toHaveBeenCalledWith(
+      expect.stringContaining("do not have that in saved memory"),
+    );
     ai.dispose();
   });
 
@@ -218,6 +222,23 @@ describe("Ollama AI speech notifications", () => {
     expect([0, 1, 2, 3, 4, 5, 6].map(getOllamaRetryDelay)).toEqual([
       1000, 2000, 4000, 8000, 16000, 30000, 30000,
     ]);
+    ai.dispose();
+  });
+
+  it("never repeats the same offline response twice in a row (rapid-fire loop fix)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const voice = { speak: vi.fn(), stop: vi.fn() };
+    const onSpeak = vi.fn();
+    const ai = attachOllamaAI(new AvatarBridge(), { voice, onSpeak });
+
+    for (let i = 0; i < 6; i += 1) {
+      await ai.handleText(`Message ${i}`);
+    }
+
+    // The first notice speaks once; the identical notice never repeats.
+    const offlineCalls = onSpeak.mock.calls.filter(([t]) => String(t).startsWith("I am offline"));
+    expect(offlineCalls.length).toBeLessThanOrEqual(2); // notice + one unknown max
+    expect(ai.isOffline()).toBe(true);
     ai.dispose();
   });
 });

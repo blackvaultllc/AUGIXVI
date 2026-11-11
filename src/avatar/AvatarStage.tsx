@@ -16,11 +16,8 @@ import {
   Eye,
   Globe,
   LogOut,
-  Mic,
-  MicOff,
   Plane,
   Presentation,
-  Settings,
   Shrink,
   Sparkles,
   Square,
@@ -29,6 +26,14 @@ import {
 } from "lucide-react";
 import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
+import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
+import { NotepadWindow, ChalkboardWindow, PlayerWindow } from "./windows/windows";
+import {
+  pickIdleActivity,
+  idleChalkboardThought,
+  IDLE_INTERVAL_MS,
+  type IdleActivity,
+} from "./idleLife";
 import { AvatarRenderer, type RenderSettings } from "./AvatarRenderer";
 import { Sensors, type SensorStatus } from "./sensors";
 import { attachOllamaAI } from "./ollamaAI";
@@ -78,7 +83,6 @@ import {
 } from "@/lib/supabase-readonly";
 
 type Settings = RenderSettings & { sensitivity: number; cooldownMs: number };
-type CabinetTab = "scene" | "motion" | "tools" | "settings";
 type WorldScreen = "space" | "entering" | "live" | "returning";
 const DEFAULTS: Settings = {
   maxParticles: 120000,
@@ -149,7 +153,13 @@ export function AvatarStage({
   const eventQueueRef = useRef(new EventQueueWatcher());
   const shaShownRef = useRef({ shown: false });
   const proactiveRef = useRef<ReturnType<typeof createProactiveEngine> | null>(null);
-  const [cabinetTab, setCabinetTab] = useState<CabinetTab>("motion");
+  const [commandTab, setCommandTab] = useState<CommandTab>("motion");
+  // Movable windows the operator (or Osiris's idle life) can open.
+  const [openWindows, setOpenWindows] = useState<Set<"notepad" | "chalkboard" | "player">>(
+    new Set(),
+  );
+  const [chalkboardText, setChalkboardText] = useState<string | null>(null);
+  const [playerSeed, setPlayerSeed] = useState<string | null>(null);
   const [worldScreen, setWorldScreen] = useState<WorldScreen>("space");
   const worldScreenRef = useRef<WorldScreen>("space");
   const worldTransitionTimer = useRef<number | null>(null);
@@ -162,6 +172,22 @@ export function AvatarStage({
   const say = useCallback((text: string) => {
     setResponseSource("local command");
     aiRef.current?.speak(text);
+  }, []);
+
+  // WINDOW CONTROLS — movable windows he can open himself or on my order.
+  const openWindow = useCallback((which: "notepad" | "chalkboard" | "player") => {
+    setOpenWindows((current) => {
+      const next = new Set(current);
+      next.add(which);
+      return next;
+    });
+  }, []);
+  const closeWindow = useCallback((which: "notepad" | "chalkboard" | "player") => {
+    setOpenWindows((current) => {
+      const next = new Set(current);
+      next.delete(which);
+      return next;
+    });
   }, []);
 
   /**
@@ -193,6 +219,10 @@ export function AvatarStage({
     transitionWorldScreen("entering");
     return true;
   }, [transitionWorldScreen]);
+
+  // OWNER ORDER: after sign-in Osiris goes STRAIGHT into the live world —
+  // no Enter button, no extra click. The orbital Earth plays the fly-in
+  // automatically the moment the operator is in.
 
   const returnToSpace = useCallback(() => {
     if (worldScreenRef.current !== "live") return false;
@@ -334,6 +364,14 @@ export function AvatarStage({
         }
       };
       let commandText = text;
+      // Slash forms route through the same parsers: "/fly" == "fly".
+      // "/help" is special: it opens the full command document.
+      if (/^\/help\b/i.test(commandText)) {
+        setCommandTab("commands");
+        say("Every command is in the Commands tab — nothing hidden.");
+        return;
+      }
+      commandText = commandText.replace(/^\/+/, "").trim();
       const interaction = parseInteractionCommand(commandText);
       if (interaction && interaction.type !== "wake") {
         applyInterfaceCommand(interaction.type);
@@ -375,6 +413,49 @@ export function AvatarStage({
       if (navigation === "return-to-space") {
         const started = returnToSpace();
         if (started && (!silentRef.current || source === "typed")) say("Returning to orbit.");
+        return;
+      }
+      // Movable windows: notepad, chalkboard, player.
+      const windowRequest = commandText.toLowerCase().replace(/\s+/g, " ").trim();
+      if (/^(?:open\s+)?(?:the\s+)?notepad$/i.test(windowRequest) || windowRequest === "/notepad") {
+        openWindow("notepad");
+        say("Notepad is up. It is private — only you read it.");
+        return;
+      }
+      if (
+        /^(?:open\s+)?(?:the\s+)?chalkboard$/i.test(windowRequest) ||
+        windowRequest === "/chalkboard"
+      ) {
+        openWindow("chalkboard");
+        say("Chalkboard is up. Tell me what to write.");
+        return;
+      }
+      if (
+        /^(?:open\s+)?(?:the\s+)?(?:player|youtube)$/i.test(windowRequest) ||
+        windowRequest === "/player"
+      ) {
+        openWindow("player");
+        say("Player is up. Paste a link or say a song.");
+        return;
+      }
+      // "write on the chalkboard: <text>" — he writes for me.
+      const chalkWrite = commandText.match(
+        /^(?:write|chalk)(?:\s+on)?(?:\s+the)?\s*(?:chalk\s*)?board[:,]?\s*(.+)$/i,
+      );
+      if (chalkWrite?.[1]) {
+        setChalkboardText(chalkWrite[1].trim());
+        openWindow("chalkboard");
+        say("Written on the board.");
+        return;
+      }
+      // Play a song: "play <name or link>" or "open player <thing>".
+      const playRequest =
+        commandText.match(/^(?:play|put on)\s+(?:some\s+)?(?:music\s+)?(.+)$/i) ??
+        commandText.match(/^(?:open\s+)?(?:player|youtube)\s+(.+)$/i);
+      if (playRequest?.[1]) {
+        setPlayerSeed(playRequest[1].trim());
+        openWindow("player");
+        say("On it now.");
         return;
       }
       if (isCubePanelCommand(commandText)) {
@@ -564,7 +645,22 @@ export function AvatarStage({
     window.addEventListener("pointermove", move);
     document.addEventListener("pointerleave", leave);
     const key = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
+      const onTextInput =
+        e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+      if (e.key === "Escape" && clearScreenRef.current) {
+        setClearScreen(false);
+        saveClearScreenPreference(false);
+        return;
+      }
+      if (onTextInput) return;
+      // CLEAR SCREEN HOT KEY: "C" or Ctrl+Shift+C toggles it.
+      if (e.key === "c" || e.key === "C" || (e.ctrlKey && e.shiftKey && e.code === "KeyC")) {
+        setClearScreen((current) => {
+          saveClearScreenPreference(!current);
+          return !current;
+        });
+        return;
+      }
       if (e.key === "s") void sendCommand("Osiris", "voice");
       if (e.key === "p") togglePresent();
     };
@@ -584,6 +680,62 @@ export function AvatarStage({
       r.dispose();
     };
   }, [sendCommand, operatorFullName, operatorName]);
+
+  // Auto-enter the live world on arrival (owner order): no click needed.
+  const autoEnteredRef = useRef(false);
+  useEffect(() => {
+    if (autoEnteredRef.current) return;
+    autoEnteredRef.current = true;
+    enterLiveMode();
+  }, [enterLiveMode]);
+
+  // IDLE LIFE: Ankh means life, not standing at attention. While nobody is
+  // talking to him, Osiris lives — breathes, shifts, walks, flies, studies,
+  // writes on the chalkboard, checks on things, and reports. Suggestions
+  // only — he never acts on the outside world without my say.
+  const lastActivityRef = useRef<IdleActivity | null>(null);
+  const clearScreenRef = useRef(clearScreen);
+  clearScreenRef.current = clearScreen;
+  const lastWordsRef = useRef(lastWords);
+  lastWordsRef.current = lastWords;
+  useEffect(() => {
+    let stopped = false;
+    const tick = () => {
+      if (stopped) return;
+      // Skip when he is mid-conversation or when the screen is cleared for me.
+      if (bridgeRef.current.state === "SPEAKING" || clearScreenRef.current) return;
+      const action = pickIdleActivity(Math.random, lastActivityRef.current ?? undefined);
+      lastActivityRef.current = action.activity;
+      const line =
+        action.window === "chalkboard" ? `${action.line} ${idleChalkboardThought()}` : action.line;
+      setLastWords(line);
+      setResponseSource("idle life");
+      aiRef.current?.speak(line);
+      if (action.window) {
+        openWindow(action.window);
+        if (action.activity === "write-chalkboard") {
+          setChalkboardText(idleChalkboardThought());
+        }
+      }
+      const renderer = rendRef.current;
+      if (renderer && action.layer !== "screen") {
+        if (action.activity === "walk") renderer.setLocomotionMode("walk");
+        if (action.activity === "fly") renderer.setLocomotionMode("fly");
+        if (action.activity === "look-around") renderer.lookAround();
+        if (action.activity === "check-earth" || action.activity === "check-wolves") {
+          renderer.setLocomotionMode("walk");
+        }
+      }
+    };
+    const interval = window.setInterval(tick, IDLE_INTERVAL_MS);
+    // First idle tick a little after arrival, not instantly.
+    const first = window.setTimeout(tick, 20_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+      window.clearTimeout(first);
+    };
+  }, [openWindow]);
 
   useEffect(
     () => () => {
@@ -776,167 +928,154 @@ export function AvatarStage({
         )}
         {sensor?.error && !clearScreen && <div className="avatar-hud__warning">{sensor.error}</div>}
       </div>
-      <section className="avatar-hud avatar-hud--commands avatar-cabinet" aria-label="Osiris chat">
-        <div className="avatar-hud__last-words" aria-live="polite">
-          <div className="avatar-hud__last-words-label">{displayName}&apos;s last words</div>
-          <p>{lastWords}</p>
-          <div className="avatar-cabinet__response-meta">
-            <span className="avatar-hud__response-source">Response: {responseSource}</span>
-            <button
-              className="avatar-hud__save-highlight"
-              type="button"
-              onClick={saveCurrentHighlight}
-              disabled={!lastQuestionRef.current || lastWords === "No response yet."}
-            >
-              Save highlight
-            </button>
-          </div>
-        </div>
-        <div className="avatar-cabinet__tabs" role="tablist" aria-label="Control categories">
-          <CabinetTabButton
-            icon={Sparkles}
-            id="scene"
-            label="Scene"
-            selected={cabinetTab === "scene"}
-            onSelect={setCabinetTab}
-          />
-          <CabinetTabButton
-            icon={Activity}
-            id="motion"
-            label="Motion"
-            selected={cabinetTab === "motion"}
-            onSelect={setCabinetTab}
-          />
-          <CabinetTabButton
-            icon={Eye}
-            id="tools"
-            label="Tools"
-            selected={cabinetTab === "tools"}
-            onSelect={setCabinetTab}
-          />
-          <CabinetTabButton
-            icon={Settings}
-            id="settings"
-            label="Settings"
-            selected={cabinetTab === "settings"}
-            onSelect={setCabinetTab}
-          />
-        </div>
-        <div
-          id="avatar-cabinet-panel"
-          className="avatar-cabinet__options"
-          role="tabpanel"
-          aria-labelledby={`avatar-cabinet-tab-${cabinetTab}`}
-          aria-label={`${cabinetTab} controls`}
+      {!clearScreen && (
+        <CommandBox
+          accent={themeAccent}
+          tabs={[
+            { id: "scene", label: "Scene", icon: COMMAND_TAB_ICONS.Eye },
+            { id: "motion", label: "Motion", icon: COMMAND_TAB_ICONS.Activity },
+            { id: "tools", label: "Tools", icon: COMMAND_TAB_ICONS.BookOpen },
+            { id: "settings", label: "Settings", icon: COMMAND_TAB_ICONS.Settings },
+            { id: "commands", label: "Commands", icon: COMMAND_TAB_ICONS.Terminal },
+          ]}
+          activeTab={commandTab}
+          onTabChange={setCommandTab}
+          chat={chat}
+          onChatChange={setChat}
+          onSubmit={(text) => void sendCommand(text)}
+          voiceAvailable={voiceAvailable}
+          voiceListening={voiceListening}
+          onToggleVoice={() => (voiceListening ? recRef.current?.stop() : recRef.current?.start())}
+          responseLine={lastWords}
+          responseSource={responseSource}
         >
-          {cabinetTab === "scene" && (
-            <CabinetGroup label="Avatar scale">
-              <div className="avatar-cabinet__option-grid">
-                <CabinetAction icon={Globe} label="Space view" onClick={returnToSpace} />
-                <CabinetAction
+          {commandTab === "scene" && (
+            <CommandGroup label="Avatar scale">
+              <div className="avatar-command-box__grid">
+                <CommandAction icon={Globe} label="Space view" onClick={returnToSpace} />
+                <CommandAction
                   icon={Shrink}
                   label="Compact"
                   onClick={() => executeWorldCommand({ type: "shrink" })}
                 />
-                <CabinetAction
+                <CommandAction
                   icon={Expand}
                   label="Full size"
                   onClick={() => executeWorldCommand({ type: "grow" })}
                 />
               </div>
-            </CabinetGroup>
+            </CommandGroup>
           )}
-          {cabinetTab === "motion" && (
-            <CabinetGroup label="Locomotion modes">
-              <div className="avatar-cabinet__option-grid">
-                <CabinetAction
+          {commandTab === "motion" && (
+            <CommandGroup label="Locomotion modes">
+              <div className="avatar-command-box__grid">
+                <CommandAction
                   icon={Activity}
                   label="Walk"
                   onClick={() => executeWorldCommand({ type: "mode", mode: "walk" })}
                 />
-                <CabinetAction
+                <CommandAction
                   icon={Activity}
                   label="Run"
                   onClick={() => executeWorldCommand({ type: "mode", mode: "run" })}
                 />
-                <CabinetAction
+                <CommandAction
                   icon={Plane}
                   label="Fly"
                   onClick={() => executeWorldCommand({ type: "mode", mode: "fly" })}
                 />
-                <CabinetAction
+                <CommandAction
                   icon={ArrowUp}
                   label="Jump"
                   onClick={() => executeWorldCommand({ type: "mode", mode: "jump" })}
                 />
-                <CabinetAction
+                <CommandAction
                   icon={Square}
                   label="Stop"
                   onClick={() => executeWorldCommand({ type: "stop" })}
                 />
-                <CabinetAction
+                <CommandAction
                   icon={Undo2}
                   label="Come back"
                   onClick={() => executeWorldCommand({ type: "come-back" })}
                 />
               </div>
-            </CabinetGroup>
+            </CommandGroup>
           )}
-          {cabinetTab === "tools" && (
+          {commandTab === "tools" && (
             <>
-              <CabinetGroup label="Knowledge and sensors">
-                <div className="avatar-cabinet__option-grid">
-                  <CabinetAction
+              <CommandGroup label="Windows — I can open them too, I still decide">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={BookOpen}
+                    label="Notepad"
+                    onClick={() => openWindow("notepad")}
+                  />
+                  <CommandAction
+                    icon={Presentation}
+                    label="Chalkboard"
+                    onClick={() => openWindow("chalkboard")}
+                  />
+                  <CommandAction
+                    icon={Camera}
+                    label="Player"
+                    onClick={() => openWindow("player")}
+                  />
+                </div>
+              </CommandGroup>
+              <CommandGroup label="Knowledge and sensors">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
                     icon={BookOpen}
                     label="Knowledge"
                     onClick={() => setKnowledgeOpen((open) => !open)}
                   />
-                  <CabinetAction
+                  <CommandAction
                     icon={Camera}
                     label={sensor ? "Camera on" : "Camera + mic"}
                     onClick={() => void enableSensors()}
                     disabled={Boolean(sensor)}
                   />
                 </div>
-              </CabinetGroup>
-              <CabinetGroup label="Presence">
-                <div className="avatar-cabinet__option-grid">
-                  <CabinetAction
+              </CommandGroup>
+              <CommandGroup label="Presence">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
                     icon={Sparkles}
                     label="Summon"
                     onClick={() => void sendCommand("Osiris")}
                   />
-                  <CabinetAction
+                  <CommandAction
                     icon={Presentation}
                     label={presenting ? "Put away" : "Present"}
                     onClick={togglePresent}
                   />
                 </div>
-              </CabinetGroup>
+              </CommandGroup>
             </>
           )}
-          {cabinetTab === "settings" && (
-            <div className="avatar-cabinet__settings">
-              <CabinetGroup label="Interface and access">
-                <div className="avatar-cabinet__option-grid">
-                  <CabinetAction
+          {commandTab === "settings" && (
+            <div className="avatar-command-box__settings">
+              <CommandGroup label="Interface and access">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
                     icon={Eye}
-                    label={clearScreen ? "Show screen" : "Clear screen"}
+                    label={clearScreen ? "Show screen" : "Clear screen (C)"}
                     onClick={() => {
                       const next = !clearScreen;
                       setClearScreen(next);
                       saveClearScreenPreference(next);
                     }}
                   />
-                  <CabinetAction icon={LogOut} label="Sign out" onClick={() => void onSignOut()} />
+                  <CommandAction icon={LogOut} label="Sign out" onClick={() => void onSignOut()} />
                 </div>
                 {signOutError && (
                   <p className="operator-auth__error" role="alert">
                     {signOutError}
                   </p>
                 )}
-              </CabinetGroup>
-              <CabinetGroup label="Rendering and theme">
+              </CommandGroup>
+              <CommandGroup label="Rendering and theme">
                 <Slider
                   label="Particles"
                   min={20000}
@@ -1003,93 +1142,29 @@ export function AvatarStage({
                     onChange={(e) => chooseCustomColor(e.target.value)}
                   />
                 </label>
-              </CabinetGroup>
+              </CommandGroup>
             </div>
           )}
-        </div>
-        <form
-          className="avatar-cabinet__form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const t = chat.trim();
-            if (!t) return;
-            setChat("");
-            void sendCommand(t);
-          }}
-        >
-          <label className="sr-only" htmlFor="avatar-command">
-            Command for {displayName}
-          </label>
-          <input
-            id="avatar-command"
-            className="avatar-hud__input"
-            placeholder="Type a command…"
-            value={chat}
-            onChange={(e) => setChat(e.target.value)}
-          />
-          <button
-            className="avatar-cabinet__icon-button"
-            type="button"
-            onClick={() => (voiceListening ? recRef.current?.stop() : recRef.current?.start())}
-            disabled={!voiceAvailable}
-            aria-label={voiceListening ? "Stop voice input" : "Start voice input"}
-            title={
-              voiceAvailable ? "Toggle voice input" : "Voice input is unavailable in this browser"
-            }
-          >
-            {voiceListening ? <MicOff aria-hidden="true" /> : <Mic aria-hidden="true" />}
-          </button>
-          <button
-            className="avatar-hud__send"
-            type="submit"
-            disabled={!chat.trim()}
-            aria-label="Send command"
-          >
-            <Sparkles aria-hidden="true" />
-          </button>
-        </form>
-      </section>
+        </CommandBox>
+      )}
+      {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
+      {openWindows.has("chalkboard") && (
+        <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />
+      )}
+      {openWindows.has("player") && (
+        <PlayerWindow onClose={() => closeWindow("player")} seedInput={playerSeed} />
+      )}
       {worldScreen !== "live" && (
         <SpaceView
           isEnteringLiveMode={worldScreen === "entering"}
           isReturningToSpace={worldScreen === "returning"}
-          onEnterLiveMode={enterLiveMode}
         />
       )}
     </div>
   );
 }
 
-function CabinetTabButton({
-  icon: Icon,
-  id,
-  label,
-  selected,
-  onSelect,
-}: {
-  icon: LucideIcon;
-  id: CabinetTab;
-  label: string;
-  selected: boolean;
-  onSelect: (tab: CabinetTab) => void;
-}) {
-  return (
-    <button
-      id={`avatar-cabinet-tab-${id}`}
-      className="avatar-cabinet__tab"
-      type="button"
-      role="tab"
-      aria-selected={selected}
-      aria-controls="avatar-cabinet-panel"
-      onClick={() => onSelect(id)}
-    >
-      <Icon aria-hidden="true" />
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function CabinetAction({
+function CommandAction({
   icon: Icon,
   label,
   onClick,
@@ -1102,7 +1177,7 @@ function CabinetAction({
 }) {
   return (
     <button
-      className="avatar-cabinet__action"
+      className="avatar-command-box__action"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -1114,9 +1189,9 @@ function CabinetAction({
   );
 }
 
-function CabinetGroup({ label, children }: { label: string; children: ReactNode }) {
+function CommandGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <section className="avatar-cabinet__group" aria-label={label}>
+    <section className="avatar-command-box__group" aria-label={label}>
       <h3>{label}</h3>
       {children}
     </section>

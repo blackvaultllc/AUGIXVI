@@ -64,12 +64,7 @@ async function loadAuthClientFromServer(): Promise<SupabaseClient | null> {
 
 function OperatorLanding({ children }: { children: ReactNode }) {
   return (
-    <SpaceView
-      isLanding
-      isEnteringLiveMode={false}
-      isReturningToSpace={false}
-      onEnterLiveMode={() => undefined}
-    >
+    <SpaceView isLanding isEnteringLiveMode={false} isReturningToSpace={false}>
       {children}
     </SpaceView>
   );

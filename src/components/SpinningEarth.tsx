@@ -17,13 +17,14 @@ import * as THREE from "three";
  * with the actual NASA-derived textures (day / night lights / clouds /
  * specular / normal), starfield, sun, moon, orbiting satellites, meteor
  * flybys with a WebAudio whoosh, and the "Earth · Realm of Mr. Infinity"
- * label with an "Enter Live Mode" CTA. The sign-in card sits ON TOP of the
- * Earth itself.
+ * label. The sign-in card sits ON TOP of the Earth itself. The "Enter Live
+ * Mode" CTA is retired (owner order 2026-11-11): after sign-in the flight
+ * down happens automatically.
  *
  * ONE WORLD: Osiris lives in this same scene. His glowing orb orbits the
- * planet alongside the satellites, and "Enter Live Mode" is one continuous
- * camera flight from orbit down to the surface — the particle world opens
- * over the arriving camera. No screen jump, ever.
+ * planet alongside the satellites, and entering the live world is one
+ * continuous automatic camera flight from orbit down to the surface — the
+ * particle world opens over the arriving camera. No screen jump, ever.
  */
 
 const EARTH_TEXTURES = {
@@ -493,8 +494,6 @@ function FlightRig({ progress }: { progress: React.RefObject<number> }) {
 type SpinningEarthProps = {
   /** Height of the scene container in px. */
   height?: number;
-  onEnter?: () => void;
-  ctaLabel?: string;
   /** Optional overlay (e.g. the sign-in card) that sits ON the Earth. */
   children?: ReactNode;
   /** Called the instant the fly-in lands (progress reaches 1). */
@@ -505,8 +504,6 @@ type SpinningEarthProps = {
 
 export function SpinningEarth({
   height = 480,
-  onEnter,
-  ctaLabel = "Enter Live Mode",
   children,
   onFlightComplete,
   chromeVisible = true,
@@ -665,18 +662,6 @@ export function SpinningEarth({
         </EarthTextureBoundary>
       </Canvas>
       {chromeVisible && children}
-      {chromeVisible && onEnter && (
-        <button
-          onClick={() => {
-            playWhoosh();
-            flyIn();
-            onEnter();
-          }}
-          className="spinning-earth__cta absolute bottom-6 left-1/2 z-20 -translate-x-1/2 border border-[oklch(0.78_0.14_82/0.7)] bg-black/80 px-6 py-3 font-mono text-[0.65rem] uppercase tracking-[0.3em] text-[oklch(0.78_0.14_82)] backdrop-blur transition hover:bg-[oklch(0.78_0.14_82)] hover:text-black"
-        >
-          {ctaLabel}
-        </button>
-      )}
       {chromeVisible && (
         <div className="pointer-events-none absolute left-4 top-3 z-20 font-mono text-[0.55rem] uppercase tracking-[0.35em] text-[oklch(0.78_0.14_82/0.7)]">
           Earth · Realm of Mr. Infinity

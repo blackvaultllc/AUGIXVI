@@ -51,6 +51,8 @@ const OFFLINE_NOTICE =
 const OFFLINE_UNKNOWN =
   "I am offline and do not have that in saved memory. Add a sourced note in Knowledge.";
 const REQUEST_TIMEOUT_MS = 8000;
+/** Cooldown between offline replies — no rapid-fire looping (owner order). */
+export const OFFLINE_REPLY_COOLDOWN_MS = 2500;
 
 export function getOllamaRetryDelay(retryCount: number): number {
   return Math.min(1000 * 2 ** retryCount, 30_000);
@@ -105,6 +107,10 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     onOfflineChange?.(next);
     if (!next) {
       offlineNoticeSpoken = false;
+      lastOfflineReplyText = "";
+      offlinePending = null;
+      lastOfflineReplyAt = 0;
+      clearOfflineCooldown();
       retryCount = 0;
       if (retryTimer) window.clearTimeout(retryTimer);
       retryTimer = 0;
@@ -123,15 +129,47 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     }, delay);
   };
 
-  const offlineReply = () => {
-    setOffline(true);
-    if (!offlineNoticeSpoken) {
-      offlineNoticeSpoken = true;
+  // OFFLINE GLITCH FIX: the fallback must answer ONCE, then wait for the next
+  // message. No loops, no repeats, no rapid-fire.
+  let lastOfflineReplyAt = 0;
+  let lastOfflineReplyText = "";
+  let offlinePending: string | null = null;
+  let offlineCooldownTimer = 0;
+
+  const clearOfflineCooldown = () => {
+    if (offlineCooldownTimer) window.clearTimeout(offlineCooldownTimer);
+    offlineCooldownTimer = 0;
+    if (offlinePending) {
+      const queued = offlinePending;
+      offlinePending = null;
       onResponseSource?.("offline notice");
-      speak(OFFLINE_NOTICE, listen);
-      return OFFLINE_NOTICE;
+      speak(queued, listen);
     }
-    return OFFLINE_UNKNOWN;
+  };
+
+  const offlineReply = (): string => {
+    setOffline(true);
+    const now = Date.now();
+    const isFirstNotice = !offlineNoticeSpoken;
+    let reply = OFFLINE_UNKNOWN;
+    if (isFirstNotice) {
+      offlineNoticeSpoken = true;
+      reply = OFFLINE_NOTICE;
+    }
+    // Same text twice in a row → do NOT send it again (dup check).
+    if (reply === lastOfflineReplyText && !isFirstNotice) {
+      return ""; // silent: he waits for the next real message
+    }
+    if (now - lastOfflineReplyAt < OFFLINE_REPLY_COOLDOWN_MS) {
+      // Inside the cooldown, queue at most one reply — it speaks when it opens.
+      if (offlinePending !== reply) offlinePending = reply;
+      return "";
+    }
+    lastOfflineReplyAt = now;
+    lastOfflineReplyText = reply;
+    onResponseSource?.("offline notice");
+    speak(reply, listen);
+    return reply;
   };
 
   const listen = () => {
@@ -239,14 +277,12 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     if (offline) {
       const local = opts.findOfflineAnswer?.(text);
       if (local) {
+        lastOfflineReplyText = "";
         onResponseSource?.(local.source);
         speak(local.answer, listen);
         return local.answer;
       }
-      if (!offlineNoticeSpoken) return offlineReply();
-      onResponseSource?.("offline notice");
-      speak(OFFLINE_UNKNOWN, listen);
-      return OFFLINE_UNKNOWN;
+      return offlineReply();
     }
     if (isQuietCommand(text)) {
       muted = true;
@@ -268,6 +304,10 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       setOffline(true);
       scheduleRetry();
       return offlineReply();
+    } finally {
+      if (!offlineCooldownTimer) {
+        offlineCooldownTimer = window.setTimeout(clearOfflineCooldown, OFFLINE_REPLY_COOLDOWN_MS);
+      }
     }
   }
 
@@ -308,6 +348,7 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     dispose: () => {
       disposed = true;
       if (retryTimer) window.clearTimeout(retryTimer);
+      clearOfflineCooldown();
       shutUp();
       offs.forEach((o) => o());
     },
