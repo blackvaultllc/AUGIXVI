@@ -49,8 +49,17 @@ function isOperatorSessionInput(input: unknown): input is OperatorSessionInput {
 }
 
 function getSupabaseConfig() {
-  const url = import.meta.env["VITE_SUPABASE_URL"]?.trim().replace(/\/+$/, "");
-  const publishableKey = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]?.trim();
+  // Cloudflare runtime env (dashboard variables/secrets) is authoritative on the
+  // Worker; import.meta.env is only populated at build time and is empty in the
+  // deployed server bundle.
+  const request = getRequest() as RequestWithCloudflareEnv;
+  const runtimeEnv = request.runtime?.cloudflare?.env ?? {};
+  const readString = (name: string): string | undefined => {
+    const value = runtimeEnv[name] ?? process.env[name] ?? import.meta.env[name];
+    return typeof value === "string" ? value.trim() || undefined : undefined;
+  };
+  const url = readString("VITE_SUPABASE_URL")?.replace(/\/+$/, "");
+  const publishableKey = readString("VITE_SUPABASE_PUBLISHABLE_KEY");
   return url && publishableKey ? { url, publishableKey } : null;
 }
 
@@ -110,6 +119,11 @@ async function readTokenClaims(
   }
 }
 
+export const getSupabaseClientConfig = createServerFn({ method: "GET" }).handler(() => {
+  const config = getSupabaseConfig();
+  return config ? { url: config.url, publishableKey: config.publishableKey } : null;
+});
+
 export const verifyOperatorAccess = createServerFn({ method: "POST" })
   .validator((input: unknown): OperatorTokenInput => {
     if (!isOperatorTokenInput(input)) {
@@ -118,12 +132,19 @@ export const verifyOperatorAccess = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data }) => {
-    const expected = process.env["AUGI_OPERATOR_TOKEN"];
+    const request = getRequest() as RequestWithCloudflareEnv;
+    const runtimeEnv = request.runtime?.cloudflare?.env ?? {};
+    const rawExpected = runtimeEnv["AUGI_OPERATOR_TOKEN"] ?? process.env["AUGI_OPERATOR_TOKEN"];
+    const expected = typeof rawExpected === "string" ? rawExpected : undefined;
     if (!expected || expected.length < 32) {
       return { configured: false, authorized: false, operatorName: null };
     }
     const authorized = await matchesSecret(data.token, expected);
-    const operatorName = authorized ? process.env["OSIRIS_OPERATOR_NAME"]?.trim() || null : null;
+    const rawOperatorName =
+      runtimeEnv["OSIRIS_OPERATOR_NAME"] ?? process.env["OSIRIS_OPERATOR_NAME"];
+    const operatorName = authorized
+      ? (typeof rawOperatorName === "string" ? rawOperatorName.trim() : "") || null
+      : null;
     return { configured: true, authorized, operatorName };
   });
 
@@ -155,6 +176,12 @@ export const verifySupabaseOperatorSession = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data }) => {
+    const request = getRequest() as RequestWithCloudflareEnv;
+    const runtimeEnv = request.runtime?.cloudflare?.env ?? {};
+    const readEnvName = (name: string): string | undefined => {
+      const value = runtimeEnv[name] ?? process.env[name];
+      return typeof value === "string" ? value.trim() || undefined : undefined;
+    };
     const config = getSupabaseConfig();
     if (!config || !getRegistryBinding()) {
       return {
@@ -254,9 +281,7 @@ export const verifySupabaseOperatorSession = createServerFn({ method: "POST" })
       configured: true,
       authorized,
       requiresMfa: false,
-      operatorName: authorized ? process.env["OSIRIS_OPERATOR_NAME"]?.trim() || null : null,
-      operatorFullName: authorized
-        ? process.env["OSIRIS_OPERATOR_FULL_NAME"]?.trim() || null
-        : null,
+      operatorName: authorized ? (readEnvName("OSIRIS_OPERATOR_NAME") ?? null) : null,
+      operatorFullName: authorized ? (readEnvName("OSIRIS_OPERATOR_FULL_NAME") ?? null) : null,
     };
   });

@@ -1,6 +1,10 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { getOperatorBootstrapStatus, verifySupabaseOperatorSession } from "./operatorAuth.server";
+import {
+  getOperatorBootstrapStatus,
+  getSupabaseClientConfig,
+  verifySupabaseOperatorSession,
+} from "./operatorAuth.server";
 import { AvatarStage } from "./AvatarStage";
 import { SpaceView } from "./SpaceView";
 
@@ -10,18 +14,43 @@ const AUTH_CLIENT_SLOT = "__augixviOperatorAuthClient";
 type AuthWindow = Window & { [AUTH_CLIENT_SLOT]?: SupabaseClient | null };
 type MfaEnrollment = { qrCode: string; secret: string };
 
-function createAuthClient(): SupabaseClient | null {
+// Credentials come from the build-time import.meta.env values baked by Vite
+// when present, and otherwise from the Worker's runtime env via a server
+// function (dashboard variables are not baked into the deployed bundle).
+function createAuthClientSync(): SupabaseClient | null | undefined {
   if (typeof window === "undefined") return null;
   const authWindow = window as AuthWindow;
   if (AUTH_CLIENT_SLOT in authWindow) return authWindow[AUTH_CLIENT_SLOT] ?? null;
 
   const url = import.meta.env["VITE_SUPABASE_URL"]?.trim();
   const publishableKey = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]?.trim();
+  if (!url || !publishableKey) return undefined; // try the server runtime env
+
+  const client = createClient(url, publishableKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+    },
+  });
+  authWindow[AUTH_CLIENT_SLOT] = client;
+  return client;
+}
+
+async function loadAuthClientFromServer(): Promise<SupabaseClient | null> {
+  const authWindow = window as AuthWindow;
+  let config: { url: string; publishableKey: string } | null = null;
+  try {
+    config = (await getSupabaseClientConfig()) ?? null;
+  } catch {
+    config = null;
+  }
+  const url = config?.url?.trim();
+  const publishableKey = config?.publishableKey?.trim();
   if (!url || !publishableKey) {
     authWindow[AUTH_CLIENT_SLOT] = null;
     return null;
   }
-
   const client = createClient(url, publishableKey, {
     auth: {
       persistSession: true,
@@ -47,7 +76,18 @@ function OperatorLanding({ children }: { children: ReactNode }) {
 }
 
 export function OperatorGate() {
-  const [client] = useState(createAuthClient);
+  const [initialClient] = useState(createAuthClientSync);
+  const [client, setClient] = useState<SupabaseClient | null>(initialClient ?? null);
+  useEffect(() => {
+    if (initialClient !== undefined) return; // resolved synchronously
+    let cancelled = false;
+    void loadAuthClientFromServer().then((resolved) => {
+      if (!cancelled) setClient(resolved);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialClient]);
   const [state, setState] = useState<GateState>("checking");
   const [operatorClaimed, setOperatorClaimed] = useState<boolean | null>(null);
   const [registrationMode, setRegistrationMode] = useState(false);

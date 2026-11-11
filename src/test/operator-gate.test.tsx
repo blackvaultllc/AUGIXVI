@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   bootstrapStatus: vi.fn(),
   verifySession: vi.fn(),
+  clientConfig: vi.fn(),
 }));
 
 vi.mock("@supabase/supabase-js", () => ({
@@ -16,6 +17,7 @@ vi.mock("@supabase/supabase-js", () => ({
 vi.mock("@/avatar/operatorAuth.server", () => ({
   getOperatorBootstrapStatus: mocks.bootstrapStatus,
   verifySupabaseOperatorSession: mocks.verifySession,
+  getSupabaseClientConfig: mocks.clientConfig,
 }));
 
 vi.mock("@/avatar/AvatarStage", () => ({
@@ -88,6 +90,10 @@ describe("operator sign-in gate", () => {
     mocks.createClient.mockReset().mockReturnValue({ auth });
     mocks.bootstrapStatus.mockReset().mockResolvedValue({ configured: true, claimed: false });
     mocks.verifySession.mockReset();
+    mocks.clientConfig.mockReset().mockResolvedValue({
+      url: "https://project.invalid",
+      publishableKey: "public-placeholder",
+    });
   });
 
   afterEach(() => {
@@ -104,9 +110,13 @@ describe("operator sign-in gate", () => {
     }
   });
 
-  it("fails closed and explains when Supabase Auth is not configured", () => {
+  it("fails closed and explains when Supabase Auth is not configured", async () => {
+    mocks.clientConfig.mockResolvedValue(null);
     vi.stubEnv("VITE_SUPABASE_URL", "");
     const { container } = render(<OperatorGate />);
+    await waitFor(() => {
+      expect(mocks.createClient).not.toHaveBeenCalled();
+    });
 
     expect(screen.getByRole("heading", { name: "Sign-in not configured" })).toBeInTheDocument();
     expect(screen.queryByTestId("avatar-stage")).not.toBeInTheDocument();
