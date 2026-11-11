@@ -11,7 +11,28 @@ export type Params = {
   glitch: number;
 };
 
-export function targetParams(s: AvatarState, speech: number): Params {
+/**
+ * ALERT OVERRIDE (owner order): when the operator calls him, intensity goes
+ * up — focused, bright, tight — regardless of the base state. Passed via
+ * `alertBoost` 0..1; 0 = chill, 1 = fully alert.
+ */
+export function targetParams(s: AvatarState, speech: number, alertBoost = 0): Params {
+  const base = baseParams(s, speech);
+  if (alertBoost <= 0) return base;
+  const mix = (a: number, b: number) => a + (b - a) * alertBoost;
+  return {
+    breath: mix(base.breath, 0.35),
+    tight: mix(base.tight, 1),
+    core: mix(base.core, 1.7),
+    white: mix(base.white, 0.25),
+    contour: mix(base.contour, 0.9),
+    flare: mix(base.flare, 0.45),
+    drift: mix(base.drift, 0.15),
+    glitch: base.glitch,
+  };
+}
+
+function baseParams(s: AvatarState, speech: number): Params {
   switch (s) {
     case "LISTENING":
       return {

@@ -80,6 +80,36 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "speed 1.5",
   },
 
+  {
+    command: "/transform spaceship",
+    description:
+      'Transform into the Enterprise — flat circular saucer disc, two glowing nacelles behind. "land" reforms him back.',
+    category: "scene",
+    voice: true,
+    example: "transform into a spaceship",
+  },
+  {
+    command: "/transform wolf",
+    description: "Transform into an actual wolf — four legs, head with snout and ears, tail.",
+    category: "scene",
+    voice: true,
+    example: "transform into a wolf",
+  },
+  {
+    command: "/transform orb",
+    description: "Transform into a particle circle with three lines standing on top.",
+    category: "scene",
+    voice: true,
+    example: "transform into the orb",
+  },
+  {
+    command: "/land",
+    description: "Land and reform back into Osiris from any transform.",
+    category: "scene",
+    voice: true,
+    example: "land",
+  },
+
   // SCENE — size, shaping, world material
   {
     command: "/go home",

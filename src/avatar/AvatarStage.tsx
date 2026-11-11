@@ -37,6 +37,8 @@ import {
 } from "./world/office";
 import { findWorkers, parseWorkerCall, callWorkerLine, TOTAL_WORKERS } from "./world/workers";
 import { OfficeScene } from "./world/OfficeScene";
+import { parseTransformRequest, isTransformBackRequest, type TransformShape } from "./transforms";
+import { greetOperator } from "./greeting";
 import {
   pickIdleActivity,
   idleChalkboardThought,
@@ -266,6 +268,7 @@ export function AvatarStage({
           break;
         case "come-back":
           renderer.comeBack();
+          renderer.faceOperator(); // COME BACK = FACE ME
           say("Returning to my mark.");
           break;
         case "grow":
@@ -373,6 +376,7 @@ export function AvatarStage({
           setSilent(true);
           saveSilentModePreference(true);
           aiRef.current?.setMuted(true);
+          rendRef.current?.relaxOperator(); // dismissed — back to chill
         }
       };
       let commandText = text;
@@ -394,9 +398,12 @@ export function AvatarStage({
         setSilent(false);
         saveSilentModePreference(false);
         aiRef.current?.setMuted(false);
+        // COME BACK = FACE ME: he turns to the operator immediately on call.
+        rendRef.current?.faceOperator();
         if (!interaction.remainder) {
-          setResponseSource("wake word");
-          aiRef.current?.speak(operatorName ? `Yes, ${operatorName}.` : "Yes, Anubis.");
+          // GREETING: he speaks FIRST, in his own voice, with my name out loud.
+          setResponseSource("wake greeting");
+          aiRef.current?.speak(greetOperator(operatorName));
           return;
         }
         commandText = interaction.remainder;
@@ -425,6 +432,31 @@ export function AvatarStage({
       if (navigation === "return-to-space") {
         const started = returnToSpace();
         if (started && (!silentRef.current || source === "typed")) say("Returning to orbit.");
+        return;
+      }
+      // TRANSFORMS: Enterprise / wolf / orb — real shapes, not poses.
+      if (isTransformBackRequest(commandText)) {
+        if (rendRef.current?.transformBack()) {
+          setResponseSource("transform");
+          say("Landing. Reassembling as Osiris.");
+        } else {
+          say("I am already myself.");
+        }
+        return;
+      }
+      const transform = parseTransformRequest(commandText);
+      if (transform) {
+        const done = rendRef.current?.transform(transform as TransformShape);
+        setResponseSource("transform");
+        say(
+          done
+            ? transform === "enterprise"
+              ? "Refactoring my particles — saucer disc, two nacelles glowing. We fly."
+              : transform === "wolf"
+                ? "Four legs, fangs, tail — the wolf takes shape."
+                : "Forming the orb — particle circle, three lines standing on top."
+            : "That form is not in my library yet.",
+        );
         return;
       }
       // HIS WORLD: the office walk-in — fade to black with sand, then in.
@@ -595,7 +627,11 @@ export function AvatarStage({
       operatorName,
       operatorFullName,
       system: `${DEFAULT_SYSTEM_PROMPT}\n${PERSONALITY_PROMPT}\n${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
-      onSpeak: setLastWords,
+      onSpeak: (text) => {
+        setLastWords(text);
+        // When he is talking to me he faces me, alert.
+        if (text.startsWith("Yes, ")) rendRef.current?.faceOperator();
+      },
       onOfflineChange: setAiOffline,
       onResponseSource: setResponseSource,
       findOfflineAnswer: (text) => {
@@ -709,7 +745,10 @@ export function AvatarStage({
         });
         return;
       }
-      if (e.key === "s") void sendCommand("Osiris", "voice");
+      if (e.key === "s") {
+        rendRef.current?.faceOperator(); // Call button: he faces me
+        void sendCommand("Osiris", "voice");
+      }
       if (e.key === "p") togglePresent();
     };
     window.addEventListener("keydown", key);
@@ -1091,7 +1130,10 @@ export function AvatarStage({
                   <CommandAction
                     icon={Sparkles}
                     label="Summon"
-                    onClick={() => void sendCommand("Osiris")}
+                    onClick={() => {
+                      rendRef.current?.faceOperator();
+                      void sendCommand("Osiris");
+                    }}
                   />
                   <CommandAction
                     icon={Presentation}

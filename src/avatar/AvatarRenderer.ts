@@ -13,6 +13,13 @@ import { getThemePalette, type ThemeChoice } from "./themes";
 import { SceneManager } from "./sceneManager";
 import type { MaterialKind } from "./worldCommands";
 import { AvatarLocomotion, type LocomotionMode } from "./locomotion";
+import {
+  buildShape,
+  morphEase,
+  MORPHER,
+  TRANSFORM_SHAPES,
+  type TransformShape,
+} from "./transforms";
 
 export type RenderSettings = {
   maxParticles: number;
@@ -171,6 +178,7 @@ export class AvatarRenderer {
   private raf = 0;
   private clock = new THREE.Clock();
   private p: Params = targetParams("IDLE", 0);
+  private alertBoost = 0;
   private v: Record<string, number> = {};
   private look = new THREE.Vector2();
   private lookV = new THREE.Vector2();
@@ -192,6 +200,11 @@ export class AvatarRenderer {
   private fileForm = 0;
   private pose = 0;
   private poseV = 0;
+  // TRANSFORMS: Enterprise / wolf / orb particle reshaping.
+  private basePositions: Float32Array | null = null;
+  private targetPositions: Float32Array | null = null;
+  private morphProgress = 1;
+  private activeTransform: TransformShape | null = null;
   onFrame?: (info: { fps: number; particles: number }) => void;
   inputs: Inputs = {
     attract: new THREE.Vector3(0, 0.5, 2),
@@ -443,9 +456,12 @@ export class AvatarRenderer {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     const t = this.clock.elapsedTime;
     this.moveAvatar(dt, t);
+    this.updateMorph(dt);
     this.sceneManager.tick(dt);
     this.bridge.sampleAudio();
-    const target = targetParams(this.bridge.state, this.bridge.speechLevel);
+    // INTENSITY: alert boost fades out over ~4s after the operator calls him.
+    this.alertBoost = Math.max(0, this.alertBoost - dt * 0.25);
+    const target = targetParams(this.bridge.state, this.bridge.speechLevel, this.alertBoost);
     for (const k of Object.keys(target) as (keyof Params)[]) {
       const [x, v] = spring(
         this.p[k],
@@ -485,7 +501,7 @@ export class AvatarRenderer {
     (U.uAttract.value as THREE.Vector3).copy(this.attract);
     U.uAttractK.value = this.attractK;
     (U.uLook.value as THREE.Vector2).copy(this.look);
-    if (this.locomotion.isWalking || this.locomotion.isLookingAround) {
+    if (!this.activeTransform && (this.locomotion.isWalking || this.locomotion.isLookingAround)) {
       U.uLook.value.x += Math.sin(t * 0.9) * 0.16;
       U.uLook.value.y += Math.sin(t * 0.55) * 0.06;
     }
@@ -566,6 +582,19 @@ export class AvatarRenderer {
   comeBack() {
     this.locomotion.comeBack();
   }
+  /** Called on summons — snaps to face the operator immediately. */
+  faceOperator() {
+    this.locomotion.faceForward();
+    this.inputs.look.set(0, 0);
+    this.inputs.attract.set(0, 0.2, 1.5);
+    this.inputs.attractK = 0.6;
+    this.alertBoost = 1; // intensity up — alert and focused on me
+  }
+  /** Dismissed — back to chill. */
+  relaxOperator() {
+    this.alertBoost = 0;
+    this.inputs.attractK = 0;
+  }
   stopWalking() {
     this.locomotion.stop();
   }
@@ -590,6 +619,50 @@ export class AvatarRenderer {
   stopDriving() {
     this.sceneManager.stopDriving();
   }
+  /** Reform the particles into a real shape — Enterprise, wolf or orb. */
+  transform(shape: TransformShape) {
+    if (!TRANSFORM_SHAPES.includes(shape)) return false;
+    const position = this.geo.getAttribute("position") as THREE.BufferAttribute;
+    if (!this.basePositions) {
+      this.basePositions = position.array.slice() as Float32Array;
+    }
+    this.targetPositions = buildShape(shape, position.count);
+    this.morphStart = position.array.slice() as Float32Array;
+    this.morphProgress = 0;
+    this.activeTransform = shape;
+    this.locomotion.fly();
+    this.cape.visible = false;
+    return true;
+  }
+  /** Land / transform back: morph home to Osiris. */
+  transformBack() {
+    if (!this.activeTransform || !this.basePositions) return false;
+    this.targetPositions = this.basePositions;
+    this.morphStart = (this.geo.getAttribute("position").array as Float32Array).slice();
+    this.morphProgress = 0;
+    this.activeTransform = null;
+    this.locomotion.idle();
+    return true;
+  }
+  get currentTransform(): TransformShape | null {
+    return this.activeTransform;
+  }
+  /** Advance the morph each frame until complete. */
+  private updateMorph(dt: number) {
+    if (!this.targetPositions || this.morphProgress >= 1) return;
+    const position = this.geo.getAttribute("position") as THREE.BufferAttribute;
+    const eased = morphEase(Math.min(1, this.morphProgress));
+    const array = position.array as Float32Array;
+    const from = this.morphStart;
+    const to = this.targetPositions;
+    if (!from || !to) return;
+    for (let i = 0; i < array.length; i++) {
+      array[i] = from[i]! + (to[i]! - from[i]!) * eased;
+    }
+    position.needsUpdate = true;
+    this.morphProgress = Math.min(1, this.morphProgress + dt / MORPHER.introSeconds);
+  }
+  private morphStart: Float32Array | null = null;
   private adapt(dt: number) {
     this.frameTimes.push(dt * 1000);
     if (this.frameTimes.length < 60) return;

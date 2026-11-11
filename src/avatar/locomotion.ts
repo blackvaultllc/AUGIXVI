@@ -27,6 +27,8 @@ export class AvatarLocomotion {
   private waypointIndex = 0;
   private jumpElapsed = 0;
   private loopRoute = true;
+  /** Arrived-at-mark face-the-operator flag: yaw returns to camera-forward (+z). */
+  private faceCamera = false;
   private waypoints: THREE.Vector3[] = DEFAULT_WALK_ROUTE.map(
     (point) => new THREE.Vector3(point.x, 0, point.z),
   );
@@ -127,12 +129,21 @@ export class AvatarLocomotion {
     this.mode = "walk";
     this.returning = true;
     this.looking = false;
-    this.scaleTarget = COMPACT_SCALE;
+    this.faceCamera = true; // when he arrives, he faces ME
   }
 
   stop() {
     this.idle();
     this.looking = false;
+  }
+
+  /** Alert: face the camera immediately from wherever he stands. */
+  faceForward() {
+    this.faceCamera = false;
+    this.returning = false;
+    this.looking = false;
+    this.mode = "idle";
+    this.root.rotation.y = 0; // 0 yaw = facing the camera
   }
 
   tick(deltaSeconds: number) {
@@ -169,6 +180,10 @@ export class AvatarLocomotion {
         this.returning = false;
         this.mode = "idle";
         this.scaleTarget = 1;
+        // COME BACK = FACE ME: settle yaw toward the camera (+z) immediately.
+        const targetYaw = this.faceCamera ? 0 : this.root.rotation.y;
+        this.faceCamera = false;
+        this.root.rotation.y = targetYaw;
       } else {
         if (this.loopRoute) {
           this.waypointIndex = (this.waypointIndex + 1) % this.waypoints.length;
