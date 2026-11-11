@@ -28,6 +28,15 @@ import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
 import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
 import { NotepadWindow, ChalkboardWindow, PlayerWindow } from "./windows/windows";
+import { BattleBox } from "./windows/BattleBox";
+import {
+  isOfficeWalkInRequest,
+  fadePhrase,
+  OFFICE_ROOMS,
+  TOTAL_ENTERING_MS as OFFICE_TRANSITION_MS,
+} from "./world/office";
+import { findWorkers, parseWorkerCall, callWorkerLine, TOTAL_WORKERS } from "./world/workers";
+import { OfficeScene } from "./world/OfficeScene";
 import {
   pickIdleActivity,
   idleChalkboardThought,
@@ -160,6 +169,9 @@ export function AvatarStage({
   );
   const [chalkboardText, setChalkboardText] = useState<string | null>(null);
   const [playerSeed, setPlayerSeed] = useState<string | null>(null);
+  // His world: the office walk-in and the battle box.
+  const [officeOpen, setOfficeOpen] = useState(false);
+  const [battleOpen, setBattleOpen] = useState(false);
   const [worldScreen, setWorldScreen] = useState<WorldScreen>("space");
   const worldScreenRef = useRef<WorldScreen>("space");
   const worldTransitionTimer = useRef<number | null>(null);
@@ -413,6 +425,42 @@ export function AvatarStage({
       if (navigation === "return-to-space") {
         const started = returnToSpace();
         if (started && (!silentRef.current || source === "typed")) say("Returning to orbit.");
+        return;
+      }
+      // HIS WORLD: the office walk-in — fade to black with sand, then in.
+      if (isOfficeWalkInRequest(commandText)) {
+        setOfficeOpen(true);
+        say(fadePhrase());
+        return;
+      }
+      if (commandText === "/office" || /^(?:leave|exit)\s+(?:the\s+)?office$/i.test(commandText)) {
+        setOfficeOpen(false);
+        say(commandText.startsWith("/") ? "Heading to the office entrance." : "Back to the world.");
+        return;
+      }
+      // Role-play battle: the blue attack box.
+      if (
+        /role[- ]?play(?:ing)?(?:\s+game)?s?/i.test(commandText) ||
+        /^(?:fight|battle|open battle|open the battle box)$/i.test(commandText) ||
+        commandText === "/battle"
+      ) {
+        setBattleOpen(true);
+        say("The blue box is up. Attack, magic, items, run — subcategories stay inside it.");
+        return;
+      }
+      // THE CREW: call a worker or department by name.
+      const workerCall = parseWorkerCall(commandText);
+      if (workerCall) {
+        const matches = findWorkers(workerCall.target);
+        if (matches.length > 0) {
+          setResponseSource("workforce");
+          aiRef.current?.speak(matches.map(callWorkerLine).join(" ").slice(0, 300));
+          return;
+        }
+      }
+      if (/^(?:how many|count)\s+(?:workers|staff|employees|sub ?ais?)\b/i.test(commandText)) {
+        setResponseSource("workforce");
+        say(`${TOTAL_WORKERS} workers on staff, across the departments. All learning and working.`);
         return;
       }
       // Movable windows: notepad, chalkboard, player.
@@ -1147,6 +1195,12 @@ export function AvatarStage({
           )}
         </CommandBox>
       )}
+      <OfficeScene active={officeOpen} onExit={() => setOfficeOpen(false)} />
+      <BattleBox
+        open={battleOpen}
+        onClose={() => setBattleOpen(false)}
+        onTurn={(turn) => aiRef.current?.speak(turn.outcome)}
+      />
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />

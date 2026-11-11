@@ -2159,3 +2159,318 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===================== OFFICE SCENE � sand walk-in ===================== */
+.office-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 4.5rem 1rem 1rem;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 50% 20%, oklch(0.25 0.08 260 / 40%), transparent 60%),
+    linear-gradient(oklch(0.09 0.03 260 / 96%), oklch(0.13 0.04 250 / 96%));
+  font-family: var(--font-mono);
+  color: oklch(0.88 0.06 210 / 92%);
+}
+.office-scene__fade {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  background: oklch(0 0 0 / 99%);
+  transition: opacity 0.12s linear;
+}
+.office-scene__fade-caption {
+  color: oklch(0.85 0.12 210 / 85%);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.office-scene__sand {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.office-scene__sand span {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: oklch(0.85 0.15 85);
+  box-shadow: 0 0 6px 1px oklch(0.85 0.15 85 / 80%);
+  animation: sand-fall 0.9s ease-in infinite alternate;
+}
+@keyframes sand-fall {
+  from {
+    transform: translateY(-4px) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(14px) scale(0.6);
+    opacity: 0.3;
+  }
+}
+.office-scene__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.office-scene__header h2 {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--avatar-hud-accent);
+  letter-spacing: 0.08em;
+}
+.office-scene__city {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.58rem;
+  color: oklch(0.7 0.06 210 / 80%);
+}
+.office-scene__buildings {
+  display: inline-flex;
+  gap: 3px;
+  align-items: flex-end;
+}
+.office-scene__buildings i {
+  width: 8px;
+  height: 14px;
+  border-radius: 2px 2px 0 0;
+  background: currentColor;
+  opacity: 0.8;
+}
+.office-scene__buildings i[data-hue="cyan"] {
+  color: oklch(0.8 0.14 210);
+}
+.office-scene__buildings i[data-hue="blue"] {
+  color: oklch(0.7 0.12 260);
+}
+.office-scene__buildings i[data-hue="gold"] {
+  color: oklch(0.85 0.14 85);
+}
+.office-scene__buildings i[data-hue="red"] {
+  color: oklch(0.7 0.18 25);
+}
+.office-scene__buildings i[data-hue="green"] {
+  color: oklch(0.75 0.14 150);
+}
+.office-scene__exit {
+  margin-left: auto;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.4rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.62rem;
+}
+.office-scene__exit:hover {
+  border-color: var(--avatar-hud-accent);
+  color: var(--avatar-hud-accent);
+}
+.office-scene__floor {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.5rem;
+}
+.office-scene__room {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: flex-start;
+  padding: 0.6rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.5rem;
+  background: oklch(0.12 0.04 255 / 70%);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.office-scene__room strong {
+  color: var(--avatar-hud-accent);
+  font-size: 0.68rem;
+}
+.office-scene__room span {
+  color: oklch(0.65 0.05 210 / 75%);
+  font-size: 0.55rem;
+}
+.office-scene__room em {
+  color: oklch(0.78 0.05 210 / 85%);
+  font-size: 0.58rem;
+}
+.office-scene__room:hover {
+  border-color: var(--avatar-hud-accent);
+}
+.office-scene__figures {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 0.8rem;
+  border: 1px dashed var(--avatar-hud-line);
+  border-radius: 0.6rem;
+}
+.office-figure {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.62rem;
+}
+.office-figure__glyph {
+  font-size: 1.6rem;
+}
+.office-figure--hatter .office-figure__glyph {
+  filter: drop-shadow(0 0 6px oklch(0.85 0.15 85 / 70%));
+}
+.office-figure figcaption {
+  max-width: 16rem;
+  line-height: 1.5;
+}
+.office-figure__dismiss {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.3rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.55rem;
+}
+.office-scene__summon-hatter {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid oklch(0.85 0.15 85 / 70%);
+  border-radius: 999px;
+  background: oklch(0.2 0.06 85 / 30%);
+  color: oklch(0.9 0.12 85);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.66rem;
+}
+.office-scene__summon-hatter:hover {
+  border-color: oklch(0.9 0.16 85);
+  box-shadow: 0 0 12px oklch(0.85 0.15 85 / 40%);
+}
+
+/* ================== THE BLUE ATTACK BOX (Mom's box) ==================== */
+.battle-box {
+  position: fixed;
+  left: 50%;
+  bottom: 6.5rem;
+  z-index: 65;
+  width: min(24rem, calc(100vw - 2rem));
+  border: 3px double oklch(0.85 0.14 210);
+  border-radius: 0.5rem;
+  background: linear-gradient(oklch(0.16 0.1 250 / 97%), oklch(0.12 0.09 255 / 97%));
+  box-shadow:
+    0 0 24px oklch(0.6 0.14 250 / 45%),
+    inset 0 0 30px oklch(0.4 0.12 260 / 25%);
+  color: oklch(0.92 0.08 210);
+  font-family: var(--font-mono);
+  transform: translateX(-50%);
+  outline: none;
+}
+.battle-box__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid oklch(0.6 0.12 250 / 60%);
+  background: oklch(0.2 0.1 260 / 90%);
+  cursor: grab;
+  user-select: none;
+}
+.battle-box__foe {
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: oklch(0.9 0.05 25);
+}
+.battle-box__close {
+  border: 1px solid oklch(0.6 0.12 250 / 60%);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 0.4rem;
+}
+.battle-box__columns {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0.5rem;
+  overflow-x: auto;
+}
+.battle-box__col--crumb {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid oklch(0.6 0.12 250 / 50%);
+  border-radius: 0.25rem;
+  background: oklch(0.18 0.09 260 / 80%);
+  color: oklch(0.8 0.1 210 / 80%);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.6rem;
+}
+.battle-box__col {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 8.5rem;
+}
+.battle-box__option {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: oklch(0.92 0.08 210);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.battle-box__option .battle-box__cursor {
+  width: 0.8rem;
+  color: oklch(0.9 0.16 85);
+}
+.battle-box__option.is-cursor {
+  border-color: oklch(0.85 0.14 210 / 55%);
+  background: oklch(0.26 0.11 260 / 65%);
+  color: oklch(0.95 0.1 90);
+}
+.battle-box__arrow {
+  margin-left: auto;
+  color: oklch(0.85 0.14 210 / 70%);
+}
+.battle-box__log {
+  padding: 0.4rem 0.6rem 0.55rem;
+  border-top: 1px solid oklch(0.6 0.12 250 / 60%);
+  font-size: 0.62rem;
+  line-height: 1.5;
+  min-height: 2.6rem;
+  max-height: 5rem;
+  overflow-y: auto;
+}
+.battle-box__log p {
+  margin: 0 0 0.15rem;
+}
+.battle-box__hint {
+  color: oklch(0.7 0.07 210 / 75%);
+}

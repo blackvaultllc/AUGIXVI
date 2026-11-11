@@ -211,6 +211,32 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "open knowledge",
   },
 
+  // HIS WORLD — office, crew, battle
+  {
+    command: "/office",
+    description:
+      'Walk into the office — fade to black with sand, then he walks in. Say "hey, let\'s go to office".',
+    category: "scene",
+    voice: true,
+    example: "hey, let's go to office",
+  },
+  {
+    command: "/battle",
+    description:
+      "Open the blue battle box — Attack / Magic / Items / Run with inline subcategories, for role-play fights.",
+    category: "scene",
+    voice: true,
+    example: "hey Osiris, let's go do some role playing games",
+  },
+  {
+    command: "/call <worker>",
+    description:
+      "Call a worker by name or department — e.g. /call Amun or /call Defense Watch. They suggest; you decide.",
+    category: "system",
+    voice: true,
+    example: "call the Defense Watch",
+  },
+
   // TOOLS — senses and analysis
   {
     command: "/analyze room",
