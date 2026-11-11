@@ -12,6 +12,7 @@ export const MATERIAL_ALIASES = {
   box: ["boxes", "box", "cube"],
   sphere: ["spheres", "sphere", "ball"],
   light: ["lights", "light", "lamp"],
+  pyramid: ["pyramid", "pyramids", "the pyramid", "osiris's pyramid"],
 } as const;
 
 export type MaterialKind = keyof typeof MATERIAL_ALIASES;

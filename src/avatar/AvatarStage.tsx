@@ -38,6 +38,8 @@ import {
 import { findWorkers, parseWorkerCall, callWorkerLine, TOTAL_WORKERS } from "./world/workers";
 import { OfficeScene } from "./world/OfficeScene";
 import { parseTransformRequest, isTransformBackRequest, type TransformShape } from "./transforms";
+import { askCloud } from "./cloudBrain";
+import { CloudKeysPanel } from "./CloudKeysPanel";
 import { greetOperator } from "./greeting";
 import {
   pickIdleActivity,
@@ -174,6 +176,7 @@ export function AvatarStage({
   // His world: the office walk-in and the battle box.
   const [officeOpen, setOfficeOpen] = useState(false);
   const [battleOpen, setBattleOpen] = useState(false);
+  const [cloudKeysOpen, setCloudKeysOpen] = useState(false);
   const [worldScreen, setWorldScreen] = useState<WorldScreen>("space");
   const worldScreenRef = useRef<WorldScreen>("space");
   const worldTransitionTimer = useRef<number | null>(null);
@@ -434,6 +437,12 @@ export function AvatarStage({
         if (started && (!silentRef.current || source === "typed")) say("Returning to orbit.");
         return;
       }
+      // CLOUD KEYS PANEL: green/red lights, operator only.
+      if (commandText === "/cloudkeys" || /open\s+(?:the\s+)?cloud\s+keys?/i.test(commandText)) {
+        setCloudKeysOpen(true);
+        say("Cloud keys — green means present and working. Values stay in Cloudflare.");
+        return;
+      }
       // TRANSFORMS: Enterprise / wolf / orb — real shapes, not poses.
       if (isTransformBackRequest(commandText)) {
         if (rendRef.current?.transformBack()) {
@@ -634,6 +643,11 @@ export function AvatarStage({
       },
       onOfflineChange: setAiOffline,
       onResponseSource: setResponseSource,
+      cloudFallback: async (text) => {
+        const cloud = await askCloud(text);
+        if (cloud.answer) return { answer: cloud.answer, provider: cloud.provider };
+        return null;
+      },
       findOfflineAnswer: (text) => {
         const memory = memoryRef.current;
         if (!memory) return null;
@@ -1243,6 +1257,7 @@ export function AvatarStage({
         onClose={() => setBattleOpen(false)}
         onTurn={(turn) => aiRef.current?.speak(turn.outcome)}
       />
+      {cloudKeysOpen && <CloudKeysPanel onClose={() => setCloudKeysOpen(false)} />}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />

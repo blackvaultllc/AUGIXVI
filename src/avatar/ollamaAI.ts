@@ -18,6 +18,12 @@ export type OllamaAIOptions = {
   findOfflineAnswer?: (
     text: string,
   ) => { answer: string; source: "saved memory" | "local knowledge" } | null;
+  /**
+   * CLOUD FAILOVER: when the local brain is unreachable, ask the server pipe
+   * (Groq → Gemini → OpenRouter → server-side Ollama). Resolves with the
+   * answer + the provider that actually spoke, or null to go simulated.
+   */
+  cloudFallback?: (text: string) => Promise<{ answer: string; provider: string } | null>;
   onResponseSource?: (
     source: "live brain" | "saved memory" | "local knowledge" | "offline notice",
   ) => void;
@@ -303,6 +309,15 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       if (error instanceof DOMException && error.name === "AbortError") return "";
       setOffline(true);
       scheduleRetry();
+      // FAILOVER PIPE: cloud brains next (server-side keys), then simulated.
+      if (opts.cloudFallback) {
+        const cloud = await opts.cloudFallback(text);
+        if (cloud) {
+          onResponseSource?.("live brain");
+          speak(cloud.answer, listen);
+          return cloud.answer;
+        }
+      }
       return offlineReply();
     } finally {
       if (!offlineCooldownTimer) {

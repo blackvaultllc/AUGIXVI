@@ -7,7 +7,7 @@ import type { AvatarBridge } from "./AvatarBridge";
 import { proceduralBust, type ParticleSource } from "./particleSource";
 import { spring, targetParams, type Params } from "./stateParams";
 import { filePoints, handPoints, limbPoints, makeProp } from "./props";
-import { getLegGaitAngle } from "./particleLegs";
+import { getLegGaitAngle, getArmSwingAngle, wantsToDance } from "./particleLegs";
 import { ARM, armPose, flightArmPose, handDirection, solveArm, type V3 } from "./armIK";
 import { getThemePalette, type ThemeChoice } from "./themes";
 import { SceneManager } from "./sceneManager";
@@ -540,11 +540,21 @@ export class AvatarRenderer {
     }
     capePositions.needsUpdate = true;
     const uniforms = this.mat.uniforms as unknown as Uniforms;
+    const dancing = this.danceUntil > t;
+    if (!dancing && this.locomotion.isWalking && !this.danceChecked && wantsToDance()) {
+      this.danceUntil = t + 4.5; // a short groove, then back to walking
+      this.danceChecked = true;
+    }
+    if (!this.locomotion.isWalking) this.danceChecked = false;
     uniforms.uLegSwing.value.set(
-      getLegGaitAngle(this.locomotion.isWalking, t, 0, speaking),
-      getLegGaitAngle(this.locomotion.isWalking, t, 1, speaking),
+      getLegGaitAngle(this.locomotion.isWalking, t, 0, speaking, dancing),
+      getLegGaitAngle(this.locomotion.isWalking, t, 1, speaking, dancing),
     );
+    this.armSwing = getArmSwingAngle(this.locomotion.isWalking, t, 0, dancing);
   }
+  private danceUntil = -1;
+  private danceChecked = false;
+  private armSwing = 0;
   shrink() {
     this.locomotion.shrink();
   }

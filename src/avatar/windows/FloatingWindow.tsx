@@ -13,7 +13,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { Minus, X, Square } from "lucide-react";
+import { Maximize2, Minimize2, Minus, X } from "lucide-react";
 
 type SavedGeometry = { x: number; y: number; w: number; h: number; minimized: boolean };
 
@@ -80,6 +80,7 @@ export function FloatingWindow({
     h: saved?.h ?? initialHeight,
   });
   const [minimized, setMinimized] = useState(saved?.minimized ?? false);
+  const [maximized, setMaximized] = useState(false);
   const drag = useRef<{ mode: "move" | "resize"; dx: number; dy: number } | null>(null);
   const winRef = useRef<HTMLElement>(null);
 
@@ -133,16 +134,31 @@ export function FloatingWindow({
     event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
+  // THREE BUTTONS, THREE JOBS: X closes, maximize/restore fills the screen,
+  // minus minimizes to the title bar.
+  const maximizedStyle = maximized
+    ? {
+        left: 8,
+        top: 8,
+        width: window.innerWidth - 16,
+        height: window.innerHeight - 16,
+      }
+    : undefined;
+
   return (
     <section
       ref={winRef}
-      className={`floating-window${minimized ? " floating-window--minimized" : ""}`}
-      style={{
-        left: position.x,
-        top: position.y,
-        width: size.w,
-        height: minimized ? undefined : size.h,
-      }}
+      className={`floating-window${minimized ? " floating-window--minimized" : ""}${maximized ? " floating-window--maximized" : ""}`}
+      style={
+        maximized
+          ? maximizedStyle
+          : {
+              left: position.x,
+              top: position.y,
+              width: size.w,
+              height: minimized ? undefined : size.h,
+            }
+      }
       aria-label={title}
     >
       <header
@@ -160,10 +176,24 @@ export function FloatingWindow({
           <button
             type="button"
             className="floating-window__button"
-            onClick={() => setMinimized((m) => !m)}
+            onClick={() => {
+              setMaximized(false);
+              setMinimized((m) => !m);
+            }}
             aria-label={minimized ? `Restore ${title}` : `Minimize ${title}`}
           >
-            {minimized ? <Square aria-hidden="true" /> : <Minus aria-hidden="true" />}
+            <Minus aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="floating-window__button"
+            onClick={() => {
+              setMinimized(false);
+              setMaximized((m) => !m);
+            }}
+            aria-label={maximized ? `Restore ${title} size` : `Maximize ${title}`}
+          >
+            {maximized ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
           </button>
           <button
             type="button"

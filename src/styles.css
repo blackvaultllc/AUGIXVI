@@ -2026,36 +2026,96 @@
   gap: 0.5rem;
 }
 
-/* Chalkboard */
+/* Chalkboard — freehand chalk drawing */
 .window-chalkboard {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   height: 100%;
 }
-.window-chalkboard__surface {
+.window-chalkboard__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.window-chalkboard__chalk {
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 0.2rem;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.window-chalkboard__chalk.is-active,
+.window-btn.is-active {
+  border-color: oklch(0.9 0.1 210);
+  box-shadow: 0 0 6px oklch(0.85 0.12 210 / 60%);
+}
+.window-chalkboard__canvas {
   flex: 1;
   min-height: 8rem;
-  resize: none;
-  padding: 0.6rem;
+  width: 100%;
   border: 1px solid oklch(0.5 0.08 150 / 60%);
   border-radius: 0.4rem;
-  background:
-    radial-gradient(circle at 20% 30%, oklch(0.28 0.06 150 / 30%), transparent 60%),
-    oklch(0.2 0.05 150 / 90%);
-  color: oklch(0.92 0.05 90);
+  cursor: crosshair;
+  touch-action: none;
+}
+.window-chalkboard__text-overlay {
+  position: absolute;
+  left: 1rem;
+  top: 3.2rem;
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  background: oklch(0.2 0.05 150 / 85%);
+  color: oklch(0.95 0.05 90);
+  border-radius: 0.3rem;
   font-family: "Comic Sans MS", "Segoe Print", var(--font-mono);
   font-size: 0.78rem;
-  line-height: 1.6;
-}
-.window-chalkboard__surface:focus {
-  outline: none;
-  border-color: oklch(0.8 0.1 90);
+  line-height: 1.5;
+  max-width: 80%;
+  white-space: pre-wrap;
+  pointer-events: none;
 }
 .window-chalkboard__actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+/* Cloud keys panel */
+.window-cloud-keys__list {
+  margin: 0.4rem 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.window-cloud-keys__list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.window-cloud-keys__light {
+  flex-shrink: 0;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  align-self: center;
+}
+.window-cloud-keys__light--green {
+  background: oklch(0.75 0.18 145);
+  box-shadow: 0 0 8px oklch(0.75 0.18 145 / 70%);
+}
+.window-cloud-keys__light--red {
+  background: oklch(0.65 0.2 25);
+  box-shadow: 0 0 8px oklch(0.65 0.2 25 / 70%);
+}
+.window-cloud-keys__provider {
+  font-size: 0.66rem;
+  min-width: 6rem;
+}
+.window-cloud-keys__detail {
+  color: oklch(0.65 0.05 205 / 75%);
+  font-size: 0.56rem;
 }
 
 /* YouTube player */

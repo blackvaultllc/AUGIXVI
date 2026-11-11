@@ -194,6 +194,36 @@ function makeObjectPoints(kind: MaterialKind, density = 1): Float32Array {
       1100,
       true,
     );
+  } else if (kind === "pyramid") {
+    // OSIRIS'S PYRAMID — four stepped faces, apex capstone, base edges.
+    const H = 3.6;
+    const HALF = 2.6;
+    for (const level of [0, 1, 2, 3, 4, 5, 6, 7]) {
+      const t = level / 7;
+      const inset = HALF * (1 - t);
+      const y = H * t;
+      const count = Math.max(3, Math.floor((1 - t) * 46));
+      const corners: [number, number][] = [
+        [-inset, -inset],
+        [inset, -inset],
+        [inset, inset],
+        [-inset, inset],
+      ];
+      for (let c = 0; c < 4; c++) {
+        const [ax, az] = corners[c]!;
+        const [bx, bz] = corners[(c + 1) % 4]!;
+        line([ax, y, az], [bx, y, bz], count);
+      }
+    }
+    // Four slanted edges rising to the apex.
+    for (const [cx, cz] of [
+      [-HALF, -HALF],
+      [HALF, -HALF],
+      [HALF, HALF],
+      [-HALF, HALF],
+    ] as const) {
+      line([cx, 0, cz], [0, H, 0], 60);
+    }
   } else {
     appendEllipsoid(
       output,

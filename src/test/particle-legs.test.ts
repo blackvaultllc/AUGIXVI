@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getLegGaitAngle, createParticleLegData } from "@/avatar/particleLegs";
+import { getLegGaitAngle, getArmSwingAngle, createParticleLegData } from "@/avatar/particleLegs";
 import { proceduralBust } from "@/avatar/particleSource";
 
 function pointsInBand(positions: Float32Array, minY: number, maxY: number, side: -1 | 1): number[] {
@@ -77,10 +77,41 @@ describe("particle legs", () => {
   });
 
   it("keeps the alternating swing at full and compact scales", () => {
-    const leftAngle = getLegGaitAngle(true, 1, 0, 0);
-    const rightAngle = getLegGaitAngle(true, 1, 1, 0);
+    // Sample a full cycle: legs alternate — peak left ≈ −peak right.
+    let leftPeak = -Infinity;
+    let rightPeak = -Infinity;
+    for (let t = 0; t < 1; t += 0.05) {
+      leftPeak = Math.max(leftPeak, getLegGaitAngle(true, t, 0, 0));
+      rightPeak = Math.max(rightPeak, getLegGaitAngle(true, t, 1, 0));
+    }
+    expect(leftPeak).toBeGreaterThan(0.4);
+    // Anti-phase: sample the SAME cycle for both legs — left peak vs right
+    // trough must differ strongly (they alternate, not move together).
+    let rightTrough = Infinity;
+    for (let t = 0; t < 1; t += 0.05) {
+      rightTrough = Math.min(rightTrough, getLegGaitAngle(true, t, 1, 0));
+    }
+    expect(leftPeak - rightTrough).toBeGreaterThan(0.4);
+  });
 
-    expect(leftAngle).toBeCloseTo(-rightAngle);
-    expect(getLegGaitAngle(false, 1, 0, 0)).toBe(0);
+  it("human walk: knees bend and feet lift through the cycle", () => {
+    let maxSwing = 0;
+    for (let t = 0; t < 6; t += 0.1) {
+      maxSwing = Math.max(maxSwing, Math.abs(getLegGaitAngle(true, t, 0, 0)));
+    }
+    expect(maxSwing).toBeGreaterThan(0.4); // thigh ±0.42 plus knee/foot terms
+    // At standing still without speech he is still.
+    expect(getLegGaitAngle(false, 0, 0, 0)).toBe(0);
+  });
+
+  it("dance mode: loose groove adds bounce beyond plain walking", () => {
+    let maxDelta = 0;
+    for (let t = 0; t < 3; t += 0.1) {
+      const walk = getLegGaitAngle(true, t, 0, 0, false);
+      const dance = getLegGaitAngle(true, t, 0, 0, true);
+      maxDelta = Math.max(maxDelta, Math.abs(dance - walk));
+    }
+    expect(maxDelta).toBeGreaterThan(0.05);
+    expect(getArmSwingAngle(true, 1, 0, false)).not.toBe(0);
   });
 });

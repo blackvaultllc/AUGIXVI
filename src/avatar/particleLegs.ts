@@ -70,9 +70,53 @@ export function createParticleLegData(count: number, side: -1 | 1): ParticleLegD
   return { positions, sides };
 }
 
-/** Keep the same alternating swing at full and compact avatar scales. */
-export function getLegGaitAngle(isMoving: boolean, time: number, side: 0 | 1, speaking: number) {
+/**
+ * HUMAN WALK (owner fix #3): knees bend, feet lift, weight shifts — loose and
+ * chill, never stiff. Legends-of-Logic proportions: thigh swing ±0.42 rad,
+ * knee flexes most at leg-forward, foot pitches heel-to-toe. Dance adds a
+ * bounce and hip sway on top when he celebrates.
+ */
+export function getLegGaitAngle(
+  isMoving: boolean,
+  time: number,
+  side: 0 | 1,
+  speaking: number,
+  dancing = false,
+): number {
   const phase = side === 0 ? 0 : Math.PI;
-  const gait = isMoving ? Math.sin(time * 7 + phase) * 0.42 : 0;
+  if (!isMoving && !dancing) {
+    return Math.sin(time * 1.1 + phase) * speaking * 0.025;
+  }
+  const cycle = time * 7 + phase;
+  const thigh = Math.sin(cycle) * 0.42;
+  // Knee bends as the leg swings behind and during lift-through.
+  const kneeFlex = Math.max(0, -Math.sin(cycle - 0.6)) * 0.55;
+  // Foot lift: toe-off / heel-strike pitch on top of the thigh swing.
+  const footPitch = Math.sin(cycle + Math.PI / 2) * 0.18;
+  const gait = thigh + kneeFlex * 0.35 + footPitch * 0.4;
+  if (dancing) {
+    // Loose groove: bounce and cross-step lean.
+    const bounce = Math.sin(time * 5.2 + phase) * 0.28;
+    const groove = Math.sin(time * 2.6) * 0.22;
+    return gait * 0.6 + bounce + groove;
+  }
   return gait + (isMoving ? 0 : Math.sin(time * 1.1 + phase) * speaking * 0.025);
+}
+
+/** Arm swing mirrors the legs — opposite phase, loose shoulders. */
+export function getArmSwingAngle(
+  isMoving: boolean,
+  time: number,
+  side: 0 | 1,
+  dancing = false,
+): number {
+  const phase = side === 0 ? Math.PI : 0;
+  if (!isMoving && !dancing) return 0;
+  const swing = Math.sin(time * 7 + phase) * (dancing ? 0.5 : 0.3);
+  return swing;
+}
+
+/** Should he dance? Occasionally yes — his own celebration (owner: add dance moves). */
+export function wantsToDance(random: () => number = Math.random): boolean {
+  return random() < 0.12;
 }

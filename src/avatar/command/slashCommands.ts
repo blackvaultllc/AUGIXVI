@@ -335,6 +335,15 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "remember I prefer the dark theme",
   },
 
+  {
+    command: "/cloudkeys",
+    description:
+      "Open the Cloud Keys panel — green/red lights per provider, operator only. Values never shown.",
+    category: "system",
+    voice: true,
+    example: "open cloud keys",
+  },
+
   // SYSTEM — knowledge and the familiars
   {
     command: "/summon",

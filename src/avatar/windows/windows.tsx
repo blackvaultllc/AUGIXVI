@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Eraser, Pencil, Play, Plus, Save, Trash2 } from "lucide-react";
 import { FloatingWindow } from "./FloatingWindow";
+import { CHALK_COLORS, useChalkCanvas } from "./ChalkCanvas";
 
 /* ----------------------------- NOTEPAD ---------------------------------- */
 
@@ -140,6 +141,7 @@ export function ChalkboardWindow({
       return "";
     }
   });
+  const chalk = useChalkCanvas(CHALK_COLORS);
 
   useEffect(() => {
     if (externalText != null && externalText !== "") {
@@ -164,21 +166,46 @@ export function ChalkboardWindow({
       initialHeight={400}
     >
       <div className="window-chalkboard">
-        <textarea
-          className="window-chalkboard__surface"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Write on the board — or tell Osiris to write on it for you."
-          aria-label="Chalkboard writing surface"
-        />
-        <div className="window-chalkboard__actions">
-          <button type="button" className="window-btn" onClick={() => setText("")}>
-            <Eraser aria-hidden="true" /> Erase board
+        <div className="window-chalkboard__tools">
+          {chalk.colors.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`window-chalkboard__chalk${chalk.color === c && !chalk.erasing ? " is-active" : ""}`}
+              style={{ background: c }}
+              onClick={() => {
+                chalk.setColor(c);
+                chalk.setErasing(false);
+              }}
+              aria-label={`Chalk color ${c}`}
+            />
+          ))}
+          <button
+            type="button"
+            className={`window-btn${chalk.erasing ? " is-active" : ""}`}
+            onClick={() => chalk.setErasing(!chalk.erasing)}
+          >
+            <Eraser aria-hidden="true" /> {chalk.erasing ? "Rubbing…" : "Rub to erase"}
           </button>
-          <span className="window-hint">
-            <Pencil aria-hidden="true" /> Saved automatically.
-          </span>
+          <button type="button" className="window-btn" onClick={chalk.clear}>
+            <Pencil aria-hidden="true" /> Clean board
+          </button>
         </div>
+        <canvas
+          ref={chalk.canvasRef}
+          className="window-chalkboard__canvas"
+          onPointerDown={chalk.onPointerDown}
+          onPointerMove={chalk.onPointerMove}
+          onPointerUp={chalk.onPointerUp}
+          onPointerLeave={chalk.onPointerUp}
+          aria-label="Chalkboard drawing surface — draw with the mouse or touch"
+        />
+        {/* Osiris writing: text appears over the drawing. */}
+        {text && (
+          <pre className="window-chalkboard__text-overlay" aria-label="Writing from Osiris">
+            {text}
+          </pre>
+        )}
       </div>
     </FloatingWindow>
   );
@@ -302,7 +329,7 @@ export function PlayerWindow({
       setDraft("");
     },
     // resolveToLink is a pure closure over nothing — stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     [],
   );
 
