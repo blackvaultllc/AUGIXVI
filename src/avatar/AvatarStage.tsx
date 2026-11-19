@@ -15,9 +15,11 @@ import {
   Expand,
   Eye,
   Globe,
+  Laptop,
   LogOut,
   Plane,
   Presentation,
+  Save,
   Shrink,
   Sparkles,
   Square,
@@ -57,9 +59,10 @@ import {
 } from "./idleLife";
 import { AvatarRenderer, type RenderSettings } from "./AvatarRenderer";
 import { Sensors, type SensorStatus } from "./sensors";
-import { attachOllamaAI } from "./ollamaAI";
+import { attachOllamaAI, type OllamaAIOptions } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
 import { isCubePanelCommand } from "./cubeReference";
+import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
 import {
   getThemeAccent,
@@ -131,6 +134,27 @@ export function AvatarStage({
   const rendRef = useRef<AvatarRenderer | null>(null);
   const sensRef = useRef<Sensors | null>(null);
   const aiRef = useRef<ReturnType<typeof attachOllamaAI> | null>(null);
+  // The exact options the brain was attached with, kept so the brain
+  // address setting can re-attach the same brain at a new address.
+  const aiOptsRef = useRef<OllamaAIOptions | null>(null);
+  const [brainDraft, setBrainDraft] = useState(() => loadBrainAddress());
+  const [brainMsg, setBrainMsg] = useState("");
+  function applyBrain(raw: string) {
+    const url = saveBrainAddress(raw);
+    if (!url) {
+      setBrainMsg("That address doesn't look right — try 192.168.1.50 or your Tailscale address.");
+      return;
+    }
+    setBrainDraft(url);
+    const opts = aiOptsRef.current;
+    if (opts && aiRef.current) {
+      aiRef.current.dispose();
+      const ai = attachOllamaAI(bridgeRef.current, { ...opts, baseUrl: url });
+      aiRef.current = ai;
+      ai.setMuted(silentRef.current);
+    }
+    setBrainMsg(`Brain set to ${url} — remembered on this device.`);
+  }
   const recRef = useRef<{ stop: () => void; start: () => void } | null>(null);
   const [silent, setSilent] = useState(loadSilentModePreference);
   const memoryRef = useRef<ReturnType<typeof createLocalMemory> | null>(null);
@@ -684,7 +708,8 @@ export function AvatarStage({
       setPerf(p);
       setReady(true);
     };
-    const ai = attachOllamaAI(bridge, {
+    const aiOpts: OllamaAIOptions = {
+      baseUrl: loadBrainAddress(),
       operatorName,
       operatorFullName,
       system: `${DEFAULT_SYSTEM_PROMPT}${CORE_LAW_PROMPT}
@@ -715,7 +740,9 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           return null;
         }
       },
-    });
+    };
+    const ai = attachOllamaAI(bridge, aiOpts);
+    aiOptsRef.current = aiOpts;
     aiRef.current = ai;
     ai.setMuted(silentRef.current);
     // Speech recognition feeds Ollama; gestures ("front the file") stay local.
@@ -1300,6 +1327,36 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onChange={(e) => chooseCustomColor(e.target.value)}
                   />
                 </label>
+              </CommandGroup>
+              <CommandGroup label="Brain — where Augie lives">
+                <label className="avatar-hud__row">
+                  Brain address (Ollama)
+                  <input
+                    className="avatar-hud__input"
+                    value={brainDraft}
+                    onChange={(e) => setBrainDraft(e.target.value)}
+                    placeholder="192.168.1.50"
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    aria-label="Brain address (Ollama)"
+                  />
+                </label>
+                <CommandAction
+                  icon={Save}
+                  label="Save brain address"
+                  onClick={() => applyBrain(brainDraft)}
+                />
+                <CommandAction
+                  icon={Laptop}
+                  label="Use this device"
+                  onClick={() => applyBrain("")}
+                />
+                <p>
+                  On the computer itself, use “Use this device”. On a phone, type the computer’s
+                  address — home Wi-Fi or Tailscale — and Augie answers from the computer.
+                </p>
+                {brainMsg && <p role="status">{brainMsg}</p>}
               </CommandGroup>
             </div>
           )}
