@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AvatarRouteImport } from './routes/avatar'
+import { Route as ApiTranscribeRouteImport } from './routes/api.transcribe'
 import { Route as AvatarAnalyzeRouteImport } from './routes/avatar_.analyze'
 import { Route as AvatarCubeRouteImport } from './routes/avatar_.cube'
 import { Route as AvatarGameRouteImport } from './routes/avatar_.game'
@@ -23,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const AvatarRoute = AvatarRouteImport.update({
   id: '/avatar',
   path: '/avatar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
+  id: '/api/transcribe',
+  path: '/api/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AvatarAnalyzeRoute = AvatarAnalyzeRouteImport.update({
@@ -44,6 +50,7 @@ const AvatarGameRoute = AvatarGameRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/avatar/analyze': typeof AvatarAnalyzeRoute
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/avatar/analyze': typeof AvatarAnalyzeRoute
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
@@ -59,6 +67,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/avatar_/analyze': typeof AvatarAnalyzeRoute
   '/avatar_/cube': typeof AvatarCubeRoute
   '/avatar_/game': typeof AvatarGameRoute
@@ -66,13 +75,25 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/avatar' | '/avatar/analyze' | '/avatar/cube' | '/avatar/game'
+    | '/'
+    | '/avatar'
+    | '/api/transcribe'
+    | '/avatar/analyze'
+    | '/avatar/cube'
+    | '/avatar/game'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/avatar' | '/avatar/analyze' | '/avatar/cube' | '/avatar/game'
+  to:
+    | '/'
+    | '/avatar'
+    | '/api/transcribe'
+    | '/avatar/analyze'
+    | '/avatar/cube'
+    | '/avatar/game'
   id:
     | '__root__'
     | '/'
     | '/avatar'
+    | '/api/transcribe'
     | '/avatar_/analyze'
     | '/avatar_/cube'
     | '/avatar_/game'
@@ -81,6 +102,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AvatarRoute: typeof AvatarRoute
+  ApiTranscribeRoute: typeof ApiTranscribeRoute
   AvatarAnalyzeRoute: typeof AvatarAnalyzeRoute
   AvatarCubeRoute: typeof AvatarCubeRoute
   AvatarGameRoute: typeof AvatarGameRoute
@@ -100,6 +122,13 @@ declare module '@tanstack/react-router' {
       path: '/avatar'
       fullPath: '/avatar'
       preLoaderRoute: typeof AvatarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/transcribe': {
+      id: '/api/transcribe'
+      path: '/api/transcribe'
+      fullPath: '/api/transcribe'
+      preLoaderRoute: typeof ApiTranscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/avatar_/analyze': {
@@ -129,6 +158,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AvatarRoute: AvatarRoute,
+  ApiTranscribeRoute: ApiTranscribeRoute,
   AvatarAnalyzeRoute: AvatarAnalyzeRoute,
   AvatarCubeRoute: AvatarCubeRoute,
   AvatarGameRoute: AvatarGameRoute,

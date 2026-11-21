@@ -50,21 +50,11 @@ export function attachSimulatedAI(
     };
     loop();
   };
-  // Browser speech recognition (where supported) to catch "show/bring/front this file".
-  type Rec = {
-    continuous: boolean;
-    interimResults: boolean;
-    onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
-    onend: () => void;
-    start: () => void;
-    stop: () => void;
-  };
-  const W = window as unknown as {
-    SpeechRecognition?: new () => Rec;
-    webkitSpeechRecognition?: new () => Rec;
-  };
-  const RecCtor = W.SpeechRecognition ?? W.webkitSpeechRecognition;
-  let rec: Rec | null = null;
+  // Spoken/typed text arrives through handleText. The ear itself is the
+  // local offline recognizer (localEar.ts → /api/transcribe →
+  // faster-whisper on this machine); the browser's cloud SpeechRecognition
+  // was removed — it died silently on Linux Chromium and needed the
+  // internet Augie is built to survive without.
   const handleText = (text: string) => {
     if (isPresentCommand(text)) {
       clear();
@@ -80,27 +70,8 @@ export function attachSimulatedAI(
     }
     return false;
   };
-  const startRec = () => {
-    if (!RecCtor || rec) return;
-    try {
-      rec = new RecCtor();
-      rec.continuous = false;
-      rec.interimResults = false;
-      rec.onresult = (e) => {
-        const r = e.results[0]?.[0];
-        if (r) handleText(r.transcript);
-      };
-      rec.onend = () => {
-        rec = null;
-      };
-      rec.start();
-    } catch {
-      rec = null;
-    }
-  };
   const listen = () => {
     bridge.setState("LISTENING");
-    if (options.subscribeToBridge !== false) startRec();
     later(8000, () => bridge.state === "LISTENING" && !userTalking && bridge.setState("IDLE"));
   };
 
@@ -132,7 +103,6 @@ export function attachSimulatedAI(
           bridge.onUserSpeechEnd(() => {
             userTalking = false;
             if (bridge.state !== "LISTENING") return;
-            if (rec) return; // recognition result will decide
             bridge.setState("THINKING");
             later(1600, () =>
               speak(REPLIES[Math.floor(Math.random() * REPLIES.length)] ?? REPLIES[0]!, () =>
@@ -150,7 +120,6 @@ export function attachSimulatedAI(
     dispose: () => {
       alive = false;
       clear();
-      rec?.stop();
       offs.forEach((o) => o());
     },
   };

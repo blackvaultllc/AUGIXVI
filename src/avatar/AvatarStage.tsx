@@ -98,6 +98,7 @@ import {
   saveSilentModePreference,
 } from "./interactionControls";
 import { createHighlight, createLocalMemory, findLocalAnswer, splitDocument } from "./localMemory";
+import { createLocalEar, type LocalEar } from "./localEar";
 import {
   createOperatorMemory,
   parseRememberRequest,
@@ -167,7 +168,7 @@ export function AvatarStage({
     }
     setBrainMsg(`Brain set to ${url} — remembered on this device.`);
   }
-  const recRef = useRef<{ stop: () => void; start: () => void } | null>(null);
+  const earRef = useRef<LocalEar | null>(null);
   const [silent, setSilent] = useState(loadSilentModePreference);
   const memoryRef = useRef<ReturnType<typeof createLocalMemory> | null>(null);
   memoryRef.current ??= createLocalMemory();
@@ -805,51 +806,37 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     aiOptsRef.current = aiOpts;
     aiRef.current = ai;
     ai.setMuted(silentRef.current);
-    // Speech recognition feeds Ollama; gestures ("front the file") stay local.
-    const W = window as unknown as {
-      SpeechRecognition?: new () => Rec;
-      webkitSpeechRecognition?: new () => Rec;
-    };
-    const RecCtor = W.SpeechRecognition ?? W.webkitSpeechRecognition;
-    type Rec = {
-      continuous: boolean;
-      interimResults: boolean;
-      onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
-      onend: () => void;
-      start: () => void;
-      stop: () => void;
-    };
-    setVoiceAvailable(Boolean(RecCtor));
-    let rec: Rec | null = null;
-    const restart = () => {
-      if (!RecCtor || rec) return;
-      try {
-        rec = new RecCtor();
-        rec.continuous = true;
-        rec.interimResults = false;
-        rec.onresult = (e) => {
-          const t = e.results[e.results.length - 1]?.[0]?.transcript;
-          if (t) void sendCommand(t, "voice");
-        };
-        rec.onend = () => {
-          rec = null;
-          setVoiceListening(false);
-        };
-        rec.start();
-        setVoiceListening(true);
-      } catch {
-        rec = null;
-        setVoiceListening(false);
-      }
-    };
-    restart();
-    recRef.current = {
-      stop: () => {
-        rec?.stop();
-        setVoiceListening(false);
+    // LOCAL EAR — offline speech-to-text on this machine (faster-whisper
+    // via /api/transcribe). The browser's SpeechRecognition is gone: on
+    // Linux Chromium it secretly depends on Google's cloud service, died
+    // the instant it was clicked, and said nothing about why. The local
+    // ear is push-to-talk: click the mic, it listens until a phrase is
+    // captured or he clicks again, and every failure lands in the Command
+    // box in plain words. Transcripts feed the same sendCommand voice
+    // path as before, so wake word, silent mode and room routing behave
+    // exactly as they do for typed input.
+    const ear = createLocalEar({
+      onTranscript: (text) => {
+        if (text) void sendCommand(text, "voice");
       },
-      start: restart,
-    };
+      onError: (message) => {
+        setVoiceListening(false);
+        setResponseSource("microphone");
+        setLastWords(message);
+      },
+      onState: (earState) => {
+        setVoiceListening(earState === "starting" || earState === "listening");
+        if (earState === "listening") {
+          setResponseSource("microphone");
+          setLastWords("Listening — speak now. Click the mic again to stop.");
+        } else if (earState === "transcribing") {
+          setResponseSource("microphone");
+          setLastWords("Transcribing what you said…");
+        }
+      },
+    });
+    earRef.current = ear;
+    setVoiceAvailable(ear.supported);
     bridge.setState("LISTENING");
     // Proactive watch: he tells ME — suggests, never auto-acts.
     const proactive = createProactiveEngine(
@@ -916,7 +903,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       window.removeEventListener("keydown", key);
       if (micFlashTimer.current !== null) window.clearTimeout(micFlashTimer.current);
       proactiveRef.current?.stop();
-      recRef.current?.stop();
+      earRef.current?.dispose();
       aiRef.current?.dispose();
       sensRef.current?.stop();
       r.dispose();
@@ -1187,7 +1174,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onSubmit={(text) => void sendCommand(text)}
           voiceAvailable={voiceAvailable}
           voiceListening={voiceListening}
-          onToggleVoice={() => (voiceListening ? recRef.current?.stop() : recRef.current?.start())}
+          onToggleVoice={() => earRef.current?.toggle()}
           responseLine={lastWords}
           responseSource={responseSource}
           userLine={lastUserMessage}
