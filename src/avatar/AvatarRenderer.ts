@@ -12,6 +12,8 @@ import { ARM, armPose, flightArmPose, handDirection, solveArm, type V3 } from ".
 import { getThemePalette, type ThemeChoice } from "./themes";
 import { eyeBrightnessFor, eyeColorFor, smoothEyePulse } from "./eyes";
 import { SceneManager } from "./sceneManager";
+import { WorldSceneManager } from "./worldSceneRenderer";
+import { DEFAULT_WORLD_SCENE, type WorldSceneId } from "./worldScenes";
 import type { MaterialKind } from "./worldCommands";
 import { AvatarLocomotion, type LocomotionMode } from "./locomotion";
 import {
@@ -206,6 +208,7 @@ export class AvatarRenderer {
   private avatarRoot = new THREE.Group();
   private character = new THREE.Group();
   private sceneManager: SceneManager;
+  private worldScenes: WorldSceneManager;
   private locomotion: AvatarLocomotion;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
@@ -275,6 +278,14 @@ export class AvatarRenderer {
     this.avatarRoot.add(this.character);
     this.locomotion = new AvatarLocomotion(this.avatarRoot);
     this.sceneManager = new SceneManager(this.scene, settings.theme, settings.customColor);
+    // THE LIVING WORLD (owner order 2026-11-21): five scenes grown from
+    // the same particle code — office, beach, desert, park, coffee shop.
+    // The office is home, so it is the default; while a living scene is
+    // active the old backdrop (mountains/pines/stars) steps aside — the
+    // pines live in the park now, grown from the same builder.
+    this.worldScenes = new WorldSceneManager(this.scene);
+    this.worldScenes.setScene(DEFAULT_WORLD_SCENE);
+    this.sceneManager.setEnvironmentVisible(false);
     const data = source(settings.maxParticles);
     this.drawCount = data.count;
     this.geo = new THREE.BufferGeometry();
@@ -552,6 +563,7 @@ export class AvatarRenderer {
     this.moveAvatar(dt, t);
     this.updateMorph(dt);
     this.sceneManager.tick(dt);
+    this.worldScenes.tick(dt);
     this.bridge.sampleAudio();
     // INTENSITY: alert boost fades out over ~4s after the operator calls him.
     this.alertBoost = Math.max(0, this.alertBoost - dt * 0.25);
@@ -777,6 +789,13 @@ export class AvatarRenderer {
   stopDriving() {
     this.sceneManager.stopDriving();
   }
+  /** Switch the living world scene around him — he stays himself. */
+  setWorldScene(id: WorldSceneId) {
+    this.worldScenes.setScene(id);
+  }
+  get worldScene(): WorldSceneId | null {
+    return this.worldScenes.currentScene;
+  }
   /** Reform the particles into a real shape — Enterprise, wolf or orb. */
   transform(shape: TransformShape) {
     if (!TRANSFORM_SHAPES.includes(shape)) return false;
@@ -838,6 +857,7 @@ export class AvatarRenderer {
     this.geo.dispose();
     this.mat.dispose();
     this.sceneManager.dispose();
+    this.worldScenes.dispose();
     for (const o of [...this.hands, ...this.arms, ...this.forearms, this.file, this.cape, this.eyes]) {
       o.geometry.dispose();
       (o.material as THREE.Material).dispose();

@@ -113,7 +113,14 @@ function appendCylinder(
   }
 }
 
-function makeObjectPoints(kind: MaterialKind, density = 1): Float32Array {
+/**
+ * The particle-shape builder — tree, mountain, building, pyramid, all of
+ * it. Exported so the living world scenes (worldScenes.ts) grow from this
+ * exact code: the pines in the park and the palms on the beach ARE this
+ * tree, reshaped — never a copy, never a replacement (owner order
+ * 2026-11-21: "The code is alive. Respect the code.").
+ */
+export function makeObjectPoints(kind: MaterialKind, density = 1): Float32Array {
   const output: number[] = [];
   const line = (from: [number, number, number], to: [number, number, number], count = 36) =>
     appendLine(output, new THREE.Vector3(...from), new THREE.Vector3(...to), count);
@@ -337,6 +344,15 @@ export class SceneManager {
     );
     stars.name = "avatar-particle-atmosphere";
     this.environment.add(stars);
+  }
+
+  /**
+   * Show/hide the built-in backdrop (mountains, pines, stars). The living
+   * world scenes carry their own scenery grown from the same builders,
+   * so the stage hides this backdrop while a world scene is active.
+   */
+  setEnvironmentVisible(visible: boolean) {
+    this.environment.visible = visible;
   }
 
   setTheme(theme: ThemeChoice, customColor: string) {

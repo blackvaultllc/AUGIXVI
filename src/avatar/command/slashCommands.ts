@@ -347,6 +347,45 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "open sandbox",
   },
   {
+    command: "/beach",
+    description:
+      "Change the living world around Augie to the Beach — sand, palms reshaped from his own pine code, and particle waves that roll. He stays himself; only the world changes.",
+    category: "scene",
+    voice: true,
+    example: "take me to the beach",
+  },
+  {
+    command: "/desert",
+    description: "Change the living world to the Desert — dunes, cacti, a low sun.",
+    category: "scene",
+    voice: true,
+    example: "show me the desert",
+  },
+  {
+    command: "/park",
+    description:
+      "Change the living world to the Park — the original particle pines at home, a winding path, a bench, citizens strolling.",
+    category: "scene",
+    voice: true,
+    example: "go to the park",
+  },
+  {
+    command: "/coffee shop",
+    description:
+      "Change the living world to the Coffee Shop — a counter with a barista, patrons at tables, and a regular who walks in, orders, and sits down.",
+    category: "scene",
+    voice: true,
+    example: "take me to the coffee shop",
+  },
+  {
+    command: "/office scene",
+    description:
+      "Change the living world to the Office — the Command deck's office in particles, the crew at their desks. (Different from the office walk-in: 'go to the office' still walks him in.)",
+    category: "scene",
+    voice: true,
+    example: "office scene",
+  },
+  {
     command: "/what do you see",
     description: "Describe what the camera sees right now.",
     category: "tools",

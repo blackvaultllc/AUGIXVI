@@ -13,7 +13,9 @@ import {
   BookOpen,
   Box,
   Bug,
+  Building2,
   Camera,
+  Coffee,
   Expand,
   Eye,
   Gamepad2,
@@ -29,7 +31,10 @@ import {
   Shrink,
   Sparkles,
   Square,
+  Sun,
+  TreePine,
   Undo2,
+  Waves,
   type LucideIcon,
 } from "lucide-react";
 import { AvatarBridge, type AvatarState } from "./AvatarBridge";
@@ -82,6 +87,13 @@ import {
   type ThemeChoice,
 } from "./themes";
 import { isCameraVisionRequest, parseWorldCommand, type MaterialKind } from "./worldCommands";
+import {
+  DEFAULT_WORLD_SCENE,
+  WORLD_SCENES,
+  parseSceneCommand,
+  sceneLine,
+  type WorldSceneId,
+} from "./worldScenes";
 import { describeCameraFrame } from "./vision";
 import { KnowledgePanel } from "./KnowledgePanel";
 import { ReplyHistoryWindow } from "./ReplyHistoryWindow";
@@ -135,6 +147,14 @@ const DEFAULTS: Settings = {
   customColor: "#22d3ee",
   sensitivity: 0.8,
   cooldownMs: 800,
+};
+
+const WORLD_SCENE_ICONS: Record<WorldSceneId, LucideIcon> = {
+  office: Building2,
+  beach: Waves,
+  desert: Sun,
+  park: TreePine,
+  coffee: Coffee,
 };
 
 export function AvatarStage({
@@ -274,6 +294,16 @@ export function AvatarStage({
   const say = useCallback((text: string) => {
     setResponseSource("local command");
     aiRef.current?.speak(text);
+  }, []);
+
+  // THE LIVING WORLD (owner order 2026-11-21): five scenes grown from
+  // the particle code itself — office, beach, desert, park, coffee
+  // shop. One state setter serves the Scene tab buttons and the spoken
+  // phrases alike; Augie stays himself in every one of them.
+  const [worldScene, setWorldScene] = useState<WorldSceneId>(DEFAULT_WORLD_SCENE);
+  const applyWorldScene = useCallback((id: WorldSceneId) => {
+    rendRef.current?.setWorldScene(id);
+    setWorldScene(id);
   }, []);
 
   // WINDOW CONTROLS — movable windows he can open himself or on my order.
@@ -663,6 +693,17 @@ export function AvatarStage({
       if (commandText === "/office" || /^(?:leave|exit)\s+(?:the\s+)?office$/i.test(commandText)) {
         setOfficeOpen(false);
         say(commandText.startsWith("/") ? "Heading to the office entrance." : "Back to the world.");
+        return;
+      }
+      // LIVING WORLD SCENES — deterministic and terminal, like the
+      // rooms: "take me to the beach" reshapes the world around him
+      // and never falls through to chat. (The office walk-in above
+      // keeps "go to the office" — parseSceneCommand returns null for
+      // it on purpose; the office SCENE answers to "office scene".)
+      const sceneTarget = parseSceneCommand(commandText);
+      if (sceneTarget) {
+        applyWorldScene(sceneTarget);
+        say(sceneLine(sceneTarget));
         return;
       }
       // Role-play battle: the blue attack box.
@@ -1241,6 +1282,23 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   label="Full size"
                   onClick={() => executeWorldCommand({ type: "grow" })}
                 />
+              </div>
+            </CommandGroup>
+          )}
+          {commandTab === "scene" && (
+            <CommandGroup label="World scenes — grown from the living code">
+              <div className="avatar-command-box__grid">
+                {WORLD_SCENES.map((scene) => (
+                  <CommandAction
+                    key={scene.id}
+                    icon={WORLD_SCENE_ICONS[scene.id]}
+                    label={worldScene === scene.id ? `${scene.name} · here` : scene.name}
+                    onClick={() => {
+                      applyWorldScene(scene.id);
+                      say(sceneLine(scene.id));
+                    }}
+                  />
+                ))}
               </div>
             </CommandGroup>
           )}
