@@ -114,14 +114,37 @@ describe("operator sign-in gate", () => {
     mocks.clientConfig.mockResolvedValue(null);
     vi.stubEnv("VITE_SUPABASE_URL", "");
     const { container } = render(<OperatorGate />);
-    await waitFor(() => {
-      expect(mocks.createClient).not.toHaveBeenCalled();
-    });
 
-    expect(screen.getByRole("heading", { name: "Sign-in not configured" })).toBeInTheDocument();
+    // The gate now waits for the server config lookup to settle before
+    // declaring itself unconfigured, so the heading arrives asynchronously.
+    expect(
+      await screen.findByRole("heading", { name: "Sign-in not configured" }),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("avatar-stage")).not.toBeInTheDocument();
     expect(container.querySelector("input")).toBeNull();
     expect(mocks.createClient).not.toHaveBeenCalled();
+  });
+
+  it("reaches the sign-in form when only the server runtime config is available", async () => {
+    // The deployed online bundle has no build-time Supabase env baked in;
+    // the gate must recover through getSupabaseClientConfig and must not
+    // latch the unconfigured screen while that lookup is still in flight.
+    vi.stubEnv("VITE_SUPABASE_URL", "");
+    vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "");
+    mocks.bootstrapStatus.mockResolvedValue({ configured: true, claimed: true });
+
+    render(<OperatorGate />);
+
+    expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sign-in not configured" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Set up first operator account" })).toBeNull();
+    expect(mocks.createClient).toHaveBeenCalledWith(
+      "https://project.invalid",
+      "public-placeholder",
+      expect.objectContaining({
+        auth: expect.objectContaining({ persistSession: true, autoRefreshToken: true }),
+      }),
+    );
   });
 
   it("shows only the sign-in form before authorization", async () => {

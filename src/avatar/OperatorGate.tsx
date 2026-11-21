@@ -80,11 +80,22 @@ function OperatorLanding({ children }: { children: ReactNode }) {
 export function OperatorGate() {
   const [initialClient] = useState(createAuthClientSync);
   const [client, setClient] = useState<SupabaseClient | null>(initialClient ?? null);
+  // "Settled" means the client question is fully answered: either the
+  // build-time env produced a client synchronously, or the server runtime
+  // config lookup has finished (with a client or with none). The gate may
+  // only declare itself unconfigured once settled — while the server lookup
+  // is still in flight the client is merely unknown, not absent. (Online
+  // builds carry no build-time env, so without this distinction the gate
+  // latched "unconfigured" before the server config ever arrived.)
+  const [clientSettled, setClientSettled] = useState(initialClient !== undefined);
   useEffect(() => {
     if (initialClient !== undefined) return; // resolved synchronously
     let cancelled = false;
     void loadAuthClientFromServer().then((resolved) => {
-      if (!cancelled) setClient(resolved);
+      if (!cancelled) {
+        setClient(resolved);
+        setClientSettled(true);
+      }
     });
     return () => {
       cancelled = true;
@@ -239,7 +250,10 @@ export function OperatorGate() {
 
   useEffect(() => {
     if (!client) {
-      setState("unconfigured");
+      // No client yet: only a settled lookup means sign-in is genuinely
+      // unconfigured. While the server config is still loading, stay on the
+      // "checking" state instead of latching the unconfigured screen.
+      if (clientSettled) setState("unconfigured");
       return;
     }
     let active = true;
@@ -285,7 +299,7 @@ export function OperatorGate() {
         window.clearTimeout(transitionTimeoutRef.current);
       }
     };
-  }, [client, refreshBootstrapStatus, verifySession]);
+  }, [client, clientSettled, refreshBootstrapStatus, verifySession]);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
