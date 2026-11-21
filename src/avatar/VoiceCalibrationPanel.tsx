@@ -113,9 +113,7 @@ export function VoiceCalibrationPanel({
         }`,
       );
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "That reading could not be saved.",
-      );
+      setMessage(error instanceof Error ? error.message : "That reading could not be saved.");
     } finally {
       setBusy(false);
     }
@@ -163,15 +161,11 @@ export function VoiceCalibrationPanel({
     setBusy(true);
     try {
       const result = await commitVoiceEnrollment();
-      setMessage(
-        `Enrollment complete — Augie knows your voice from ${result.samples} readings.`,
-      );
+      setMessage(`Enrollment complete — Augie knows your voice from ${result.samples} readings.`);
       setSamples(0);
       await refreshStatus();
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Enrollment could not be finished.",
-      );
+      setMessage(error instanceof Error ? error.message : "Enrollment could not be finished.");
     } finally {
       setBusy(false);
     }
@@ -211,20 +205,18 @@ export function VoiceCalibrationPanel({
   const enrolled = status?.enrolled === true;
   const minSamples = status?.minSamples ?? 3;
   const sentence =
-    ENROLL_SENTENCES[Math.min(samples, ENROLL_SENTENCES.length - 1)] ??
-    ENROLL_SENTENCES[0];
+    ENROLL_SENTENCES[Math.min(samples, ENROLL_SENTENCES.length - 1)] ?? ENROLL_SENTENCES[0];
 
   return (
     <div className="voice-calibration">
       {statusError && !status ? (
         <>
           <p role="alert">
-            The local speech service did not answer, so calibration state is unknown:{" "}
-            {statusError}
+            The local speech service did not answer, so calibration state is unknown: {statusError}
           </p>
           <p>
-            While calibration is on, voice commands fail closed — a check that cannot run
-            is never treated as a match.
+            While calibration is on, voice commands fail closed — a check that cannot run is never
+            treated as a match.
           </p>
           <div className="avatar-command-box__grid">
             <button
@@ -253,9 +245,7 @@ export function VoiceCalibrationPanel({
         <button
           type="button"
           className="avatar-command-box__action"
-          onClick={() =>
-            onPrefsChange({ ...prefs, enabled: !prefs.enabled })
-          }
+          onClick={() => onPrefsChange({ ...prefs, enabled: !prefs.enabled })}
           aria-pressed={prefs.enabled}
         >
           <Power aria-hidden="true" />
@@ -273,24 +263,21 @@ export function VoiceCalibrationPanel({
           max={0.8}
           step={0.01}
           value={prefs.threshold}
-          onChange={(e) =>
-            onPrefsChange({ ...prefs, threshold: Number(e.target.value) })
-          }
+          onChange={(e) => onPrefsChange({ ...prefs, threshold: Number(e.target.value) })}
           aria-label="Voice match threshold"
         />
       </label>
       <p>
-        Higher is stricter: fewer strangers pass, but your own voice must match more
-        closely. 0.50 is the balanced start.
+        Higher is stricter: fewer strangers pass, but your own voice must match more closely. 0.50
+        is the balanced start.
       </p>
 
       {status && !enrolled && (
         <>
           <p>
-            <strong>Enroll your voice.</strong> Read each sentence out loud, in your
-            normal voice, in a quiet room. {minSamples} readings are needed; the raw
-            audio is discarded by the speech service the moment each reading is
-            embedded.
+            <strong>Enroll your voice.</strong> Read each sentence out loud, in your normal voice,
+            in a quiet room. {minSamples} readings are needed; the raw audio is discarded by the
+            speech service the moment each reading is embedded.
           </p>
           <p className="voice-calibration__sentence" role="status">
             “{sentence}”
@@ -304,9 +291,7 @@ export function VoiceCalibrationPanel({
             >
               {recording ? <Square aria-hidden="true" /> : <Mic aria-hidden="true" />}
               <span>
-                {recording
-                  ? "Stop — send this reading"
-                  : `Record reading ${samples + 1}`}
+                {recording ? "Stop — send this reading" : `Record reading ${samples + 1}`}
               </span>
             </button>
             {samples >= minSamples && (
@@ -355,11 +340,10 @@ export function VoiceCalibrationPanel({
       {message && <p role="status">{message}</p>}
 
       <p className="voice-calibration__smallprint">
-        Voice calibration keeps other voices in the room — family, visitors, the TV —
-        from giving Augie commands in your name. It is not a liveness check: a recording
-        of your voice is not defeated by this gate. Your voiceprint is a mathematical
-        embedding stored only on this machine, and enrollment audio is deleted the
-        moment it is embedded.
+        Voice calibration keeps other voices in the room — family, visitors, the TV — from giving
+        Augie commands in your name. It is not a liveness check: a recording of your voice is not
+        defeated by this gate. Your voiceprint is a mathematical embedding stored only on this
+        machine, and enrollment audio is deleted the moment it is embedded.
       </p>
     </div>
   );

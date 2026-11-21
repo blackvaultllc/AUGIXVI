@@ -234,9 +234,7 @@ export function AvatarStage({
     const ear = earRef.current;
     if (!ear) return;
     if (voiceCalPrefsRef.current.enabled) {
-      ear.setVoiceVerifier(
-        createVoiceGateVerifier(() => voiceCalPrefsRef.current.threshold),
-      );
+      ear.setVoiceVerifier(createVoiceGateVerifier(() => voiceCalPrefsRef.current.threshold));
     } else {
       ear.setVoiceVerifier(null);
     }
@@ -1397,11 +1395,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             <>
               <CommandGroup label="Rooms">
                 <div className="avatar-command-box__grid">
-                  <CommandAction
-                    icon={Box}
-                    label="AR Cube"
-                    onClick={() => setArCubeOpen(true)}
-                  />
+                  <CommandAction icon={Box} label="AR Cube" onClick={() => setArCubeOpen(true)} />
                   <CommandAction
                     icon={ScanSearch}
                     label="Picture Analysis"
@@ -1417,21 +1411,13 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Reply history"
                     onClick={() => setHistoryOpen(true)}
                   />
-                  <CommandAction
-                    icon={Activity}
-                    label="Pulse"
-                    onClick={() => setPulseOpen(true)}
-                  />
+                  <CommandAction icon={Activity} label="Pulse" onClick={() => setPulseOpen(true)} />
                   <CommandAction
                     icon={Shield}
                     label="Gate Log"
                     onClick={() => setGateLogOpen(true)}
                   />
-                  <CommandAction
-                    icon={Bug}
-                    label="Sandbox"
-                    onClick={() => setSandboxOpen(true)}
-                  />
+                  <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
                 </div>
               </CommandGroup>
               <CommandGroup label="Windows — I can open them too, I still decide">
@@ -1607,10 +1593,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                 {brainMsg && <p role="status">{brainMsg}</p>}
               </CommandGroup>
               <CommandGroup label="Voice calibration — only my operator's voice">
-                <VoiceCalibrationPanel
-                  prefs={voiceCalPrefs}
-                  onPrefsChange={changeVoiceCalPrefs}
-                />
+                <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
               </CommandGroup>
             </div>
           )}

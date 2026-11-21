@@ -32,9 +32,7 @@ export function defaultVoiceCalibrationPrefs(): VoiceCalibrationPrefs {
 
 export function clampVoiceThreshold(value: unknown): number {
   const numeric =
-    typeof value === "number" && Number.isFinite(value)
-      ? value
-      : DEFAULT_VOICE_THRESHOLD;
+    typeof value === "number" && Number.isFinite(value) ? value : DEFAULT_VOICE_THRESHOLD;
   return Math.min(VOICE_THRESHOLD_MAX, Math.max(VOICE_THRESHOLD_MIN, numeric));
 }
 
@@ -127,12 +125,8 @@ async function readJson<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
-export async function fetchVoiceprintStatus(
-  fetchFn: FetchFn = fetch,
-): Promise<VoiceprintStatus> {
-  const payload = await readJson<Record<string, unknown>>(
-    await fetchFn("/api/voiceprint/status"),
-  );
+export async function fetchVoiceprintStatus(fetchFn: FetchFn = fetch): Promise<VoiceprintStatus> {
+  const payload = await readJson<Record<string, unknown>>(await fetchFn("/api/voiceprint/status"));
   return {
     enrolled: payload["enrolled"] === true,
     model: typeof payload["model"] === "string" ? payload["model"] : "",
@@ -143,8 +137,7 @@ export async function fetchVoiceprintStatus(
         : DEFAULT_VOICE_THRESHOLD,
     minSamples: typeof payload["min_samples"] === "number" ? payload["min_samples"] : 3,
     maxSamples: typeof payload["max_samples"] === "number" ? payload["max_samples"] : 8,
-    pendingSamples:
-      typeof payload["pending_samples"] === "number" ? payload["pending_samples"] : 0,
+    pendingSamples: typeof payload["pending_samples"] === "number" ? payload["pending_samples"] : 0,
     samples: typeof payload["samples"] === "number" ? payload["samples"] : null,
   };
 }
@@ -199,8 +192,7 @@ export async function verifyVoice(
     enrolled: payload["enrolled"] === true,
     match: payload["match"] === true,
     score: typeof payload["score"] === "number" ? payload["score"] : null,
-    threshold:
-      typeof payload["threshold"] === "number" ? payload["threshold"] : threshold,
+    threshold: typeof payload["threshold"] === "number" ? payload["threshold"] : threshold,
   };
 }
 

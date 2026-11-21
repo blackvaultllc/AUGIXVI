@@ -21,16 +21,12 @@ const VOICEPRINT_TIMEOUT_MS = 60_000;
 type FetchFn = (input: string, init: RequestInit) => Promise<Response>;
 
 function defaultEnv(): Record<string, string | undefined> {
-  const proc = (
-    globalThis as { process?: { env?: Record<string, string | undefined> } }
-  ).process;
+  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
   return proc?.env ?? {};
 }
 
 /** Base URL of the local STT service (no path); AUGIE_STT_URL overrides. */
-export function sttBaseUrl(
-  env: Record<string, string | undefined> = defaultEnv(),
-): string {
+export function sttBaseUrl(env: Record<string, string | undefined> = defaultEnv()): string {
   const raw = env["AUGIE_STT_URL"]?.trim() || STT_SERVICE_URL_DEFAULT;
   return raw.replace(/\/transcribe\/?$/, "").replace(/\/$/, "");
 }
@@ -45,9 +41,7 @@ function serviceDown(): Response {
   );
 }
 
-async function passThrough(
-  sttResponse: Response,
-): Promise<Response> {
+async function passThrough(sttResponse: Response): Promise<Response> {
   let payload: Record<string, unknown> = {};
   try {
     payload = (await sttResponse.json()) as Record<string, unknown>;
@@ -68,11 +62,7 @@ async function passThrough(
   return Response.json(payload);
 }
 
-async function callService(
-  path: string,
-  init: RequestInit,
-  fetchFn: FetchFn,
-): Promise<Response> {
+async function callService(path: string, init: RequestInit, fetchFn: FetchFn): Promise<Response> {
   let sttResponse: Response;
   try {
     sttResponse = await fetchFn(`${sttBaseUrl()}${path}`, {
@@ -86,9 +76,7 @@ async function callService(
 }
 
 /** GET /voiceprint/status on the service: enrolled or not — never the embedding. */
-export async function forwardVoiceprintStatus(
-  fetchFn: FetchFn = fetch,
-): Promise<Response> {
+export async function forwardVoiceprintStatus(fetchFn: FetchFn = fetch): Promise<Response> {
   return callService("/voiceprint/status", { method: "GET" }, fetchFn);
 }
 
@@ -103,10 +91,7 @@ async function forwardAudio(
     return Response.json({ error: "No audio was received." }, { status: 400 });
   }
   if (audio.byteLength > MAX_AUDIO_BYTES) {
-    return Response.json(
-      { error: "That recording is too large to process." },
-      { status: 413 },
-    );
+    return Response.json({ error: "That recording is too large to process." }, { status: 413 });
   }
   return callService(
     path,
@@ -131,17 +116,9 @@ export async function forwardEnrollSample(
 }
 
 /** POST one clip to be checked against the stored voiceprint. */
-export async function forwardVerify(
-  request: Request,
-  fetchFn: FetchFn = fetch,
-): Promise<Response> {
+export async function forwardVerify(request: Request, fetchFn: FetchFn = fetch): Promise<Response> {
   const threshold = request.headers.get("x-threshold");
-  return forwardAudio(
-    request,
-    "/verify",
-    fetchFn,
-    threshold ? { "X-Threshold": threshold } : {},
-  );
+  return forwardAudio(request, "/verify", fetchFn, threshold ? { "X-Threshold": threshold } : {});
 }
 
 /** POST an enrollment bookkeeping action: commit, reset, or delete. */

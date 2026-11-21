@@ -101,9 +101,7 @@ const RECORDER_MIME_CANDIDATES = [
   "audio/mp4",
 ] as const;
 
-export function pickRecorderMimeType(
-  isTypeSupported: (mime: string) => boolean,
-): string {
+export function pickRecorderMimeType(isTypeSupported: (mime: string) => boolean): string {
   for (const mime of RECORDER_MIME_CANDIDATES) {
     try {
       if (isTypeSupported(mime)) return mime;
