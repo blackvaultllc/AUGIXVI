@@ -95,6 +95,7 @@ export function CommandBox({
   onToggleVoice,
   responseLine,
   responseSource,
+  userLine,
   onMinimizeShortcut,
 }: {
   accent: string;
@@ -110,6 +111,12 @@ export function CommandBox({
   onToggleVoice: () => void;
   responseLine: string;
   responseSource: string;
+  /**
+   * The operator's own last submitted message (typed or spoken), echoed
+   * above the reply — he must always see what he sent (defect 2026-11-21:
+   * the box showed only Augie's reply and his messages vanished).
+   */
+  userLine?: string | undefined;
   /** Lets AvatarStage ("/minimize" etc.) collapse or restore the box. */
   onMinimizeShortcut?: (controls: { minimize: () => void; restore: () => void }) => void;
   /** Slash-driven minimization from inside the box's own commands. */
@@ -249,6 +256,11 @@ export function CommandBox({
       {!minimized && (
         <>
           <div className="avatar-command-box__response" aria-live="polite">
+            {userLine ? (
+              <p className="avatar-command-box__user-line">
+                <span className="avatar-command-box__user-label">You:</span> {userLine}
+              </p>
+            ) : null}
             <span className="avatar-command-box__response-source">{responseSource}</span>
             <p>{responseLine}</p>
           </div>

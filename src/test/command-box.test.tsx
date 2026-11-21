@@ -73,3 +73,53 @@ describe("command box grip controls", () => {
     expect(captureSpy).toHaveBeenCalled();
   });
 });
+
+/**
+ * Regression guard for the invisible-messages defect (2026-11-21): the
+ * box rendered only Augie's reply; the operator's submitted text was
+ * cleared from the input and echoed nowhere, so he could not see the
+ * messages he sent. The box now renders his last message — passed in as
+ * `userLine` by AvatarStage, which records it in sendCommand for BOTH
+ * the typed submit and the spoken path — above Augie's response line.
+ */
+describe("command box message echo", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  function renderBoxWithEcho(userLine?: string) {
+    return render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+        userLine={userLine}
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+  }
+
+  it("shows his last message above Augie's reply", () => {
+    renderBoxWithEcho("open the cube");
+    const mine = screen.getByText("open the cube");
+    const reply = screen.getByText("Standing by.");
+    expect(screen.getByText("You:")).toBeInTheDocument();
+    expect(mine.compareDocumentPosition(reply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows no echo line before he has sent anything", () => {
+    renderBoxWithEcho(undefined);
+    expect(screen.queryByText("You:")).not.toBeInTheDocument();
+    expect(screen.getByText("Standing by.")).toBeInTheDocument();
+  });
+});

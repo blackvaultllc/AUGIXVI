@@ -1623,6 +1623,19 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
+.avatar-command-box__user-line {
+  margin: 0 0 0.35rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--avatar-hud-line);
+  color: oklch(0.88 0.05 205 / 92%);
+  overflow-wrap: anywhere;
+}
+.avatar-command-box__user-label {
+  color: var(--avatar-hud-accent);
+  font-size: 0.54rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
 .avatar-command-box__tabs {
   display: flex;
   flex-wrap: wrap;
@@ -1709,7 +1722,11 @@
   min-width: 0;
   padding: 0.5rem 0.6rem;
   background: oklch(0.08 0.03 255 / 80%);
-  color: inherit;
+  /* Explicit light color (was `color: inherit`): typed text must stay
+     readable against the near-black field no matter what an ancestor
+     theme does to the inherited foreground. */
+  color: oklch(0.93 0.03 210);
+  caret-color: var(--avatar-hud-accent);
   border: 1px solid var(--avatar-hud-line);
   border-radius: 0.4rem;
   font: inherit;
