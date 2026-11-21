@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AvatarRouteImport } from './routes/avatar'
+import { Route as LearnerRouteImport } from './routes/learner'
 import { Route as ApiTranscribeRouteImport } from './routes/api.transcribe'
 import { Route as AvatarAnalyzeRouteImport } from './routes/avatar_.analyze'
 import { Route as AvatarCubeRouteImport } from './routes/avatar_.cube'
 import { Route as AvatarGameRouteImport } from './routes/avatar_.game'
+import { Route as LearnerGameRouteImport } from './routes/learner_.game'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -24,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const AvatarRoute = AvatarRouteImport.update({
   id: '/avatar',
   path: '/avatar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnerRoute = LearnerRouteImport.update({
+  id: '/learner',
+  path: '/learner',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
@@ -46,66 +53,85 @@ const AvatarGameRoute = AvatarGameRouteImport.update({
   path: '/avatar/game',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LearnerGameRoute = LearnerGameRouteImport.update({
+  id: '/learner_/game',
+  path: '/learner/game',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/learner': typeof LearnerRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/avatar/analyze': typeof AvatarAnalyzeRoute
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
+  '/learner/game': typeof LearnerGameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/learner': typeof LearnerRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/avatar/analyze': typeof AvatarAnalyzeRoute
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
+  '/learner/game': typeof LearnerGameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/learner': typeof LearnerRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/avatar_/analyze': typeof AvatarAnalyzeRoute
   '/avatar_/cube': typeof AvatarCubeRoute
   '/avatar_/game': typeof AvatarGameRoute
+  '/learner_/game': typeof LearnerGameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/avatar'
+    | '/learner'
     | '/api/transcribe'
     | '/avatar/analyze'
     | '/avatar/cube'
     | '/avatar/game'
+    | '/learner/game'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/avatar'
+    | '/learner'
     | '/api/transcribe'
     | '/avatar/analyze'
     | '/avatar/cube'
     | '/avatar/game'
+    | '/learner/game'
   id:
     | '__root__'
     | '/'
     | '/avatar'
+    | '/learner'
     | '/api/transcribe'
     | '/avatar_/analyze'
     | '/avatar_/cube'
     | '/avatar_/game'
+    | '/learner_/game'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AvatarRoute: typeof AvatarRoute
+  LearnerRoute: typeof LearnerRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   AvatarAnalyzeRoute: typeof AvatarAnalyzeRoute
   AvatarCubeRoute: typeof AvatarCubeRoute
   AvatarGameRoute: typeof AvatarGameRoute
+  LearnerGameRoute: typeof LearnerGameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -122,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/avatar'
       fullPath: '/avatar'
       preLoaderRoute: typeof AvatarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learner': {
+      id: '/learner'
+      path: '/learner'
+      fullPath: '/learner'
+      preLoaderRoute: typeof LearnerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/transcribe': {
@@ -152,16 +185,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AvatarGameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/learner_/game': {
+      id: '/learner_/game'
+      path: '/learner/game'
+      fullPath: '/learner/game'
+      preLoaderRoute: typeof LearnerGameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AvatarRoute: AvatarRoute,
+  LearnerRoute: LearnerRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   AvatarAnalyzeRoute: AvatarAnalyzeRoute,
   AvatarCubeRoute: AvatarCubeRoute,
   AvatarGameRoute: AvatarGameRoute,
+  LearnerGameRoute: LearnerGameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

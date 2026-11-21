@@ -7,6 +7,7 @@ import {
 } from "./operatorAuth.server";
 import { AvatarStage } from "./AvatarStage";
 import { SpaceView } from "./SpaceView";
+import { LearnerHeartDoor } from "./learner/LearnerHeartDoor";
 
 type GateState =
   "checking" | "unconfigured" | "signed-out" | "verifying" | "mfa" | "transitioning" | "authorized";
@@ -64,9 +65,15 @@ async function loadAuthClientFromServer(): Promise<SupabaseClient | null> {
 
 function OperatorLanding({ children }: { children: ReactNode }) {
   return (
-    <SpaceView isLanding isEnteringLiveMode={false} isReturningToSpace={false}>
-      {children}
-    </SpaceView>
+    <>
+      <SpaceView isLanding isEnteringLiveMode={false} isReturningToSpace={false}>
+        {children}
+      </SpaceView>
+      {/* Khadija's heart door lives on the app footer (her order/his
+          order 2026-11-21): reachable with no sign-in, leads only to
+          her education side, and grants nothing operator-side. */}
+      <LearnerHeartDoor />
+    </>
   );
 }
 

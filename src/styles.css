@@ -3233,3 +3233,530 @@
   border-top: 1px solid var(--avatar-hud-line);
   padding-top: 0.5rem;
 }
+
+/* ================= KHADIJA'S LEARNING SIDE (/learner) =================
+   Her world: warm cream, big rounded buttons, big readable words, one
+   grand page with four cabinets and no scrolling anywhere. The heart
+   door sits on the app footer of the operator landing. */
+.learner-heart-door {
+  position: fixed;
+  left: 50%;
+  bottom: max(0.9rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  pointer-events: none;
+}
+.learner-heart-door__button {
+  pointer-events: auto;
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 999px;
+  border: 3px solid #fff7ea;
+  background: #ff6b9d;
+  color: #fff7ea;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 45%);
+}
+.learner-heart-door__button svg {
+  width: 2.1rem;
+  height: 2.1rem;
+}
+.learner-heart-door__button:hover,
+.learner-heart-door__button:focus-visible {
+  background: #ff8fab;
+  outline: 3px solid #ffb703;
+  outline-offset: 2px;
+}
+.learner-heart-door__label {
+  font-family: ui-rounded, "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff7ea;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 70%);
+}
+
+.learner-shell {
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.1rem clamp(0.9rem, 3vw, 2rem);
+  background:
+    radial-gradient(ellipse at 12% 8%, #ffe5ec 0%, transparent 46%),
+    radial-gradient(ellipse at 88% 92%, #d8f3dc 0%, transparent 46%), #fff7ea;
+  color: #3a2b20;
+  font-family: ui-rounded, "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+}
+.learner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex: 0 0 auto;
+}
+.learner-header h1 {
+  margin: 0;
+  font-size: clamp(1.9rem, 5vw, 2.7rem);
+  line-height: 1.05;
+}
+.learner-header p {
+  margin: 0.2rem 0 0;
+  font-size: 1.05rem;
+  color: #7a5c3e;
+}
+.learner-leave {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 3.4rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  border: 3px solid #e9c46a;
+  background: #fff;
+  color: #3a2b20;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.learner-leave svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+.learner-cabinets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.8rem;
+  flex: 0 0 auto;
+}
+.learner-cabinet-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 6.2rem;
+  padding: 0.7rem 0.4rem;
+  border-radius: 1.4rem;
+  border: 3px solid #f4a261;
+  background: #fff;
+  color: #3a2b20;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.learner-cabinet-button svg {
+  width: 2rem;
+  height: 2rem;
+  color: #ff6b9d;
+}
+.learner-cabinet-button[aria-expanded="true"] {
+  background: #ffe5ec;
+  border-color: #ff6b9d;
+  box-shadow: inset 0 0 0 2px #ff6b9d;
+}
+.learner-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border: 3px solid #f4a261;
+  border-radius: 1.4rem;
+  background: rgb(255 255 255 / 78%);
+  padding: 1rem 1.2rem;
+}
+.learner-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.55rem;
+}
+.learner-panel h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1.25rem;
+}
+.learner-note {
+  margin: 0.2rem 0 0.6rem;
+  font-size: 1.02rem;
+  color: #7a5c3e;
+}
+.learner-message {
+  margin: 0.4rem 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #b23a48;
+}
+.learner-big-button {
+  min-height: 3.8rem;
+  padding: 0.7rem 1.5rem;
+  border-radius: 999px;
+  border: 3px solid #ff6b9d;
+  background: #ff6b9d;
+  color: #fff;
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.learner-big-button:hover,
+.learner-big-button:focus-visible {
+  background: #ff8fab;
+  outline: 3px solid #ffb703;
+  outline-offset: 2px;
+}
+.learner-field {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 0.55rem;
+}
+.learner-field input,
+.learner-field textarea {
+  min-height: 3rem;
+  border: 2px solid #e9c46a;
+  border-radius: 0.9rem;
+  background: #fff;
+  color: #3a2b20;
+  font: inherit;
+  font-size: 1.1rem;
+  padding: 0.55rem 0.8rem;
+}
+.learner-field textarea {
+  resize: none;
+}
+.learner-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.6rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 2px solid #b23a48;
+  background: #fff;
+  color: #b23a48;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.learner-delete svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+.learner-button-row {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Her sign-in */
+.learner-signin {
+  margin: auto;
+  width: min(30rem, 100%);
+  text-align: center;
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+}
+.learner-signin__heart {
+  width: 4.5rem;
+  height: 4.5rem;
+  color: #ff6b9d;
+}
+.learner-signin h1 {
+  margin: 0;
+  font-size: 2.4rem;
+}
+.learner-signin p {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.45;
+}
+.learner-signin__form {
+  display: grid;
+  gap: 0.7rem;
+  width: 100%;
+  text-align: left;
+  margin-top: 0.6rem;
+}
+.learner-signin__form label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.learner-signin__form input {
+  min-height: 3.6rem;
+  border: 3px solid #f4a261;
+  border-radius: 1rem;
+  background: #fff;
+  color: #3a2b20;
+  font: inherit;
+  font-size: 1.25rem;
+  padding: 0.6rem 0.9rem;
+}
+
+/* Learn cabinet */
+.learner-learn {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.learner-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  align-self: flex-start;
+  min-height: 4.2rem;
+  padding: 0.8rem 1.6rem;
+  border-radius: 999px;
+  border: 3px solid #2a9d8f;
+  background: #2a9d8f;
+  color: #fff;
+  font-size: 1.3rem;
+  text-decoration: none;
+  margin-bottom: 0.7rem;
+}
+.learner-play svg {
+  width: 2rem;
+  height: 2rem;
+}
+.learner-viewer {
+  display: grid;
+  grid-template-columns: minmax(12rem, 20rem) 1fr;
+  gap: 1rem;
+  align-items: center;
+  min-height: 0;
+}
+.learner-viewer__art svg {
+  width: 100%;
+  height: auto;
+  max-height: 15rem;
+}
+.learner-viewer p {
+  font-size: 1.08rem;
+  line-height: 1.5;
+  margin: 0;
+}
+.learner-starter-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: auto;
+  padding-top: 0.6rem;
+  flex-wrap: wrap;
+}
+.learner-starter-button {
+  min-height: 3.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 3px solid #4361ee;
+  background: #fff;
+  color: #3a2b20;
+  font: inherit;
+  font-size: 1.02rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.learner-starter-button[aria-pressed="true"] {
+  background: #bde0fe;
+}
+
+/* Diary cabinet */
+.learner-diary {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.learner-picture-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+.learner-picture-button {
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 1.1rem;
+  border: 3px solid #e9c46a;
+  background: #fff;
+  color: #ff6b9d;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.learner-picture-button svg {
+  width: 2rem;
+  height: 2rem;
+}
+.learner-picture-button[aria-pressed="true"] {
+  border-color: #ff6b9d;
+  background: #ffe5ec;
+}
+.learner-entry-list {
+  list-style: none;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+.learner-entry-list li {
+  border: 2px solid #f4a261;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 0.55rem 0.8rem;
+  font-size: 1.02rem;
+}
+.learner-entry-list p {
+  margin: 0.2rem 0 0;
+  line-height: 1.45;
+}
+
+/* Squishy cabinet */
+.learner-squishy {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.learner-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.7rem;
+  overflow: hidden;
+  align-content: start;
+}
+.learner-gallery__item {
+  margin: 0;
+  border: 2px solid #f4a261;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 0.5rem;
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+}
+.learner-gallery__item img {
+  width: 100%;
+  height: 6.5rem;
+  object-fit: cover;
+  border-radius: 0.7rem;
+}
+.learner-gallery__item figcaption {
+  font-size: 1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+/* Homework & tests cabinet */
+.learner-homework {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
+  height: 100%;
+  min-height: 0;
+}
+.learner-homework__column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.learner-project-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+.learner-project-list li {
+  border: 2px solid #f4a261;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 0.5rem 0.7rem;
+  font-size: 1rem;
+}
+.learner-project-list img {
+  width: 4.5rem;
+  height: 4.5rem;
+  object-fit: cover;
+  border-radius: 0.6rem;
+  margin: 0.3rem 0.3rem 0 0;
+}
+.learner-project-list p {
+  margin: 0.25rem 0;
+  line-height: 1.4;
+}
+
+/* Her game room */
+.learner-game {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: #fff7ea;
+  color: #3a2b20;
+  font-family: ui-rounded, "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+}
+.learner-game__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 3px solid #ff6b9d;
+  background: #ffe5ec;
+  flex: 0 0 auto;
+}
+.learner-game__header a {
+  color: #3a2b20;
+  text-decoration: none;
+  border: 2px solid #f4a261;
+  background: #fff;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.learner-game__header h1 {
+  font-size: 1.4rem;
+  margin: 0;
+}
+.learner-game__header span {
+  font-size: 0.98rem;
+  color: #7a5c3e;
+}
+.learner-game__frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #000;
+}
+
+@media (max-width: 640px) {
+  .learner-cabinets {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .learner-cabinet-button {
+    min-height: 4.6rem;
+    font-size: 1.02rem;
+  }
+  .learner-viewer {
+    grid-template-columns: 1fr;
+  }
+  .learner-viewer__art svg {
+    max-height: 9rem;
+  }
+  .learner-homework {
+    grid-template-columns: 1fr;
+  }
+}
