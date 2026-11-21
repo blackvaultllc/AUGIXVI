@@ -143,6 +143,12 @@ export function CommandBox({
 
   const startDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if ("button" in event && event.button !== 0) return;
+    // The grip's own minimize/expand button keeps its click: starting a
+    // drag here captures the pointer to the grip, and a captured pointer
+    // retargets the click to the grip — the button never receives it, so
+    // pressing minimize appeared to do nothing. Dragging starts from the
+    // grip itself, never from its button. (Same fix as FloatingWindow.)
+    if ((event.target as HTMLElement).closest?.("button")) return;
     const box = boxRef.current;
     if (!box) return;
     const rect = box.getBoundingClientRect();
