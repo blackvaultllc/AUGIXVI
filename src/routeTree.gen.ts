@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AvatarRouteImport } from './routes/avatar'
+import { Route as AvatarAnalyzeRouteImport } from './routes/avatar_.analyze'
+import { Route as AvatarCubeRouteImport } from './routes/avatar_.cube'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +24,49 @@ const AvatarRoute = AvatarRouteImport.update({
   path: '/avatar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AvatarAnalyzeRoute = AvatarAnalyzeRouteImport.update({
+  id: '/avatar_/analyze',
+  path: '/avatar/analyze',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AvatarCubeRoute = AvatarCubeRouteImport.update({
+  id: '/avatar_/cube',
+  path: '/avatar/cube',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/avatar/analyze': typeof AvatarAnalyzeRoute
+  '/avatar/cube': typeof AvatarCubeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/avatar/analyze': typeof AvatarAnalyzeRoute
+  '/avatar/cube': typeof AvatarCubeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/avatar_/analyze': typeof AvatarAnalyzeRoute
+  '/avatar_/cube': typeof AvatarCubeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/avatar'
+  fullPaths: '/' | '/avatar' | '/avatar/analyze' | '/avatar/cube'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/avatar'
-  id: '__root__' | '/' | '/avatar'
+  to: '/' | '/avatar' | '/avatar/analyze' | '/avatar/cube'
+  id: '__root__' | '/' | '/avatar' | '/avatar_/analyze' | '/avatar_/cube'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AvatarRoute: typeof AvatarRoute
+  AvatarAnalyzeRoute: typeof AvatarAnalyzeRoute
+  AvatarCubeRoute: typeof AvatarCubeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +85,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AvatarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/avatar_/analyze': {
+      id: '/avatar_/analyze'
+      path: '/avatar/analyze'
+      fullPath: '/avatar/analyze'
+      preLoaderRoute: typeof AvatarAnalyzeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/avatar_/cube': {
+      id: '/avatar_/cube'
+      path: '/avatar/cube'
+      fullPath: '/avatar/cube'
+      preLoaderRoute: typeof AvatarCubeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AvatarRoute: AvatarRoute,
+  AvatarAnalyzeRoute: AvatarAnalyzeRoute,
+  AvatarCubeRoute: AvatarCubeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

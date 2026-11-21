@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Augie AR Cube</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23101623'/><rect x='22' y='22' width='56' height='56' fill='none' stroke='%23d4af37' stroke-width='7'/></svg>">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #0b0e14; color: #eef2f7;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #app { display: flex; flex-direction: column; height: 100dvh; }
+  header { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: #101623; border-bottom: 2px solid #d4af37; flex: 0 0 auto; }
+  header h1 { font-size: 19px; margin: 0; letter-spacing: .4px; }
+  header h1 .gold { color: #d4af37; }
+  #status { margin-left: auto; font-size: 14px; font-weight: 600; padding: 6px 12px;
+    border-radius: 999px; background: #232c40; border: 1px solid #3a4763; white-space: nowrap; }
+  #status.locked { background: #14532d; border-color: #22c55e; }
+  #status.scanning { background: #3a2f10; border-color: #d4af37; }
+  #status.error { background: #5b1a1a; border-color: #ef4444; }
+  #ar-container { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: #000; }
+  #ar-container video, #ar-container canvas { max-width: none; }
+  #controls { flex: 0 0 auto; padding: 10px 12px; background: #101623; border-top: 1px solid #26314a;
+    display: flex; flex-direction: column; gap: 10px; }
+  #startBtn { font-size: 18px; font-weight: 700; padding: 13px; border: 0; border-radius: 10px;
+    background: #d4af37; color: #141414; cursor: pointer; }
+  #startBtn:disabled { background: #4b5563; color: #d1d5db; cursor: default; }
+  .modelRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .modelRow .lbl { font-size: 14px; color: #9fb0c9; margin-right: 2px; }
+  .modelBtn { flex: 1 1 0; min-width: 70px; font-size: 15px; font-weight: 600; padding: 10px 4px;
+    border-radius: 9px; border: 1px solid #3a4763; background: #1a2336; color: #eef2f7; cursor: pointer; }
+  .modelBtn small { display: block; font-weight: 400; font-size: 11px; color: #8fa1bd; }
+  .modelBtn.active { border-color: #d4af37; background: #2a2410; color: #ffd95e; }
+  #howto { font-size: 13.5px; line-height: 1.45; color: #b9c6da; }
+  #howto b { color: #eef2f7; }
+  #howto ol { margin: 4px 0 0 18px; padding: 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <a href="/avatar" style="color:#9fb0c9;text-decoration:none;font-size:14px;border:1px solid #3a4763;padding:6px 10px;border-radius:999px;white-space:nowrap;">&#8592; Augie</a>
+    <h1><span class="gold">Augie</span> AR Cube</h1>
+    <div id="status">Ready — tap Start Camera</div>
+  </header>
+
+  <div id="ar-container"></div>
+
+  <div id="controls">
+    <button id="startBtn">▶ Start Camera</button>
+    <div class="modelRow">
+      <span class="lbl">Model:</span>
+      <button class="modelBtn active" data-model="squishy">Squishy<small>key 1</small></button>
+      <button class="modelBtn" data-model="goldcube">Gold Cube<small>key 2</small></button>
+      <button class="modelBtn" data-model="heart">Heart<small>key 3</small></button>
+      <button class="modelBtn" data-model="castle">Castle<small>key 4</small></button>
+    </div>
+    <div id="howto">
+      <b>How to use it</b>
+      <ol>
+        <li>Tap <b>Start Camera</b> and allow camera access when the browser asks.</li>
+        <li>Hold the cube in front of the camera, <b>one face pointing at the camera</b>, about 1–2 feet away.</li>
+        <li>Keep <b>good light</b> on the cube. When a face locks on, the model appears pinned to it — turn the cube and it turns with it.</li>
+        <li>Swap the model with the buttons above or keys <b>1–4</b>. The models are built from simple shapes right inside this page — nothing downloads, so they appear instantly.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.155.0/examples/jsm/",
+    "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+  }
+}
+</script>
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

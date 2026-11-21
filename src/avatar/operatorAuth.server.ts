@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
+import { createLocalOperatorRegistry } from "./localOperatorRegistry.server";
+import type { OperatorRegistry } from "./OperatorRegistry";
 
 type OperatorTokenInput = { token: string };
 type OperatorSessionInput = { accessToken: string };
@@ -79,14 +81,28 @@ function getRegistryBinding(): RegistryBinding | null {
   return binding as RegistryBinding;
 }
 
-function getRegistryStub() {
+let localRegistryPromise: Promise<OperatorRegistry | null> | null = null;
+
+function getLocalRegistry(): Promise<OperatorRegistry | null> {
+  localRegistryPromise ??= (() => {
+    const home = process.env["HOME"]?.trim();
+    if (!home) return Promise.resolve(null);
+    const directory = `${home}/.local/share/augie`;
+    return createLocalOperatorRegistry(directory, `${directory}/operator-registry.json`);
+  })();
+  return localRegistryPromise;
+}
+
+async function getRegistryStub() {
   const binding = getRegistryBinding();
-  if (!binding) return null;
-  return binding.get(binding.idFromName("operator"));
+  if (binding) return binding.get(binding.idFromName("operator"));
+  // Outside Cloudflare there is no Durable Object binding; serve the same
+  // registry from the local file-backed fallback instead.
+  return getLocalRegistry();
 }
 
 async function requestRegistry(path: string, init?: RequestInit): Promise<Response | null> {
-  const stub = getRegistryStub();
+  const stub = await getRegistryStub();
   if (!stub) return null;
   return stub.fetch(new Request(`https://operator-registry${path}`, init));
 }
@@ -183,7 +199,7 @@ export const verifySupabaseOperatorSession = createServerFn({ method: "POST" })
       return typeof value === "string" ? value.trim() || undefined : undefined;
     };
     const config = getSupabaseConfig();
-    if (!config || !getRegistryBinding()) {
+    if (!config || !(await getRegistryStub())) {
       return {
         configured: false,
         authorized: false,

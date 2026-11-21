@@ -103,6 +103,12 @@ export function FloatingWindow({
 
   const startDrag = (mode: "move" | "resize") => (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
+    // The bar's own buttons (minimize / maximize / close) keep their clicks:
+    // starting a drag here captures the pointer to the bar, and a captured
+    // pointer retargets the click to the bar — the button never receives
+    // it, so pressing X appeared to resize the window instead of closing
+    // it. Dragging starts from the bar itself, never from its buttons.
+    if ((event.target as HTMLElement).closest?.("button")) return;
     const rect = event.currentTarget.closest(".floating-window")?.getBoundingClientRect();
     if (!rect) return;
     drag.current =

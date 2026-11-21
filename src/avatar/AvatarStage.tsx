@@ -11,15 +11,18 @@ import {
   Activity,
   ArrowUp,
   BookOpen,
+  Box,
   Camera,
   Expand,
   Eye,
   Globe,
+  History,
   Laptop,
   LogOut,
   Plane,
   Presentation,
   Save,
+  ScanSearch,
   Shrink,
   Sparkles,
   Square,
@@ -74,6 +77,14 @@ import {
 import { isCameraVisionRequest, parseWorldCommand, type MaterialKind } from "./worldCommands";
 import { describeCameraFrame } from "./vision";
 import { KnowledgePanel } from "./KnowledgePanel";
+import { ReplyHistoryWindow } from "./ReplyHistoryWindow";
+import {
+  appendReplyHistory,
+  clearReplyHistory,
+  loadReplyHistory,
+  type ReplyHistoryEntry,
+} from "./replyHistory";
+import { useNavigate } from "@tanstack/react-router";
 import { dispatchEarthFlight } from "../components/SpinningEarth";
 import { RoomAnalyzer } from "./RoomAnalyzer";
 import { commandKnowledgeSection, commandToolsPrompt } from "./command/commandKnowledge";
@@ -214,6 +225,17 @@ export function AvatarStage({
   const worldScreenRef = useRef<WorldScreen>("space");
   const worldTransitionTimer = useRef<number | null>(null);
   const [databaseStatus, setDatabaseStatus] = useState<SupabaseConnectionStatus>("not configured");
+  const navigate = useNavigate();
+  // REPLY HISTORY: every line Augie speaks is logged (persisted on this
+  // device) so the operator can scroll back through his replies — the
+  // stage used to show only the single latest one.
+  const [transcript, setTranscript] = useState<ReplyHistoryEntry[]>(() => loadReplyHistory());
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const recordReply = useCallback((text: string) => {
+    setTranscript((prev) =>
+      appendReplyHistory(prev, { at: Date.now(), question: lastQuestionRef.current, answer: text }),
+    );
+  }, []);
   const displayName = import.meta.env["VITE_AVATAR_NAME"] || "Osiris";
   // Wake-word response falls back to the owner's call sign when the
   // verified operator name is not configured (handled inline below).
@@ -519,6 +541,19 @@ export function AvatarStage({
         say("Cloud keys — green means present and working. Values stay in Cloudflare.");
         return;
       }
+      // ROOMS — full pages behind the gate: the AR Cube and Picture
+      // Analysis (the analytic window). Typed or spoken.
+      if (commandText === "/ar cube" || /^(?:open\s+)?(?:the\s+)?ar\s+cube$/i.test(commandText)) {
+        void navigate({ to: "/avatar/cube" });
+        return;
+      }
+      if (
+        commandText === "/picture analysis" ||
+        /^(?:open\s+)?(?:the\s+)?(?:picture\s+analysis|analytic\s+window)$/i.test(commandText)
+      ) {
+        void navigate({ to: "/avatar/analyze" });
+        return;
+      }
       // TRANSFORMS: Enterprise / wolf / orb — real shapes, not poses.
       if (isTransformBackRequest(commandText)) {
         if (rendRef.current?.transformBack()) {
@@ -697,7 +732,7 @@ export function AvatarStage({
     // operatorMemory is a stable ref-backed singleton; excluding it keeps
     // sendCommand referentially stable across saves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enterLiveMode, executeWorldCommand, operatorName, returnToSpace, say],
+    [enterLiveMode, executeWorldCommand, navigate, operatorName, returnToSpace, say],
   );
 
   useEffect(() => {
@@ -717,6 +752,7 @@ ${PERSONALITY_PROMPT}
 ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       onSpeak: (text) => {
         setLastWords(text);
+        recordReply(text);
         // When he is talking to me he faces me, alert.
         if (text.startsWith("Yes, ")) rendRef.current?.faceOperator();
       },
@@ -1186,6 +1222,25 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           )}
           {commandTab === "tools" && (
             <>
+              <CommandGroup label="Rooms">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={Box}
+                    label="AR Cube"
+                    onClick={() => void navigate({ to: "/avatar/cube" })}
+                  />
+                  <CommandAction
+                    icon={ScanSearch}
+                    label="Picture Analysis"
+                    onClick={() => void navigate({ to: "/avatar/analyze" })}
+                  />
+                  <CommandAction
+                    icon={History}
+                    label="Reply history"
+                    onClick={() => setHistoryOpen(true)}
+                  />
+                </div>
+              </CommandGroup>
               <CommandGroup label="Windows — I can open them too, I still decide">
                 <div className="avatar-command-box__grid">
                   <CommandAction
@@ -1370,6 +1425,13 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       />
       {cloudKeysOpen && <CloudKeysPanel onClose={() => setCloudKeysOpen(false)} />}
       {labOpen && <LabPanel onClose={() => setLabOpen(false)} />}
+      {historyOpen && (
+        <ReplyHistoryWindow
+          entries={transcript}
+          onClear={() => setTranscript(clearReplyHistory())}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />

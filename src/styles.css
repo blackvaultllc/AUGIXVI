@@ -2691,3 +2691,38 @@
 .battle-box__hint {
   color: oklch(0.7 0.07 210 / 75%);
 }
+
+/* Reply history window (2026-11-20) */
+.window-reply-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 100%;
+}
+.window-reply-history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.window-reply-history__item {
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+}
+.window-reply-history__meta {
+  font-size: 0.72rem;
+  opacity: 0.7;
+  margin-bottom: 0.25rem;
+}
+.window-reply-history__q {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin-bottom: 0.25rem;
+}
+.window-reply-history__a {
+  font-size: 0.92rem;
+}

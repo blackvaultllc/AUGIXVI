@@ -57,6 +57,14 @@ const OFFLINE_NOTICE =
 const OFFLINE_UNKNOWN =
   "I am offline and do not have that in saved memory. Add a sourced note in Knowledge.";
 const REQUEST_TIMEOUT_MS = 8000;
+// A real brain reply is far slower than a health check on this machine:
+// the local 8B model loads cold in seconds and generates only a few
+// tokens a second, so the 8s health-check cap killed nearly every reply
+// (measured: a cold short answer takes ~8s; a warm one ~5s; the first
+// answer of a session, with the full system prompt, far longer). Chat
+// requests get 90s; the operator can still interrupt by speaking —
+// barge-in aborts the request through the same AbortController.
+const CHAT_TIMEOUT_MS = 90_000;
 /** Cooldown between offline replies — no rapid-fire looping (owner order). */
 export const OFFLINE_REPLY_COOLDOWN_MS = 2500;
 
@@ -189,7 +197,7 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     const timeout = window.setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, REQUEST_TIMEOUT_MS);
+    }, CHAT_TIMEOUT_MS);
     try {
       const res = await fetch(`${baseUrl}/api/chat`, {
         method: "POST",

@@ -276,6 +276,22 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "analyze the room",
   },
   {
+    command: "/ar cube",
+    description:
+      "Open the AR Cube room — point the camera at a face of the cube and pick a model: Squishy, Gold Cube, Heart or Castle.",
+    category: "tools",
+    voice: true,
+    example: "open the ar cube",
+  },
+  {
+    command: "/picture analysis",
+    description:
+      "Open Picture Analysis — the analytic window: scan the room with the camera or analyze a picture file. Answered locally on the Parrot.",
+    category: "tools",
+    voice: true,
+    example: "open picture analysis",
+  },
+  {
     command: "/what do you see",
     description: "Describe what the camera sees right now.",
     category: "tools",
