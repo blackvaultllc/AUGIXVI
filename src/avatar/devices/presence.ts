@@ -8,8 +8,10 @@
  * ACTIVATES Augie, and Augie greets him — his words: "Sir, do you
  * need any help or anything like that."
  *
- * Detection runs two ways: a periodic check (every 15 minutes or
- * sooner) and on demand ("check Wi-Fi signals"). This module holds
+ * Detection runs two ways: on Augie's HEARTBEAT while he is awake
+ * on stage (follow-up order 2026-11-21 — every 8th heartbeat, ≈42 s,
+ * replacing the original 15-minute timer as the primary cadence) and
+ * on demand ("check Wi-Fi signals"). This module holds
  * the scan boundary and the pure registry logic a scan feeds. The
  * boundary is honest: a web app has NO Wi-Fi scanning API, so
  * scanWifiEnvironment() reports unavailable here and records nothing —
@@ -33,8 +35,58 @@ import {
 /** The greeting Augie speaks when the wand activates him. His words. */
 export const WAND_GREETING = "Sir, do you need any help or anything like that.";
 
-/** His spec: a periodic presence check every 15 minutes or sooner. */
-export const PRESENCE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
+/**
+ * Heartbeat pacing (follow-up order 2026-11-21): while Augie is
+ * awake on stage, his heartbeat — one beat per breath cycle of the
+ * body, ≈5.24 s (see ../heartbeat.ts) — paces the presence check.
+ * Every 8th beat a check runs: ≈42 s of stage time, meaningfully
+ * sooner than the original 15-minute timer, and the pacer below
+ * never lets checks run faster than every 10 s of wall time.
+ */
+export const HEARTBEAT_CHECK_DIVIDER = 8;
+export const MIN_HEARTBEAT_CHECK_INTERVAL_MS = 10_000;
+
+export type HeartbeatCheckPacer = {
+  /** Feed one heartbeat; returns true when a presence check is due. */
+  beat: (now: number) => boolean;
+  readonly beatsSeen: number;
+  readonly checksDue: number;
+};
+
+/**
+ * Turns heartbeats into presence-check decisions. Pure and
+ * clock-injected so the pacing is unit-testable. A check falls due
+ * on every divider-th beat; if the minimum interval has not elapsed
+ * yet, the check stays due and fires on the next beat instead of
+ * being dropped.
+ */
+export function createHeartbeatCheckPacer(
+  divider: number = HEARTBEAT_CHECK_DIVIDER,
+  minIntervalMs: number = MIN_HEARTBEAT_CHECK_INTERVAL_MS,
+): HeartbeatCheckPacer {
+  let beats = 0;
+  let checks = 0;
+  let due = false;
+  let lastCheckAt: number | null = null;
+  return {
+    beat(now: number) {
+      beats += 1;
+      if (beats % divider === 0) due = true;
+      if (!due) return false;
+      if (lastCheckAt !== null && now - lastCheckAt < minIntervalMs) return false;
+      due = false;
+      lastCheckAt = now;
+      checks += 1;
+      return true;
+    },
+    get beatsSeen() {
+      return beats;
+    },
+    get checksDue() {
+      return checks;
+    },
+  };
+}
 
 export type WifiNetworkSighting = { ssid: string; rssi?: number };
 
@@ -151,6 +203,95 @@ export function applyScanToRegistry(
     }
   }
   return { devices: current, activated };
+}
+
+/**
+ * One presence check, end to end — the pipeline every caller shares
+ * (the heartbeat on stage, the window's button, the check on open).
+ * An unavailable scan changes nothing and activates nothing: no
+ * events are recorded from a scan that never happened. An available
+ * scan feeds the registry through applyScanToRegistry.
+ */
+export function runPresenceCheck(
+  devices: DeviceProfile[],
+  scan: WifiScanResult,
+  now: number = scan.at,
+): { devices: DeviceProfile[]; activated: DeviceProfile[]; scan: WifiScanResult } {
+  if (!scan.available) return { devices, activated: [], scan };
+  const { devices: next, activated } = applyScanToRegistry(devices, scan.networks, now);
+  return { devices: next, activated, scan };
+}
+
+export type PresenceCheckVia = "heartbeat" | "manual" | "open";
+
+/**
+ * Shared watch state — how the Devices window can honestly show the
+ * rhythm ("last check HH:MM:SS") for checks the stage's heartbeat
+ * ran while the window was closed, and how it learns the registry
+ * changed underneath it. This is reporting state only: the registry
+ * itself still lives in deviceRegistry.ts.
+ */
+export type PresenceWatchState = {
+  lastCheckAt: number | null;
+  lastCheckVia: PresenceCheckVia | null;
+  /** null until the first check has run. */
+  scanAvailable: boolean | null;
+  unavailableReason: string | null;
+  checksRun: number;
+  /** True when the most recent check changed the registry. */
+  lastRegistryChanged: boolean;
+};
+
+const INITIAL_WATCH: PresenceWatchState = {
+  lastCheckAt: null,
+  lastCheckVia: null,
+  scanAvailable: null,
+  unavailableReason: null,
+  checksRun: 0,
+  lastRegistryChanged: false,
+};
+
+let watchState: PresenceWatchState = { ...INITIAL_WATCH };
+const watchListeners = new Set<() => void>();
+
+export function getPresenceWatch(): PresenceWatchState {
+  return watchState;
+}
+
+/**
+ * Record that a check ran. Returns whether the scan's availability
+ * CHANGED with this check — the unavailable state is reported once
+ * per state change, never once per check, so a heartbeat beating
+ * into an unscannable browser does not spam anyone.
+ */
+export function notePresenceCheck(
+  scan: WifiScanResult,
+  via: PresenceCheckVia,
+  registryChanged: boolean = false,
+): { availabilityChanged: boolean } {
+  const availabilityChanged = watchState.scanAvailable !== scan.available;
+  watchState = {
+    lastCheckAt: scan.at,
+    lastCheckVia: via,
+    scanAvailable: scan.available,
+    unavailableReason: scan.available ? null : scan.reason,
+    checksRun: watchState.checksRun + 1,
+    lastRegistryChanged: registryChanged,
+  };
+  for (const listener of watchListeners) listener();
+  return { availabilityChanged };
+}
+
+export function subscribePresenceWatch(listener: () => void): () => void {
+  watchListeners.add(listener);
+  return () => {
+    watchListeners.delete(listener);
+  };
+}
+
+/** Test support: reset the module watch state between cases. */
+export function resetPresenceWatch(): void {
+  watchState = { ...INITIAL_WATCH };
 }
 
 export type RssiTrend = "strengthening" | "weakening" | "steady" | "not enough data";

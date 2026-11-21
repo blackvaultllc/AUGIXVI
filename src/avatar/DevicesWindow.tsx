@@ -35,14 +35,20 @@ import {
 } from "./devices/deviceRegistry";
 import { profileBleDevice, webBluetoothAvailable } from "./devices/bleProfiler";
 import {
-  PRESENCE_CHECK_INTERVAL_MS,
+  HEARTBEAT_CHECK_DIVIDER,
   WAND_GREETING,
-  applyScanToRegistry,
+  getPresenceWatch,
+  notePresenceCheck,
   recordPresenceEvent,
   rssiTrend,
+  runPresenceCheck,
   scanWifiEnvironment,
+  subscribePresenceWatch,
   watchedSsid,
+  type PresenceCheckVia,
+  type PresenceWatchState,
 } from "./devices/presence";
+import { HEARTBEAT_PERIOD_MS } from "./heartbeat";
 
 type BleState =
   | { kind: "idle" }
@@ -113,6 +119,7 @@ export function DevicesWindow({
   const [form, setForm] = useState(EMPTY_FORM);
   const [ble, setBle] = useState<BleState>({ kind: "idle" });
   const [scanNote, setScanNote] = useState<string | null>(null);
+  const [watch, setWatch] = useState<PresenceWatchState>(() => getPresenceWatch());
   const [greetingFor, setGreetingFor] = useState<string | null>(null);
   const [markRssi, setMarkRssi] = useState("");
   const bleAvailable = useMemo(() => webBluetoothAvailable(), []);
@@ -123,24 +130,24 @@ export function DevicesWindow({
   };
 
   /**
-   * One Wi-Fi presence check — the periodic timer and the manual
-   * "Check Wi-Fi signals" button both land here. In this web app the
-   * scan is honestly unavailable: the note says so, and NO events are
+   * One Wi-Fi presence check — the manual "Check Wi-Fi signals"
+   * button and the check on open both land here, through the same
+   * pipeline the stage's heartbeat uses. In this web app the scan is
+   * honestly unavailable: the note says so, and NO events are
    * recorded from a scan that never happened.
    */
-  const runWifiCheck = async () => {
+  const runWifiCheck = async (via: PresenceCheckVia = "manual") => {
     const result = await scanWifiEnvironment();
     if (!result.available) {
+      notePresenceCheck(result, via, false);
       setScanNote(
         `Check at ${new Date(result.at).toLocaleTimeString()}: ${result.reason} Presence can still be recorded by hand on a device's card.`,
       );
       return;
     }
-    const { devices: next, activated } = applyScanToRegistry(
-      devicesRef.current,
-      result.networks,
-      result.at,
-    );
+    const before = devicesRef.current;
+    const { devices: next, activated } = runPresenceCheck(before, result, result.at);
+    notePresenceCheck(result, via, JSON.stringify(next) !== JSON.stringify(before));
     setDevices(next);
     setScanNote(
       `Check at ${new Date(result.at).toLocaleTimeString()}: ${result.networks.length} network(s) seen.`,
@@ -148,13 +155,19 @@ export function DevicesWindow({
     for (const device of activated) fireActivation(device);
   };
 
-  // Periodic presence check — every 15 minutes per the operator's
-  // spec, plus one on open. The cadence is real; in this web app each
-  // check reports the scan as unavailable instead of faking sightings.
+  // The 15-minute timer is GONE (follow-up order 2026-11-21): while
+  // Augie is awake on stage, his HEARTBEAT paces the presence checks
+  // (AvatarStage), and this window shows the shared watch state —
+  // including checks that ran while the window was closed. One check
+  // still runs on open, and the subscription keeps the rhythm line
+  // and the registry current when a heartbeat check changes it.
   useEffect(() => {
-    void runWifiCheck();
-    const timer = setInterval(() => void runWifiCheck(), PRESENCE_CHECK_INTERVAL_MS);
-    return () => clearInterval(timer);
+    void runWifiCheck("open");
+    return subscribePresenceWatch(() => {
+      const next = getPresenceWatch();
+      setWatch(next);
+      if (next.lastRegistryChanged) setDevices(loadRegistry());
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -276,10 +289,19 @@ export function DevicesWindow({
 
         <p className="window-devices__unavailable" role="status">
           Wi-Fi presence watch is UNAVAILABLE in this web app — browsers cannot scan Wi-Fi networks,
-          so Augie cannot watch for a hotspot SSID from here. Checks still run every 15 minutes and
-          on demand, and each one reports this honestly instead of faking a scan. The registry holds
-          each device's activation SSID, beacon/wand role, and presence log for the local Augie
-          build to watch, and presence can be recorded by hand on a device's card.
+          so Augie cannot watch for a hotspot SSID from here. Checks ride Augie's heartbeat while he
+          is on stage — about every{" "}
+          {Math.round((HEARTBEAT_CHECK_DIVIDER * HEARTBEAT_PERIOD_MS) / 1000)} seconds — and also
+          run on demand, and each one reports this honestly instead of faking a scan. The registry
+          holds each device's activation SSID, beacon/wand role, and presence log for the local
+          Augie build to watch, and presence can be recorded by hand on a device's card.
+        </p>
+        <p className="window-devices__heartbeat" role="status">
+          Presence check rides Augie's heartbeat —{" "}
+          {watch.lastCheckAt
+            ? `last check ${new Date(watch.lastCheckAt).toLocaleTimeString()}`
+            : "no check yet this session"}
+          {watch.lastCheckVia ? ` (via ${watch.lastCheckVia})` : ""}.
         </p>
         <div className="window-devices__actions">
           <button type="button" className="window-btn" onClick={() => void runWifiCheck()}>

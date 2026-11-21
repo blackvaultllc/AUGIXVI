@@ -80,7 +80,14 @@ import { GateLogWindow } from "./GateLogWindow";
 import { SandboxWindow } from "./SandboxWindow";
 import { LibraryWindow } from "./LibraryWindow";
 import { DevicesWindow } from "./DevicesWindow";
-import { WAND_GREETING } from "./devices/presence";
+import {
+  WAND_GREETING,
+  createHeartbeatCheckPacer,
+  notePresenceCheck,
+  runPresenceCheck,
+  scanWifiEnvironment,
+} from "./devices/presence";
+import { loadRegistry } from "./devices/deviceRegistry";
 import { parseRoomCommand } from "./command/roomCommands";
 import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
@@ -925,6 +932,29 @@ export function AvatarStage({
     r.onFrame = (p) => {
       setPerf(p);
       setReady(true);
+    };
+    // HEARTBEAT PRESENCE (follow-up order 2026-11-21): Augie's
+    // heartbeat — one beat per breath cycle of the body — paces the
+    // Wi-Fi presence check while he is awake on stage, replacing the
+    // 15-minute timer as the primary cadence. Every 8th beat (≈42 s)
+    // a check runs through the same honest pipeline as the Devices
+    // window's button: an unavailable scan records nothing and is
+    // noted once per state change; a real sighting flips the wand in
+    // the registry and Augie speaks the greeting himself.
+    const heartbeatPacer = createHeartbeatCheckPacer();
+    r.onHeartbeat = () => {
+      if (!heartbeatPacer.beat(Date.now())) return;
+      void (async () => {
+        const scan = await scanWifiEnvironment();
+        if (!scan.available) {
+          notePresenceCheck(scan, "heartbeat", false);
+          return;
+        }
+        const before = loadRegistry();
+        const { devices: next, activated } = runPresenceCheck(before, scan, scan.at);
+        notePresenceCheck(scan, "heartbeat", JSON.stringify(next) !== JSON.stringify(before));
+        for (const _device of activated) say(WAND_GREETING);
+      })();
     };
     const aiOpts: OllamaAIOptions = {
       baseUrl: loadBrainAddress(),

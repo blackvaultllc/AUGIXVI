@@ -74,6 +74,15 @@ describe("Devices window", () => {
     expect(screen.getByText(/instead of faking a scan/)).toBeTruthy();
   });
 
+  it("shows the heartbeat rhythm line with the last real check time", async () => {
+    render(<DevicesWindow onClose={vi.fn()} />);
+    // The check on open lands in the shared watch state; the rhythm
+    // line surfaces its real time instead of inventing a schedule.
+    expect(
+      await screen.findByText(/Presence check rides Augie's heartbeat — last check/),
+    ).toBeTruthy();
+  });
+
   it("the Check Wi-Fi signals action reports the unavailable scan honestly", async () => {
     render(<DevicesWindow onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /Check Wi-Fi signals/ }));

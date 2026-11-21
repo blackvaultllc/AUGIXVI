@@ -11,6 +11,7 @@ import { getLegGaitAngle, getArmSwingAngle, wantsToDance } from "./particleLegs"
 import { ARM, armPose, flightArmPose, handDirection, solveArm, type V3 } from "./armIK";
 import { getThemePalette, type ThemeChoice } from "./themes";
 import { eyeBrightnessFor, eyeColorFor, smoothEyePulse } from "./eyes";
+import { breathCycleAt } from "./heartbeat";
 import { SceneManager } from "./sceneManager";
 import { WorldSceneManager } from "./worldSceneRenderer";
 import { DEFAULT_WORLD_SCENE, type WorldSceneId } from "./worldScenes";
@@ -252,6 +253,14 @@ export class AvatarRenderer {
   private morphProgress = 1;
   private activeTransform: TransformShape | null = null;
   onFrame?: (info: { fps: number; particles: number }) => void;
+  /**
+   * Augie's heartbeat: fired once per full breath cycle of the body
+   * (see heartbeat.ts) with the running beat count. Consumers pace
+   * themselves off the beats — the Wi-Fi presence watch rides this.
+   */
+  onHeartbeat?: (beat: number) => void;
+  private heartbeatBeat = 0;
+  private lastBreathCycle = 0;
   inputs: Inputs = {
     attract: new THREE.Vector3(0, 0.5, 2),
     attractK: 0,
@@ -560,6 +569,16 @@ export class AvatarRenderer {
     this.raf = requestAnimationFrame(this.tick);
     const dt = Math.min(this.clock.getDelta(), 0.05);
     const t = this.clock.elapsedTime;
+    // HEARTBEAT: the body shader breathes at sin(t · 1.2); each time
+    // a full breath cycle completes, a heartbeat fires (heartbeat.ts).
+    // It reads the stage clock, so it is frame-rate independent, and
+    // it pauses with the body when the tab is hidden.
+    const cycle = breathCycleAt(t);
+    if (cycle > this.lastBreathCycle) {
+      this.lastBreathCycle = cycle;
+      this.heartbeatBeat += 1;
+      this.onHeartbeat?.(this.heartbeatBeat);
+    }
     this.moveAvatar(dt, t);
     this.updateMorph(dt);
     this.sceneManager.tick(dt);

@@ -2904,6 +2904,11 @@
   opacity: 0.85;
   margin: 0;
 }
+.window-devices__heartbeat {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin: 0;
+}
 .window-devices__actions {
   display: flex;
   flex-wrap: wrap;
