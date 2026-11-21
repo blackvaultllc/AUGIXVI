@@ -66,6 +66,7 @@ import { Sensors, type SensorStatus } from "./sensors";
 import { attachOllamaAI, type OllamaAIOptions } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
 import { ArCubeWindow } from "./ArCubeWindow";
+import { PulseWindow } from "./PulseWindow";
 import { parseRoomCommand } from "./command/roomCommands";
 import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
@@ -238,6 +239,10 @@ export function AvatarStage({
   // standing UI rule — tools in contained boxes, not full-screen takeovers).
   // The full room at /avatar/cube stays for the spoken "open the cube".
   const [arCubeOpen, setArCubeOpen] = useState(false);
+  // PULSE WINDOW: presence + motion, the rPPG heart-rate estimate and
+  // the room-frequency readout in a small floating box (operator order
+  // 2026-11-21). Opens from Tools → Rooms and from "open pulse".
+  const [pulseOpen, setPulseOpen] = useState(false);
   // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
@@ -584,6 +589,13 @@ export function AvatarStage({
       if (room === "reply-history") {
         setHistoryOpen(true);
         say("Reply history is open — everything I have said, newest first.");
+        return;
+      }
+      if (room === "pulse") {
+        setPulseOpen(true);
+        say(
+          "Pulse is open — presence, a heart-rate estimate, and the room's frequencies, all read on this machine. Nothing is recorded.",
+        );
         return;
       }
       if (room === "my-cube") {
@@ -1266,6 +1278,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Reply history"
                     onClick={() => setHistoryOpen(true)}
                   />
+                  <CommandAction
+                    icon={Activity}
+                    label="Pulse"
+                    onClick={() => setPulseOpen(true)}
+                  />
                 </div>
               </CommandGroup>
               <CommandGroup label="Windows — I can open them too, I still decide">
@@ -1460,6 +1477,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         />
       )}
       {arCubeOpen && <ArCubeWindow onClose={() => setArCubeOpen(false)} />}
+      {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />

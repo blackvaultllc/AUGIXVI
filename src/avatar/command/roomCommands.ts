@@ -21,7 +21,13 @@
  */
 import { isCubePanelCommand } from "../cubeReference";
 
-export type RoomTarget = "ar-cube" | "picture-analysis" | "game" | "reply-history" | "my-cube";
+export type RoomTarget =
+  | "ar-cube"
+  | "picture-analysis"
+  | "game"
+  | "reply-history"
+  | "my-cube"
+  | "pulse";
 
 /** Lowercase, single-spaced, no leading slash, no trailing punctuation. */
 function normalizeRoomPhrase(text: string): string {
@@ -61,6 +67,11 @@ const REPLY_HISTORY_PATTERNS: readonly RegExp[] = [
   /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:reply\s+history|history)$/,
 ];
 
+const PULSE_PATTERNS: readonly RegExp[] = [
+  /^pulse$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?pulse$/,
+];
+
 /**
  * Resolve a typed or spoken phrase to the room it opens, or null when it
  * is not a room phrase (the caller then continues its normal handling).
@@ -77,5 +88,6 @@ export function parseRoomCommand(text: string): RoomTarget | null {
   if (PICTURE_ANALYSIS_PATTERNS.some((p) => p.test(phrase))) return "picture-analysis";
   if (GAME_PATTERNS.some((p) => p.test(phrase))) return "game";
   if (REPLY_HISTORY_PATTERNS.some((p) => p.test(phrase))) return "reply-history";
+  if (PULSE_PATTERNS.some((p) => p.test(phrase))) return "pulse";
   return null;
 }

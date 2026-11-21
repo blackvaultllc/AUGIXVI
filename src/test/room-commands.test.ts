@@ -85,6 +85,18 @@ describe("room routing — deterministic and terminal", () => {
   });
 
   it.each([
+    "pulse",
+    "open pulse",
+    "open the pulse",
+    "show pulse",
+    "show me the pulse",
+    "/pulse",
+    "Open pulse.",
+  ])("routes %j to the Pulse window", (phrase) => {
+    expect(parseRoomCommand(phrase)).toBe("pulse");
+  });
+
+  it.each([
     // The room analyzer is a different feature — not a room phrase.
     "analyze the room",
     "what do you see",
@@ -93,6 +105,8 @@ describe("room routing — deterministic and terminal", () => {
     "reshape the cube into a wall",
     // Longer sentences are not terminal room commands.
     "open the cube and fly",
+    "check my pulse and tell me a story",
+    "pulse is a good movie",
     "pull up the cube and run a command",
     "open the cube please and thank you",
     // Ordinary chat must keep falling through to chat.

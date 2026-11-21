@@ -323,6 +323,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "open reply history",
   },
   {
+    command: "/pulse",
+    description:
+      "Open Pulse — presence and motion from the camera, a heart-rate estimate from face color (an estimate, never a guess), and the room's sound frequencies. All read live on this machine; nothing is recorded.",
+    category: "tools",
+    voice: true,
+    example: "open pulse",
+  },
+  {
     command: "/what do you see",
     description: "Describe what the camera sees right now.",
     category: "tools",
