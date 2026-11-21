@@ -31,7 +31,8 @@ export type RoomTarget =
   | "pulse"
   | "gate-log"
   | "sandbox"
-  | "library";
+  | "library"
+  | "devices";
 
 /** Lowercase, single-spaced, no leading slash, no trailing punctuation. */
 function normalizeRoomPhrase(text: string): string {
@@ -103,6 +104,16 @@ const LIBRARY_PATTERNS: readonly RegExp[] = [
   /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?library$/,
 ];
 
+// The device-understanding sector: "devices", "device capabilities",
+// "open devices" — the registry of everything Augie has met and what
+// each device can do (operator order 2026-11-21). "Check Wi-Fi
+// signals" lands here too: the window runs the presence check.
+const DEVICES_PATTERNS: readonly RegExp[] = [
+  /^(?:devices|device\s+capabilities)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:devices|device\s+capabilities)$/,
+  /^check\s+(?:the\s+)?wi-?fi\s+signals?$/,
+];
+
 /**
  * Resolve a typed or spoken phrase to the room it opens, or null when it
  * is not a room phrase (the caller then continues its normal handling).
@@ -124,5 +135,6 @@ export function parseRoomCommand(text: string): RoomTarget | null {
   if (GATE_LOG_PATTERNS.some((p) => p.test(phrase))) return "gate-log";
   if (SANDBOX_PATTERNS.some((p) => p.test(phrase))) return "sandbox";
   if (LIBRARY_PATTERNS.some((p) => p.test(phrase))) return "library";
+  if (DEVICES_PATTERNS.some((p) => p.test(phrase))) return "devices";
   return null;
 }

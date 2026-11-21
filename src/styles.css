@@ -2890,6 +2890,195 @@
   text-overflow: ellipsis;
 }
 
+/* Devices window (2026-11-21) — the device-understanding sector:
+   registry list + capability report cards */
+.window-devices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 100%;
+  overflow-y: auto;
+}
+.window-devices__intro {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  margin: 0;
+}
+.window-devices__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.window-devices__unavailable {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  font-size: 0.85rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  margin: 0;
+  max-width: 30rem;
+}
+.window-devices__unavailable svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+}
+.window-devices__error {
+  font-size: 0.88rem;
+  margin: 0;
+  color: #f87171;
+}
+.window-devices__done {
+  font-size: 0.88rem;
+  margin: 0;
+  opacity: 0.9;
+}
+.window-devices__form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.5rem 0.75rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.6rem;
+}
+.window-devices__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  opacity: 0.95;
+}
+.window-devices__form input,
+.window-devices__form select,
+.window-devices__form textarea {
+  background: transparent;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.35rem 0.45rem;
+}
+.window-devices__form label.window-devices__check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+}
+.window-devices__form label.window-devices__check input {
+  width: auto;
+}
+.window-devices__form button {
+  align-self: end;
+}
+.window-devices__body {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.window-devices__list {
+  flex: 0 1 200px;
+  min-width: 170px;
+}
+.window-devices__list h3,
+.window-devices__card h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.4rem;
+}
+.window-devices__list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.window-devices__list li button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.window-devices__list li button span {
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+.window-devices__list li button.is-active {
+  border-color: var(--avatar-hud-accent, #22d3ee);
+}
+.window-devices__card {
+  flex: 1 1 320px;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.window-devices__card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.window-devices__card h4 {
+  font-size: 0.85rem;
+  margin: 0 0 0.3rem;
+}
+.window-devices__card section {
+  margin: 0;
+}
+.window-devices__meta {
+  font-size: 0.78rem;
+  opacity: 0.75;
+  margin: 0;
+}
+.window-devices__facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.88rem;
+}
+.window-devices__greeting {
+  font-size: 0.92rem;
+  border: 1px solid var(--avatar-hud-accent, #22d3ee);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  margin: 0;
+}
+.window-devices__rssi {
+  background: transparent;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.45rem;
+  width: 10rem;
+}
+.window-devices__uuid {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  word-break: break-all;
+}
+
 /* Library window (2026-11-21) — the offline Kiwix books on Domenick's shelves */
 .window-library {
   display: flex;
@@ -4130,7 +4319,9 @@
   font-size: clamp(4rem, 18vw, 9rem);
   font-weight: 900;
   color: #ef476f;
-  text-shadow: 0 4px 0 #fff7ea, 0 8px 24px rgb(0 0 0 / 25%);
+  text-shadow:
+    0 4px 0 #fff7ea,
+    0 8px 24px rgb(0 0 0 / 25%);
   pointer-events: none;
 }
 .racing-question,

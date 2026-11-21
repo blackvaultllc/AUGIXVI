@@ -10,6 +10,7 @@ import * as THREE from "three";
 import {
   Activity,
   ArrowUp,
+  Bluetooth,
   BookOpen,
   Box,
   Bug,
@@ -78,6 +79,8 @@ import { PulseWindow } from "./PulseWindow";
 import { GateLogWindow } from "./GateLogWindow";
 import { SandboxWindow } from "./SandboxWindow";
 import { LibraryWindow } from "./LibraryWindow";
+import { DevicesWindow } from "./DevicesWindow";
+import { WAND_GREETING } from "./devices/presence";
 import { parseRoomCommand } from "./command/roomCommands";
 import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
@@ -320,6 +323,12 @@ export function AvatarStage({
   // (Knowledge Phase 2, operator order 2026-11-21). Opens from
   // Tools → Rooms and from "open the library".
   const [libraryOpen, setLibraryOpen] = useState(false);
+  // DEVICES WINDOW: the device-understanding sector — every connected
+  // device gets a capability card (what it can do, what is unknown,
+  // what was measured), from the BLE profiler or a manual probe entry
+  // (operator order 2026-11-21). Opens from Tools → Rooms and from
+  // "open devices".
+  const [devicesOpen, setDevicesOpen] = useState(false);
   // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
@@ -705,6 +714,13 @@ export function AvatarStage({
         setLibraryOpen(true);
         say(
           "Library is open — your shelves, read from the books on this machine. No internet involved.",
+        );
+        return;
+      }
+      if (room === "devices") {
+        setDevicesOpen(true);
+        say(
+          "Devices is open — every device I have met, what it can do, and what is still unknown. Profile a Bluetooth device there and I will learn what it is.",
         );
         return;
       }
@@ -1446,6 +1462,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Library"
                     onClick={() => setLibraryOpen(true)}
                   />
+                  <CommandAction
+                    icon={Bluetooth}
+                    label="Devices"
+                    onClick={() => setDevicesOpen(true)}
+                  />
                 </div>
               </CommandGroup>
               <CommandGroup label="Windows — I can open them too, I still decide">
@@ -1647,6 +1668,12 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
+      {devicesOpen && (
+        <DevicesWindow
+          onClose={() => setDevicesOpen(false)}
+          onActivated={() => say(WAND_GREETING)}
+        />
+      )}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />
