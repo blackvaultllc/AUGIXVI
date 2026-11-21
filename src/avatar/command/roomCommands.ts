@@ -25,6 +25,7 @@ export type RoomTarget =
   | "ar-cube"
   | "picture-analysis"
   | "game"
+  | "world"
   | "reply-history"
   | "my-cube"
   | "pulse"
@@ -63,6 +64,18 @@ const PICTURE_ANALYSIS_PATTERNS: readonly RegExp[] = [
 const GAME_PATTERNS: readonly RegExp[] = [
   /^(?:game|legend\s+of\s+logic)$/,
   /^(?:open|play|show)\s+(?:me\s+)?(?:the\s+)?(?:game|legend\s+of\s+logic)$/,
+];
+
+// World of Logic is its own game and its own room — the deck's cyber
+// security battles. Its phrases are checked separately from Legend of
+// Logic's: "world of logic" must never land on the mom's-game room,
+// and "legend of logic" must never land here. Full-string matching
+// keeps the two apart ("open world of logic" cannot match the game
+// patterns, which demand the phrase end at "game" or "legend of
+// logic").
+const WORLD_PATTERNS: readonly RegExp[] = [
+  /^world\s+of\s+logic$/,
+  /^(?:open|play|show)\s+(?:me\s+)?(?:the\s+)?world\s+of\s+logic$/,
 ];
 
 const REPLY_HISTORY_PATTERNS: readonly RegExp[] = [
@@ -105,6 +118,7 @@ export function parseRoomCommand(text: string): RoomTarget | null {
   if (AR_CUBE_PATTERNS.some((p) => p.test(phrase))) return "ar-cube";
   if (PICTURE_ANALYSIS_PATTERNS.some((p) => p.test(phrase))) return "picture-analysis";
   if (GAME_PATTERNS.some((p) => p.test(phrase))) return "game";
+  if (WORLD_PATTERNS.some((p) => p.test(phrase))) return "world";
   if (REPLY_HISTORY_PATTERNS.some((p) => p.test(phrase))) return "reply-history";
   if (PULSE_PATTERNS.some((p) => p.test(phrase))) return "pulse";
   if (GATE_LOG_PATTERNS.some((p) => p.test(phrase))) return "gate-log";

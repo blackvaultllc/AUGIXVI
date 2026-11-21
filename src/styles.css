@@ -3937,3 +3937,60 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* WORLD OF LOGIC — battle panel (ported from the VoiceWave Command
+   Deck's BattlePanel; the deck's menu-row classes under a wol-
+   namespace so nothing else in Augie is touched). */
+.wol-battle .wol-text-xs {
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.wol-menu-section {
+  margin-top: 12px;
+}
+.wol-menu-section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0 0 6px;
+}
+.wol-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: #101623;
+  color: #eef2f7;
+  border: 1px solid #3a4763;
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.wol-menu-row:hover:not(:disabled) {
+  border-color: #d4af37;
+}
+.wol-menu-row:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.wol-menu-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wol-menu-row-label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.wol-menu-row-sub {
+  font-size: 0.72rem;
+  color: #9fb0c9;
+}
+.wol-menu-row-chevron {
+  color: #9fb0c9;
+  font-size: 1rem;
+}

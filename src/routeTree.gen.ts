@@ -16,6 +16,7 @@ import { Route as ApiTranscribeRouteImport } from './routes/api.transcribe'
 import { Route as AvatarAnalyzeRouteImport } from './routes/avatar_.analyze'
 import { Route as AvatarCubeRouteImport } from './routes/avatar_.cube'
 import { Route as AvatarGameRouteImport } from './routes/avatar_.game'
+import { Route as AvatarWorldRouteImport } from './routes/avatar_.world'
 import { Route as LearnerGameRouteImport } from './routes/learner_.game'
 import { Route as ApiLibraryArticleRouteImport } from './routes/api.library.article'
 import { Route as ApiLibraryCatalogRouteImport } from './routes/api.library.catalog'
@@ -60,6 +61,11 @@ const AvatarCubeRoute = AvatarCubeRouteImport.update({
 const AvatarGameRoute = AvatarGameRouteImport.update({
   id: '/avatar_/game',
   path: '/avatar/game',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AvatarWorldRoute = AvatarWorldRouteImport.update({
+  id: '/avatar_/world',
+  path: '/avatar/world',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LearnerGameRoute = LearnerGameRouteImport.update({
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/avatar/analyze': typeof AvatarAnalyzeRoute
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
+  '/avatar/world': typeof AvatarWorldRoute
   '/learner/game': typeof LearnerGameRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/avatar/analyze': typeof AvatarAnalyzeRoute
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
+  '/avatar/world': typeof AvatarWorldRoute
   '/learner/game': typeof LearnerGameRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/avatar_/analyze': typeof AvatarAnalyzeRoute
   '/avatar_/cube': typeof AvatarCubeRoute
   '/avatar_/game': typeof AvatarGameRoute
+  '/avatar_/world': typeof AvatarWorldRoute
   '/learner_/game': typeof LearnerGameRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/avatar/analyze'
     | '/avatar/cube'
     | '/avatar/game'
+    | '/avatar/world'
     | '/learner/game'
     | '/api/library/article'
     | '/api/library/catalog'
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/avatar/analyze'
     | '/avatar/cube'
     | '/avatar/game'
+    | '/avatar/world'
     | '/learner/game'
     | '/api/library/article'
     | '/api/library/catalog'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/avatar_/analyze'
     | '/avatar_/cube'
     | '/avatar_/game'
+    | '/avatar_/world'
     | '/learner_/game'
     | '/api/library/article'
     | '/api/library/catalog'
@@ -239,6 +251,7 @@ export interface RootRouteChildren {
   AvatarAnalyzeRoute: typeof AvatarAnalyzeRoute
   AvatarCubeRoute: typeof AvatarCubeRoute
   AvatarGameRoute: typeof AvatarGameRoute
+  AvatarWorldRoute: typeof AvatarWorldRoute
   LearnerGameRoute: typeof LearnerGameRoute
   ApiLibraryArticleRoute: typeof ApiLibraryArticleRoute
   ApiLibraryCatalogRoute: typeof ApiLibraryCatalogRoute
@@ -300,6 +313,13 @@ declare module '@tanstack/react-router' {
       path: '/avatar/game'
       fullPath: '/avatar/game'
       preLoaderRoute: typeof AvatarGameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/avatar_/world': {
+      id: '/avatar_/world'
+      path: '/avatar/world'
+      fullPath: '/avatar/world'
+      preLoaderRoute: typeof AvatarWorldRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/learner_/game': {
@@ -383,6 +403,7 @@ const rootRouteChildren: RootRouteChildren = {
   AvatarAnalyzeRoute: AvatarAnalyzeRoute,
   AvatarCubeRoute: AvatarCubeRoute,
   AvatarGameRoute: AvatarGameRoute,
+  AvatarWorldRoute: AvatarWorldRoute,
   LearnerGameRoute: LearnerGameRoute,
   ApiLibraryArticleRoute: ApiLibraryArticleRoute,
   ApiLibraryCatalogRoute: ApiLibraryCatalogRoute,

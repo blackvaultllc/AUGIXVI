@@ -32,6 +32,7 @@ import {
   Sparkles,
   Square,
   Sun,
+  Swords,
   TreePine,
   Undo2,
   Waves,
@@ -670,6 +671,10 @@ export function AvatarStage({
       }
       if (room === "game") {
         void navigate({ to: "/avatar/game" });
+        return;
+      }
+      if (room === "world") {
+        void navigate({ to: "/avatar/world" });
         return;
       }
       if (room === "reply-history") {
@@ -1418,6 +1423,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     icon={Gamepad2}
                     label="Legend of Logic"
                     onClick={() => void navigate({ to: "/avatar/game" })}
+                  />
+                  <CommandAction
+                    icon={Swords}
+                    label="World of Logic"
+                    onClick={() => void navigate({ to: "/avatar/world" })}
                   />
                   <CommandAction
                     icon={History}

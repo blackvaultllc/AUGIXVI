@@ -315,6 +315,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "play the game",
   },
   {
+    command: "/world of logic",
+    description:
+      "Open the World of Logic room — the Captain's outside battles from the VoiceWave Command Deck: walk the grass and the woods, read a monster's lesson, fight it per-turn, capture tame viruses. Progress saves on this machine.",
+    category: "tools",
+    voice: true,
+    example: "open world of logic",
+  },
+  {
     command: "/reply history",
     description:
       "Open the Reply history — everything Augie has said, newest first, kept on this device.",

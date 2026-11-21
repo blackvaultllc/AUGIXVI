@@ -135,6 +135,24 @@ describe("room routing — deterministic and terminal", () => {
     expect(parseRoomCommand(phrase)).toBe("library");
   });
 
+  // World of Logic is a DIFFERENT game from Legend of Logic — the
+  // deck's cyber security battles, not the mom's-game room. The two
+  // must never cross: "world of logic" lands on the world room,
+  // "legend of logic" (above) lands on the game room.
+  it.each([
+    "world of logic",
+    "open world of logic",
+    "open the world of logic",
+    "play world of logic",
+    "play the world of logic",
+    "show world of logic",
+    "show me the world of logic",
+    "/world of logic",
+    "Open world of logic.",
+  ])("routes %j to the World of Logic room — never the Legend room", (phrase) => {
+    expect(parseRoomCommand(phrase)).toBe("world");
+  });
+
   it.each([
     // The room analyzer is a different feature — not a room phrase.
     "analyze the room",
@@ -158,6 +176,13 @@ describe("room routing — deterministic and terminal", () => {
     "take me to the library",
     "the library is downtown",
     "open the library and read me a story",
+    // World of Logic phrases that are not the room command — and
+    // near-misses that must not fall into either game room.
+    "open world of logic and fight something",
+    "world of logic is a game",
+    "take me to the world of logic",
+    "legend of logic and world of logic",
+    "world",
     "pull up the cube and run a command",
     "open the cube please and thank you",
     // Ordinary chat must keep falling through to chat.
