@@ -32,4 +32,16 @@ describe("universal slash-command menu — nothing hidden", () => {
     const results = filterSlashCommands("player");
     expect(results.some((c) => c.command === "/player")).toBe(true);
   });
+
+  it("lists the rooms, including the Legend of Logic game room", () => {
+    const commands = SLASH_COMMANDS.map((c) => c.command);
+    expect(commands).toContain("/ar cube");
+    expect(commands).toContain("/picture analysis");
+    expect(commands).toContain("/legend of logic");
+    expect(commands).toContain("/game");
+    const game = SLASH_COMMANDS.find((c) => c.command === "/legend of logic");
+    expect(game?.description).toContain("Legend of Logic");
+    const results = filterSlashCommands("legend");
+    expect(results.some((c) => c.command === "/legend of logic")).toBe(true);
+  });
 });

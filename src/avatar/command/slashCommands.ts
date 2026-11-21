@@ -292,6 +292,21 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "open picture analysis",
   },
   {
+    command: "/legend of logic",
+    description:
+      "Open the Game room — DIJA'S Academy presents Legend of Logic, the full game, playable inside Augie. Progress saves on this machine.",
+    category: "tools",
+    voice: true,
+    example: "open legend of logic",
+  },
+  {
+    command: "/game",
+    description: "Open the Game room — Legend of Logic, playable inside Augie.",
+    category: "tools",
+    voice: true,
+    example: "play the game",
+  },
+  {
     command: "/what do you see",
     description: "Describe what the camera sees right now.",
     category: "tools",

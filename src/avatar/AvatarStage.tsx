@@ -15,6 +15,7 @@ import {
   Camera,
   Expand,
   Eye,
+  Gamepad2,
   Globe,
   History,
   Laptop,
@@ -541,8 +542,9 @@ export function AvatarStage({
         say("Cloud keys — green means present and working. Values stay in Cloudflare.");
         return;
       }
-      // ROOMS — full pages behind the gate: the AR Cube and Picture
-      // Analysis (the analytic window). Typed or spoken.
+      // ROOMS — full pages behind the gate: the AR Cube, Picture
+      // Analysis (the analytic window), and the Legend of Logic game
+      // room. Typed or spoken.
       if (commandText === "/ar cube" || /^(?:open\s+)?(?:the\s+)?ar\s+cube$/i.test(commandText)) {
         void navigate({ to: "/avatar/cube" });
         return;
@@ -552,6 +554,16 @@ export function AvatarStage({
         /^(?:open\s+)?(?:the\s+)?(?:picture\s+analysis|analytic\s+window)$/i.test(commandText)
       ) {
         void navigate({ to: "/avatar/analyze" });
+        return;
+      }
+      // GAME ROOM — the real Legend of Logic, playable inside Augie
+      // (operator order 2026-11-21: actually play it, not a walkthrough).
+      if (
+        commandText === "/game" ||
+        commandText === "/legend of logic" ||
+        /^(?:open|play)\s+(?:the\s+)?(?:game|legend\s+of\s+logic)$/i.test(commandText)
+      ) {
+        void navigate({ to: "/avatar/game" });
         return;
       }
       // TRANSFORMS: Enterprise / wolf / orb — real shapes, not poses.
@@ -1233,6 +1245,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     icon={ScanSearch}
                     label="Picture Analysis"
                     onClick={() => void navigate({ to: "/avatar/analyze" })}
+                  />
+                  <CommandAction
+                    icon={Gamepad2}
+                    label="Legend of Logic"
+                    onClick={() => void navigate({ to: "/avatar/game" })}
                   />
                   <CommandAction
                     icon={History}
