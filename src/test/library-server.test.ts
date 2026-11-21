@@ -72,8 +72,9 @@ const SEARCH_HTML = `<html><body>
 
 const ARTICLE_HTML = `<html><head><title>Photosynthesis</title><script src="/skin/x.js"></script></head>
 <body>
-<div id="kiwixtoolbar"><div class="kiwix_centered"><div>toolbar junk</div></div></div>
+<span class="kiwix"><span id="kiwixtoolbar" class="ui-widget-header"><span class="kiwix_centered">toolbar junk</span></span></span>
 <h1>Photosynthesis</h1>
+<button type="button">chrome button</button>
 <script>alert("boom")</script>
 <style>.leaf { color: red; }</style>
 <p onclick="evil()">Plants turn <a href="/wikipedia_en_medicine_maxi_2026-10/Chlorophyll">chlorophyll</a> and <a href="Light">light</a> into food. <a href="https://example.com/elsewhere">An outside page</a> and <a href="#cite_note">a footnote</a>.</p>
@@ -201,6 +202,8 @@ describe("library proxy — article", () => {
     expect(html).not.toContain("<script");
     expect(html).not.toContain("alert");
     expect(html).not.toContain("toolbar junk");
+    expect(html).not.toContain("kiwixtoolbar");
+    expect(html).not.toContain("chrome button");
     expect(html).not.toContain("<img");
     expect(html).not.toContain("onclick");
     expect(html).not.toContain("<form");

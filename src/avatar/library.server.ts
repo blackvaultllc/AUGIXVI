@@ -177,13 +177,19 @@ export function parseKiwixSearch(html: string): LibrarySearchResult[] {
   return results;
 }
 
-/** Remove one element (and its contents) by id, counting nested depth. */
+/**
+ * Remove one element (and its contents) by id, counting nested
+ * depth of the same tag. Kiwix wraps its toolbar in a <span> on
+ * some books and a <div> on others, so the tag is read from the
+ * match, never assumed.
+ */
 function removeElementById(html: string, id: string): string {
-  const start = new RegExp(`<div\\b[^>]*\\bid="${id}"[^>]*>`).exec(html);
+  const start = new RegExp(`<(\\w+)\\b[^>]*\\bid="${id}"[^>]*>`).exec(html);
   if (!start) return html;
+  const tagName = start[1]!;
   let depth = 1;
   let index = start.index + start[0].length;
-  const tagPattern = /<\/?div\b[^>]*>/g;
+  const tagPattern = new RegExp(`</?${tagName}\\b[^>]*>`, "g");
   tagPattern.lastIndex = index;
   let tag: RegExpExecArray | null;
   while ((tag = tagPattern.exec(html)) !== null) {
@@ -206,6 +212,7 @@ const REMOVED_PAIRED_TAGS = [
   "noscript",
   "video",
   "audio",
+  "button",
   "head",
   "title",
 ] as const;
