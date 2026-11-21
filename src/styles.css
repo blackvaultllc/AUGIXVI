@@ -2032,6 +2032,19 @@
   vertical-align: -0.1em;
 }
 
+/* Voice calibration (Settings tab) */
+.voice-calibration__sentence {
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 0.5rem 0.25rem;
+}
+.voice-calibration__smallprint {
+  color: oklch(0.62 0.05 205 / 70%);
+  font-size: 0.62rem;
+  line-height: 1.5;
+}
+
 /* Notepad */
 .window-notepad {
   display: grid;

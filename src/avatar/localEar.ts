@@ -17,14 +17,46 @@
  * until a phrase is captured (speech, then a beat of silence) or the
  * operator clicks again. Every failure is spoken in words through
  * onError; the mic never dies quietly.
+ *
+ * VOICE CALIBRATION (phase 2): the stage may install a voice verifier
+ * (setVoiceVerifier). When one is installed, the SAME clip that would
+ * be transcribed is checked against the operator's voiceprint first.
+ * A failed check — or a check that cannot be completed — means the
+ * clip is never transcribed and never executed: the ear reports the
+ * rejection through onVoiceRejected and the stage speaks the lock
+ * line. No verifier installed = the ear behaves exactly as before.
  */
 
 export type EarState = "idle" | "starting" | "listening" | "transcribing" | "error";
+
+/** The voiceprint service's verdict on one recorded clip. */
+export interface VoiceVerdict {
+  match: boolean;
+  /** Cosine similarity against the stored voiceprint, when scored. */
+  score: number | null;
+}
+
+/**
+ * Checks one recorded clip against the operator's voiceprint.
+ * Resolves with the verdict; REJECTS (throws) when the check itself
+ * could not be completed — service down, no voiceprint, bad audio —
+ * and the ear treats that as a failed check (fail closed).
+ */
+export type VoiceVerifier = (audio: Blob) => Promise<VoiceVerdict>;
+
+export interface VoiceRejection {
+  /** "mismatch": scored, and it was not the operator's voice.
+   *  "unavailable": the check could not be completed at all. */
+  reason: "mismatch" | "unavailable";
+  score: number | null;
+}
 
 export interface EarEvents {
   onTranscript: (text: string) => void;
   onError: (message: string) => void;
   onState?: (state: EarState) => void;
+  /** A voice clip was blocked by the calibration gate (see above). */
+  onVoiceRejected?: (rejection: VoiceRejection) => void;
 }
 
 /** The slice of MediaRecorder the ear relies on (fakeable in tests). */
@@ -194,6 +226,7 @@ export class LocalEar {
   private heardSpeech = false;
   private cancelRequested = false;
   private disposed = false;
+  private voiceVerifier: VoiceVerifier | null = null;
 
   constructor(events: EarEvents, deps?: EarDeps) {
     this.events = events;
@@ -203,6 +236,15 @@ export class LocalEar {
 
   get currentState(): EarState {
     return this.state;
+  }
+
+  /**
+   * Install (or clear, with null) the voice-calibration gate. While a
+   * verifier is installed, every captured phrase is voice-checked
+   * before transcription; see the header note.
+   */
+  setVoiceVerifier(verifier: VoiceVerifier | null): void {
+    this.voiceVerifier = verifier;
   }
 
   private setState(next: EarState) {
@@ -348,6 +390,27 @@ export class LocalEar {
     if (audio.size === 0) {
       this.fail("No audio was captured from the microphone. Click the mic and try again.");
       return;
+    }
+    // VOICE CALIBRATION GATE: the same clip, checked before it is
+    // transcribed. A mismatch — or a check that cannot complete —
+    // ends here: no transcript, no command, just the rejection event.
+    const verifier = this.voiceVerifier;
+    if (verifier) {
+      let verdict: VoiceVerdict;
+      try {
+        verdict = await verifier(audio);
+      } catch {
+        if (this.disposed) return;
+        this.setState("idle");
+        this.events.onVoiceRejected?.({ reason: "unavailable", score: null });
+        return;
+      }
+      if (this.disposed) return;
+      if (!verdict.match) {
+        this.setState("idle");
+        this.events.onVoiceRejected?.({ reason: "mismatch", score: verdict.score });
+        return;
+      }
     }
     try {
       const { text } = await this.deps.transcribe(audio);

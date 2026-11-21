@@ -117,6 +117,13 @@ import {
 } from "./interactionControls";
 import { createHighlight, createLocalMemory, findLocalAnswer, splitDocument } from "./localMemory";
 import { createLocalEar, type LocalEar } from "./localEar";
+import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
+import {
+  createVoiceGateVerifier,
+  loadVoiceCalibrationPrefs,
+  saveVoiceCalibrationPrefs,
+  type VoiceCalibrationPrefs,
+} from "./voiceCalibration";
 import {
   createOperatorMemory,
   parseRememberRequest,
@@ -215,6 +222,37 @@ export function AvatarStage({
   const [sensor, setSensor] = useState<SensorStatus | null>(null);
   const [voiceListening, setVoiceListening] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
+  // VOICE CALIBRATION: while ON, the ear checks every spoken phrase
+  // against the operator's voiceprint before it may run (localEar
+  // gate). Typed commands are never gated. Default OFF — he enrolls
+  // and turns it on himself in Settings.
+  const [voiceCalPrefs, setVoiceCalPrefs] = useState<VoiceCalibrationPrefs>(() =>
+    loadVoiceCalibrationPrefs(),
+  );
+  const voiceCalPrefsRef = useRef(voiceCalPrefs);
+  const applyVoiceGate = useCallback(() => {
+    const ear = earRef.current;
+    if (!ear) return;
+    if (voiceCalPrefsRef.current.enabled) {
+      ear.setVoiceVerifier(
+        createVoiceGateVerifier(() => voiceCalPrefsRef.current.threshold),
+      );
+    } else {
+      ear.setVoiceVerifier(null);
+    }
+  }, []);
+  const changeVoiceCalPrefs = useCallback(
+    (next: VoiceCalibrationPrefs) => {
+      voiceCalPrefsRef.current = next;
+      setVoiceCalPrefs(next);
+      saveVoiceCalibrationPrefs(next);
+      applyVoiceGate();
+    },
+    [applyVoiceGate],
+  );
+  useEffect(() => {
+    applyVoiceGate();
+  }, [applyVoiceGate, voiceCalPrefs]);
   const [ready, setReady] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [chat, setChat] = useState("");
@@ -907,6 +945,22 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       onTranscript: (text) => {
         if (text) void sendCommand(text, "voice");
       },
+      // VOICE CALIBRATION GATE: a spoken phrase that is not his voice —
+      // or whose check could not run — never becomes a command. The
+      // lock line is spoken like any other reply, so it also lands in
+      // the reply history with the attempt noted beside it.
+      onVoiceRejected: (rejection) => {
+        setVoiceListening(false);
+        if (rejection.reason === "mismatch") {
+          lastQuestionRef.current = "Voice command — not the operator's voice";
+          say("That is not my operator's voice — voice commands stay locked.");
+        } else {
+          lastQuestionRef.current = "Voice command — the voice check could not run";
+          say(
+            "I could not check that voice — the speech service did not answer, so voice commands stay locked.",
+          );
+        }
+      },
       onError: (message) => {
         setVoiceListening(false);
         setResponseSource("microphone");
@@ -924,6 +978,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       },
     });
     earRef.current = ear;
+    applyVoiceGate();
     setVoiceAvailable(ear.supported);
     bridge.setState("LISTENING");
     // Proactive watch: he tells ME — suggests, never auto-acts.
@@ -996,7 +1051,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       sensRef.current?.stop();
       r.dispose();
     };
-  }, [sendCommand, operatorFullName, operatorName]);
+  }, [sendCommand, operatorFullName, operatorName, say, applyVoiceGate]);
 
   // Auto-enter the live world on arrival (owner order): no click needed.
   const autoEnteredRef = useRef(false);
@@ -1550,6 +1605,12 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   address — home Wi-Fi or Tailscale — and Augie answers from the computer.
                 </p>
                 {brainMsg && <p role="status">{brainMsg}</p>}
+              </CommandGroup>
+              <CommandGroup label="Voice calibration — only my operator's voice">
+                <VoiceCalibrationPanel
+                  prefs={voiceCalPrefs}
+                  onPrefsChange={changeVoiceCalPrefs}
+                />
               </CommandGroup>
             </div>
           )}

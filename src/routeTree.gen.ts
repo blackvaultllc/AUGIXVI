@@ -17,6 +17,12 @@ import { Route as AvatarAnalyzeRouteImport } from './routes/avatar_.analyze'
 import { Route as AvatarCubeRouteImport } from './routes/avatar_.cube'
 import { Route as AvatarGameRouteImport } from './routes/avatar_.game'
 import { Route as LearnerGameRouteImport } from './routes/learner_.game'
+import { Route as ApiVoiceprintCommitRouteImport } from './routes/api.voiceprint.commit'
+import { Route as ApiVoiceprintDeleteRouteImport } from './routes/api.voiceprint.delete'
+import { Route as ApiVoiceprintEnrollRouteImport } from './routes/api.voiceprint.enroll'
+import { Route as ApiVoiceprintResetRouteImport } from './routes/api.voiceprint.reset'
+import { Route as ApiVoiceprintStatusRouteImport } from './routes/api.voiceprint.status'
+import { Route as ApiVoiceprintVerifyRouteImport } from './routes/api.voiceprint.verify'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +64,36 @@ const LearnerGameRoute = LearnerGameRouteImport.update({
   path: '/learner/game',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVoiceprintCommitRoute = ApiVoiceprintCommitRouteImport.update({
+  id: '/api/voiceprint/commit',
+  path: '/api/voiceprint/commit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVoiceprintDeleteRoute = ApiVoiceprintDeleteRouteImport.update({
+  id: '/api/voiceprint/delete',
+  path: '/api/voiceprint/delete',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVoiceprintEnrollRoute = ApiVoiceprintEnrollRouteImport.update({
+  id: '/api/voiceprint/enroll',
+  path: '/api/voiceprint/enroll',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVoiceprintResetRoute = ApiVoiceprintResetRouteImport.update({
+  id: '/api/voiceprint/reset',
+  path: '/api/voiceprint/reset',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVoiceprintStatusRoute = ApiVoiceprintStatusRouteImport.update({
+  id: '/api/voiceprint/status',
+  path: '/api/voiceprint/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVoiceprintVerifyRoute = ApiVoiceprintVerifyRouteImport.update({
+  id: '/api/voiceprint/verify',
+  path: '/api/voiceprint/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +104,12 @@ export interface FileRoutesByFullPath {
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
   '/learner/game': typeof LearnerGameRoute
+  '/api/voiceprint/commit': typeof ApiVoiceprintCommitRoute
+  '/api/voiceprint/delete': typeof ApiVoiceprintDeleteRoute
+  '/api/voiceprint/enroll': typeof ApiVoiceprintEnrollRoute
+  '/api/voiceprint/reset': typeof ApiVoiceprintResetRoute
+  '/api/voiceprint/status': typeof ApiVoiceprintStatusRoute
+  '/api/voiceprint/verify': typeof ApiVoiceprintVerifyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +120,12 @@ export interface FileRoutesByTo {
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
   '/learner/game': typeof LearnerGameRoute
+  '/api/voiceprint/commit': typeof ApiVoiceprintCommitRoute
+  '/api/voiceprint/delete': typeof ApiVoiceprintDeleteRoute
+  '/api/voiceprint/enroll': typeof ApiVoiceprintEnrollRoute
+  '/api/voiceprint/reset': typeof ApiVoiceprintResetRoute
+  '/api/voiceprint/status': typeof ApiVoiceprintStatusRoute
+  '/api/voiceprint/verify': typeof ApiVoiceprintVerifyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +137,12 @@ export interface FileRoutesById {
   '/avatar_/cube': typeof AvatarCubeRoute
   '/avatar_/game': typeof AvatarGameRoute
   '/learner_/game': typeof LearnerGameRoute
+  '/api/voiceprint/commit': typeof ApiVoiceprintCommitRoute
+  '/api/voiceprint/delete': typeof ApiVoiceprintDeleteRoute
+  '/api/voiceprint/enroll': typeof ApiVoiceprintEnrollRoute
+  '/api/voiceprint/reset': typeof ApiVoiceprintResetRoute
+  '/api/voiceprint/status': typeof ApiVoiceprintStatusRoute
+  '/api/voiceprint/verify': typeof ApiVoiceprintVerifyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +155,12 @@ export interface FileRouteTypes {
     | '/avatar/cube'
     | '/avatar/game'
     | '/learner/game'
+    | '/api/voiceprint/commit'
+    | '/api/voiceprint/delete'
+    | '/api/voiceprint/enroll'
+    | '/api/voiceprint/reset'
+    | '/api/voiceprint/status'
+    | '/api/voiceprint/verify'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +171,12 @@ export interface FileRouteTypes {
     | '/avatar/cube'
     | '/avatar/game'
     | '/learner/game'
+    | '/api/voiceprint/commit'
+    | '/api/voiceprint/delete'
+    | '/api/voiceprint/enroll'
+    | '/api/voiceprint/reset'
+    | '/api/voiceprint/status'
+    | '/api/voiceprint/verify'
   id:
     | '__root__'
     | '/'
@@ -121,6 +187,12 @@ export interface FileRouteTypes {
     | '/avatar_/cube'
     | '/avatar_/game'
     | '/learner_/game'
+    | '/api/voiceprint/commit'
+    | '/api/voiceprint/delete'
+    | '/api/voiceprint/enroll'
+    | '/api/voiceprint/reset'
+    | '/api/voiceprint/status'
+    | '/api/voiceprint/verify'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +204,12 @@ export interface RootRouteChildren {
   AvatarCubeRoute: typeof AvatarCubeRoute
   AvatarGameRoute: typeof AvatarGameRoute
   LearnerGameRoute: typeof LearnerGameRoute
+  ApiVoiceprintCommitRoute: typeof ApiVoiceprintCommitRoute
+  ApiVoiceprintDeleteRoute: typeof ApiVoiceprintDeleteRoute
+  ApiVoiceprintEnrollRoute: typeof ApiVoiceprintEnrollRoute
+  ApiVoiceprintResetRoute: typeof ApiVoiceprintResetRoute
+  ApiVoiceprintStatusRoute: typeof ApiVoiceprintStatusRoute
+  ApiVoiceprintVerifyRoute: typeof ApiVoiceprintVerifyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +270,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnerGameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/voiceprint/commit': {
+      id: '/api/voiceprint/commit'
+      path: '/api/voiceprint/commit'
+      fullPath: '/api/voiceprint/commit'
+      preLoaderRoute: typeof ApiVoiceprintCommitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/voiceprint/delete': {
+      id: '/api/voiceprint/delete'
+      path: '/api/voiceprint/delete'
+      fullPath: '/api/voiceprint/delete'
+      preLoaderRoute: typeof ApiVoiceprintDeleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/voiceprint/enroll': {
+      id: '/api/voiceprint/enroll'
+      path: '/api/voiceprint/enroll'
+      fullPath: '/api/voiceprint/enroll'
+      preLoaderRoute: typeof ApiVoiceprintEnrollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/voiceprint/reset': {
+      id: '/api/voiceprint/reset'
+      path: '/api/voiceprint/reset'
+      fullPath: '/api/voiceprint/reset'
+      preLoaderRoute: typeof ApiVoiceprintResetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/voiceprint/status': {
+      id: '/api/voiceprint/status'
+      path: '/api/voiceprint/status'
+      fullPath: '/api/voiceprint/status'
+      preLoaderRoute: typeof ApiVoiceprintStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/voiceprint/verify': {
+      id: '/api/voiceprint/verify'
+      path: '/api/voiceprint/verify'
+      fullPath: '/api/voiceprint/verify'
+      preLoaderRoute: typeof ApiVoiceprintVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,6 +324,12 @@ const rootRouteChildren: RootRouteChildren = {
   AvatarCubeRoute: AvatarCubeRoute,
   AvatarGameRoute: AvatarGameRoute,
   LearnerGameRoute: LearnerGameRoute,
+  ApiVoiceprintCommitRoute: ApiVoiceprintCommitRoute,
+  ApiVoiceprintDeleteRoute: ApiVoiceprintDeleteRoute,
+  ApiVoiceprintEnrollRoute: ApiVoiceprintEnrollRoute,
+  ApiVoiceprintResetRoute: ApiVoiceprintResetRoute,
+  ApiVoiceprintStatusRoute: ApiVoiceprintStatusRoute,
+  ApiVoiceprintVerifyRoute: ApiVoiceprintVerifyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
