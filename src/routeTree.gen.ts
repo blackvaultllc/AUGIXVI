@@ -17,6 +17,9 @@ import { Route as AvatarAnalyzeRouteImport } from './routes/avatar_.analyze'
 import { Route as AvatarCubeRouteImport } from './routes/avatar_.cube'
 import { Route as AvatarGameRouteImport } from './routes/avatar_.game'
 import { Route as LearnerGameRouteImport } from './routes/learner_.game'
+import { Route as ApiLibraryArticleRouteImport } from './routes/api.library.article'
+import { Route as ApiLibraryCatalogRouteImport } from './routes/api.library.catalog'
+import { Route as ApiLibrarySearchRouteImport } from './routes/api.library.search'
 import { Route as ApiVoiceprintCommitRouteImport } from './routes/api.voiceprint.commit'
 import { Route as ApiVoiceprintDeleteRouteImport } from './routes/api.voiceprint.delete'
 import { Route as ApiVoiceprintEnrollRouteImport } from './routes/api.voiceprint.enroll'
@@ -64,6 +67,21 @@ const LearnerGameRoute = LearnerGameRouteImport.update({
   path: '/learner/game',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLibraryArticleRoute = ApiLibraryArticleRouteImport.update({
+  id: '/api/library/article',
+  path: '/api/library/article',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLibraryCatalogRoute = ApiLibraryCatalogRouteImport.update({
+  id: '/api/library/catalog',
+  path: '/api/library/catalog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLibrarySearchRoute = ApiLibrarySearchRouteImport.update({
+  id: '/api/library/search',
+  path: '/api/library/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVoiceprintCommitRoute = ApiVoiceprintCommitRouteImport.update({
   id: '/api/voiceprint/commit',
   path: '/api/voiceprint/commit',
@@ -104,6 +122,9 @@ export interface FileRoutesByFullPath {
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
   '/learner/game': typeof LearnerGameRoute
+  '/api/library/article': typeof ApiLibraryArticleRoute
+  '/api/library/catalog': typeof ApiLibraryCatalogRoute
+  '/api/library/search': typeof ApiLibrarySearchRoute
   '/api/voiceprint/commit': typeof ApiVoiceprintCommitRoute
   '/api/voiceprint/delete': typeof ApiVoiceprintDeleteRoute
   '/api/voiceprint/enroll': typeof ApiVoiceprintEnrollRoute
@@ -120,6 +141,9 @@ export interface FileRoutesByTo {
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
   '/learner/game': typeof LearnerGameRoute
+  '/api/library/article': typeof ApiLibraryArticleRoute
+  '/api/library/catalog': typeof ApiLibraryCatalogRoute
+  '/api/library/search': typeof ApiLibrarySearchRoute
   '/api/voiceprint/commit': typeof ApiVoiceprintCommitRoute
   '/api/voiceprint/delete': typeof ApiVoiceprintDeleteRoute
   '/api/voiceprint/enroll': typeof ApiVoiceprintEnrollRoute
@@ -137,6 +161,9 @@ export interface FileRoutesById {
   '/avatar_/cube': typeof AvatarCubeRoute
   '/avatar_/game': typeof AvatarGameRoute
   '/learner_/game': typeof LearnerGameRoute
+  '/api/library/article': typeof ApiLibraryArticleRoute
+  '/api/library/catalog': typeof ApiLibraryCatalogRoute
+  '/api/library/search': typeof ApiLibrarySearchRoute
   '/api/voiceprint/commit': typeof ApiVoiceprintCommitRoute
   '/api/voiceprint/delete': typeof ApiVoiceprintDeleteRoute
   '/api/voiceprint/enroll': typeof ApiVoiceprintEnrollRoute
@@ -155,6 +182,9 @@ export interface FileRouteTypes {
     | '/avatar/cube'
     | '/avatar/game'
     | '/learner/game'
+    | '/api/library/article'
+    | '/api/library/catalog'
+    | '/api/library/search'
     | '/api/voiceprint/commit'
     | '/api/voiceprint/delete'
     | '/api/voiceprint/enroll'
@@ -171,6 +201,9 @@ export interface FileRouteTypes {
     | '/avatar/cube'
     | '/avatar/game'
     | '/learner/game'
+    | '/api/library/article'
+    | '/api/library/catalog'
+    | '/api/library/search'
     | '/api/voiceprint/commit'
     | '/api/voiceprint/delete'
     | '/api/voiceprint/enroll'
@@ -187,6 +220,9 @@ export interface FileRouteTypes {
     | '/avatar_/cube'
     | '/avatar_/game'
     | '/learner_/game'
+    | '/api/library/article'
+    | '/api/library/catalog'
+    | '/api/library/search'
     | '/api/voiceprint/commit'
     | '/api/voiceprint/delete'
     | '/api/voiceprint/enroll'
@@ -204,6 +240,9 @@ export interface RootRouteChildren {
   AvatarCubeRoute: typeof AvatarCubeRoute
   AvatarGameRoute: typeof AvatarGameRoute
   LearnerGameRoute: typeof LearnerGameRoute
+  ApiLibraryArticleRoute: typeof ApiLibraryArticleRoute
+  ApiLibraryCatalogRoute: typeof ApiLibraryCatalogRoute
+  ApiLibrarySearchRoute: typeof ApiLibrarySearchRoute
   ApiVoiceprintCommitRoute: typeof ApiVoiceprintCommitRoute
   ApiVoiceprintDeleteRoute: typeof ApiVoiceprintDeleteRoute
   ApiVoiceprintEnrollRoute: typeof ApiVoiceprintEnrollRoute
@@ -270,6 +309,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnerGameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/library/article': {
+      id: '/api/library/article'
+      path: '/api/library/article'
+      fullPath: '/api/library/article'
+      preLoaderRoute: typeof ApiLibraryArticleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/library/catalog': {
+      id: '/api/library/catalog'
+      path: '/api/library/catalog'
+      fullPath: '/api/library/catalog'
+      preLoaderRoute: typeof ApiLibraryCatalogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/library/search': {
+      id: '/api/library/search'
+      path: '/api/library/search'
+      fullPath: '/api/library/search'
+      preLoaderRoute: typeof ApiLibrarySearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/voiceprint/commit': {
       id: '/api/voiceprint/commit'
       path: '/api/voiceprint/commit'
@@ -324,6 +384,9 @@ const rootRouteChildren: RootRouteChildren = {
   AvatarCubeRoute: AvatarCubeRoute,
   AvatarGameRoute: AvatarGameRoute,
   LearnerGameRoute: LearnerGameRoute,
+  ApiLibraryArticleRoute: ApiLibraryArticleRoute,
+  ApiLibraryCatalogRoute: ApiLibraryCatalogRoute,
+  ApiLibrarySearchRoute: ApiLibrarySearchRoute,
   ApiVoiceprintCommitRoute: ApiVoiceprintCommitRoute,
   ApiVoiceprintDeleteRoute: ApiVoiceprintDeleteRoute,
   ApiVoiceprintEnrollRoute: ApiVoiceprintEnrollRoute,

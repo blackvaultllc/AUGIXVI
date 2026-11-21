@@ -124,6 +124,18 @@ describe("room routing — deterministic and terminal", () => {
   });
 
   it.each([
+    "library",
+    "open library",
+    "open the library",
+    "show library",
+    "show me the library",
+    "/library",
+    "Open the library.",
+  ])("routes %j to the Library window", (phrase) => {
+    expect(parseRoomCommand(phrase)).toBe("library");
+  });
+
+  it.each([
     // The room analyzer is a different feature — not a room phrase.
     "analyze the room",
     "what do you see",
@@ -141,6 +153,11 @@ describe("room routing — deterministic and terminal", () => {
     // Sandbox phrases that are not the Sandbox room command.
     "open the sandbox and run a scenario",
     "the sandbox is over there",
+    // Library phrases that are not the Library room command — the
+    // Knowledge panel ("open knowledge") is a different surface.
+    "take me to the library",
+    "the library is downtown",
+    "open the library and read me a story",
     "pull up the cube and run a command",
     "open the cube please and thank you",
     // Ordinary chat must keep falling through to chat.

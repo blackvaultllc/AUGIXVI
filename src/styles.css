@@ -2890,6 +2890,170 @@
   text-overflow: ellipsis;
 }
 
+/* Library window (2026-11-21) — the offline Kiwix books on Domenick's shelves */
+.window-library {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 100%;
+  overflow-y: auto;
+}
+.window-library__note {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  margin: 0;
+}
+.window-library__footer {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  margin: auto 0 0;
+  padding-top: 0.5rem;
+}
+.window-library__back {
+  align-self: flex-start;
+}
+.window-library__search {
+  display: flex;
+  gap: 0.5rem;
+}
+.window-library__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--avatar-hud-line);
+  background: transparent;
+  color: inherit;
+  font-size: 0.95rem;
+}
+.window-library__count {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  margin: 0;
+}
+.window-library__shelves {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.window-library__shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.window-library__shelf-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.window-library__shelf-status {
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+.window-library__heading {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.window-library__books {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.window-library__book {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+}
+.window-library__book-status {
+  opacity: 0.7;
+  font-size: 0.82rem;
+  text-align: right;
+}
+.window-library__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.window-library__chip {
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+  min-height: 2.4rem;
+}
+.window-library__chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.window-library__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.window-library__result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.window-library__result-title {
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+.window-library__result-book {
+  font-size: 0.78rem;
+  opacity: 0.7;
+  margin: 0;
+}
+.window-library__result-snippet {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+.window-library__body {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+.window-library__body a {
+  color: var(--avatar-hud-accent, #22d3ee);
+}
+.window-library__body table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.window-library__body h1,
+.window-library__body h2,
+.window-library__body h3 {
+  font-size: 1.05rem;
+}
+
 /* Pulse window (2026-11-21) — presence, rPPG heart-rate estimate, room frequencies */
 .window-pulse {
   display: flex;

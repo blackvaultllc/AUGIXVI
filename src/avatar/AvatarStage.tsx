@@ -76,6 +76,7 @@ import { ArCubeWindow } from "./ArCubeWindow";
 import { PulseWindow } from "./PulseWindow";
 import { GateLogWindow } from "./GateLogWindow";
 import { SandboxWindow } from "./SandboxWindow";
+import { LibraryWindow } from "./LibraryWindow";
 import { parseRoomCommand } from "./command/roomCommands";
 import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
@@ -313,6 +314,11 @@ export function AvatarStage({
   // countermeasure that hooks it (operator order 2026-11-21).
   // Simulation only; opens from Tools → Rooms and "open sandbox".
   const [sandboxOpen, setSandboxOpen] = useState(false);
+  // LIBRARY WINDOW: the offline Kiwix books on Domenick's shelves —
+  // searched and read through the local library proxy, no internet
+  // (Knowledge Phase 2, operator order 2026-11-21). Opens from
+  // Tools → Rooms and from "open the library".
+  const [libraryOpen, setLibraryOpen] = useState(false);
   // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
@@ -687,6 +693,13 @@ export function AvatarStage({
         setSandboxOpen(true);
         say(
           "Sandbox is open — pick an attack, step it stage by stage, and watch where the antivirus hooks it. Simulation only; nothing real runs there.",
+        );
+        return;
+      }
+      if (room === "library") {
+        setLibraryOpen(true);
+        say(
+          "Library is open — your shelves, read from the books on this machine. No internet involved.",
         );
         return;
       }
@@ -1418,6 +1431,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setGateLogOpen(true)}
                   />
                   <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
+                  <CommandAction
+                    icon={BookOpen}
+                    label="Library"
+                    onClick={() => setLibraryOpen(true)}
+                  />
                 </div>
               </CommandGroup>
               <CommandGroup label="Windows — I can open them too, I still decide">
@@ -1618,6 +1636,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
+      {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />

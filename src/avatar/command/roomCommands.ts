@@ -29,7 +29,8 @@ export type RoomTarget =
   | "my-cube"
   | "pulse"
   | "gate-log"
-  | "sandbox";
+  | "sandbox"
+  | "library";
 
 /** Lowercase, single-spaced, no leading slash, no trailing punctuation. */
 function normalizeRoomPhrase(text: string): string {
@@ -84,6 +85,11 @@ const SANDBOX_PATTERNS: readonly RegExp[] = [
   /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?sandbox$/,
 ];
 
+const LIBRARY_PATTERNS: readonly RegExp[] = [
+  /^library$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?library$/,
+];
+
 /**
  * Resolve a typed or spoken phrase to the room it opens, or null when it
  * is not a room phrase (the caller then continues its normal handling).
@@ -103,5 +109,6 @@ export function parseRoomCommand(text: string): RoomTarget | null {
   if (PULSE_PATTERNS.some((p) => p.test(phrase))) return "pulse";
   if (GATE_LOG_PATTERNS.some((p) => p.test(phrase))) return "gate-log";
   if (SANDBOX_PATTERNS.some((p) => p.test(phrase))) return "sandbox";
+  if (LIBRARY_PATTERNS.some((p) => p.test(phrase))) return "library";
   return null;
 }

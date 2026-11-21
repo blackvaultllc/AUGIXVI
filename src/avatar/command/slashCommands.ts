@@ -347,6 +347,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "open sandbox",
   },
   {
+    command: "/library",
+    description:
+      "Open the Library — the offline books on this machine (Wikipedia, WikiMed, Wikibooks, Appropedia, Simple English), organized on Domenick's shelves: his DNA roots first, then law, medicine, survival, science, the deep shelves, archaeology, and the Academy shelf. Search them and read articles without any internet.",
+    category: "tools",
+    voice: true,
+    example: "open the library",
+  },
+  {
     command: "/beach",
     description:
       "Change the living world around Augie to the Beach — sand, palms reshaped from his own pine code, and particle waves that roll. He stays himself; only the world changes.",
