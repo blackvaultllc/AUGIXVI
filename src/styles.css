@@ -2709,6 +2709,30 @@
   color: oklch(0.7 0.07 210 / 75%);
 }
 
+/* AR Cube window (2026-11-21) — the cube in a small floating box */
+.window-ar-cube {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  height: 100%;
+}
+.window-ar-cube iframe {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.35rem;
+  background: transparent;
+}
+.window-ar-cube__room-link {
+  color: var(--avatar-hud-accent, #22d3ee);
+  font-size: 0.6rem;
+  text-decoration: none;
+}
+.window-ar-cube__room-link:hover {
+  text-decoration: underline;
+}
+
 /* Reply history window (2026-11-20) */
 .window-reply-history {
   display: flex;

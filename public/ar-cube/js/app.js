@@ -1,10 +1,26 @@
-// Augie AR Cube v1 — MindAR image tracking + Three.js primitive models.
-// HARD RULE (Domenick's order): models are built ONLY from Three.js primitives
-// in this file. No external GLB/3D files are ever downloaded, so models load
-// instantly. The only data file is assets/targets.mind (the cube-face tracking
-// data compiled from his own cube's face patterns).
+// Augie AR Cube v2 — MindAR image tracking + Three.js models.
+//
+// WHAT CHANGED IN v2 (Domenick's fix list from live use, 2026-11-21):
+// 1. CAMERA ALWAYS VISIBLE. v1's viewport went black while the status said
+//    "Camera running": MindAR 1.2.5 pins its <video> at z-index -2, and the
+//    container's opaque background painted straight over the feed. The
+//    container is transparent now and the layering is pinned in CSS and
+//    re-asserted inline after start (see fixCameraLayering below).
+// 2. RECOGNITION. Face targets re-extracted from the paper-cube net on the
+//    exact face grid (v1 rode ~28 px high and clipped every face) with a
+//    levels crush + sharpen, then targets.mind recompiled. Same face ->
+//    target index mapping as v1.
+// 3. TYPED FILTER + REAL MODEL LIBRARY. Type what you want ("wolf",
+//    "castle", "brain") and that model is the one pinned to the cube.
+//    Library = the 4 built-in primitives PLUS Domenick's own GLB files
+//    served from /models/. GLBs load LAZILY: only the selected model is
+//    downloaded/instantiated, one at a time, so tracking stays light.
+// 4. The same page runs full-screen at /avatar/cube and small inside the
+//    avatar screen's AR Cube floating window (an iframe of this page).
 import * as THREE from 'three';
 import { MindARThree } from 'mindar-image-three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 // Target index order in targets.mind (see README.md / assets/faces/):
 const FACE_NAMES = [
@@ -19,16 +35,24 @@ const FACE_NAMES = [
 const statusEl = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
 const container = document.getElementById('ar-container');
+const filterInput = document.getElementById('modelFilter');
+const matchesEl = document.getElementById('filterMatches');
+const loadNoteEl = document.getElementById('loadNote');
 
 function setStatus(text, cls = '') {
   statusEl.textContent = text;
   statusEl.className = cls;
 }
 
+function setLoadNote(text, isError = false) {
+  loadNoteEl.textContent = text || '';
+  loadNoteEl.className = isError ? 'error' : '';
+}
+
 // ---------------------------------------------------------------------------
 // Model builders. Anchor space: x = right along the face, y = up along the
 // face, z = out of the face toward the camera. 1 unit = one cube-face width.
-// Every builder returns { group, update(t) } and uses primitives only.
+// Every builder returns { group, update(t, delta) }.
 // ---------------------------------------------------------------------------
 
 function buildSquishy() {
@@ -143,37 +167,256 @@ function buildCastle() {
   return { group: g, update(t) { flag.rotation.y = Math.sin(t * 6.0) * 0.45; } };
 }
 
-const MODELS = { squishy: buildSquishy, goldcube: buildGoldCube, heart: buildHeart, castle: buildCastle };
-const MODEL_LABELS = { squishy: 'Squishy', goldcube: 'Gold Cube', heart: 'Heart', castle: 'Castle' };
+// ---------------------------------------------------------------------------
+// Model catalog — built-in primitives + Domenick's GLB library.
+// GLB files live in the app's public /models/ folder; the page sits at
+// /ar-cube/, so '../models/<file>' resolves to the app origin's /models/.
+// ---------------------------------------------------------------------------
+const MODELS_BASE = '../models/';
+const MODEL_CATALOG = [
+  { key: 'squishy',   label: 'Squishy',   kind: 'primitive', build: buildSquishy, hint: 'key 1',
+    keywords: ['squishy', 'blob', 'cute', 'pink'] },
+  { key: 'goldcube',  label: 'Gold Cube', kind: 'primitive', build: buildGoldCube, hint: 'key 2',
+    keywords: ['gold', 'cube', 'gold cube', 'pharaoh', 'pyramid'] },
+  { key: 'heart',     label: 'Heart',     kind: 'primitive', build: buildHeart, hint: 'key 3',
+    keywords: ['heart', 'love'] },
+  { key: 'castle',    label: 'Castle',    kind: 'primitive', build: buildCastle, hint: 'key 4',
+    keywords: ['castle', 'fort', 'kingdom', 'tower'] },
+  { key: 'wolf',      label: 'Wolf',      kind: 'glb', file: 'wolf_with_animations.glb',
+    keywords: ['wolf', 'wolves', 'dog', 'animated wolf'] },
+  { key: 'direwolf',  label: 'Dire Wolf', kind: 'glb', file: 'warcraft_-_dire_wolf.glb',
+    keywords: ['wolf', 'wolves', 'dire wolf', 'dire', 'warcraft'] },
+  { key: 'hellwolf',  label: 'Hell Wolf', kind: 'glb', file: 'hell_wolf.glb',
+    keywords: ['wolf', 'wolves', 'hell wolf', 'hell', 'dark wolf'] },
+  { key: 'character', label: 'Character', kind: 'glb', file: 'cyberpunk_character.glb',
+    keywords: ['character', 'cyberpunk', 'person', 'figure', 'glasses'] },
+  { key: 'brain',     label: 'Brain',     kind: 'glb', file: 'human-brain.glb',
+    keywords: ['brain', 'mind', 'human brain'] },
+  { key: 'skull',     label: 'Skull',     kind: 'glb', file: 'human_female_skull.glb',
+    keywords: ['skull', 'bone', 'skeleton', 'human skull'] },
+  { key: 'scanner',   label: 'Scanner',   kind: 'glb', file: 'futuristic_sci-fi_planet_scanner_radar_thing.glb',
+    keywords: ['scanner', 'radar', 'planet scanner', 'sci-fi', 'scifi', 'dish'] },
+];
+const CATALOG_BY_KEY = Object.fromEntries(MODEL_CATALOG.map(m => [m.key, m]));
+
+// Ranked filter matching: exact label > label contains > exact keyword >
+// keyword contains. Returns catalog entries, best first.
+function matchModels(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const scored = [];
+  for (const m of MODEL_CATALOG) {
+    const label = m.label.toLowerCase();
+    let score = -1;
+    if (label === q) score = 0;
+    else if (label.startsWith(q)) score = 1;
+    else if (label.includes(q)) score = 2;
+    else if (m.keywords.some(k => k === q)) score = 3;
+    else if (m.keywords.some(k => k.includes(q))) score = 4;
+    if (score >= 0) scored.push({ m, score });
+  }
+  scored.sort((a, b) => a.score - b.score);
+  return scored.map(s => s.m);
+}
 
 // ---------------------------------------------------------------------------
-// Tracking setup
+// GLB loading — lazy and cached. Only the selected model is fetched; the
+// parsed prototype is kept and cloned per anchor, so switching back is
+// instant and tracking never carries more than the one chosen model.
+// ---------------------------------------------------------------------------
+const gltfLoader = new GLTFLoader();
+const glbPrototypes = new Map(); // key -> Promise<gltf>
+
+function loadGlbPrototype(entry) {
+  if (!glbPrototypes.has(entry.key)) {
+    glbPrototypes.set(entry.key, gltfLoader.loadAsync(MODELS_BASE + entry.file));
+  }
+  return glbPrototypes.get(entry.key);
+}
+
+// Wrap a cloned GLB scene so it stands on the cube face the same way the
+// primitives do: centered on the face, base near the face's lower edge,
+// biggest dimension ~0.85 of a face width, pushed out from the surface.
+function instantiateGlb(gltf) {
+  const inner = SkeletonUtils.clone(gltf.scene);
+  const bbox = new THREE.Box3().setFromObject(inner);
+  const size = bbox.getSize(new THREE.Vector3());
+  const center = bbox.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+  const scale = 0.85 / maxDim;
+  inner.scale.setScalar(scale);
+  inner.position.set(-center.x * scale, -bbox.min.y * scale - 0.38, -center.z * scale);
+  const g = new THREE.Group();
+  const holder = new THREE.Group();
+  holder.position.z = 0.30;
+  holder.add(inner);
+  g.add(holder);
+  let mixer = null;
+  if (gltf.animations && gltf.animations.length > 0) {
+    mixer = new THREE.AnimationMixer(inner);
+    mixer.clipAction(gltf.animations[0]).play();
+  }
+  return { group: g, update(t, delta) { if (mixer) mixer.update(delta || 0); } };
+}
+
+function disposeInstance(inst) {
+  if (!inst || !inst.group) return;
+  inst.group.traverse((obj) => {
+    if (obj.geometry) obj.geometry.dispose();
+    if (obj.material) {
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach(m => m.dispose());
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Tracking setup + model application
 // ---------------------------------------------------------------------------
 let mindarThree = null;
 let started = false;
-let currentModel = 'squishy';
+let currentModel = 'squishy'; // selected
+let appliedModel = 'squishy'; // last successfully put on the anchors
+let modelSeq = 0;             // guards against out-of-order GLB loads
 let lockedFace = -1;
 const anchorRoots = [];   // one plain Group per face anchor; holds the model
 const modelInstances = []; // per-anchor built model {group, update}
 
-function setModel(key) {
-  currentModel = key;
+function refreshModelButtons() {
   document.querySelectorAll('.modelBtn').forEach(b =>
-    b.classList.toggle('active', b.dataset.model === key));
+    b.classList.toggle('active', b.dataset.model === appliedModel));
+}
+
+function applyToAnchors(makeInstance) {
   for (let i = 0; i < anchorRoots.length; i++) {
-    if (modelInstances[i]) anchorRoots[i].remove(modelInstances[i].group);
-    const built = MODELS[key]();
+    if (modelInstances[i]) {
+      anchorRoots[i].remove(modelInstances[i].group);
+      // GLB clones share geometry with the cached prototype — never dispose
+      // those; primitive builds own their geometry and are safe to dispose.
+      if (CATALOG_BY_KEY[appliedModel] && CATALOG_BY_KEY[appliedModel].kind === 'primitive') {
+        disposeInstance(modelInstances[i]);
+      }
+    }
+    const built = makeInstance();
     anchorRoots[i].add(built.group);
     modelInstances[i] = built;
   }
 }
 
-document.querySelectorAll('.modelBtn').forEach(b =>
-  b.addEventListener('click', () => setModel(b.dataset.model)));
-window.addEventListener('keydown', (e) => {
-  const map = { '1': 'squishy', '2': 'goldcube', '3': 'heart', '4': 'castle' };
-  if (map[e.key]) setModel(map[e.key]);
+async function setModel(key) {
+  const entry = CATALOG_BY_KEY[key];
+  if (!entry) return;
+  currentModel = key;
+  const seq = ++modelSeq;
+  if (entry.kind === 'primitive') {
+    applyToAnchors(() => entry.build());
+    appliedModel = key;
+    setLoadNote('');
+    refreshModelButtons();
+    return;
+  }
+  // GLB: fetch only this one model, only now.
+  setLoadNote('Loading ' + entry.label + '… (one-time download, a few MB)');
+  try {
+    const gltf = await loadGlbPrototype(entry);
+    if (seq !== modelSeq) return; // a newer pick superseded this load
+    applyToAnchors(() => instantiateGlb(gltf));
+    appliedModel = key;
+    setLoadNote(entry.label + ' ready.');
+    refreshModelButtons();
+  } catch (e) {
+    if (seq !== modelSeq) return;
+    console.error(e);
+    // Honest failure: keep the previous model on the cube, say what happened.
+    glbPrototypes.delete(entry.key); // a retry should re-fetch, not reuse the failure
+    currentModel = appliedModel;
+    setLoadNote('Could not load ' + entry.label + ' — the file did not arrive. ' +
+      'The previous model is still on the cube; check the connection and pick it again.', true);
+    refreshModelButtons();
+  }
+}
+
+// Buttons are generated from the catalog so the page and the list can't drift.
+function buildModelButtons() {
+  const rows = { primitive: document.getElementById('builtinRow'), glb: document.getElementById('libraryRow') };
+  for (const entry of MODEL_CATALOG) {
+    const b = document.createElement('button');
+    b.className = 'modelBtn';
+    b.dataset.model = entry.key;
+    b.textContent = entry.label;
+    if (entry.hint) {
+      const s = document.createElement('small');
+      s.textContent = entry.hint;
+      b.appendChild(s);
+    }
+    b.addEventListener('click', () => { void setModel(entry.key); });
+    rows[entry.kind].appendChild(b);
+  }
+  refreshModelButtons();
+}
+
+// ---------------------------------------------------------------------------
+// Typed filter — type what you want; matches appear as chips, Enter picks
+// the best one. No match is reported plainly, never faked.
+// ---------------------------------------------------------------------------
+function renderFilterMatches() {
+  const q = filterInput.value;
+  matchesEl.textContent = '';
+  if (!q.trim()) return;
+  const matches = matchModels(q);
+  if (matches.length === 0) {
+    const span = document.createElement('span');
+    span.className = 'matchNone';
+    span.textContent = 'No model matches "' + q.trim() + '" — try wolf, castle, brain, skull, scanner.';
+    matchesEl.appendChild(span);
+    return;
+  }
+  for (const m of matches) {
+    const chip = document.createElement('button');
+    chip.className = 'matchChip';
+    chip.textContent = m.label;
+    chip.addEventListener('click', () => { void setModel(m.key); });
+    matchesEl.appendChild(chip);
+  }
+}
+filterInput.addEventListener('input', renderFilterMatches);
+filterInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const matches = matchModels(filterInput.value);
+    if (matches.length > 0) void setModel(matches[0].key);
+  }
 });
+window.addEventListener('keydown', (e) => {
+  if (document.activeElement === filterInput) return; // don't steal his typing
+  const map = { '1': 'squishy', '2': 'goldcube', '3': 'heart', '4': 'castle' };
+  if (map[e.key]) void setModel(map[e.key]);
+});
+
+// ---------------------------------------------------------------------------
+// CAMERA LAYERING FIX. MindAR creates its <video> with inline z-index -2;
+// any ancestor/sibling paint above it (v1's opaque container background)
+// hides the feed while tracking keeps running — the black viewport. Pin
+// the real stacking here: video at 0, canvases above it, clear alpha 0.
+// ---------------------------------------------------------------------------
+function fixCameraLayering() {
+  const video = container.querySelector('video');
+  if (video) {
+    video.style.zIndex = '0';
+    video.style.position = 'absolute';
+    video.style.top = '0px';
+    video.style.left = '0px';
+    video.style.pointerEvents = 'none';
+  }
+  container.querySelectorAll('canvas').forEach((c, i) => {
+    c.style.zIndex = String(i + 1);
+    c.style.pointerEvents = 'none';
+  });
+  if (mindarThree && mindarThree.renderer) {
+    mindarThree.renderer.setClearColor(0x000000, 0);
+  }
+}
+
+buildModelButtons();
 
 startBtn.addEventListener('click', async () => {
   if (started) return;
@@ -210,16 +453,20 @@ startBtn.addEventListener('click', async () => {
         }
       };
     }
-    setModel(currentModel);
+    // Put the selected model on the anchors (instant for primitives; a GLB
+    // pick made before Start loads in the background and swaps in).
+    void setModel(currentModel);
 
     await mindarThree.start();
+    fixCameraLayering();
     setStatus('Looking for cube…', 'scanning');
     startBtn.textContent = 'Camera running — show it the cube';
 
     const clock = new THREE.Clock();
     renderer.setAnimationLoop(() => {
-      const t = clock.getElapsedTime();
-      for (const inst of modelInstances) if (inst && inst.update) inst.update(t);
+      const delta = clock.getDelta();
+      const t = clock.elapsedTime;
+      for (const inst of modelInstances) if (inst && inst.update) inst.update(t, delta);
       renderer.render(scene, camera);
     });
   } catch (e) {

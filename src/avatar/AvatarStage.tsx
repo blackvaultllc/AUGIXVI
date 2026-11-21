@@ -65,6 +65,7 @@ import { AvatarRenderer, type RenderSettings } from "./AvatarRenderer";
 import { Sensors, type SensorStatus } from "./sensors";
 import { attachOllamaAI, type OllamaAIOptions } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
+import { ArCubeWindow } from "./ArCubeWindow";
 import { parseRoomCommand } from "./command/roomCommands";
 import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
@@ -233,6 +234,10 @@ export function AvatarStage({
   // stage used to show only the single latest one.
   const [transcript, setTranscript] = useState<ReplyHistoryEntry[]>(() => loadReplyHistory());
   const [historyOpen, setHistoryOpen] = useState(false);
+  // AR CUBE WINDOW: the cube in a small floating box on this screen (his
+  // standing UI rule — tools in contained boxes, not full-screen takeovers).
+  // The full room at /avatar/cube stays for the spoken "open the cube".
+  const [arCubeOpen, setArCubeOpen] = useState(false);
   // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
@@ -1239,7 +1244,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   <CommandAction
                     icon={Box}
                     label="AR Cube"
-                    onClick={() => void navigate({ to: "/avatar/cube" })}
+                    onClick={() => setArCubeOpen(true)}
                   />
                   <CommandAction
                     icon={ScanSearch}
@@ -1449,6 +1454,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onClose={() => setHistoryOpen(false)}
         />
       )}
+      {arCubeOpen && <ArCubeWindow onClose={() => setArCubeOpen(false)} />}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />

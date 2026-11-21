@@ -51,8 +51,8 @@ function CubeRoomPage() {
             </Link>
             <h1 style={{ fontSize: "19px", margin: 0 }}>AR Cube</h1>
             <span style={{ fontSize: "13px", color: "#9fb0c9" }}>
-              Point the camera at one face of your cube, then pick a model: Squishy, Gold Cube,
-              Heart or Castle.
+              Point the camera at one face of your cube, then pick a model — or type what you
+              want: wolf, castle, brain…
             </span>
           </header>
           <iframe

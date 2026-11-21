@@ -20,19 +20,40 @@
   #status.locked { background: #14532d; border-color: #22c55e; }
   #status.scanning { background: #3a2f10; border-color: #d4af37; }
   #status.error { background: #5b1a1a; border-color: #ef4444; }
-  #ar-container { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: #000; }
-  #ar-container video, #ar-container canvas { max-width: none; }
+  /* CAMERA LAYERING (v2 fix): MindAR pins its <video> at z-index -2, so ANY
+     opaque background on this container paints over the camera feed and the
+     viewport goes black while tracking runs. The container therefore stays
+     TRANSPARENT, and the video/canvas stacking is pinned explicitly:
+     video at 0, WebGL canvas above it at 1. app.js re-asserts the same
+     layering inline after start (MindAR sets the -2 inline). */
+  #ar-container { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: transparent; }
+  #ar-container video { max-width: none; z-index: 0 !important; }
+  #ar-container canvas { max-width: none; z-index: 1 !important; pointer-events: none; }
   #controls { flex: 0 0 auto; padding: 10px 12px; background: #101623; border-top: 1px solid #26314a;
     display: flex; flex-direction: column; gap: 10px; }
   #startBtn { font-size: 18px; font-weight: 700; padding: 13px; border: 0; border-radius: 10px;
     background: #d4af37; color: #141414; cursor: pointer; }
   #startBtn:disabled { background: #4b5563; color: #d1d5db; cursor: default; }
+  .filterRow { display: flex; gap: 8px; align-items: center; }
+  .filterRow label { font-size: 14px; color: #9fb0c9; white-space: nowrap; }
+  #modelFilter { flex: 1 1 auto; min-width: 0; font-size: 16px; padding: 10px 12px; border-radius: 9px;
+    border: 1px solid #3a4763; background: #0b0e14; color: #eef2f7; }
+  #modelFilter:focus { outline: 2px solid #d4af37; outline-offset: 0; border-color: #d4af37; }
+  .matchRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .matchRow:empty { display: none; }
+  .matchChip { font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px;
+    border: 1px solid #d4af37; background: #2a2410; color: #ffd95e; cursor: pointer; }
+  .matchNone { font-size: 13.5px; color: #f0a3a3; }
   .modelRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .modelRow .lbl { font-size: 14px; color: #9fb0c9; margin-right: 2px; }
+  .btnWrap { display: flex; gap: 8px; flex-wrap: wrap; flex: 1 1 auto; }
   .modelBtn { flex: 1 1 0; min-width: 70px; font-size: 15px; font-weight: 600; padding: 10px 4px;
     border-radius: 9px; border: 1px solid #3a4763; background: #1a2336; color: #eef2f7; cursor: pointer; }
   .modelBtn small { display: block; font-weight: 400; font-size: 11px; color: #8fa1bd; }
   .modelBtn.active { border-color: #d4af37; background: #2a2410; color: #ffd95e; }
+  #loadNote { font-size: 13.5px; min-height: 1.2em; color: #9fb0c9; }
+  #loadNote:empty { display: none; }
+  #loadNote.error { color: #f0a3a3; }
   #howto { font-size: 13.5px; line-height: 1.45; color: #b9c6da; }
   #howto b { color: #eef2f7; }
   #howto ol { margin: 4px 0 0 18px; padding: 0; }
@@ -50,20 +71,28 @@
 
   <div id="controls">
     <button id="startBtn">▶ Start Camera</button>
-    <div class="modelRow">
-      <span class="lbl">Model:</span>
-      <button class="modelBtn active" data-model="squishy">Squishy<small>key 1</small></button>
-      <button class="modelBtn" data-model="goldcube">Gold Cube<small>key 2</small></button>
-      <button class="modelBtn" data-model="heart">Heart<small>key 3</small></button>
-      <button class="modelBtn" data-model="castle">Castle<small>key 4</small></button>
+    <div class="filterRow">
+      <label for="modelFilter">Find a model:</label>
+      <input id="modelFilter" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Type what you want — wolf, castle, brain…">
     </div>
+    <div id="filterMatches" class="matchRow"></div>
+    <div class="modelRow">
+      <span class="lbl">Built-in:</span>
+      <span class="btnWrap" id="builtinRow"></span>
+    </div>
+    <div class="modelRow">
+      <span class="lbl">Library:</span>
+      <span class="btnWrap" id="libraryRow"></span>
+    </div>
+    <div id="loadNote" role="status"></div>
     <div id="howto">
       <b>How to use it</b>
       <ol>
-        <li>Tap <b>Start Camera</b> and allow camera access when the browser asks.</li>
+        <li>Tap <b>Start Camera</b> and allow camera access when the browser asks. The camera picture stays on screen the whole time — searching, locked, or lost.</li>
         <li>Hold the cube in front of the camera, <b>one face pointing at the camera</b>, about 1–2 feet away.</li>
         <li>Keep <b>good light</b> on the cube. When a face locks on, the model appears pinned to it — turn the cube and it turns with it.</li>
-        <li>Swap the model with the buttons above or keys <b>1–4</b>. The models are built from simple shapes right inside this page — nothing downloads, so they appear instantly.</li>
+        <li>Pick a model with the buttons, keys <b>1–4</b>, or <b>type what you want</b> in the filter — try <i>wolf</i>, <i>brain</i>, <i>skull</i>, <i>scanner</i>. Built-in models are instant. Library models download once, only the one you pick (a few MB), then they are ready.</li>
       </ol>
     </div>
   </div>
