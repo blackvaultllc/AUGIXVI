@@ -339,6 +339,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "open gate log",
   },
   {
+    command: "/sandbox",
+    description:
+      "Open the Sandbox — an attack-simulation and antivirus-design bench: pick a modeled attack (phishing takeover, ransomware, worm, USB drop), step it stage by stage across a drawn network, see what the defender sees at each stage, and derive the antivirus blueprint that hooks it. Simulation only — no real malware runs there.",
+    category: "tools",
+    voice: true,
+    example: "open sandbox",
+  },
+  {
     command: "/what do you see",
     description: "Describe what the camera sees right now.",
     category: "tools",

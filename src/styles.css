@@ -3006,3 +3006,230 @@
   line-height: 1.45;
   opacity: 0.65;
 }
+
+/* Sandbox window (2026-11-21) — attack simulation + antivirus design bench */
+.window-sandbox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+.window-sandbox__picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.window-sandbox__scenario {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  min-height: 3.4rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.5rem;
+  background: var(--avatar-hud-panel, rgba(10, 16, 28, 0.6));
+  color: inherit;
+  cursor: pointer;
+}
+.window-sandbox__scenario:hover {
+  border-color: #f59e0b;
+}
+.window-sandbox__scenario[aria-pressed="true"] {
+  border-color: #f59e0b;
+  box-shadow: inset 0 0 0 1px #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+}
+.window-sandbox__scenario-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.window-sandbox__scenario-sub {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  opacity: 0.75;
+}
+.window-sandbox__diagram {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.5rem;
+  background: rgba(2, 6, 16, 0.55);
+}
+.window-sandbox__arrow {
+  fill: #64748b;
+}
+.window-sandbox__arrow-lit {
+  fill: #fbbf24;
+}
+.window-sandbox__edge {
+  stroke: #64748b;
+  stroke-width: 2;
+  opacity: 0.55;
+}
+.window-sandbox__edge--current {
+  stroke: #fbbf24;
+  stroke-width: 3;
+  opacity: 1;
+}
+.window-sandbox__node rect {
+  fill: rgba(15, 23, 42, 0.92);
+  stroke: #475569;
+  stroke-width: 1.2;
+}
+.window-sandbox__node text {
+  fill: #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.window-sandbox__node--visited rect {
+  stroke: #f59e0b;
+}
+.window-sandbox__node--current rect {
+  stroke: #fbbf24;
+  stroke-width: 2.2;
+  fill: rgba(245, 158, 11, 0.18);
+}
+.window-sandbox__node--current text {
+  fill: #fde68a;
+}
+.window-sandbox__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+.window-sandbox__controls .window-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.3rem;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+}
+.window-sandbox__play {
+  border-color: #f59e0b;
+}
+.window-sandbox__progress {
+  font-size: 0.78rem;
+  opacity: 0.8;
+  margin-left: auto;
+}
+.window-sandbox__stage,
+.window-sandbox__antivirus,
+.window-sandbox__blueprint {
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.7rem;
+}
+.window-sandbox__antivirus {
+  border-color: rgba(74, 222, 128, 0.45);
+  background: rgba(34, 197, 94, 0.06);
+}
+.window-sandbox__stage-name {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+.window-sandbox__tactic {
+  margin: 0 0 0.45rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fbbf24;
+}
+.window-sandbox__stage-body {
+  margin: 0 0 0.4rem;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.window-sandbox__stage-body:last-child {
+  margin-bottom: 0;
+}
+.window-sandbox__telemetry {
+  margin: 0.35rem 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  border: 1px solid var(--avatar-hud-line);
+  border-left: 3px solid #38bdf8;
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  background: rgba(2, 6, 16, 0.6);
+}
+.window-sandbox__telemetry-label {
+  display: block;
+  font-family: inherit;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #38bdf8;
+  margin-bottom: 0.2rem;
+}
+.window-sandbox__av-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  color: #4ade80;
+}
+.window-sandbox__av-chips {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+}
+.window-sandbox__chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid #4ade80;
+  color: #4ade80;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+.window-sandbox__chip--layer {
+  border-color: var(--avatar-hud-line);
+  color: inherit;
+  opacity: 0.85;
+}
+.window-sandbox__av-name {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.window-sandbox__layer {
+  margin-top: 0.55rem;
+}
+.window-sandbox__layer-name {
+  margin: 0 0 0.3rem;
+  font-size: 0.8rem;
+  color: #4ade80;
+}
+.window-sandbox__layer-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+.window-sandbox__layer-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+.window-sandbox__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+.window-sandbox__footer {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.45;
+  opacity: 0.65;
+  border-top: 1px solid var(--avatar-hud-line);
+  padding-top: 0.5rem;
+}

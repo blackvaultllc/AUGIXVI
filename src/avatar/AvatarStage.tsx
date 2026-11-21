@@ -12,6 +12,7 @@ import {
   ArrowUp,
   BookOpen,
   Box,
+  Bug,
   Camera,
   Expand,
   Eye,
@@ -69,6 +70,7 @@ import { CubePanel } from "./CubePanel";
 import { ArCubeWindow } from "./ArCubeWindow";
 import { PulseWindow } from "./PulseWindow";
 import { GateLogWindow } from "./GateLogWindow";
+import { SandboxWindow } from "./SandboxWindow";
 import { parseRoomCommand } from "./command/roomCommands";
 import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
@@ -250,6 +252,11 @@ export function AvatarStage({
   // order 2026-11-21 — "Honeypot city"). Opens from Tools → Rooms and
   // from "open gate log" / "honeypot".
   const [gateLogOpen, setGateLogOpen] = useState(false);
+  // SANDBOX WINDOW: the attack-simulation + antivirus-design bench —
+  // modeled attacks stepped stage by stage, each stage naming the
+  // countermeasure that hooks it (operator order 2026-11-21).
+  // Simulation only; opens from Tools → Rooms and "open sandbox".
+  const [sandboxOpen, setSandboxOpen] = useState(false);
   // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
@@ -608,6 +615,13 @@ export function AvatarStage({
       if (room === "gate-log") {
         setGateLogOpen(true);
         say("Gate log is open — every recorded knock on the gate, newest first.");
+        return;
+      }
+      if (room === "sandbox") {
+        setSandboxOpen(true);
+        say(
+          "Sandbox is open — pick an attack, step it stage by stage, and watch where the antivirus hooks it. Simulation only; nothing real runs there.",
+        );
         return;
       }
       if (room === "my-cube") {
@@ -1300,6 +1314,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Gate Log"
                     onClick={() => setGateLogOpen(true)}
                   />
+                  <CommandAction
+                    icon={Bug}
+                    label="Sandbox"
+                    onClick={() => setSandboxOpen(true)}
+                  />
                 </div>
               </CommandGroup>
               <CommandGroup label="Windows — I can open them too, I still decide">
@@ -1496,6 +1515,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {arCubeOpen && <ArCubeWindow onClose={() => setArCubeOpen(false)} />}
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
+      {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />
