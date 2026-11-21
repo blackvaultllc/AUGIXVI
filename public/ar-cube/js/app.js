@@ -17,6 +17,15 @@
 //    downloaded/instantiated, one at a time, so tracking stays light.
 // 4. The same page runs full-screen at /avatar/cube and small inside the
 //    avatar screen's AR Cube floating window (an iframe of this page).
+// 5. v2.1 ANCHORING FIX (same day, Domenick's live test): the Hell Wolf
+//    rendered standing on the table beside the cube. GLB seats are no
+//    longer computed from CPU bounding boxes — for these skinned exports
+//    they lie about where the model renders. Seats are MEASURED from the
+//    model's own rendered silhouette, clips are pinned in place and
+//    stand/idle loops preferred, ground slabs inside files are stripped,
+//    and four-legged figures stand in profile on the face — every model
+//    now takes over the cube like the primitives do. See the "GLB
+//    seating" section below for the full diagnosis.
 import * as THREE from 'three';
 import { MindARThree } from 'mindar-image-three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -188,7 +197,7 @@ const MODEL_CATALOG = [
     keywords: ['wolf', 'wolves', 'dire wolf', 'dire', 'warcraft'] },
   { key: 'hellwolf',  label: 'Hell Wolf', kind: 'glb', file: 'hell_wolf.glb',
     keywords: ['wolf', 'wolves', 'hell wolf', 'hell', 'dark wolf'] },
-  { key: 'character', label: 'Character', kind: 'glb', file: 'cyberpunk_character.glb',
+  { key: 'character', label: 'Character', kind: 'glb', file: 'cyberpunk_character.glb', turn: Math.PI,
     keywords: ['character', 'cyberpunk', 'person', 'figure', 'glasses'] },
   { key: 'brain',     label: 'Brain',     kind: 'glb', file: 'human-brain.glb',
     keywords: ['brain', 'mind', 'human brain'] },
@@ -234,27 +243,328 @@ function loadGlbPrototype(entry) {
   return glbPrototypes.get(entry.key);
 }
 
-// Wrap a cloned GLB scene so it stands on the cube face the same way the
-// primitives do: centered on the face, base near the face's lower edge,
-// biggest dimension ~0.85 of a face width, pushed out from the surface.
-function instantiateGlb(gltf) {
+// ---------------------------------------------------------------------------
+// GLB seating — MEASURED from the GPU, never from bounding-box APIs.
+//
+// Domenick's live test (2026-11-21): he picked the Hell Wolf, pointed the
+// camera at his cube, and the wolf rendered standing on the table BESIDE
+// the cube, huge — not on the cube at all. Diagnosis, proven against the
+// rendered pixels in a headless harness: for these Sketchfab/FBX exports
+// every CPU bounding box lies about where a skinned model really renders.
+// Box3.setFromObject reads the Hell Wolf as 2.28 units long standing at
+// +Y; the GPU renders it 228 units long hanging at -Y (a 100x unit factor
+// plus a reflection), the Dire Wolf's length comes back axis-swapped, the
+// animated Wolf's bounds are swallowed by the 5.5-unit ground plane in
+// its file, and the clips walk their root bones through space. Rigid
+// models (brain, skull, scanner) were always fine — their boxes are true.
+//
+// So a GLB's seat is computed from the only witness that cannot lie: its
+// own rendered silhouette, measured offscreen across its animation, with
+// the clip pinned in place first. What the silhouette says is where the
+// model goes — centered on the face, at cube scale, paws/base on the face.
+// ---------------------------------------------------------------------------
+
+// The clip a model wears on the cube: a standing/idle loop when the file
+// offers one (the Wolf's "04_Idle", the Dire Wolf's "Wolf_Stand"), else
+// its first clip (the Hell Wolf has only "Take 001").
+function pickGlbClip(gltf) {
+  const anims = gltf.animations || [];
+  if (!anims.length) return null;
+  return anims.find(a => /stand|idle/i.test(a.name || '')) || anims[0];
+}
+
+// A copy of the clip with the skeleton roots' position tracks removed.
+// FBX clips carry root motion — a run cycle would carry the figure clean
+// off the cube. With the root pinned, the legs/arms/head still animate,
+// but the figure stays where it was put: on the cube.
+function pinClipInPlace(clip, root) {
+  const rootBones = new Set();
+  root.traverse((o) => {
+    if (o.isSkinnedMesh && o.skeleton) {
+      for (const bone of o.skeleton.bones) {
+        let p = bone.parent, isRoot = true;
+        while (p) { if (p.isBone) { isRoot = false; break; } p = p.parent; }
+        if (isRoot) rootBones.add(bone.name);
+      }
+    }
+  });
+  if (!rootBones.size) return clip;
+  const kept = clip.tracks.filter((t) =>
+    !t.name.endsWith('.position') || !rootBones.has(t.name.slice(0, -9)));
+  if (kept.length === clip.tracks.length) return clip;
+  const pinned = clip.clone();
+  pinned.tracks = kept;
+  return pinned;
+}
+
+// A skinned figure sometimes ships standing on a big flat ground slab
+// (wolf_with_animations carries a 5.5 x 5.5 plane). The slab is scenery,
+// not the item. Identification: the candidate's own box is trustworthy
+// (rigid meshes' boxes are true), and it is judged against the figure's
+// MEASURED size passed in by the caller — flat (thinnest side <= 10% of
+// its longest) and huge (longest side at least 2x the figure's largest
+// dimension). Small props a figure legitimately carries never qualify.
+function findGroundPlanes(inner, figureMaxDim) {
+  const doomed = [];
+  inner.traverse((o) => {
+    if (!o.isMesh || o.isSkinnedMesh) return;
+    const s = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
+    const mx = Math.max(s.x, s.y, s.z);
+    const mn = Math.min(s.x, s.y, s.z);
+    if (mx >= 2 * figureMaxDim && mn <= 0.10 * mx) doomed.push(o);
+  });
+  return doomed;
+}
+
+function removeGroundPlanes(inner, figureMaxDim) {
+  for (const o of findGroundPlanes(inner, figureMaxDim)) {
+    if (o.parent) o.parent.remove(o);
+  }
+}
+
+let sharedMeasureRenderer = null;
+function getMeasureRenderer() {
+  if (!sharedMeasureRenderer) {
+    sharedMeasureRenderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+    sharedMeasureRenderer.setSize(256, 256);
+    sharedMeasureRenderer.setClearColor(0xff00ff, 1); // magenta: no model is magenta, so any model pixel differs
+  }
+  return sharedMeasureRenderer;
+}
+
+// Union of the model's rendered silhouettes in its own (gltf scene) space.
+// pose = null measures the bind pose; pose = { mixer, duration } steps the
+// playing clip. Two camera passes per pose set: front (+z) for x/y, and a
+// -90° Y-rotated pass for z/y. Each pass hunts for the model's scale, then
+// refits tight, expanding if the silhouette touches the frame edge.
+// Returns a Box3, or null when nothing renders at all.
+function measureRenderedBounds(inner, pose) {
+  let renderer;
+  try { renderer = getMeasureRenderer(); } catch (e) { return null; }
+  const W = 256, H = 256;
+  const scene = new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.2);
+  dl.position.set(0.5, 1, 2); scene.add(dl);
+  const probe = new THREE.Group();
+  probe.add(inner);
+  scene.add(probe);
+  const gl = renderer.getContext();
+  const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 4000);
+
+  const times = [-1]; // -1 = leave the pose exactly as it is (bind)
+  if (pose && pose.mixer && pose.duration > 0) {
+    times.length = 0;
+    for (let i = 0; i <= 10; i++) times.push(pose.duration * i / 10);
+  }
+
+  function silhouette() {
+    probe.visible = true;
+    renderer.render(scene, cam);
+    const a = new Uint8Array(W * H * 4);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, a);
+    probe.visible = false;
+    renderer.render(scene, cam);
+    const b = new Uint8Array(W * H * 4);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, b);
+    probe.visible = true;
+    let minx = 1e9, miny = 1e9, maxx = -1, maxy = -1, n = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 24) {
+        n++;
+        if (x < minx) minx = x; if (x > maxx) maxx = x;
+        if (y < miny) miny = y; if (y > maxy) maxy = y;
+      }
+    }
+    return n ? { minx, miny, maxx, maxy } : null;
+  }
+
+  // One view pass. viewZ=false: screen x = model x. viewZ=true (probe
+  // rotated -90° about Y): screen x = -model z. Returns { u: [min,max],
+  // y: [min, max] } in model space for that view's horizontal axis, or null.
+  function viewPass(viewZ) {
+    probe.rotation.y = viewZ ? -Math.PI / 2 : 0;
+    let center = { x: 0, y: 0 }, half = 512, sil = null;
+    // scale hunt at the first pose
+    for (let hunt = 0; hunt < 8; hunt++) {
+      if (times[0] >= 0 && pose) pose.mixer.setTime(times[0]);
+      cam.position.set(center.x, center.y, 2000);
+      cam.lookAt(center.x, center.y, 0);
+      cam.left = -half; cam.right = half; cam.top = half; cam.bottom = -half;
+      cam.updateProjectionMatrix();
+      sil = silhouette();
+      if (sil) break;
+      half /= 4;
+    }
+    if (!sil) { probe.rotation.y = 0; return null; }
+    const px2u = (px) => center.x - half + (px + 0.5) / W * 2 * half;
+    const py2u = (py) => center.y - half + (py + 0.5) / H * 2 * half;
+    // refit tight around the hunt result, then union every pose
+    center = { x: (px2u(sil.minx) + px2u(sil.maxx)) / 2, y: (py2u(sil.miny) + py2u(sil.maxy)) / 2 };
+    half = Math.max(px2u(sil.maxx) - px2u(sil.minx), py2u(sil.maxy) - py2u(sil.miny)) * 0.75 + 0.01;
+    let uMin = Infinity, uMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+    for (let round = 0; round < 4; round++) {
+      uMin = Infinity; uMax = -Infinity; yMin = Infinity; yMax = -Infinity;
+      let clipped = false;
+      for (const t of times) {
+        if (t >= 0 && pose) pose.mixer.setTime(t);
+        cam.position.set(center.x, center.y, 2000);
+        cam.lookAt(center.x, center.y, 0);
+        cam.left = -half; cam.right = half; cam.top = half; cam.bottom = -half;
+        cam.updateProjectionMatrix();
+        const s = silhouette();
+        if (!s) continue;
+        if (s.minx <= 1 || s.maxx >= W - 2 || s.miny <= 1 || s.maxy >= H - 2) clipped = true;
+        uMin = Math.min(uMin, px2u(s.minx)); uMax = Math.max(uMax, px2u(s.maxx));
+        yMin = Math.min(yMin, py2u(s.miny)); yMax = Math.max(yMax, py2u(s.maxy));
+      }
+      if (!clipped || !isFinite(uMin)) break;
+      center = { x: (uMin + uMax) / 2, y: (yMin + yMax) / 2 };
+      half *= 1.6;
+    }
+    probe.rotation.y = 0;
+    if (!isFinite(uMin)) return null;
+    if (viewZ) return { u: [-uMax, -uMin], y: [yMin, yMax] }; // screen x was -model z
+    return { u: [uMin, uMax], y: [yMin, yMax] };
+  }
+
+  const front = viewPass(false);
+  if (!front) { scene.remove(probe); return null; }
+  const depth = viewPass(true);
+  scene.remove(probe);
+  const box = new THREE.Box3(
+    new THREE.Vector3(front.u[0], front.y[0], depth ? depth.u[0] : -0.001),
+    new THREE.Vector3(front.u[1], front.y[1], depth ? depth.u[1] : 0.001));
+  if (depth) { // y seen from two views: keep the wider witness
+    box.min.y = Math.min(box.min.y, depth.y[0]);
+    box.max.y = Math.max(box.max.y, depth.y[1]);
+  }
+  return box;
+}
+
+// The 8 corners of a box run through a rotation, re-boxed.
+function rotatedBox(box, basis) {
+  const out = new THREE.Box3();
+  const v = new THREE.Vector3();
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+    v.set(x, y, z).applyMatrix4(basis);
+    out.expandByPoint(v);
+  }
+  return out;
+}
+
+// Compute a model's seat ONCE (from a throwaway probe clone) and cache it:
+// every anchor's clone then just re-applies the same numbers. The seat is
+// what makes the item TAKE OVER the cube face: centered on the face, sized
+// to the face, base/paws on the face. Upright figures and objects
+// (character, brain, skull, scanner) stand on the face like the primitives
+// do. Four-legged figures (the wolves: a skinned body whose height is not
+// its largest dimension) are turned side-on and stood on the face the same
+// way — paws on the face's base line, body in profile across the face.
+// Measure one fresh probe clone of the model (bind pose + the pinned clip
+// stepped through), optionally after `setup` adjusts the clone (hide or
+// remove meshes). Returns the probe and the union bounds (or null).
+function measureGlbBounds(gltf, setup) {
+  const probe = SkeletonUtils.clone(gltf.scene);
+  if (setup) setup(probe);
+  const bindBox = measureRenderedBounds(probe, null);
+  const clip = pickGlbClip(gltf);
+  let animBox = null;
+  if (clip) {
+    const pm = new THREE.AnimationMixer(probe);
+    pm.clipAction(pinClipInPlace(clip, probe)).play();
+    animBox = measureRenderedBounds(probe, { mixer: pm, duration: clip.duration });
+  }
+  let bounds = bindBox || animBox;
+  if (bindBox && animBox) bounds = bindBox.clone().union(animBox);
+  return { probe, bounds };
+}
+
+const glbSeatCache = new WeakMap(); // gltf -> seat
+function computeGlbSeat(gltf, turn) {
+  let { probe, bounds } = measureGlbBounds(gltf, null);
+  // Ground-slab pass: when a skinned figure shares its file with separate
+  // non-skinned meshes, measure the figure ALONE (rendered truth — the
+  // slab cannot poison it), drop any flat huge slab against that size,
+  // and re-measure what remains.
+  let anySkin = false;
+  const nonSkinned = [];
+  probe.traverse((o) => {
+    if (o.isSkinnedMesh) anySkin = true;
+    else if (o.isMesh) nonSkinned.push(o);
+  });
+  let stripFigureMax = null;
+  if (anySkin && nonSkinned.length) {
+    const fig = measureGlbBounds(gltf, (p) => {
+      p.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh) o.visible = false; });
+    });
+    if (fig.bounds) {
+      const fs = fig.bounds.getSize(new THREE.Vector3());
+      const figureMax = Math.max(fs.x, fs.y, fs.z);
+      if (findGroundPlanes(probe, figureMax).length) {
+        stripFigureMax = figureMax;
+        bounds = measureGlbBounds(gltf, (p) => removeGroundPlanes(p, figureMax)).bounds || bounds;
+      }
+    }
+  }
+  if (!bounds) bounds = new THREE.Box3().setFromObject(probe); // WebGL-less fallback: rigid-true boxes
+  const size = bounds.getSize(new THREE.Vector3());
+
+  if (anySkin && size.y < Math.max(size.x, size.z)) {
+    // PROFILE figure (the wolves): a four-legged body whose length is not
+    // its height. Turn it side-on and stand it on the face exactly like
+    // the primitives stand — paws on the face's base line, body in
+    // profile across the face, sized to fit the face both ways. (Laying
+    // its ground plane onto the face instead would show the camera its
+    // back, like a specimen pinned to a board — verified in the harness.)
+    let basis = null;
+    if (size.z > size.x) {
+      // length runs along model z: yaw 90° so it runs across the face (x)
+      basis = new THREE.Matrix4().makeBasis(
+        new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0));
+    }
+    const rb = basis ? rotatedBox(bounds, basis) : bounds;
+    const rs = rb.getSize(new THREE.Vector3());
+    const rc = rb.getCenter(new THREE.Vector3());
+    const s = Math.min(0.92 / (rs.x || 1), 0.85 / (rs.y || 1));
+    return {
+      basis, scale: s, holderZ: 0.30, stripFigureMax,
+      innerPos: new THREE.Vector3(-rc.x * s, -rb.min.y * s - 0.38, -rc.z * s),
+    };
+  }
+  // UPRIGHT: centered on the face, base at the face's lower edge, height
+  // ~0.85 of a face width, pushed out from the surface. A catalog entry
+  // may carry `turn` when its file faces away from the viewer (the
+  // Character's A-pose shows his back) — yaw him around to face out.
+  const basis = turn ? new THREE.Matrix4().makeRotationY(turn) : null;
+  const rb = basis ? rotatedBox(bounds, basis) : bounds;
+  const rc = rb.getCenter(new THREE.Vector3());
+  const s = 0.85 / (size.y || 1);
+  return {
+    basis, scale: s, holderZ: 0.30, stripFigureMax,
+    innerPos: new THREE.Vector3(-rc.x * s, -rb.min.y * s - 0.38, -rc.z * s),
+  };
+}
+
+function instantiateGlb(gltf, turn) {
   const inner = SkeletonUtils.clone(gltf.scene);
-  const bbox = new THREE.Box3().setFromObject(inner);
-  const size = bbox.getSize(new THREE.Vector3());
-  const center = bbox.getCenter(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z) || 1;
-  const scale = 0.85 / maxDim;
-  inner.scale.setScalar(scale);
-  inner.position.set(-center.x * scale, -bbox.min.y * scale - 0.38, -center.z * scale);
+  let seat = glbSeatCache.get(gltf);
+  if (!seat) { seat = computeGlbSeat(gltf, turn); glbSeatCache.set(gltf, seat); }
+  if (seat.stripFigureMax) removeGroundPlanes(inner, seat.stripFigureMax);
+  if (seat.basis) inner.quaternion.setFromRotationMatrix(seat.basis);
+  inner.scale.setScalar(seat.scale);
+  inner.position.copy(seat.innerPos);
   const g = new THREE.Group();
   const holder = new THREE.Group();
-  holder.position.z = 0.30;
+  holder.position.z = seat.holderZ;
   holder.add(inner);
   g.add(holder);
   let mixer = null;
-  if (gltf.animations && gltf.animations.length > 0) {
+  const clip = pickGlbClip(gltf);
+  if (clip) {
     mixer = new THREE.AnimationMixer(inner);
-    mixer.clipAction(gltf.animations[0]).play();
+    mixer.clipAction(pinClipInPlace(clip, inner)).play();
   }
   return { group: g, update(t, delta) { if (mixer) mixer.update(delta || 0); } };
 }
@@ -320,7 +630,7 @@ async function setModel(key) {
   try {
     const gltf = await loadGlbPrototype(entry);
     if (seq !== modelSeq) return; // a newer pick superseded this load
-    applyToAnchors(() => instantiateGlb(gltf));
+    applyToAnchors(() => instantiateGlb(gltf, entry.turn));
     appliedModel = key;
     setLoadNote(entry.label + ' ready.');
     refreshModelButtons();
