@@ -3,10 +3,10 @@
  * order 2026-11-21: "Augie should read heartbeats and frequencies in
  * the area — detect a human by their pulsation"). Three live reads:
  *
- *   PRESENCE + MOTION — the camera watches the room; a face detector
- *   (MediaPipe BlazeFace, the same tasks-vision stack sensors.ts uses
- *   for hands) says whether a person is in frame, and frame difference
- *   says how much is moving.
+ *   PRESENCE + MOTION — the camera watches the room; a face tracker
+ *   (MediaPipe FaceLandmarker, the same tasks-vision stack sensors.ts
+ *   uses for hands) says whether a person is in frame, and frame
+ *   difference says how much is moving.
  *
  *   HEART-RATE ESTIMATE (rPPG) — subtle color changes in the face
  *   region, POS method (see pulse.ts). Always labeled an estimate,
@@ -38,8 +38,16 @@ import {
   type RoiSample,
 } from "./pulse";
 
-export const FACE_DETECTOR_MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.task";
+/**
+ * FaceLandmarker model (Google's MediaPipe model bucket — the same
+ * host sensors.ts uses for the hand model). NOTE: the BlazeFace
+ * face_detector .task file that older MediaPipe docs point at no
+ * longer exists in that bucket (verified 2026-11-21: NoSuchKey), so
+ * presence runs on the landmarker: landmarks present = a face is in
+ * frame, and their extent gives the box the pulse ROI is cut from.
+ */
+export const FACE_LANDMARKER_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
 /** Below this mean ROI brightness (0..255) the room is too dark to read. */
 const TOO_DARK = 28;
@@ -54,28 +62,47 @@ type Detector = {
   detectForVideo: (
     video: HTMLVideoElement,
     timestamp: number,
-  ) => {
-    detections?: {
-      boundingBox?: { originX: number; originY: number; width: number; height: number };
-    }[];
-  };
+  ) => { faceLandmarks?: { x: number; y: number }[][] };
   close: () => void;
 };
 
 async function loadFaceDetector(): Promise<Detector> {
-  const { FilesetResolver, FaceDetector } = await import("@mediapipe/tasks-vision");
+  const { FilesetResolver, FaceLandmarker } = await import("@mediapipe/tasks-vision");
   const fileset = await FilesetResolver.forVisionTasks(DEFAULT_MEDIAPIPE_WASM_ROOT);
   const make = (delegate: "GPU" | "CPU") =>
-    FaceDetector.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: FACE_DETECTOR_MODEL_URL, delegate },
+    FaceLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate },
       runningMode: "VIDEO",
-      minDetectionConfidence: 0.5,
-    }) as Promise<Detector>;
+      numFaces: 1,
+    }) as unknown as Promise<Detector>;
   try {
     return await make("GPU");
   } catch {
     return await make("CPU");
   }
+}
+
+/** Face box in pixels from a landmark set's extent in the frame. */
+function landmarksBox(
+  landmarks: { x: number; y: number }[],
+  width: number,
+  height: number,
+): FaceBox | null {
+  if (!landmarks.length) return null;
+  let minX = 1;
+  let minY = 1;
+  let maxX = 0;
+  let maxY = 0;
+  for (const p of landmarks) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const w = (maxX - minX) * width;
+  const h = (maxY - minY) * height;
+  if (w < 12 || h < 12) return null;
+  return { x: minX * width, y: minY * height, w, h };
 }
 
 /** Forehead band of the face box — the ROI the pulse is read from. */
@@ -212,17 +239,11 @@ export function PulsePanel() {
       lastDetectRef.current = now;
       try {
         const res = detector.detectForVideo(video, now);
-        const det = res.detections?.[0];
-        if (det?.boundingBox) {
-          faceRef.current = {
-            box: {
-              x: det.boundingBox.originX,
-              y: det.boundingBox.originY,
-              w: det.boundingBox.width,
-              h: det.boundingBox.height,
-            },
-            at: now,
-          };
+        const box = res.faceLandmarks?.[0]
+          ? landmarksBox(res.faceLandmarks[0], video.videoWidth, video.videoHeight)
+          : null;
+        if (box) {
+          faceRef.current = { box, at: now };
         }
       } catch {
         // A failed frame is not a failed sense; the next tick retries.
@@ -329,7 +350,7 @@ export function PulsePanel() {
         setFreqState(dom ? "live" : "quiet");
       }
       if (!detectorRef.current) {
-        setReadout({ state: "unavailable", reason: "face detector unavailable" });
+        setReadout({ state: "unavailable", reason: "face tracker unavailable" });
       } else if (!present) {
         setReadout({ state: "unavailable", reason: "no face in view" });
         drawSparkline([]);
@@ -390,7 +411,7 @@ export function PulsePanel() {
         detectorRef.current = await loadFaceDetector();
       } catch {
         setDetectorError(
-          "The face detector could not be loaded (it is fetched from the MediaPipe CDN). Presence and pulse are unavailable until it loads — motion and frequency still work.",
+          "The face tracker could not be loaded (its model is fetched from Google's MediaPipe CDN). Presence and pulse are unavailable until it loads — motion and frequency still work.",
         );
       }
     }
