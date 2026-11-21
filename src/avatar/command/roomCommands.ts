@@ -27,7 +27,8 @@ export type RoomTarget =
   | "game"
   | "reply-history"
   | "my-cube"
-  | "pulse";
+  | "pulse"
+  | "gate-log";
 
 /** Lowercase, single-spaced, no leading slash, no trailing punctuation. */
 function normalizeRoomPhrase(text: string): string {
@@ -72,6 +73,11 @@ const PULSE_PATTERNS: readonly RegExp[] = [
   /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?pulse$/,
 ];
 
+const GATE_LOG_PATTERNS: readonly RegExp[] = [
+  /^(?:gate\s+log|honeypot)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:gate\s+log|honeypot)$/,
+];
+
 /**
  * Resolve a typed or spoken phrase to the room it opens, or null when it
  * is not a room phrase (the caller then continues its normal handling).
@@ -89,5 +95,6 @@ export function parseRoomCommand(text: string): RoomTarget | null {
   if (GAME_PATTERNS.some((p) => p.test(phrase))) return "game";
   if (REPLY_HISTORY_PATTERNS.some((p) => p.test(phrase))) return "reply-history";
   if (PULSE_PATTERNS.some((p) => p.test(phrase))) return "pulse";
+  if (GATE_LOG_PATTERNS.some((p) => p.test(phrase))) return "gate-log";
   return null;
 }

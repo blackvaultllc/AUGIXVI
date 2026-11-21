@@ -24,6 +24,7 @@ import {
   Presentation,
   Save,
   ScanSearch,
+  Shield,
   Shrink,
   Sparkles,
   Square,
@@ -67,6 +68,7 @@ import { attachOllamaAI, type OllamaAIOptions } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
 import { ArCubeWindow } from "./ArCubeWindow";
 import { PulseWindow } from "./PulseWindow";
+import { GateLogWindow } from "./GateLogWindow";
 import { parseRoomCommand } from "./command/roomCommands";
 import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
@@ -243,6 +245,11 @@ export function AvatarStage({
   // the room-frequency readout in a small floating box (operator order
   // 2026-11-21). Opens from Tools → Rooms and from "open pulse".
   const [pulseOpen, setPulseOpen] = useState(false);
+  // GATE LOG WINDOW: every recorded knock on the gate (trap-path
+  // probes), read server-side under the operator session (operator
+  // order 2026-11-21 — "Honeypot city"). Opens from Tools → Rooms and
+  // from "open gate log" / "honeypot".
+  const [gateLogOpen, setGateLogOpen] = useState(false);
   // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
@@ -596,6 +603,11 @@ export function AvatarStage({
         say(
           "Pulse is open — presence, a heart-rate estimate, and the room's frequencies, all read on this machine. Nothing is recorded.",
         );
+        return;
+      }
+      if (room === "gate-log") {
+        setGateLogOpen(true);
+        say("Gate log is open — every recorded knock on the gate, newest first.");
         return;
       }
       if (room === "my-cube") {
@@ -1283,6 +1295,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Pulse"
                     onClick={() => setPulseOpen(true)}
                   />
+                  <CommandAction
+                    icon={Shield}
+                    label="Gate Log"
+                    onClick={() => setGateLogOpen(true)}
+                  />
                 </div>
               </CommandGroup>
               <CommandGroup label="Windows — I can open them too, I still decide">
@@ -1478,6 +1495,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
       {arCubeOpen && <ArCubeWindow onClose={() => setArCubeOpen(false)} />}
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
+      {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />

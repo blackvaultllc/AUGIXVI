@@ -331,6 +331,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "open pulse",
   },
   {
+    command: "/gate log",
+    description:
+      "Open the Gate Log — every recorded knock on the gate (probe paths like /.env and /wp-admin), with time, source address, and user agent, newest first. Kept on this machine.",
+    category: "tools",
+    voice: true,
+    example: "open gate log",
+  },
+  {
     command: "/what do you see",
     description: "Describe what the camera sees right now.",
     category: "tools",

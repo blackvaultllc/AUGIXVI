@@ -97,6 +97,21 @@ describe("room routing — deterministic and terminal", () => {
   });
 
   it.each([
+    "gate log",
+    "open gate log",
+    "open the gate log",
+    "show gate log",
+    "show me the gate log",
+    "/gate log",
+    "honeypot",
+    "open honeypot",
+    "open the honeypot",
+    "Open gate log.",
+  ])("routes %j to the Gate Log window", (phrase) => {
+    expect(parseRoomCommand(phrase)).toBe("gate-log");
+  });
+
+  it.each([
     // The room analyzer is a different feature — not a room phrase.
     "analyze the room",
     "what do you see",
@@ -107,6 +122,10 @@ describe("room routing — deterministic and terminal", () => {
     "open the cube and fly",
     "check my pulse and tell me a story",
     "pulse is a good movie",
+    // Gate phrases that are not the Gate Log room.
+    "open the gate",
+    "the gate is open",
+    "open gate log and tell me a story",
     "pull up the cube and run a command",
     "open the cube please and thank you",
     // Ordinary chat must keep falling through to chat.

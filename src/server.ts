@@ -18,6 +18,27 @@ async function getServerEntry(): Promise<ServerEntry> {
   return serverEntryPromise;
 }
 
+type TrapHandler = {
+  handleTrapRequest: (request: Request) => Promise<Response | null>;
+};
+
+let trapHandlerPromise: Promise<TrapHandler | null> | undefined;
+
+/**
+ * GATE LOG / HONEYPOT (local server): requests for classic probe paths
+ * that are not routes here (/.env, /.git/config, /wp-admin, …) are
+ * answered with a bland 404 and recorded — IP, time, path, agent — in
+ * the operator's local gate log. Loaded lazily; where the local log
+ * store does not exist (the Cloudflare Worker build) the handler
+ * reports no trap and the request continues exactly as before.
+ */
+async function getTrapHandler(): Promise<TrapHandler | null> {
+  if (!trapHandlerPromise) {
+    trapHandlerPromise = import("./avatar/gateLogStore.server").catch(() => null);
+  }
+  return trapHandlerPromise;
+}
+
 // h3 swallows in-handler throws into a normal 500 Response with body
 // {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
 async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
@@ -50,6 +71,11 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const trapHandler = await getTrapHandler();
+      if (trapHandler) {
+        const trapResponse = await trapHandler.handleTrapRequest(request);
+        if (trapResponse) return trapResponse;
+      }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
