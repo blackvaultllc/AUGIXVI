@@ -55,6 +55,26 @@ describe("arm IK", () => {
     expect(speaking.target[2]).toBeGreaterThan(listening.target[2]);
   });
 
+  it("swings the rest target fore and aft with the walk gait, fading as he presents", () => {
+    // Owner fix 2026-11-21: the arms must MOVE when he walks. A
+    // positive swing pushes the hand target forward, negative pulls it
+    // back, and the presenting pose (pose = 1) overrides the swing.
+    const still = armPose(1, 0, 0, 0, 0, 0);
+    const forward = armPose(1, 0, 0, 0, 0, 0.3);
+    const back = armPose(1, 0, 0, 0, 0, -0.3);
+    expect(forward.target[2]).toBeGreaterThan(still.target[2]);
+    expect(back.target[2]).toBeLessThan(still.target[2]);
+    expect(forward.target[2] - back.target[2]).toBeCloseTo(0.66, 1);
+    const presenting = armPose(1, 1, 0, 0, 0, 0.3);
+    const presentingStill = armPose(1, 1, 0, 0, 0, 0);
+    expect(presenting.target[2]).toBeCloseTo(presentingStill.target[2]);
+    // And the swung targets stay reachable — no bone stretching.
+    for (const swung of [forward, back]) {
+      const result = solveArm(ARM.shoulder(1), swung.target, swung.pole);
+      expect(result.clamped).toBe(false);
+    }
+  });
+
   it("extends both flight arms forward and keeps the pose reachable", () => {
     for (const side of [-1, 1]) {
       const target = flightArmPose(side, 1.2, 0.4);

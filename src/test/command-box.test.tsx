@@ -123,3 +123,68 @@ describe("command box message echo", () => {
     expect(screen.getByText("Standing by.")).toBeInTheDocument();
   });
 });
+
+/**
+ * CONVERSATION THREAD (owner order 2026-11-21): "when I'm typing I like
+ * to look up the conversation." The reply-history store renders as an
+ * expandable thread pinned above the input in the box itself — his
+ * messages and Augie's replies in order — no trip to a separate window.
+ */
+describe("command box conversation thread", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  const history = [
+    { at: 1, question: "open the cube", answer: "The cube is open." },
+    { at: 2, question: "now fly", answer: "Flying." },
+  ];
+
+  function renderBoxWithHistory(withHistory: boolean) {
+    return render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+        history={withHistory ? history : undefined}
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+  }
+
+  it("keeps the thread collapsed until he opens it, then shows the exchange in order", () => {
+    renderBoxWithHistory(true);
+    const toggle = screen.getByRole("button", { name: /Conversation \(2\)/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("The cube is open.")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const first = screen.getByText("open the cube");
+    const firstReply = screen.getByText("The cube is open.");
+    const second = screen.getByText("now fly");
+    const secondReply = screen.getByText("Flying.");
+    // In order: his words before the reply, first exchange before second.
+    expect(first.compareDocumentPosition(firstReply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(firstReply.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(second.compareDocumentPosition(secondReply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByText("The cube is open.")).not.toBeInTheDocument();
+  });
+
+  it("offers no thread toggle when no history is wired in", () => {
+    renderBoxWithHistory(false);
+    expect(screen.queryByRole("button", { name: /Conversation/ })).not.toBeInTheDocument();
+  });
+});

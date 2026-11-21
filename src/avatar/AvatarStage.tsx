@@ -337,7 +337,11 @@ export function AvatarStage({
           break;
         case "come-back":
           renderer.comeBack();
-          renderer.faceOperator(); // COME BACK = FACE ME
+          // COME BACK = FACE ME — on ARRIVAL, by locomotion's rule.
+          // (Calling faceOperator() here cancelled the journey: its
+          // faceForward() cleared the returning flag mid-trip, so he
+          // froze off-mark while claiming to return. Defect 2026-11-21.)
+          renderer.alertAttention();
           say("Returning to my mark.");
           break;
         case "grow":
@@ -1183,6 +1187,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           responseLine={lastWords}
           responseSource={responseSource}
           userLine={lastUserMessage}
+          history={transcript}
         >
           {commandTab === "scene" && (
             <CommandGroup label="Avatar scale">

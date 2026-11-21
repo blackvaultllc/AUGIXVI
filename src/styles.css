@@ -1668,6 +1668,67 @@
   overflow-y: auto;
   font-size: 0.62rem;
 }
+.avatar-command-box__thread-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.4rem;
+  background: oklch(0.1 0.03 255 / 60%);
+  color: oklch(0.88 0.05 205 / 92%);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.66rem;
+  text-align: left;
+}
+.avatar-command-box__thread-toggle svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: none;
+}
+.avatar-command-box__thread-toggle svg:last-child {
+  margin-left: auto;
+}
+.avatar-command-box__thread {
+  max-height: 11.5rem;
+  overflow-y: auto;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.4rem;
+  background: oklch(0.08 0.02 255 / 55%);
+  font-size: 0.66rem;
+  line-height: 1.45;
+}
+.avatar-command-box__thread-entry {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--avatar-hud-line);
+}
+.avatar-command-box__thread-entry:last-child {
+  border-bottom: none;
+}
+.avatar-command-box__thread-entry p {
+  margin: 0.1rem 0;
+  overflow-wrap: anywhere;
+}
+.avatar-command-box__thread-q {
+  color: oklch(0.88 0.05 205 / 92%);
+}
+.avatar-command-box__thread-a {
+  color: oklch(0.8 0.04 150 / 88%);
+}
+.avatar-command-box__thread-who {
+  color: var(--avatar-hud-accent);
+  font-size: 0.54rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.avatar-command-box__thread-empty {
+  margin: 0;
+  color: oklch(0.75 0.04 205 / 75%);
+}
 .avatar-command-box__group h3 {
   margin: 0.35rem 0;
   color: var(--avatar-hud-accent);

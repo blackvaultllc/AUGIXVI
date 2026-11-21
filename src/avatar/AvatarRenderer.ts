@@ -10,6 +10,7 @@ import { filePoints, handPoints, limbPoints, makeProp } from "./props";
 import { getLegGaitAngle, getArmSwingAngle, wantsToDance } from "./particleLegs";
 import { ARM, armPose, flightArmPose, handDirection, solveArm, type V3 } from "./armIK";
 import { getThemePalette, type ThemeChoice } from "./themes";
+import { eyeBrightnessFor, eyeColorFor, smoothEyePulse } from "./eyes";
 import { SceneManager } from "./sceneManager";
 import type { MaterialKind } from "./worldCommands";
 import { AvatarLocomotion, type LocomotionMode } from "./locomotion";
@@ -128,6 +129,42 @@ const postShader = {
   }`,
 };
 
+/**
+ * EYE PLACEMENT (owner order 2026-11-21): two eyes on the head, where
+ * the single dot used to be. Tied to the bust profile in
+ * particleSource.ts — head center (0, 1.0), surface z ≈ 0.45 at this
+ * height — so the discs sit just proud of the face at (±0.175, 1.14).
+ */
+const EYE_X = 0.175;
+const EYE_Y = 1.14;
+const EYE_Z = 0.46;
+const EYE_RADIUS = 0.062;
+const EYE_POINTS_PER_EYE = 130;
+
+const eyeVert = /* glsl */ `
+attribute float aRand;
+uniform float uPixel, uGlow;
+varying float vRand;
+void main(){
+  vRand = aRand;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_PointSize = 2.1 * uPixel * (4.0 / -mv.z) * (0.7 + aRand * 0.6) * (0.85 + uGlow * 0.25);
+  gl_Position = projectionMatrix * mv;
+}`;
+
+const eyeFrag = /* glsl */ `
+uniform vec3 uColor; uniform float uGlow, uTime;
+varying float vRand;
+void main(){
+  vec2 c = gl_PointCoord - 0.5; float r = length(c); if (r > 0.5) discard;
+  float a = smoothstep(0.5, 0.0, r);
+  // A slow, shallow shimmer (±8% at ~0.4Hz) keeps the eyes alive at
+  // rest; the speech pulse itself is smoothed in eyes.ts — never a strobe.
+  float shimmer = 0.92 + 0.08 * sin(uTime * 2.3 + vRand * 6.28);
+  vec3 col = uColor * uGlow * shimmer;
+  gl_FragColor = vec4(col * a, a);
+}`;
+
 type V<T> = { value: T };
 type Uniforms = Record<
   | "uTime"
@@ -193,6 +230,12 @@ export class AvatarRenderer {
   private hands: THREE.Points[] = [];
   private arms: THREE.Points[] = [];
   private forearms: THREE.Points[] = [];
+  private eyes!: THREE.Points;
+  private eyeColor = new THREE.Color(0.35, 0.85, 1.0);
+  private eyeTmpColor = new THREE.Color();
+  private eyePulse = 0.85;
+  /** Forward pitch of the whole figure — Superman flight leans into travel. */
+  private pitch = 0;
   private file!: THREE.Points;
   private cape!: THREE.Points;
   private capeBasePositions = new Float32Array();
@@ -272,6 +315,8 @@ export class AvatarRenderer {
     this.applyTheme();
     this.character.add(new THREE.Points(this.geo, this.mat));
     this.character.add(this.cape);
+    this.eyes = this.createEyes();
+    this.character.add(this.eyes);
     for (const side of [-1, 1] as const) {
       const h = makeProp(handPoints(7000, side), 2.5);
       h.scale.setScalar(1.25);
@@ -353,6 +398,40 @@ export class AvatarRenderer {
     cape.visible = false;
     return cape;
   }
+  /** Two particle-disc eyes on the face — color/pulse driven in tick. */
+  private createEyes() {
+    const positions = new Float32Array(EYE_POINTS_PER_EYE * 2 * 3);
+    const rand = new Float32Array(EYE_POINTS_PER_EYE * 2);
+    let n = 0;
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < EYE_POINTS_PER_EYE; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = EYE_RADIUS * Math.sqrt(Math.random());
+        positions[n * 3] = side * EYE_X + Math.cos(angle) * radius;
+        positions[n * 3 + 1] = EYE_Y + Math.sin(angle) * radius;
+        positions[n * 3 + 2] = EYE_Z + (1 - (radius / EYE_RADIUS) ** 2) * 0.012;
+        rand[n] = Math.random();
+        n += 1;
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("aRand", new THREE.BufferAttribute(rand, 1));
+    const material = new THREE.ShaderMaterial({
+      vertexShader: eyeVert,
+      fragmentShader: eyeFrag,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uPixel: { value: this.renderer.getPixelRatio() },
+        uGlow: { value: this.eyePulse },
+        uTime: { value: 0 },
+        uColor: { value: this.eyeColor.clone() },
+      },
+    });
+    return new THREE.Points(geometry, material);
+  }
   private applyPropTheme() {
     const t = getThemePalette(this.settings.theme, this.settings.customColor);
     for (const h of [...this.hands, ...this.arms, ...this.forearms]) {
@@ -378,12 +457,27 @@ export class AvatarRenderer {
       (1 - Math.exp(-(presenting ? 1.6 : 4) * dt));
     const sp = this.bridge.state === "SPEAKING" ? this.bridge.speechLevel : 0;
     const p = this.pose;
+    // IN FORM, THE HUMANOID PROPS GO AWAY: the old wolf rendered as a
+    // blob with the bust's arm tubes and hands floating beside it —
+    // "crossed sticks" (owner defect 2026-11-21). A form is the shape
+    // alone; the arms/hands/file return when he does.
+    const inForm = this.activeTransform !== null;
+    for (const prop of [...this.hands, ...this.arms, ...this.forearms]) {
+      prop.visible = !inForm;
+    }
+    if (inForm) {
+      this.file.visible = false;
+      return;
+    }
     this.hands.forEach((h, i) => {
       const side = i === 0 ? -1 : 1;
+      // Cruise gets the Superman arms (raised, forward); a sky-hover
+      // keeps his arms relaxed at his sides; everything else uses the
+      // standard pose — with the walk swing fed in while he walks.
       const pose =
-        this.locomotion.currentMode === "fly"
+        this.locomotion.currentMode === "fly" && this.locomotion.isCruising
           ? flightArmPose(side, t, sp, i)
-          : armPose(side, p, t, sp, i);
+          : armPose(side, p, t, sp, i, this.armSwings[i] ?? 0);
       const shoulder = ARM.shoulder(side);
       const { elbow, wrist } = solveArm(shoulder, pose.target, pose.pole);
       const vector = (point: V3) => new THREE.Vector3(...point);
@@ -510,6 +604,22 @@ export class AvatarRenderer {
       1,
       this.p.glitch + (this.glitchBurst > 0 ? this.settings.glitch : 0),
     );
+    // EYES: color eases toward the state's color; brightness is the
+    // smoothed speech pulse from eyes.ts. Hidden while he is in a
+    // transform form — the shape carries its own face.
+    const eyeTarget = eyeColorFor(this.bridge.state);
+    this.eyeTmpColor.setRGB(eyeTarget.r, eyeTarget.g, eyeTarget.b);
+    this.eyeColor.lerp(this.eyeTmpColor, 1 - Math.exp(-6 * dt));
+    this.eyePulse = smoothEyePulse(
+      this.eyePulse,
+      eyeBrightnessFor(this.bridge.state, this.bridge.speechLevel, this.alertBoost),
+      dt,
+    );
+    const eyeUniforms = (this.eyes.material as THREE.ShaderMaterial).uniforms;
+    (eyeUniforms["uColor"]!.value as THREE.Color).copy(this.eyeColor);
+    eyeUniforms["uGlow"]!.value = this.eyePulse;
+    eyeUniforms["uTime"]!.value = t;
+    this.eyes.visible = !this.activeTransform;
     this.updateProps(dt, t);
     this.adapt(dt);
     this.geo.setDrawRange(0, this.drawCount);
@@ -523,12 +633,33 @@ export class AvatarRenderer {
     this.locomotion.tick(dt);
     const speaking = this.bridge.state === "SPEAKING" ? this.bridge.speechLevel : 0;
     const flying = this.locomotion.currentMode === "fly";
-    this.character.rotation.x += (0 - this.character.rotation.x) * (1 - Math.exp(-5 * dt));
-    const flightRoll = flying ? -Math.PI / 2 : 0;
+    const inForm = this.activeTransform !== null;
+    // FLIGHT POSTURE (owner order 2026-11-21 — "fly like Superman, not
+    // a pancake"): the old code rolled the figure -90° around Z, which
+    // laid him sideways in the screen plane and read as spinning when
+    // he turned. That roll is GONE. Flight now PITCHES him forward
+    // around X — head-first into travel, like Superman — and only at
+    // cruise; takeoff and the sky-hover idle keep him upright, cape
+    // hanging behind him.
+    const pitchTarget = !inForm && flying ? (this.locomotion.isCruising ? 0.92 : 0.12) : 0;
+    this.pitch += (pitchTarget - this.pitch) * (1 - Math.exp(-3.5 * dt));
+    this.character.rotation.x = this.pitch;
+    const walking = !inForm && this.locomotion.isWalking;
     this.character.rotation.z =
-      flightRoll + Math.sin(t * 1.2) * 0.012 + Math.sin(t * 3.2) * speaking * 0.025;
+      Math.sin(t * 1.2) * 0.012 +
+      Math.sin(t * 3.2) * speaking * 0.025 +
+      (walking ? Math.sin(t * 7) * 0.018 : 0); // loose hip sway on the gait
     this.character.position.x = Math.sin(t * 1.4) * 0.018 + Math.sin(t * 2.7) * speaking * 0.045;
-    this.cape.visible = flying;
+    // BODY BOB: a hover hangs and breathes; a walk bounces lightly on
+    // the stride — part of "loosen up", with the arm swing below.
+    if (!inForm && flying && this.locomotion.isHovering) {
+      this.character.position.y = Math.sin(t * 1.6) * 0.05;
+    } else if (walking) {
+      this.character.position.y = Math.abs(Math.sin(t * 7)) * 0.045;
+    } else {
+      this.character.position.y = 0;
+    }
+    this.cape.visible = flying && !inForm;
     const capePositions = this.cape.geometry.getAttribute("position") as THREE.BufferAttribute;
     for (let i = 0; i < this.capeBasePositions.length; i += 3) {
       const x = this.capeBasePositions[i]!;
@@ -550,11 +681,17 @@ export class AvatarRenderer {
       getLegGaitAngle(this.locomotion.isWalking, t, 0, speaking, dancing),
       getLegGaitAngle(this.locomotion.isWalking, t, 1, speaking, dancing),
     );
-    this.armSwing = getArmSwingAngle(this.locomotion.isWalking, t, 0, dancing);
+    // ARM SWING: computed here, consumed in updateProps. (This value
+    // used to be stored and never read — the arms hung frozen while he
+    // walked. Owner defect 2026-11-21: "his arms don't move.")
+    this.armSwings = [
+      getArmSwingAngle(this.locomotion.isWalking, t, 0, dancing),
+      getArmSwingAngle(this.locomotion.isWalking, t, 1, dancing),
+    ];
   }
   private danceUntil = -1;
   private danceChecked = false;
-  private armSwing = 0;
+  private armSwings: [number, number] = [0, 0];
   shrink() {
     this.locomotion.shrink();
   }
@@ -595,6 +732,17 @@ export class AvatarRenderer {
   /** Called on summons — snaps to face the operator immediately. */
   faceOperator() {
     this.locomotion.faceForward();
+    this.alertAttention();
+  }
+  /**
+   * Attention systems only — look, attractor, intensity — WITHOUT
+   * touching locomotion. COME BACK uses this: the old code called
+   * faceOperator() right after comeBack(), and faceForward() cancelled
+   * the return journey on the spot, so he froze wherever he stood
+   * while claiming to return (owner defect 2026-11-21). He still
+   * faces the operator — on arrival, by locomotion's own rule.
+   */
+  alertAttention() {
     this.inputs.look.set(0, 0);
     this.inputs.attract.set(0, 0.2, 1.5);
     this.inputs.attractK = 0.6;
@@ -640,7 +788,7 @@ export class AvatarRenderer {
     this.morphStart = position.array.slice() as Float32Array;
     this.morphProgress = 0;
     this.activeTransform = shape;
-    this.locomotion.fly();
+    this.locomotion.hover(); // rise and hang in place — a form does not tour the route
     this.cape.visible = false;
     return true;
   }
@@ -690,7 +838,7 @@ export class AvatarRenderer {
     this.geo.dispose();
     this.mat.dispose();
     this.sceneManager.dispose();
-    for (const o of [...this.hands, ...this.arms, ...this.forearms, this.file, this.cape]) {
+    for (const o of [...this.hands, ...this.arms, ...this.forearms, this.file, this.cape, this.eyes]) {
       o.geometry.dispose();
       (o.material as THREE.Material).dispose();
     }

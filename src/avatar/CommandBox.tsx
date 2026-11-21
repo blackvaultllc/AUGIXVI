@@ -11,8 +11,10 @@ import {
   Activity,
   BookOpen,
   ChevronDown,
+  ChevronUp,
   Eye,
   GripVertical,
+  MessagesSquare,
   Mic,
   MicOff,
   Minus,
@@ -21,6 +23,7 @@ import {
   Terminal,
   type LucideIcon,
 } from "lucide-react";
+import type { ReplyHistoryEntry } from "./replyHistory";
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
@@ -35,6 +38,23 @@ export type CommandTab = "scene" | "motion" | "tools" | "settings" | "commands";
 
 const BOX_POSITION_KEY = "augi.avatar.command-box.position.v1";
 const BOX_MINIMIZED_KEY = "augi.avatar.command-box.minimized.v1";
+const BOX_THREAD_KEY = "augi.avatar.command-box.thread.v1";
+
+function loadThreadOpen(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(BOX_THREAD_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveThreadOpen(open: boolean) {
+  try {
+    globalThis.localStorage?.setItem(BOX_THREAD_KEY, open ? "true" : "false");
+  } catch {
+    // best effort only
+  }
+}
 
 function loadBoxPosition(): { x: number; y: number } | null {
   try {
@@ -96,6 +116,7 @@ export function CommandBox({
   responseLine,
   responseSource,
   userLine,
+  history,
   onMinimizeShortcut,
 }: {
   accent: string;
@@ -117,6 +138,13 @@ export function CommandBox({
    * the box showed only Augie's reply and his messages vanished).
    */
   userLine?: string | undefined;
+  /**
+   * The full conversation (the reply-history store), shown as an
+   * expandable thread pinned directly above the input — the operator
+   * reads back over the exchange WHILE he types (owner order
+   * 2026-11-21) instead of opening the separate history window.
+   */
+  history?: ReplyHistoryEntry[] | undefined;
   /** Lets AvatarStage ("/minimize" etc.) collapse or restore the box. */
   onMinimizeShortcut?: (controls: { minimize: () => void; restore: () => void }) => void;
   /** Slash-driven minimization from inside the box's own commands. */
@@ -124,6 +152,8 @@ export function CommandBox({
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
   const [minimized, setMinimized] = useState(loadBoxMinimized);
+  const [threadOpen, setThreadOpen] = useState(loadThreadOpen);
+  const threadRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
@@ -192,6 +222,19 @@ export function CommandBox({
       return !current;
     });
   }, []);
+
+  const toggleThread = useCallback(() => {
+    setThreadOpen((current) => {
+      saveThreadOpen(!current);
+      return !current;
+    });
+  }, []);
+
+  // Keep the newest exchange in view while the thread is open.
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (threadOpen && thread) thread.scrollTop = thread.scrollHeight;
+  }, [threadOpen, history]);
 
   // Slash-menu state derived from the draft text.
   const menuOpen = !minimized && isSlashMenuActive(chat);
@@ -289,6 +332,61 @@ export function CommandBox({
           >
             {activeTab === "commands" ? <CommandsDocument highlighted={null} /> : children}
           </div>
+          {history !== undefined && (
+            <>
+              <button
+                type="button"
+                className="avatar-command-box__thread-toggle"
+                aria-expanded={threadOpen}
+                aria-controls="avatar-command-thread"
+                onClick={toggleThread}
+              >
+                <MessagesSquare aria-hidden="true" />
+                <span>
+                  Conversation{history.length > 0 ? ` (${history.length})` : ""}
+                </span>
+                {threadOpen ? (
+                  <ChevronUp aria-hidden="true" />
+                ) : (
+                  <ChevronDown aria-hidden="true" />
+                )}
+              </button>
+              {threadOpen && (
+                <div
+                  id="avatar-command-thread"
+                  className="avatar-command-box__thread"
+                  ref={threadRef}
+                  role="log"
+                  aria-label="Conversation so far"
+                >
+                  {history.length === 0 ? (
+                    <p className="avatar-command-box__thread-empty">
+                      Nothing yet — your messages and Augie&rsquo;s replies collect here, in
+                      order, so you can read back over the conversation while you type.
+                    </p>
+                  ) : (
+                    history.map((entry, index) => (
+                      <div
+                        className="avatar-command-box__thread-entry"
+                        key={`${entry.at}-${index}`}
+                      >
+                        {entry.question && (
+                          <p className="avatar-command-box__thread-q">
+                            <span className="avatar-command-box__thread-who">You:</span>{" "}
+                            {entry.question}
+                          </p>
+                        )}
+                        <p className="avatar-command-box__thread-a">
+                          <span className="avatar-command-box__thread-who">Augie:</span>{" "}
+                          {entry.answer}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </>
       )}
 

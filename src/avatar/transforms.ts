@@ -118,66 +118,112 @@ function fillEnterprise(positions: Float32Array, count: number) {
   }
 }
 
-/** Wolf: body, head with snout and ears, four legs, tail. */
+/**
+ * Wolf — must read as a wolf AT A GLANCE (owner order 2026-11-21: the
+ * old proportions rendered as crossed sticks and a blob once the bust's
+ * arm props were left floating beside it; the renderer now hides the
+ * humanoid props in form, and this shape carries the silhouette):
+ * a long quadruped body, a neck ruff, a big head with a tapered snout,
+ * two pointed ears, four legs ending in paws, and a tail that dips and
+ * sweeps up behind. Forward is +z, up is +y; nose at z ≈ +2.2, tail
+ * tip at z ≈ -2.1, ear tips at y ≈ +1.12, paws at y ≈ -1.3.
+ */
 function fillWolf(positions: Float32Array, count: number) {
-  const bodyEnd = Math.floor(count * 0.42);
-  const headEnd = bodyEnd + Math.floor(count * 0.14);
+  const bodyEnd = Math.floor(count * 0.38);
+  const headEnd = bodyEnd + Math.floor(count * 0.16);
   const earEnd = headEnd + Math.floor(count * 0.04);
-  const legEnd = earEnd + Math.floor(count * 0.28);
+  const legEnd = earEnd + Math.floor(count * 0.26);
+  const tailEnd = legEnd + Math.floor(count * 0.1);
   for (let i = 0; i < count; i++) {
     if (i < bodyEnd) {
-      // BODY: elongated ellipsoid along z.
+      // BODY: long ellipsoid along z, chest a touch deeper than hips.
       const tube = Math.random() * Math.PI * 2;
       const along = Math.random() * 2 - 1; // -1 rear .. 1 front
-      const taper = 0.55 + 0.45 * Math.cos(along * Math.PI * 0.5);
+      const taper = 0.62 + 0.38 * Math.cos(along * Math.PI * 0.45);
       const radius = Math.sqrt(Math.random()) * taper;
       set(
         positions,
         i,
-        Math.cos(tube) * radius * 0.62,
-        -0.1 + Math.sin(tube) * radius * 0.55,
-        along * 1.15 + jitter(0.04),
+        Math.cos(tube) * radius * 0.58,
+        -0.05 + Math.sin(tube) * radius * 0.6,
+        along * 1.25 + jitter(0.04),
       );
     } else if (i < headEnd) {
-      // HEAD: sphere + snout pointing forward (+z).
-      const tube = Math.random() * Math.PI * 2;
-      const radius = Math.sqrt(Math.random());
-      if (radius < 0.62) {
-        const r = radius / 0.62;
+      // HEAD: a real skull sphere, then a tapered snout to the nose.
+      if (Math.random() < 0.55) {
+        // SKULL: sphere centered (0, 0.42, 1.5), radius 0.4.
+        const tube = Math.random() * Math.PI * 2;
+        const pitch = Math.asin(Math.random() * 2 - 1);
+        const radius = 0.4 * Math.cbrt(Math.random());
         set(
           positions,
           i,
-          Math.cos(tube) * r * 0.34,
-          0.52 + Math.sin(tube) * r * 0.3,
-          1.25 + Math.cos(tube * 1.7) * r * 0.05,
+          Math.cos(pitch) * Math.cos(tube) * radius,
+          0.42 + Math.sin(pitch) * radius,
+          1.5 + Math.cos(pitch) * Math.sin(tube) * radius,
         );
       } else {
-        const r = (radius - 0.62) / 0.38;
+        // SNOUT: tapering from the skull to a nose tip at z ≈ 2.2,
+        // centerline dropping slightly as it goes (0.36 → 0.3).
+        const along = Math.random(); // 0 skull .. 1 nose
+        const tube = Math.random() * Math.PI * 2;
+        const radius = Math.sqrt(Math.random()) * (0.21 - along * 0.1);
         set(
           positions,
           i,
-          Math.cos(tube) * r * 0.16,
-          0.44 + Math.sin(tube) * r * 0.12,
-          1.42 + r * 0.42,
+          Math.cos(tube) * radius,
+          0.36 - along * 0.06 + Math.sin(tube) * radius * 0.8,
+          1.74 + along * 0.46,
         );
       }
     } else if (i < earEnd) {
-      // EARS: two pointed cones on top of the head.
+      // EARS: two pointed cones on top of the skull, tips at y ≈ 1.12.
       const side = i % 2 === 0 ? -1 : 1;
-      const t = Math.random();
-      set(positions, i, side * (0.2 + t * 0.1) + jitter(0.02), 0.78 + t * 0.34, 1.22 - t * 0.1);
+      const t = Math.random(); // 0 base .. 1 tip
+      const spread = (1 - t) * 0.07;
+      set(
+        positions,
+        i,
+        side * (0.21 + t * 0.05) + jitter(spread),
+        0.72 + t * 0.4,
+        1.44 - t * 0.06 + jitter(spread),
+      );
     } else if (i < legEnd) {
-      // LEGS: four columns.
+      // LEGS: four columns — front pair under the chest (z ≈ 0.78),
+      // rear pair under the hips (z ≈ -0.82) — each ending in a paw
+      // that juts slightly forward at the ground.
       const legIndex = i % 4;
-      const lx = legIndex < 2 ? -0.38 : 0.38;
-      const lz = legIndex % 2 === 0 ? 0.72 : -0.72;
-      const t = Math.random();
-      set(positions, i, lx + jitter(0.05), -0.35 - t * 0.85, lz + jitter(0.05));
+      const lx = legIndex < 2 ? -0.36 : 0.36;
+      const lz = legIndex % 2 === 0 ? 0.78 : -0.82;
+      if (Math.random() < 0.12) {
+        // PAW: a small forward foot at ground level.
+        set(positions, i, lx + jitter(0.05), -1.28 + jitter(0.03), lz + 0.07 + jitter(0.06));
+      } else {
+        const t = Math.random();
+        set(positions, i, lx + jitter(0.05), -0.3 - t * 0.95, lz + jitter(0.05));
+      }
+    } else if (i < tailEnd) {
+      // TAIL: leaves the rear high, dips, and sweeps up at the tip.
+      const t = Math.random(); // 0 root .. 1 tip
+      set(
+        positions,
+        i,
+        Math.sin(t * 2.2) * 0.08 + jitter(0.045),
+        0.05 - Math.sin(t * Math.PI) * 0.25 + t * 0.35,
+        -1.25 - t * 0.85,
+      );
     } else {
-      // TAIL: sweeping curve behind.
-      const t = Math.random();
-      const sway = Math.sin(t * Math.PI) * 0.3;
-      set(positions, i, sway + jitter(0.04), -0.05 + t * 0.45, -1.2 - t * 0.75);
+      // MANE / RUFF: a thick band around the neck where head meets
+      // body — the silhouette cue that separates head from torso.
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 0.5 * (0.88 + Math.random() * 0.24);
+      set(
+        positions,
+        i,
+        Math.cos(angle) * radius,
+        0.22 + Math.sin(angle) * radius * 0.92,
+        1.08 + Math.random() * 0.2,
+      );
     }
   }
 }

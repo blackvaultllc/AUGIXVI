@@ -59,17 +59,30 @@ export function solveArm(
 
 export type ArmPose = { target: V3; pole: V3; palm: V3; curl: number };
 
-export function armPose(side: number, pose: number, t: number, speech: number, phase = 0): ArmPose {
+export function armPose(
+  side: number,
+  pose: number,
+  t: number,
+  speech: number,
+  phase = 0,
+  swing = 0,
+): ArmPose {
   const bob = Math.sin(t * 1.3 + phase) * 0.025;
   // WHEN HE TALKS, HE MOVES HIS HANDS: expressive two-hand gesturing driven
   // by the speech level — raised, animated, alternating emphasis beats.
   const beat = Math.sin(t * 5.2 + phase * 1.7) * 0.5 + Math.sin(t * 2.3) * 0.5;
   const gesture =
     speech * (0.55 + 0.3 * beat) + (pose > 0.5 ? 0.2 * (0.5 + 0.5 * Math.sin(t * 1.7 + phase)) : 0);
+  // WALK SWING (owner fix 2026-11-21 — "his arms don't move when he
+  // walks"): the rest target swings fore/aft with the gait, opposite
+  // the same-side leg (the renderer feeds getArmSwingAngle, whose phase
+  // is already opposed to the legs — the same pattern the VoiceWave
+  // deck's walker uses). It is applied to REST only, so the lerp to
+  // the presenting pose naturally fades it out when he gestures.
   const rest: V3 = [
     side * (1.1 - gesture * 0.5),
-    -1.3 + bob + gesture * (1.05 + 0.25 * Math.sin(t * 4.6 + phase)),
-    0.35 + gesture * 0.55,
+    -1.3 + bob + gesture * (1.05 + 0.25 * Math.sin(t * 4.6 + phase)) + Math.abs(swing) * 0.12,
+    0.35 + gesture * 0.55 + swing * 1.1,
   ];
   const present: V3 = [side * 0.46, -0.52 + bob + gesture * 0.3, 1.45];
   return {

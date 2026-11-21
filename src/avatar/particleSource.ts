@@ -64,14 +64,17 @@ export const proceduralBust: ParticleSource = (count) => {
       x = Math.cos(a) * p[0];
       z = Math.sin(a) * p[1];
     } else {
+      // CORE: the glowing heart in his chest. There is deliberately no
+      // cluster on the face anymore — the old single dot that sat there
+      // was replaced by two real eyes (owner order 2026-11-21), which
+      // the renderer draws as their own particle system (eyes.ts).
       k = 2;
       const r = Math.abs(gauss()) * 0.2;
       const t = Math.random() * Math.PI * 2,
         ph = Math.acos(Math.random() * 2 - 1);
-      const chest = Math.random() < 0.15;
       x = r * Math.sin(ph) * Math.cos(t) * 1.5;
-      y = (chest ? -0.6 : 1.0) + r * Math.cos(ph) * 1.2;
-      z = (chest ? 0.28 : 0.5) + Math.abs(r * Math.sin(ph) * Math.sin(t)) * 0.3;
+      y = -0.6 + r * Math.cos(ph) * 1.2;
+      z = 0.28 + Math.abs(r * Math.sin(ph) * Math.sin(t)) * 0.3;
     }
     pos[i * 3] = x;
     pos[i * 3 + 1] = y;

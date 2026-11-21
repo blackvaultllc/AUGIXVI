@@ -15,6 +15,35 @@ const DEFAULT_WALK_ROUTE = [
   { x: 0, z: 0 },
 ] as const;
 
+/**
+ * THE MARK (owner order): where he stands at load — origin, full size,
+ * facing the operator. "Come back" must land him here WHOLE and IN FRAME
+ * (defect 2026-11-21: he stopped halfway off-screen while the box claimed
+ * he was "Returning to my mark" — the stage cancelled the return by
+ * snapping him to face-forward mid-journey, and flight dropped out of
+ * the sky instantly instead of gliding home).
+ */
+export const MARK = { x: 0, z: 0 } as const;
+/** Cruise altitude for flight, in root units above the ground line. */
+export const FLY_ALTITUDE = 2.3;
+/** Horizontal tolerance for "he is standing on the mark". */
+export const MARK_TOLERANCE = 0.08;
+/** Altitude tolerance for "he has landed". */
+export const LAND_TOLERANCE = 0.05;
+
+/**
+ * Return-to-mark arrival test — pure math, unit-tested. He counts as
+ * home only when he is over the mark AND down: a return that ends while
+ * he is still in the air, or off to one side, is not a return.
+ */
+export function hasArrivedAtMark(x: number, z: number, altitude: number): boolean {
+  return (
+    Math.abs(x - MARK.x) <= MARK_TOLERANCE &&
+    Math.abs(z - MARK.z) <= MARK_TOLERANCE &&
+    altitude <= LAND_TOLERANCE
+  );
+}
+
 export type LocomotionMode = "idle" | "walk" | "run" | "fly" | "jump";
 export type LocomotionPoint = Readonly<{ x: number; z: number }>;
 
@@ -27,6 +56,10 @@ export class AvatarLocomotion {
   private waypointIndex = 0;
   private jumpElapsed = 0;
   private loopRoute = true;
+  /** Current height above the ground line — eased, never snapped. */
+  private altitude = 0;
+  /** Fly-and-hold: rise and hang in place (transforms, sky-hover idle). */
+  private holdPosition = false;
   /** Arrived-at-mark face-the-operator flag: yaw returns to camera-forward (+z). */
   private faceCamera = false;
   private waypoints: THREE.Vector3[] = DEFAULT_WALK_ROUTE.map(
@@ -43,12 +76,39 @@ export class AvatarLocomotion {
     return this.speed;
   }
 
+  /** Height above the ground line (0 = standing on it). */
+  get currentAltitude() {
+    return this.altitude;
+  }
+
   get isWalking() {
     return this.mode === "walk" || this.mode === "run";
   }
 
   get isMoving() {
     return this.mode === "walk" || this.mode === "run" || this.mode === "fly";
+  }
+
+  get isFlying() {
+    return this.mode === "fly";
+  }
+
+  /**
+   * Cruising = airborne, up at altitude, and travelling — the only state
+   * where the renderer pitches him forward Superman-style. Takeoff and
+   * hover keep him upright.
+   */
+  get isCruising() {
+    return this.mode === "fly" && !this.holdPosition && this.altitude > FLY_ALTITUDE * 0.9;
+  }
+
+  /** Hanging in the sky, upright: takeoff, hold-position, or a return glide. */
+  get isHovering() {
+    return this.mode === "fly" && !this.isCruising;
+  }
+
+  get isReturning() {
+    return this.returning;
   }
 
   get isLookingAround() {
@@ -65,6 +125,7 @@ export class AvatarLocomotion {
     this.mode = mode;
     this.returning = false;
     this.looking = false;
+    this.holdPosition = false;
     if (mode === "walk" || mode === "run") {
       this.scaleTarget = COMPACT_SCALE;
     }
@@ -86,6 +147,7 @@ export class AvatarLocomotion {
     this.mode = "idle";
     this.returning = false;
     this.looking = false;
+    this.holdPosition = false;
     this.jumpElapsed = 0;
     this.scaleTarget = 1;
   }
@@ -102,6 +164,12 @@ export class AvatarLocomotion {
     this.setMode("fly");
   }
 
+  /** Rise and hang in place — upright sky-hover (transforms use this). */
+  hover() {
+    this.setMode("fly");
+    this.holdPosition = true;
+  }
+
   jump() {
     this.setMode("jump");
   }
@@ -109,6 +177,7 @@ export class AvatarLocomotion {
   idle() {
     this.mode = "idle";
     this.returning = false;
+    this.holdPosition = false;
     this.jumpElapsed = 0;
   }
 
@@ -126,9 +195,12 @@ export class AvatarLocomotion {
   }
 
   comeBack() {
-    this.mode = "walk";
+    // From the ground he walks home; from the air he glides home and
+    // lands. Either way the journey actually happens — nothing snaps.
+    if (this.mode !== "fly") this.mode = "walk";
     this.returning = true;
     this.looking = false;
+    this.holdPosition = false;
     this.faceCamera = true; // when he arrives, he faces ME
   }
 
@@ -142,6 +214,7 @@ export class AvatarLocomotion {
     this.faceCamera = false;
     this.returning = false;
     this.looking = false;
+    this.holdPosition = false;
     this.mode = "idle";
     this.root.rotation.y = 0; // 0 yaw = facing the camera
   }
@@ -153,45 +226,62 @@ export class AvatarLocomotion {
       1 - Math.exp(-5 * delta),
     );
 
+    // ALTITUDE: eased toward its target every frame, in every mode, so
+    // takeoff climbs, landings settle, and a come-back from the air
+    // glides down instead of dropping out of the sky. A flying return
+    // holds cruise height until the final approach over the mark, then
+    // descends — he never stalls mid-air crawling toward home.
+    let altitudeTarget = 0;
+    if (this.mode === "fly") {
+      if (this.returning) {
+        const dx = this.root.position.x - MARK.x;
+        const dz = this.root.position.z - MARK.z;
+        altitudeTarget = Math.hypot(dx, dz) > 1 ? FLY_ALTITUDE : 0;
+      } else {
+        altitudeTarget = FLY_ALTITUDE;
+      }
+    }
+    this.altitude += (altitudeTarget - this.altitude) * (1 - Math.exp(-2 * delta));
+
     const groundY = FOOT_Y * (1 - this.root.scale.y);
-    let verticalOffset = this.mode === "fly" ? 1.6 : 0;
+    let jumpOffset = 0;
     if (this.mode === "jump") {
       this.jumpElapsed = Math.min(JUMP_SECONDS, this.jumpElapsed + delta);
       const progress = this.jumpElapsed / JUMP_SECONDS;
-      verticalOffset = 4 * JUMP_HEIGHT * progress * (1 - progress);
+      jumpOffset = 4 * JUMP_HEIGHT * progress * (1 - progress);
       if (progress >= 1) {
         this.mode = "idle";
         this.jumpElapsed = 0;
-        verticalOffset = 0;
+        jumpOffset = 0;
       }
     }
-    this.root.position.y = groundY + verticalOffset;
+    this.root.position.y = groundY + this.altitude + jumpOffset;
 
     if (!this.isMoving && !this.returning) return;
 
-    const target = this.returning
-      ? new THREE.Vector3(0, this.root.position.y, 0)
-      : this.waypoints[this.waypointIndex]!.clone().setY(this.root.position.y);
+    // TAKEOFF BEFORE TRAVEL: horizontal flight speed scales with how
+    // high he has climbed, so "fly" reads as rise-first, then go.
+    const travelScale =
+      this.mode === "fly" ? THREE.MathUtils.clamp(this.altitude / FLY_ALTITUDE, 0, 1) : 1;
+
+    if (this.returning) {
+      this.tickReturn(delta, travelScale);
+      return;
+    }
+
+    if (this.mode === "fly" && this.holdPosition) return; // hover: hang here
+
+    const target = this.waypoints[this.waypointIndex]!.clone().setY(this.root.position.y);
     const direction = target.clone().sub(this.root.position);
     const distance = direction.length();
     if (distance < 0.08) {
       this.root.position.copy(target);
-      if (this.returning) {
-        this.returning = false;
-        this.mode = "idle";
-        this.scaleTarget = 1;
-        // COME BACK = FACE ME: settle yaw toward the camera (+z) immediately.
-        const targetYaw = this.faceCamera ? 0 : this.root.rotation.y;
-        this.faceCamera = false;
-        this.root.rotation.y = targetYaw;
+      if (this.loopRoute) {
+        this.waypointIndex = (this.waypointIndex + 1) % this.waypoints.length;
+      } else if (this.waypointIndex + 1 < this.waypoints.length) {
+        this.waypointIndex += 1;
       } else {
-        if (this.loopRoute) {
-          this.waypointIndex = (this.waypointIndex + 1) % this.waypoints.length;
-        } else if (this.waypointIndex + 1 < this.waypoints.length) {
-          this.waypointIndex += 1;
-        } else {
-          this.mode = "idle";
-        }
+        this.mode = "idle";
       }
       return;
     }
@@ -200,8 +290,48 @@ export class AvatarLocomotion {
     const modeSpeed = this.mode === "run" ? 2.4 : this.mode === "fly" ? 1.8 : 1.15;
     this.root.position.addScaledVector(
       direction,
-      Math.min(distance, delta * modeSpeed * this.speed),
+      Math.min(distance, delta * modeSpeed * this.speed * travelScale),
     );
+    this.turnToward(direction, delta);
+  }
+
+  /** Glide/walk home to the mark; arrive whole, full size, facing me. */
+  private tickReturn(delta: number, travelScale: number) {
+    const target = new THREE.Vector3(MARK.x, this.root.position.y, MARK.z);
+    const direction = target.clone().sub(this.root.position);
+    direction.y = 0;
+    const distance = direction.length();
+
+    if (distance > MARK_TOLERANCE) {
+      direction.normalize();
+      const modeSpeed = this.mode === "fly" ? 1.8 : this.mode === "run" ? 2.4 : 1.15;
+      // A return glide never crawls: keep at least gliding speed even
+      // while the altitude settles on final approach.
+      const glideScale = this.mode === "fly" ? Math.max(travelScale, 0.45) : 1;
+      this.root.position.addScaledVector(
+        direction,
+        Math.min(distance, delta * modeSpeed * this.speed * glideScale),
+      );
+      this.turnToward(direction, delta);
+    } else {
+      // Over the mark: hold position while the altitude settles.
+      this.root.position.x = MARK.x;
+      this.root.position.z = MARK.z;
+    }
+
+    if (hasArrivedAtMark(this.root.position.x, this.root.position.z, this.altitude)) {
+      this.root.position.x = MARK.x;
+      this.root.position.z = MARK.z;
+      this.returning = false;
+      this.mode = "idle";
+      this.scaleTarget = 1;
+      // COME BACK = FACE ME: settle yaw toward the camera (+z) on arrival.
+      if (this.faceCamera) this.root.rotation.y = 0;
+      this.faceCamera = false;
+    }
+  }
+
+  private turnToward(direction: THREE.Vector3, delta: number) {
     const desiredYaw = Math.atan2(direction.x, direction.z);
     const yawDelta =
       THREE.MathUtils.euclideanModulo(desiredYaw - this.root.rotation.y + Math.PI, Math.PI * 2) -
