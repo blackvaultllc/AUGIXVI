@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   BookOpen,
+  CarFront,
   Flower2,
   Gamepad2,
   Heart,
@@ -8,6 +9,7 @@ import {
   LogOut,
   Pencil,
   Shapes,
+  Shield,
   Star,
   Sun,
   Trash2,
@@ -292,12 +294,27 @@ function LearnCabinet() {
   const [starter, setStarter] = useState<Starter>(STARTERS[0]!);
   return (
     <div className="learner-learn">
-      <a className="learner-play" href="/learner/game">
-        <Gamepad2 aria-hidden="true" />
-        <span>
-          Play <strong>Legend of Logic</strong>
-        </span>
-      </a>
+      <div className="learner-play-row">
+        <a className="learner-play" href="/learner/game">
+          <Gamepad2 aria-hidden="true" />
+          <span>
+            Play <strong>Legend of Logic</strong>
+          </span>
+        </a>
+        <a className="learner-play learner-play--defense" href="/avatar/world">
+          <Shield aria-hidden="true" />
+          <span>
+            Play <strong>Cyber Defense — World of Logic</strong>
+          </span>
+        </a>
+        <a className="learner-play learner-play--racing" href="/learner/racing">
+          <CarFront aria-hidden="true" />
+          <span>
+            Play <strong>Multiplication Racing</strong>
+          </span>
+          <span className="learner-test-badge">TEST</span>
+        </a>
+      </div>
       <h2>Diagrams and Examples</h2>
       <p className="learner-note">Starter diagrams — more are coming.</p>
       <div className="learner-viewer">

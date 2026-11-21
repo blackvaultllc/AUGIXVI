@@ -18,6 +18,7 @@ import { Route as AvatarCubeRouteImport } from './routes/avatar_.cube'
 import { Route as AvatarGameRouteImport } from './routes/avatar_.game'
 import { Route as AvatarWorldRouteImport } from './routes/avatar_.world'
 import { Route as LearnerGameRouteImport } from './routes/learner_.game'
+import { Route as LearnerRacingRouteImport } from './routes/learner_.racing'
 import { Route as ApiLibraryArticleRouteImport } from './routes/api.library.article'
 import { Route as ApiLibraryCatalogRouteImport } from './routes/api.library.catalog'
 import { Route as ApiLibrarySearchRouteImport } from './routes/api.library.search'
@@ -71,6 +72,11 @@ const AvatarWorldRoute = AvatarWorldRouteImport.update({
 const LearnerGameRoute = LearnerGameRouteImport.update({
   id: '/learner_/game',
   path: '/learner/game',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnerRacingRoute = LearnerRacingRouteImport.update({
+  id: '/learner_/racing',
+  path: '/learner/racing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLibraryArticleRoute = ApiLibraryArticleRouteImport.update({
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/avatar/game': typeof AvatarGameRoute
   '/avatar/world': typeof AvatarWorldRoute
   '/learner/game': typeof LearnerGameRoute
+  '/learner/racing': typeof LearnerRacingRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByTo {
   '/avatar/game': typeof AvatarGameRoute
   '/avatar/world': typeof AvatarWorldRoute
   '/learner/game': typeof LearnerGameRoute
+  '/learner/racing': typeof LearnerRacingRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -170,6 +178,7 @@ export interface FileRoutesById {
   '/avatar_/game': typeof AvatarGameRoute
   '/avatar_/world': typeof AvatarWorldRoute
   '/learner_/game': typeof LearnerGameRoute
+  '/learner_/racing': typeof LearnerRacingRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -192,6 +201,7 @@ export interface FileRouteTypes {
     | '/avatar/game'
     | '/avatar/world'
     | '/learner/game'
+    | '/learner/racing'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/avatar/game'
     | '/avatar/world'
     | '/learner/game'
+    | '/learner/racing'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
     | '/avatar_/game'
     | '/avatar_/world'
     | '/learner_/game'
+    | '/learner_/racing'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -253,6 +265,7 @@ export interface RootRouteChildren {
   AvatarGameRoute: typeof AvatarGameRoute
   AvatarWorldRoute: typeof AvatarWorldRoute
   LearnerGameRoute: typeof LearnerGameRoute
+  LearnerRacingRoute: typeof LearnerRacingRoute
   ApiLibraryArticleRoute: typeof ApiLibraryArticleRoute
   ApiLibraryCatalogRoute: typeof ApiLibraryCatalogRoute
   ApiLibrarySearchRoute: typeof ApiLibrarySearchRoute
@@ -327,6 +340,13 @@ declare module '@tanstack/react-router' {
       path: '/learner/game'
       fullPath: '/learner/game'
       preLoaderRoute: typeof LearnerGameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learner_/racing': {
+      id: '/learner_/racing'
+      path: '/learner/racing'
+      fullPath: '/learner/racing'
+      preLoaderRoute: typeof LearnerRacingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/library/article': {
@@ -405,6 +425,7 @@ const rootRouteChildren: RootRouteChildren = {
   AvatarGameRoute: AvatarGameRoute,
   AvatarWorldRoute: AvatarWorldRoute,
   LearnerGameRoute: LearnerGameRoute,
+  LearnerRacingRoute: LearnerRacingRoute,
   ApiLibraryArticleRoute: ApiLibraryArticleRoute,
   ApiLibraryCatalogRoute: ApiLibraryCatalogRoute,
   ApiLibrarySearchRoute: ApiLibrarySearchRoute,
