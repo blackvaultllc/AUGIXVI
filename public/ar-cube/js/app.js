@@ -26,6 +26,20 @@
 //    and four-legged figures stand in profile on the face — every model
 //    now takes over the cube like the primitives do. See the "GLB
 //    seating" section below for the full diagnosis.
+// 6. v2.2 TAKEOVER FIX (same day, Domenick's second live test): the seat
+//    was right but the printed cube still showed around the model — he
+//    wants the cube GONE: "the animation should be taking over the cube
+//    ... or it should be inside the cube so that way they can be looking
+//    at it in a 3D aspect — it needs to be augmented reality." So each
+//    anchor now carries an OCCLUSION SHELL: a virtual cube the size of
+//    the real one (a hair larger, so tracking jitter cannot leak a
+//    printed edge), extending from the tracked face back through the
+//    cube's whole volume, rendered inside-out (BackSide). The shell
+//    paints over the cube's entire silhouette with the volume's inner
+//    walls, and the model is re-staged INSIDE that volume — centered on
+//    the cube's center, standing on its floor — so where the printed
+//    cube was, there is now a small 3D stage holding the item, viewable
+//    in the round as the cube turns. See "Takeover shell" below.
 import * as THREE from 'three';
 import { MindARThree } from 'mindar-image-three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -183,13 +197,13 @@ function buildCastle() {
 // ---------------------------------------------------------------------------
 const MODELS_BASE = '../models/';
 const MODEL_CATALOG = [
-  { key: 'squishy',   label: 'Squishy',   kind: 'primitive', build: buildSquishy, hint: 'key 1',
+  { key: 'squishy',   label: 'Squishy',   kind: 'primitive', build: buildSquishy, hint: 'key 1', stageScale: 1.3,
     keywords: ['squishy', 'blob', 'cute', 'pink'] },
-  { key: 'goldcube',  label: 'Gold Cube', kind: 'primitive', build: buildGoldCube, hint: 'key 2',
+  { key: 'goldcube',  label: 'Gold Cube', kind: 'primitive', build: buildGoldCube, hint: 'key 2', stageScale: 1.45,
     keywords: ['gold', 'cube', 'gold cube', 'pharaoh', 'pyramid'] },
-  { key: 'heart',     label: 'Heart',     kind: 'primitive', build: buildHeart, hint: 'key 3',
+  { key: 'heart',     label: 'Heart',     kind: 'primitive', build: buildHeart, hint: 'key 3', stageScale: 1.05,
     keywords: ['heart', 'love'] },
-  { key: 'castle',    label: 'Castle',    kind: 'primitive', build: buildCastle, hint: 'key 4',
+  { key: 'castle',    label: 'Castle',    kind: 'primitive', build: buildCastle, hint: 'key 4', stageScale: 1.0,
     keywords: ['castle', 'fort', 'kingdom', 'tower'] },
   { key: 'wolf',      label: 'Wolf',      kind: 'glb', file: 'wolf_with_animations.glb',
     keywords: ['wolf', 'wolves', 'dog', 'animated wolf'] },
@@ -581,6 +595,68 @@ function disposeInstance(inst) {
 }
 
 // ---------------------------------------------------------------------------
+// TAKEOVER SHELL — the cube disappears, the item lives in its volume.
+//
+// Anchor space recap: the tracked face is the square [-0.5, 0.5]² at z=0,
+// +z out of the face toward the camera. The physical cube fills the box
+// behind that face: z from 0 back to -1. The shell is that box, built a
+// hair oversize (1.05) so a whisper of tracking jitter still cannot leak
+// a printed edge, and rendered BackSide: from outside you see only its
+// INNER walls, floor and ceiling, projected across the cube's whole
+// silhouette. Every pixel where the printed cube was is repainted — by
+// the item where the item stands, by the volume's dim interior
+// elsewhere. There is no front wall, so you look INTO the volume: the
+// item stands inside the space the cube occupies, in 3D, and the whole
+// stage rides the anchor as the cube turns in his hand.
+//
+// The model is re-staged into the volume by makeStageGroup: the seat the
+// v2.1 fix measured (model standing on the face plane, holder pushed
+// +0.30 out of the face) is shifted to the volume's center — base/paws
+// land on the volume's floor (y = -0.5), the body centers on z = -0.5.
+// Small primitives carry a catalog stageScale so they grow toward the
+// cube's size: the item becomes the cube.
+// ---------------------------------------------------------------------------
+const TAKEOVER = {
+  size: 1.05,                                  // shell edge length (anchor units)
+  frontLip: 0.02,                              // how far the shell reaches in front of the face plane
+  stagePos: new THREE.Vector3(0, -0.12, -0.80), // face seat -> volume seat
+};
+
+function buildTakeoverShell() {
+  const g = new THREE.Group();
+  const wall = new THREE.Mesh(
+    new THREE.BoxGeometry(TAKEOVER.size, TAKEOVER.size, TAKEOVER.size),
+    new THREE.MeshStandardMaterial({
+      color: 0x12141f, roughness: 0.95, metalness: 0.0, side: THREE.BackSide,
+    }));
+  // Box center sits so the shell spans z = +frontLip .. frontLip - size:
+  // the whole cube volume, plus a lip in front of the tracked face.
+  wall.position.z = TAKEOVER.frontLip - TAKEOVER.size / 2;
+  g.add(wall);
+  // A soft lamp inside the volume, up near the open front: the item reads
+  // lit and dimensional inside the dimmer shell, and the inner walls get
+  // a gentle falloff instead of a flat fill. One shell is visible at a
+  // time (see refreshShells), so at most one of these lamps is ever lit.
+  const lamp = new THREE.PointLight(0xd8e4ff, 0.55, 0, 2);
+  lamp.position.set(0.25, 0.45, -0.15);
+  g.add(lamp);
+  g.visible = false;
+  return g;
+}
+
+// Wrap a built model instance in its stage: shifted from the face seat
+// into the cube's volume and (for the small primitives) scaled up toward
+// the cube's size. GLB seats already target the full face, so their
+// stageScale is 1 — only the shift applies.
+function makeStageGroup(inst, stageScale) {
+  const stage = new THREE.Group();
+  stage.position.copy(TAKEOVER.stagePos);
+  if (stageScale && stageScale !== 1) stage.scale.setScalar(stageScale);
+  stage.add(inst.group);
+  return stage;
+}
+
+// ---------------------------------------------------------------------------
 // Tracking setup + model application
 // ---------------------------------------------------------------------------
 let mindarThree = null;
@@ -591,6 +667,18 @@ let modelSeq = 0;             // guards against out-of-order GLB loads
 let lockedFace = -1;
 const anchorRoots = [];   // one plain Group per face anchor; holds the model
 const modelInstances = []; // per-anchor built model {group, update}
+const modelStages = [];    // per-anchor stage group wrapping the model
+const shellGroups = [];    // per-anchor takeover shell (volume + lamp)
+
+// The takeover shell shows only on the face that is locked right now and
+// only while a model stands in its volume — one shell, one lamp, ever.
+// Tracking loss hides the shell with everything else (it lives under the
+// anchor root, and this refresh runs on every found/lost transition).
+function refreshShells() {
+  for (let i = 0; i < shellGroups.length; i++) {
+    shellGroups[i].visible = (i === lockedFace) && !!modelInstances[i];
+  }
+}
 
 function refreshModelButtons() {
   document.querySelectorAll('.modelBtn').forEach(b =>
@@ -598,9 +686,10 @@ function refreshModelButtons() {
 }
 
 function applyToAnchors(makeInstance) {
+  const stageScale = (CATALOG_BY_KEY[currentModel] || {}).stageScale || 1;
   for (let i = 0; i < anchorRoots.length; i++) {
     if (modelInstances[i]) {
-      anchorRoots[i].remove(modelInstances[i].group);
+      if (modelStages[i]) anchorRoots[i].remove(modelStages[i]);
       // GLB clones share geometry with the cached prototype — never dispose
       // those; primitive builds own their geometry and are safe to dispose.
       if (CATALOG_BY_KEY[appliedModel] && CATALOG_BY_KEY[appliedModel].kind === 'primitive') {
@@ -608,9 +697,12 @@ function applyToAnchors(makeInstance) {
       }
     }
     const built = makeInstance();
-    anchorRoots[i].add(built.group);
+    const stage = makeStageGroup(built, stageScale);
+    anchorRoots[i].add(stage);
     modelInstances[i] = built;
+    modelStages[i] = stage;
   }
+  refreshShells();
 }
 
 async function setModel(key) {
@@ -752,13 +844,18 @@ startBtn.addEventListener('click', async () => {
       const root = new THREE.Group();
       anchor.group.add(root);
       anchorRoots.push(root);
+      const shell = buildTakeoverShell();
+      root.add(shell);
+      shellGroups.push(shell);
       anchor.onTargetFound = () => {
         lockedFace = i;
+        refreshShells();
         setStatus('Locked on: ' + FACE_NAMES[i], 'locked');
       };
       anchor.onTargetLost = () => {
         if (lockedFace === i) {
           lockedFace = -1;
+          refreshShells();
           setStatus('Tracking lost — looking for cube…', 'scanning');
         }
       };
