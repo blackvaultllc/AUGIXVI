@@ -228,10 +228,18 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   },
   {
     command: "/cube",
-    description: "Open My Cube — Metatron's cube, operator-verified.",
+    description:
+      "Open the AR Cube room — point the camera at a face of the cube and pick a model (same as /ar cube).",
     category: "interface",
     voice: true,
     example: "open the cube",
+  },
+  {
+    command: "/my cube",
+    description: "Open My Cube — Metatron's cube, operator-verified.",
+    category: "interface",
+    voice: true,
+    example: "open my cube",
   },
   {
     command: "/knowledge",
@@ -305,6 +313,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     category: "tools",
     voice: true,
     example: "play the game",
+  },
+  {
+    command: "/reply history",
+    description:
+      "Open the Reply history — everything Augie has said, newest first, kept on this device.",
+    category: "tools",
+    voice: true,
+    example: "open reply history",
   },
   {
     command: "/what do you see",

@@ -44,4 +44,17 @@ describe("universal slash-command menu — nothing hidden", () => {
     const results = filterSlashCommands("legend");
     expect(results.some((c) => c.command === "/legend of logic")).toBe(true);
   });
+
+  it("keeps the cube names un-collided: /cube is the AR Cube room, /my cube is Metatron's", () => {
+    const commands = SLASH_COMMANDS.map((c) => c.command);
+    expect(commands).toContain("/cube");
+    expect(commands).toContain("/my cube");
+    expect(commands).toContain("/reply history");
+    const cube = SLASH_COMMANDS.find((c) => c.command === "/cube");
+    expect(cube?.description).toContain("AR Cube");
+    expect(cube?.example).toBe("open the cube");
+    const myCube = SLASH_COMMANDS.find((c) => c.command === "/my cube");
+    expect(myCube?.description).toContain("Metatron");
+    expect(myCube?.example).toBe("open my cube");
+  });
 });

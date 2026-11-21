@@ -65,7 +65,7 @@ import { AvatarRenderer, type RenderSettings } from "./AvatarRenderer";
 import { Sensors, type SensorStatus } from "./sensors";
 import { attachOllamaAI, type OllamaAIOptions } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
-import { isCubePanelCommand } from "./cubeReference";
+import { parseRoomCommand } from "./command/roomCommands";
 import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
 import {
@@ -232,6 +232,10 @@ export function AvatarStage({
   // stage used to show only the single latest one.
   const [transcript, setTranscript] = useState<ReplyHistoryEntry[]>(() => loadReplyHistory());
   const [historyOpen, setHistoryOpen] = useState(false);
+  // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
+  // (operator defect 2026-11-21 — the box showed only the reply, so he
+  // could not see the messages he sent, typed or spoken).
+  const [lastUserMessage, setLastUserMessage] = useState("");
   const recordReply = useCallback((text: string) => {
     setTranscript((prev) =>
       appendReplyHistory(prev, { at: Date.now(), question: lastQuestionRef.current, answer: text }),
@@ -423,6 +427,10 @@ export function AvatarStage({
   }
   const sendCommand = useCallback(
     async (text: string, source: "typed" | "voice" = "typed") => {
+      // Echo first: whatever he sent — typed or spoken — stays visible
+      // in the Command box above the reply, even for commands that
+      // return early (rooms, /help, wake greeting).
+      setLastUserMessage(text.trim());
       const applyInterfaceCommand = (type: "clear-screen" | "show-screen" | "silence") => {
         if (type === "clear-screen") {
           setClearScreen(true);
@@ -542,28 +550,35 @@ export function AvatarStage({
         say("Cloud keys — green means present and working. Values stay in Cloudflare.");
         return;
       }
-      // ROOMS — full pages behind the gate: the AR Cube, Picture
-      // Analysis (the analytic window), and the Legend of Logic game
-      // room. Typed or spoken.
-      if (commandText === "/ar cube" || /^(?:open\s+)?(?:the\s+)?ar\s+cube$/i.test(commandText)) {
+      // ROOMS — deterministic and TERMINAL (operator incident
+      // 2026-11-21): "open the cube" used to fall through to the LLM
+      // chat and earn a refusal. parseRoomCommand is the single decider
+      // for every room phrase — the AR Cube, Picture Analysis (the
+      // analytic window), the Legend of Logic game room (actually play
+      // it, not a walkthrough), the Reply history window, and the
+      // Metatron "My Cube" panel under its own distinct triggers.
+      // Typed or spoken; a match returns here and never reaches chat.
+      const room = parseRoomCommand(commandText);
+      if (room === "ar-cube") {
         void navigate({ to: "/avatar/cube" });
         return;
       }
-      if (
-        commandText === "/picture analysis" ||
-        /^(?:open\s+)?(?:the\s+)?(?:picture\s+analysis|analytic\s+window)$/i.test(commandText)
-      ) {
+      if (room === "picture-analysis") {
         void navigate({ to: "/avatar/analyze" });
         return;
       }
-      // GAME ROOM — the real Legend of Logic, playable inside Augie
-      // (operator order 2026-11-21: actually play it, not a walkthrough).
-      if (
-        commandText === "/game" ||
-        commandText === "/legend of logic" ||
-        /^(?:open|play)\s+(?:the\s+)?(?:game|legend\s+of\s+logic)$/i.test(commandText)
-      ) {
+      if (room === "game") {
         void navigate({ to: "/avatar/game" });
+        return;
+      }
+      if (room === "reply-history") {
+        setHistoryOpen(true);
+        say("Reply history is open — everything I have said, newest first.");
+        return;
+      }
+      if (room === "my-cube") {
+        setCubeOpen(true);
+        aiRef.current?.speak("Operator verification is required to open the cube.");
         return;
       }
       // TRANSFORMS: Enterprise / wolf / orb — real shapes, not poses.
@@ -670,11 +685,8 @@ export function AvatarStage({
         say("On it now.");
         return;
       }
-      if (isCubePanelCommand(commandText)) {
-        setCubeOpen(true);
-        aiRef.current?.speak("Operator verification is required to open the cube.");
-        return;
-      }
+      // (The Metatron "My Cube" panel is routed with the rooms above —
+      // parseRoomCommand owns its triggers now.)
       const worldCommand = parseWorldCommand(commandText);
       if (worldCommand) {
         executeWorldCommand(worldCommand);
@@ -1178,6 +1190,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onToggleVoice={() => (voiceListening ? recRef.current?.stop() : recRef.current?.start())}
           responseLine={lastWords}
           responseSource={responseSource}
+          userLine={lastUserMessage}
         >
           {commandTab === "scene" && (
             <CommandGroup label="Avatar scale">
