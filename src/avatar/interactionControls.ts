@@ -19,11 +19,21 @@ export function parseInteractionCommand(text: string): InteractionCommand {
   if (/^(?:please\s+)?(?:show screen|show controls|restore controls)$/i.test(command)) {
     return { type: "show-screen" };
   }
+  // Silence must BE the instruction, not a word inside a longer
+  // command. The old matcher treated the bare word "wait" ANYWHERE in a
+  // command as a silence order, so an ordinary "wait, open the cube"
+  // latched silent mode — persisted, so every later session started
+  // muted — and swallowed the command (owner defect 2026-11-21: "he's
+  // not talking anymore"). Anchored phrases plus the two full explicit
+  // instructions below keep every real silence order working.
   if (
-    /\b(?:don't|do not)\s+talk again until (?:i|you) (?:say|hear)(?: your)? name\b/i.test(
+    /^(?:please[\s,]+)?(?:stay silent|be quiet|stop answering|stop talking|don't talk|do not speak)\b/i.test(
       command,
     ) ||
-    /\b(?:wait|stay silent|be quiet|stop answering|stop talking|don't talk|do not speak)\b/i.test(
+    /^(?:please[\s,]+)?wait (?:till|til|until) (?:i|you) (?:call|say|hear)(?: your)? name\b/i.test(
+      command,
+    ) ||
+    /\b(?:don't|do not)\s+talk again until (?:i|you) (?:say|hear)(?: your)? name\b/i.test(
       command,
     ) ||
     /\b(?:i'll|i will) talk to you in a minute\b/i.test(command)

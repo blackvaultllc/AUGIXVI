@@ -30,6 +30,27 @@ describe("voice and focus controls", () => {
     expect(parseInteractionCommand("walk")).toBeNull();
   });
 
+  // REGRESSION (owner defect 2026-11-21 — "he's not talking anymore"):
+  // the old silence matcher treated the bare word "wait" ANYWHERE in a
+  // command as a silence instruction, so an ordinary command like
+  // "wait, open the cube" latched silent mode (persisted) and swallowed
+  // the command. A silence instruction must BE the instruction.
+  it("does not silence on the bare word 'wait' inside an ordinary command", () => {
+    expect(parseInteractionCommand("wait, open the cube")).toBeNull();
+    expect(parseInteractionCommand("wait a second, what is this?")).toBeNull();
+    expect(parseInteractionCommand("open the cube, wait")).toBeNull();
+    expect(parseInteractionCommand("hold on, what is this")).toBeNull();
+  });
+
+  it("still silences on real silence instructions", () => {
+    expect(parseInteractionCommand("stop talking")).toEqual({ type: "silence" });
+    expect(parseInteractionCommand("please be quiet")).toEqual({ type: "silence" });
+    expect(parseInteractionCommand("wait till I call your name")).toEqual({
+      type: "silence",
+    });
+    expect(parseInteractionCommand("stop answering")).toEqual({ type: "silence" });
+  });
+
   it("persists focus and silence preferences on this device", () => {
     const values = new Map<string, string>();
     vi.stubGlobal("localStorage", {
