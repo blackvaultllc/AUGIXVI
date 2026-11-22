@@ -26,6 +26,12 @@ import { Route as ApiDevicesWatchlistRouteImport } from './routes/api.devices.wa
 import { Route as ApiLibraryArticleRouteImport } from './routes/api.library.article'
 import { Route as ApiLibraryCatalogRouteImport } from './routes/api.library.catalog'
 import { Route as ApiLibrarySearchRouteImport } from './routes/api.library.search'
+import { Route as ApiListeningArmRouteImport } from './routes/api.listening.arm'
+import { Route as ApiListeningChunkRouteImport } from './routes/api.listening.chunk'
+import { Route as ApiListeningDisarmRouteImport } from './routes/api.listening.disarm'
+import { Route as ApiListeningRecapRouteImport } from './routes/api.listening.recap'
+import { Route as ApiListeningStatusRouteImport } from './routes/api.listening.status'
+import { Route as ApiSpeakersOthersRouteImport } from './routes/api.speakers.others'
 import { Route as ApiVoiceprintCommitRouteImport } from './routes/api.voiceprint.commit'
 import { Route as ApiVoiceprintDeleteRouteImport } from './routes/api.voiceprint.delete'
 import { Route as ApiVoiceprintEnrollRouteImport } from './routes/api.voiceprint.enroll'
@@ -119,6 +125,36 @@ const ApiLibrarySearchRoute = ApiLibrarySearchRouteImport.update({
   path: '/api/library/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiListeningArmRoute = ApiListeningArmRouteImport.update({
+  id: '/api/listening/arm',
+  path: '/api/listening/arm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiListeningChunkRoute = ApiListeningChunkRouteImport.update({
+  id: '/api/listening/chunk',
+  path: '/api/listening/chunk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiListeningDisarmRoute = ApiListeningDisarmRouteImport.update({
+  id: '/api/listening/disarm',
+  path: '/api/listening/disarm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiListeningRecapRoute = ApiListeningRecapRouteImport.update({
+  id: '/api/listening/recap',
+  path: '/api/listening/recap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiListeningStatusRoute = ApiListeningStatusRouteImport.update({
+  id: '/api/listening/status',
+  path: '/api/listening/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSpeakersOthersRoute = ApiSpeakersOthersRouteImport.update({
+  id: '/api/speakers/others',
+  path: '/api/speakers/others',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVoiceprintCommitRoute = ApiVoiceprintCommitRouteImport.update({
   id: '/api/voiceprint/commit',
   path: '/api/voiceprint/commit',
@@ -168,6 +204,12 @@ export interface FileRoutesByFullPath {
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
+  '/api/listening/arm': typeof ApiListeningArmRoute
+  '/api/listening/chunk': typeof ApiListeningChunkRoute
+  '/api/listening/disarm': typeof ApiListeningDisarmRoute
+  '/api/listening/recap': typeof ApiListeningRecapRoute
+  '/api/listening/status': typeof ApiListeningStatusRoute
+  '/api/speakers/others': typeof ApiSpeakersOthersRoute
   '/api/voiceprint/commit': typeof ApiVoiceprintCommitRoute
   '/api/voiceprint/delete': typeof ApiVoiceprintDeleteRoute
   '/api/voiceprint/enroll': typeof ApiVoiceprintEnrollRoute
@@ -193,6 +235,12 @@ export interface FileRoutesByTo {
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
+  '/api/listening/arm': typeof ApiListeningArmRoute
+  '/api/listening/chunk': typeof ApiListeningChunkRoute
+  '/api/listening/disarm': typeof ApiListeningDisarmRoute
+  '/api/listening/recap': typeof ApiListeningRecapRoute
+  '/api/listening/status': typeof ApiListeningStatusRoute
+  '/api/speakers/others': typeof ApiSpeakersOthersRoute
   '/api/voiceprint/commit': typeof ApiVoiceprintCommitRoute
   '/api/voiceprint/delete': typeof ApiVoiceprintDeleteRoute
   '/api/voiceprint/enroll': typeof ApiVoiceprintEnrollRoute
@@ -219,6 +267,12 @@ export interface FileRoutesById {
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
+  '/api/listening/arm': typeof ApiListeningArmRoute
+  '/api/listening/chunk': typeof ApiListeningChunkRoute
+  '/api/listening/disarm': typeof ApiListeningDisarmRoute
+  '/api/listening/recap': typeof ApiListeningRecapRoute
+  '/api/listening/status': typeof ApiListeningStatusRoute
+  '/api/speakers/others': typeof ApiSpeakersOthersRoute
   '/api/voiceprint/commit': typeof ApiVoiceprintCommitRoute
   '/api/voiceprint/delete': typeof ApiVoiceprintDeleteRoute
   '/api/voiceprint/enroll': typeof ApiVoiceprintEnrollRoute
@@ -246,6 +300,12 @@ export interface FileRouteTypes {
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
+    | '/api/listening/arm'
+    | '/api/listening/chunk'
+    | '/api/listening/disarm'
+    | '/api/listening/recap'
+    | '/api/listening/status'
+    | '/api/speakers/others'
     | '/api/voiceprint/commit'
     | '/api/voiceprint/delete'
     | '/api/voiceprint/enroll'
@@ -271,6 +331,12 @@ export interface FileRouteTypes {
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
+    | '/api/listening/arm'
+    | '/api/listening/chunk'
+    | '/api/listening/disarm'
+    | '/api/listening/recap'
+    | '/api/listening/status'
+    | '/api/speakers/others'
     | '/api/voiceprint/commit'
     | '/api/voiceprint/delete'
     | '/api/voiceprint/enroll'
@@ -296,6 +362,12 @@ export interface FileRouteTypes {
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
+    | '/api/listening/arm'
+    | '/api/listening/chunk'
+    | '/api/listening/disarm'
+    | '/api/listening/recap'
+    | '/api/listening/status'
+    | '/api/speakers/others'
     | '/api/voiceprint/commit'
     | '/api/voiceprint/delete'
     | '/api/voiceprint/enroll'
@@ -322,6 +394,12 @@ export interface RootRouteChildren {
   ApiLibraryArticleRoute: typeof ApiLibraryArticleRoute
   ApiLibraryCatalogRoute: typeof ApiLibraryCatalogRoute
   ApiLibrarySearchRoute: typeof ApiLibrarySearchRoute
+  ApiListeningArmRoute: typeof ApiListeningArmRoute
+  ApiListeningChunkRoute: typeof ApiListeningChunkRoute
+  ApiListeningDisarmRoute: typeof ApiListeningDisarmRoute
+  ApiListeningRecapRoute: typeof ApiListeningRecapRoute
+  ApiListeningStatusRoute: typeof ApiListeningStatusRoute
+  ApiSpeakersOthersRoute: typeof ApiSpeakersOthersRoute
   ApiVoiceprintCommitRoute: typeof ApiVoiceprintCommitRoute
   ApiVoiceprintDeleteRoute: typeof ApiVoiceprintDeleteRoute
   ApiVoiceprintEnrollRoute: typeof ApiVoiceprintEnrollRoute
@@ -451,6 +529,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLibrarySearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/listening/arm': {
+      id: '/api/listening/arm'
+      path: '/api/listening/arm'
+      fullPath: '/api/listening/arm'
+      preLoaderRoute: typeof ApiListeningArmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/listening/chunk': {
+      id: '/api/listening/chunk'
+      path: '/api/listening/chunk'
+      fullPath: '/api/listening/chunk'
+      preLoaderRoute: typeof ApiListeningChunkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/listening/disarm': {
+      id: '/api/listening/disarm'
+      path: '/api/listening/disarm'
+      fullPath: '/api/listening/disarm'
+      preLoaderRoute: typeof ApiListeningDisarmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/listening/recap': {
+      id: '/api/listening/recap'
+      path: '/api/listening/recap'
+      fullPath: '/api/listening/recap'
+      preLoaderRoute: typeof ApiListeningRecapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/listening/status': {
+      id: '/api/listening/status'
+      path: '/api/listening/status'
+      fullPath: '/api/listening/status'
+      preLoaderRoute: typeof ApiListeningStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/speakers/others': {
+      id: '/api/speakers/others'
+      path: '/api/speakers/others'
+      fullPath: '/api/speakers/others'
+      preLoaderRoute: typeof ApiSpeakersOthersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/voiceprint/commit': {
       id: '/api/voiceprint/commit'
       path: '/api/voiceprint/commit'
@@ -514,6 +634,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiLibraryArticleRoute: ApiLibraryArticleRoute,
   ApiLibraryCatalogRoute: ApiLibraryCatalogRoute,
   ApiLibrarySearchRoute: ApiLibrarySearchRoute,
+  ApiListeningArmRoute: ApiListeningArmRoute,
+  ApiListeningChunkRoute: ApiListeningChunkRoute,
+  ApiListeningDisarmRoute: ApiListeningDisarmRoute,
+  ApiListeningRecapRoute: ApiListeningRecapRoute,
+  ApiListeningStatusRoute: ApiListeningStatusRoute,
+  ApiSpeakersOthersRoute: ApiSpeakersOthersRoute,
   ApiVoiceprintCommitRoute: ApiVoiceprintCommitRoute,
   ApiVoiceprintDeleteRoute: ApiVoiceprintDeleteRoute,
   ApiVoiceprintEnrollRoute: ApiVoiceprintEnrollRoute,
@@ -524,13 +650,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

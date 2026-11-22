@@ -18,6 +18,7 @@ import {
   Clapperboard,
   Camera,
   Coffee,
+  Ear,
   Expand,
   Eye,
   Gamepad2,
@@ -85,6 +86,7 @@ import { GateLogWindow } from "./GateLogWindow";
 import { SignalMapWindow } from "./SignalMapWindow";
 import { LogsWindow } from "./LogsWindow";
 import { TestAreaWindow } from "./TestAreaWindow";
+import { ListeningWindow } from "./ListeningWindow";
 import { AnatomyWindow } from "./AnatomyWindow";
 import { DepartmentsWindow } from "./DepartmentsWindow";
 import { CaptainsLogWindow } from "./CaptainsLogWindow";
@@ -371,6 +373,34 @@ export function AvatarStage({
   // (operator order 2026-11-21). Opens from Tools → Rooms and from
   // "open devices".
   const [devicesOpen, setDevicesOpen] = useState(false);
+  // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
+  // surface. Opens from Tools → Rooms and from "open listening mode".
+  const [listeningOpen, setListeningOpen] = useState(false);
+  // LISTENING INDICATOR: while the speech service reports a session
+  // armed, a badge stays visible on the stage — recording state is
+  // never covert, even with the window closed. Polled from the
+  // service's own status endpoint, not local state.
+  const [listeningArmed, setListeningArmed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await fetch("/api/listening/status");
+        if (!response.ok) return;
+        const payload = (await response.json()) as { armed?: unknown };
+        if (!cancelled) setListeningArmed(payload.armed === true);
+      } catch {
+        /* service unreachable: the badge stays as last known; the
+           window itself reports the outage in words. */
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
   // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
@@ -804,6 +834,13 @@ export function AvatarStage({
         setLibraryOpen(true);
         say(
           "Library is open — your shelves, read from the books on this machine. No internet involved.",
+        );
+        return;
+      }
+      if (room === "listening") {
+        setListeningOpen(true);
+        say(
+          "Listening Mode is open — arm it there and I record silently on this machine until you say Osiris. The indicator stays visible the whole time.",
         );
         return;
       }
@@ -1675,6 +1712,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setLibraryOpen(true)}
                   />
                   <CommandAction
+                    icon={Ear}
+                    label="Listening Mode"
+                    onClick={() => setListeningOpen(true)}
+                  />
+                  <CommandAction
                     icon={Bluetooth}
                     label="Devices"
                     onClick={() => setDevicesOpen(true)}
@@ -1888,6 +1930,18 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {captainsLogOpen && <CaptainsLogWindow onClose={() => setCaptainsLogOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
+      {listeningOpen && <ListeningWindow onClose={() => setListeningOpen(false)} />}
+      {listeningArmed && !listeningOpen && (
+        <button
+          type="button"
+          className="listening-stage-badge"
+          onClick={() => setListeningOpen(true)}
+          aria-label="Listening Mode is armed — open the Listening window"
+        >
+          <span className="listening-stage-badge__dot" aria-hidden="true" />
+          LISTENING
+        </button>
+      )}
       {devicesOpen && (
         <DevicesWindow
           onClose={() => setDevicesOpen(false)}

@@ -355,6 +355,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "open sandbox",
   },
   {
+    command: "/listening mode",
+    description:
+      "Open Listening Mode — arm it and Augie records the conversation from that moment, on this machine only, silently, taking no actions until he hears the wake word Osiris. The LISTENING indicator stays visible while armed, and the recap shows only what was actually recorded. Other voices are kept in their own labeled speaker stores, never merged into the operator's voiceprint.",
+    category: "tools",
+    voice: true,
+    example: "open listening mode",
+  },
+  {
     command: "/library",
     description:
       "Open the Library — the offline books on this machine (Wikipedia, WikiMed, Wikibooks, Appropedia, Simple English), organized on Domenick's shelves: his DNA roots first, then law, medicine, survival, science, the deep shelves, archaeology, and the Academy shelf. Search them and read articles without any internet.",

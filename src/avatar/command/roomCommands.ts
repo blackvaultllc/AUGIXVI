@@ -38,6 +38,7 @@ export type RoomTarget =
   | "captains-log"
   | "sandbox"
   | "library"
+  | "listening"
   | "devices";
 
 /** Lowercase, single-spaced, no leading slash, no trailing punctuation. */
@@ -147,6 +148,15 @@ const LIBRARY_PATTERNS: readonly RegExp[] = [
 // "open devices" — the registry of everything Augie has met and what
 // each device can do (operator order 2026-11-21). "Check Wi-Fi
 // signals" lands here too: the window runs the presence check.
+// Listening Mode (Part 12): the armed, silent ear — "listening",
+// "listening mode", "open listening mode". Arming itself happens in
+// the window, never from a phrase alone: the phrase opens the window
+// where the state is visible and the arm button lives.
+const LISTENING_PATTERNS: readonly RegExp[] = [
+  /^(?:listening|listening\s+mode)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:listening|listening\s+mode)$/,
+];
+
 const DEVICES_PATTERNS: readonly RegExp[] = [
   /^(?:devices|device\s+capabilities)$/,
   /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:devices|device\s+capabilities)$/,
@@ -180,6 +190,7 @@ export function parseRoomCommand(text: string): RoomTarget | null {
   if (CAPTAINS_LOG_PATTERNS.some((p) => p.test(phrase))) return "captains-log";
   if (SANDBOX_PATTERNS.some((p) => p.test(phrase))) return "sandbox";
   if (LIBRARY_PATTERNS.some((p) => p.test(phrase))) return "library";
+  if (LISTENING_PATTERNS.some((p) => p.test(phrase))) return "listening";
   if (DEVICES_PATTERNS.some((p) => p.test(phrase))) return "devices";
   return null;
 }
