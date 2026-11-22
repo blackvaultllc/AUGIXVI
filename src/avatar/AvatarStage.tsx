@@ -287,7 +287,8 @@ export function AvatarStage({
   const shaShownRef = useRef({ shown: false });
   const proactiveRef = useRef<ReturnType<typeof createProactiveEngine> | null>(null);
   const [commandTab, setCommandTab] = useState<CommandTab>("motion");
-  // Movable windows the operator (or Osiris's idle life) can open.
+  // Movable windows — the operator opens these himself, by command or tap.
+  // Augie's idle life never opens them (owner order 2026-11-21).
   const [openWindows, setOpenWindows] = useState<Set<"notepad" | "chalkboard" | "player">>(
     new Set(),
   );
@@ -1153,8 +1154,9 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
 
   // IDLE LIFE: Ankh means life, not standing at attention. While nobody is
   // talking to him, Osiris lives — breathes, shifts, walks, flies, studies,
-  // writes on the chalkboard, checks on things, and reports. Suggestions
-  // only — he never acts on the outside world without my say.
+  // thinks, checks on things, and reports. Suggestions only — he never acts
+  // on the outside world without my say, and he NEVER opens a window,
+  // player or panel on my screen unless I ask (owner order 2026-11-21).
   const lastActivityRef = useRef<IdleActivity | null>(null);
   const clearScreenRef = useRef(clearScreen);
   clearScreenRef.current = clearScreen;
@@ -1169,16 +1171,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       const action = pickIdleActivity(Math.random, lastActivityRef.current ?? undefined);
       lastActivityRef.current = action.activity;
       const line =
-        action.window === "chalkboard" ? `${action.line} ${idleChalkboardThought()}` : action.line;
+        action.activity === "write-chalkboard"
+          ? `${action.line} ${idleChalkboardThought()}`
+          : action.line;
       setLastWords(line);
       setResponseSource("idle life");
       aiRef.current?.speak(line);
-      if (action.window) {
-        openWindow(action.window);
-        if (action.activity === "write-chalkboard") {
-          setChalkboardText(idleChalkboardThought());
-        }
-      }
+      // No window opens here — idle life is presence and words only.
+      // Notepad, chalkboard and player open on the operator's explicit
+      // command or tap, never on Augie's own initiative (2026-11-21).
       const renderer = rendRef.current;
       if (renderer && action.layer !== "screen") {
         if (action.activity === "walk") renderer.setLocomotionMode("walk");
@@ -1197,7 +1198,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       window.clearInterval(interval);
       window.clearTimeout(first);
     };
-  }, [openWindow]);
+  }, []);
 
   useEffect(
     () => () => {

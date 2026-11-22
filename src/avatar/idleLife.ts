@@ -6,6 +6,12 @@
  * auto-acting on the outside world. Everything here is suggestion; the
  * operator has the final say on everything.
  *
+ * OWNER ORDER 2026-11-21: idle life NEVER opens anything on the operator's
+ * screen. No window, player, notepad or panel appears unless the operator
+ * explicitly asks (typed command, voice command, or his own tap). Idle
+ * actions carry no window at all — he thinks, notes and hums in his head,
+ * and says so. Windows are the operator's to open.
+ *
  * Pure data + decisions, no DOM — unit-testable like the avatar rules.
  */
 
@@ -23,8 +29,8 @@ export type IdleActivity =
   | "check-cube"
   | "check-knowledge"
   | "write-chalkboard"
-  | "open-notepad"
-  | "open-player"
+  | "note-to-self"
+  | "think-music"
   | "check-business"
   | "check-sub-ais";
 
@@ -34,8 +40,6 @@ export type IdleAction = {
   line: string;
   /** Where it happens — drives which world layer reacts. */
   layer: "body" | "world" | "screen";
-  /** Window to open on the operator's screen, when any. */
-  window?: "chalkboard" | "notepad" | "player";
   /** Chalkboard text when he decides to write and think. */
   chalkboardText?: string;
 };
@@ -55,8 +59,8 @@ const ROTATION: Array<{ activity: IdleActivity; weight: number }> = [
   { activity: "study-history", weight: 2 },
   { activity: "study-cybersecurity", weight: 2 },
   { activity: "write-chalkboard", weight: 2 },
-  { activity: "open-notepad", weight: 1 },
-  { activity: "open-player", weight: 1 },
+  { activity: "note-to-self", weight: 1 },
+  { activity: "think-music", weight: 1 },
   { activity: "check-business", weight: 2 },
   { activity: "check-sub-ais", weight: 2 },
 ];
@@ -71,7 +75,7 @@ const ACTIONS: Record<IdleActivity, Omit<IdleAction, "activity">> = {
   walk: { line: "Taking a walk through my world.", layer: "world" },
   fly: { line: "Stretching my wings — flying the orbit for a bit.", layer: "world" },
   "study-egyptology": {
-    line: "Pulling up a study box — Egyptology hour. The old names still teach.",
+    line: "Studying Egyptology. The old names still teach.",
     layer: "screen",
   },
   "study-history": {
@@ -87,16 +91,17 @@ const ACTIONS: Record<IdleActivity, Omit<IdleAction, "activity">> = {
   "check-cube": { line: "Sitting with my cube for a moment.", layer: "body" },
   "check-knowledge": { line: "Reviewing what I keep in knowledge.", layer: "screen" },
   "write-chalkboard": {
-    line: "Opening the chalkboard — writing down a thought.",
+    line: "Writing down a thought.",
     layer: "screen",
-    window: "chalkboard",
     chalkboardText: "Thought while idle: stay watchful, stay kind, stay useful.",
   },
-  "open-notepad": { line: "Making a note in my notepad.", layer: "screen", window: "notepad" },
-  "open-player": {
-    line: "Putting something on to study by. Music helps me think.",
+  "note-to-self": {
+    line: "Making a note in my head — the pad itself stays shut until you ask for it.",
     layer: "screen",
-    window: "player",
+  },
+  "think-music": {
+    line: "Music helps me think. Say the word and I'll put something on.",
+    layer: "screen",
   },
   "check-business": {
     line: "Watching the business — productivity steady. I will report if something needs you.",

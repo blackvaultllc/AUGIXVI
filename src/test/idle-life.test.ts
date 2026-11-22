@@ -26,19 +26,28 @@ describe("Osiris's idle life — Ankh means life, not standing at attention", ()
     expect(second.activity).not.toBe(first.activity);
   });
 
-  it("opens windows himself when his idle life calls for study or thinking", () => {
-    let foundWindow = false;
-    for (let i = 0; i < 400; i += 1) {
-      const action = pickIdleActivity(() => (i * 7919) / 40000);
-      if (action.window) {
-        foundWindow = true;
-        expect(["chalkboard", "notepad", "player"]).toContain(action.window);
-      }
+  it("never opens a window on his own — windows are the operator's to open (owner order 2026-11-21)", () => {
+    // Sweep the whole rotation many times over: no idle action may carry
+    // a window, a player, a notepad — nothing that appears on the screen
+    // without the operator explicitly asking.
+    for (let i = 0; i < 2000; i += 1) {
+      const action = pickIdleActivity(() => ((i * 7919) % 2000) / 2000);
+      expect("window" in action).toBe(false);
+      expect(action.line).not.toMatch(/opening the (chalkboard|notepad|player)/i);
       if (action.activity === "write-chalkboard") {
         expect(action.chalkboardText).toBeTruthy();
       }
     }
-    expect(foundWindow).toBe(true);
+  });
+
+  it("keeps his inner life — he still notes, thinks and studies without touching the screen", () => {
+    const seen = new Set<IdleActivity>();
+    for (let i = 0; i < 2000; i += 1) {
+      seen.add(pickIdleActivity(() => ((i * 104729) % 2000) / 2000).activity);
+    }
+    expect(seen.has("note-to-self")).toBe(true);
+    expect(seen.has("think-music")).toBe(true);
+    expect(seen.has("write-chalkboard")).toBe(true);
   });
 
   it("writes varied chalkboard thoughts, never invented facts", () => {
@@ -73,8 +82,8 @@ const ACTIONS_VALID: IdleActivity[] = [
   "check-cube",
   "check-knowledge",
   "write-chalkboard",
-  "open-notepad",
-  "open-player",
+  "note-to-self",
+  "think-music",
   "check-business",
   "check-sub-ais",
 ];
