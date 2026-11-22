@@ -608,6 +608,25 @@ function disposeInstance(inst) {
 // elsewhere. There is no front wall, so you look INTO the volume: the
 // item stands inside the space the cube occupies, in 3D, and the whole
 // stage rides the anchor as the cube turns in his hand.
+// 7. v2.3 LOCK TUNING (same day, Domenick: "the cube needs to lock on
+//    better"): the page passed NONE of MindAR's four tracking options,
+//    so the room ran on the library defaults — warmupTolerance 5,
+//    missTolerance 5 (verified in the shipped 1.2.5 controller). Those
+//    counts are in tracking-loop iterations, and the loop is slow (each
+//    iteration waits on worker round-trips), so 5 tolerated misses is
+//    well under a second of dropout: when the cube turns, the face
+//    foreshortens and the point tracker sheds points in clusters, and
+//    the model vanished mid-turn. Re-lock then needed 6 straight
+//    tracked iterations and reset the pose filter at the moment it
+//    reappeared, so the model came back late and jumped. The fix below
+//    widens the coast (missTolerance 12 — the pose holds at its last
+//    filtered position through a turn's bad patch instead of dropping)
+//    and shortens the re-show (warmupTolerance 3 — still a sustained
+//    match, so no single-frame false lock, but the model returns
+//    sooner). The pose filter constants are pinned at the library
+//    defaults on purpose: the weakness was the tolerance counts at
+//    this loop's cadence, not the filter — its at-rest cutoff is
+//    already the steadiest setting MindAR ships.
 //
 // The model is re-staged into the volume by makeStageGroup: the seat the
 // v2.1 fix measured (model standing on the face plane, holder pushed
@@ -831,6 +850,19 @@ startBtn.addEventListener('click', async () => {
       container,
       imageTargetSrc: './assets/targets.mind',
       maxTrack: 1,
+      // LOCK TUNING (v2.3, see the header note): counts are in
+      // tracking-loop iterations, not frames of camera video. Coast
+      // through ~12 missed iterations before declaring the face lost
+      // (turns shed tracked points in clusters; 5 dropped the model
+      // mid-turn), and re-show after 3 straight tracked iterations
+      // instead of 6 so a found face comes back sooner — still a
+      // sustained match, never a single-frame flash. Filter constants
+      // are MindAR's defaults, pinned explicitly: they were not the
+      // weakness and stay exactly as the library tunes them.
+      missTolerance: 12,
+      warmupTolerance: 3,
+      filterMinCF: 0.001,
+      filterBeta: 1000,
       uiLoading: 'no', uiScanning: 'no', uiError: 'no',
     });
     const { renderer, scene, camera } = mindarThree;
