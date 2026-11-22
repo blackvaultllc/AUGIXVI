@@ -9,10 +9,12 @@
  * stamped, recolored and — for palms — reshaped. Nothing was deleted;
  * the tree code became the vegetation builder for a whole world.
  *
- * Scenes: the Office (populated — citizens at their desks), the Beach
- * (particle waves that actually move), the Desert, the Park (the
- * original pines, at home), the Coffee Shop (someone always just
- * walked in). Pure data + math; worldSceneRenderer.ts renders it.
+ * Scenes: the Room (the default — a bright, empty development room,
+ * owner order 2026-11-22), the Office (populated — citizens at their
+ * desks), the Beach (particle waves that actually move), the Desert,
+ * the Park (the original pines, at home), the Coffee Shop (someone
+ * always just walked in). Pure data + math; worldSceneRenderer.ts
+ * renders it.
  */
 import { makeObjectPoints } from "./sceneManager";
 import {
@@ -24,7 +26,7 @@ import {
   type Waypoint,
 } from "./people";
 
-export type WorldSceneId = "office" | "beach" | "desert" | "park" | "coffee";
+export type WorldSceneId = "room" | "office" | "beach" | "desert" | "park" | "coffee";
 
 export const WORLD_SCENES: readonly {
   id: WorldSceneId;
@@ -33,6 +35,12 @@ export const WORLD_SCENES: readonly {
   /** What Augie says when the world changes to this scene. */
   line: string;
 }[] = [
+  {
+    id: "room",
+    name: "The Room",
+    blurb: "The white room — a clear, bright stage where anything can be developed.",
+    line: "The room — clear and bright. Everything is at hand.",
+  },
   {
     id: "office",
     name: "The Office",
@@ -65,7 +73,16 @@ export const WORLD_SCENES: readonly {
   },
 ];
 
-export const DEFAULT_WORLD_SCENE: WorldSceneId = "office";
+/**
+ * THE DEFAULT STAGE (owner order 2026-11-22): the Room. The dark
+ * particle office was the backdrop when he opened Augie, and his
+ * verdict was plain — he could hardly see Osiris in it, and the
+ * visualization must be rebuilt around seeing the AI itself "at a
+ * grand perspective." So the stage now opens on the bright white
+ * room: no set, no citizens, just Anubis at command and Osiris at
+ * hand. The living scenes remain one command away, unchanged.
+ */
+export const DEFAULT_WORLD_SCENE: WorldSceneId = "room";
 
 /**
  * The whole scene — set, water and citizens together — stays under this
@@ -1470,9 +1487,24 @@ function buildCoffee(): BuiltScene {
   return finish("coffee", cloud, people, null);
 }
 
+/* -------------------------------- THE ROOM -------------------------------- */
+
+/**
+ * THE ROOM (owner order 2026-11-22): the empty development room.
+ * No set points, no citizens, no water — the brightness is the
+ * renderer's (a warm-white clear color and a faint gold/blue grid,
+ * worldSceneRenderer.ts), and the emptiness is the point: a clean
+ * stage where anything can be brought up, with Osiris himself the
+ * only figure in it.
+ */
+function buildRoom(): BuiltScene {
+  return finish("room", new Cloud(createSeededRandom(7)), [], null);
+}
+
 /* -------------------------------- registry -------------------------------- */
 
 const BUILDERS: Record<WorldSceneId, () => BuiltScene> = {
+  room: buildRoom,
   office: buildOffice,
   beach: buildBeach,
   desert: buildDesert,
@@ -1498,6 +1530,8 @@ const SCENE_WORDS: readonly (readonly [string, WorldSceneId])[] = [
   ["coffee shop", "coffee"],
   ["coffee", "coffee"],
   ["cafe", "coffee"],
+  ["white room", "room"],
+  ["room", "room"],
   ["office", "office"],
   ["beach", "beach"],
   ["desert", "desert"],

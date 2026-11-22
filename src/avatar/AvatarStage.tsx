@@ -29,6 +29,8 @@ import {
   History,
   Network,
   Laptop,
+  LayoutGrid,
+  LocateFixed,
   LogOut,
   Plane,
   Presentation,
@@ -52,6 +54,12 @@ import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
 import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
 import { AugiePresence } from "./AugiePresence";
+import { AnubisPresence } from "./AnubisPresence";
+import {
+  clearFigureOffset,
+  loadFigureOffset,
+  saveFigureOffset,
+} from "./osirisPosition";
 import { NotepadWindow, ChalkboardWindow, PlayerWindow } from "./windows/windows";
 import { BattleBox } from "./windows/BattleBox";
 import {
@@ -196,6 +204,7 @@ const DEFAULTS: Settings = {
 };
 
 const WORLD_SCENE_ICONS: Record<WorldSceneId, LucideIcon> = {
+  room: LayoutGrid,
   office: Building2,
   beach: Waves,
   desert: Sun,
@@ -1102,6 +1111,11 @@ export function AvatarStage({
     const bridge = bridgeRef.current;
     const r = new AvatarRenderer(host.current!, bridge, { ...settingsRef.current });
     rendRef.current = r;
+    // OSIRIS'S SAVED SPOT (owner order 2026-11-22): if he was dragged
+    // somewhere last session, he is standing there when the stage
+    // opens — the drag persists like every other setting of his.
+    const savedSpot = loadFigureOffset();
+    if (savedSpot) r.setFigureOffset(savedSpot.x, savedSpot.y);
     r.onFrame = (p) => {
       setPerf(p);
       setReady(true);
@@ -1292,6 +1306,78 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       r.dispose();
     };
   }, [sendCommand, operatorFullName, operatorName, say, applyVoiceGate]);
+
+  // MOVE OSIRIS (owner order 2026-11-22): press on the figure and
+  // pull him anywhere on the stage; the spot saves when the press
+  // lets go, and he is standing there next time the stage opens.
+  // Double-press on him sends him back to his home spot. The hit
+  // test is his real screen position from the renderer, so the grab
+  // works wherever he is standing — and a press anywhere else on
+  // the stage keeps its old meaning, untouched.
+  const [osirisDragging, setOsirisDragging] = useState(false);
+  const resetOsirisHome = useCallback(() => {
+    rendRef.current?.resetFigureOffset();
+    clearFigureOffset();
+  }, []);
+  useEffect(() => {
+    const hostEl = host.current;
+    if (!hostEl) return;
+    const GRAB_RADIUS_PX = 175;
+    let drag: { pointerId: number; lastX: number; lastY: number } | null = null;
+    const nearFigure = (clientX: number, clientY: number) => {
+      const renderer = rendRef.current;
+      if (!renderer) return false;
+      const point = renderer.figureScreenPoint();
+      if (!point) return false;
+      const rect = hostEl.getBoundingClientRect();
+      return (
+        Math.hypot(clientX - rect.left - point.x, clientY - rect.top - point.y) <= GRAB_RADIUS_PX
+      );
+    };
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (!nearFigure(e.clientX, e.clientY)) return;
+      drag = { pointerId: e.pointerId, lastX: e.clientX, lastY: e.clientY };
+      hostEl.setPointerCapture(e.pointerId);
+      setOsirisDragging(true);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      const renderer = rendRef.current;
+      if (!renderer) return;
+      const scale = renderer.worldUnitsPerPixel();
+      const current = renderer.figureOffset;
+      renderer.setFigureOffset(
+        current.x + (e.clientX - drag.lastX) * scale,
+        current.y - (e.clientY - drag.lastY) * scale,
+      );
+      drag.lastX = e.clientX;
+      drag.lastY = e.clientY;
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      drag = null;
+      setOsirisDragging(false);
+      const renderer = rendRef.current;
+      if (renderer) saveFigureOffset(renderer.figureOffset);
+    };
+    const onDblClick = (e: MouseEvent) => {
+      if (!nearFigure(e.clientX, e.clientY)) return;
+      resetOsirisHome();
+    };
+    hostEl.addEventListener("pointerdown", onDown);
+    hostEl.addEventListener("pointermove", onMove);
+    hostEl.addEventListener("pointerup", onUp);
+    hostEl.addEventListener("pointercancel", onUp);
+    hostEl.addEventListener("dblclick", onDblClick);
+    return () => {
+      hostEl.removeEventListener("pointerdown", onDown);
+      hostEl.removeEventListener("pointermove", onMove);
+      hostEl.removeEventListener("pointerup", onUp);
+      hostEl.removeEventListener("pointercancel", onUp);
+      hostEl.removeEventListener("dblclick", onDblClick);
+    };
+  }, [resetOsirisHome]);
 
   // Auto-enter the live world on arrival (owner order): no click needed.
   const autoEnteredRef = useRef(false);
@@ -1518,11 +1604,20 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
 
   return (
     <div
-      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}`}
+      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}${osirisDragging ? " avatar-stage--dragging-osiris" : ""}`}
       data-scene-ready={ready ? "" : undefined}
+      data-stage-look={worldScreen === "live" && worldScene === "room" ? "light" : "dark"}
       style={stageStyle}
     >
       <div ref={host} className="absolute inset-0" />
+      {!clearScreen && worldScreen === "live" && (
+        <AnubisPresence
+          ready={ready}
+          speaking={state === "SPEAKING"}
+          listening={voiceListening}
+          acting={presenting || state === "THINKING"}
+        />
+      )}
       {cubeOpen && (
         <CubePanel
           onClose={() => setCubeOpen(false)}
@@ -1626,6 +1721,14 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   icon={Expand}
                   label="Full size"
                   onClick={() => executeWorldCommand({ type: "grow" })}
+                />
+                <CommandAction
+                  icon={LocateFixed}
+                  label="Osiris · home spot"
+                  onClick={() => {
+                    resetOsirisHome();
+                    say("Osiris is back at his home spot.");
+                  }}
                 />
               </div>
             </CommandGroup>

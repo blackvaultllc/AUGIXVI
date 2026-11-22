@@ -9,7 +9,8 @@ import { spring, targetParams, type Params } from "./stateParams";
 import { filePoints, handPoints, limbPoints, makeProp } from "./props";
 import { getLegGaitAngle, getArmSwingAngle, wantsToDance } from "./particleLegs";
 import { ARM, armPose, flightArmPose, handDirection, solveArm, type V3 } from "./armIK";
-import { getThemePalette, type ThemeChoice } from "./themes";
+import { getThemePalette, type ThemeChoice, type ThemePalette } from "./themes";
+import { clampFigureOffset, type FigureOffset } from "./osirisPosition";
 import { eyeBrightnessFor, eyeColorFor, smoothEyePulse } from "./eyes";
 import { breathCycleAt } from "./heartbeat";
 import { SceneManager } from "./sceneManager";
@@ -88,7 +89,7 @@ void main(){
 }`;
 
 const frag = /* glsl */ `
-uniform float uTime, uCore, uWhite, uSpeech;
+uniform float uTime, uCore, uWhite, uSpeech, uLight;
 uniform vec3 uColA, uColB, uColCore, uColVein;
 varying float vKind; varying float vRand; varying float vLine; varying float vFace; varying float vVein;
 void main(){
@@ -109,7 +110,12 @@ void main(){
     col = mix(col, uColCore * 1.6, vFace * (0.35 + uSpeech));
     col = mix(col, vec3(1.0), uWhite * 0.25);
   }
-  gl_FragColor = vec4(col * a, a);
+  // LIGHT STAGE (the Room, owner order 2026-11-22): on the white room
+  // the body renders with NORMAL blending in deep blue and gold, so
+  // the color must arrive un-premultiplied — additive's col*a over a
+  // near-white ground washes him to a ghost. uLight swaps the output;
+  // the dark stages keep the additive form untouched.
+  gl_FragColor = vec4(col * mix(a, 1.0, uLight), a);
 }`;
 
 const postShader = {
@@ -161,7 +167,7 @@ void main(){
 }`;
 
 const eyeFrag = /* glsl */ `
-uniform vec3 uColor; uniform float uGlow, uTime;
+uniform vec3 uColor; uniform float uGlow, uTime, uLight;
 varying float vRand;
 void main(){
   vec2 c = gl_PointCoord - 0.5; float r = length(c); if (r > 0.5) discard;
@@ -170,10 +176,24 @@ void main(){
   // rest; the speech pulse itself is smoothed in eyes.ts — never a strobe.
   float shimmer = 0.92 + 0.08 * sin(uTime * 2.3 + vRand * 6.28);
   vec3 col = uColor * uGlow * shimmer;
-  gl_FragColor = vec4(col * a, a);
+  gl_FragColor = vec4(col * mix(a, 1.0, uLight), a);
 }`;
 
 type V<T> = { value: T };
+
+/**
+ * THE ROOM'S PALETTE (owner order 2026-11-22): on the white room
+ * Osiris renders in deep royal blue and gold — the house colors,
+ * dark enough to read on warm white the way the cyan glow read on
+ * the dark stages. The operator's theme still rules every dark
+ * stage; the Room's light is fixed, like the room itself.
+ */
+const ROOM_PALETTE: ThemePalette = {
+  a: [0.08, 0.25, 0.78],
+  b: [0.78, 0.55, 0.1],
+  core: [0.92, 0.68, 0.16],
+  vein: [0.16, 0.38, 0.95],
+};
 type Uniforms = Record<
   | "uTime"
   | "uBreath"
@@ -186,7 +206,8 @@ type Uniforms = Record<
   | "uPixel"
   | "uAttractK"
   | "uCore"
-  | "uWhite",
+  | "uWhite"
+  | "uLight",
   V<number>
 > & {
   uAttract: V<THREE.Vector3>;
@@ -211,8 +232,18 @@ export class AvatarRenderer {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  /**
+   * The anchor Osiris stands on. Locomotion moves avatarRoot inside
+   * it; the operator's drag moves the anchor. Keeping the two
+   * separate means a dragged Osiris still walks, flies and portals
+   * exactly where his own feet are — the anchor never corrupts a
+   * walk path or a portal check, which read avatarRoot alone.
+   */
+  private figureAnchor = new THREE.Group();
   private avatarRoot = new THREE.Group();
   private character = new THREE.Group();
+  /** True while the white Room is the stage — deep-blue/gold rendering. */
+  private lightStage = false;
   private sceneManager: SceneManager;
   private worldScenes: WorldSceneManager;
   private locomotion: AvatarLocomotion;
@@ -293,15 +324,17 @@ export class AvatarRenderer {
     host.appendChild(this.renderer.domElement);
     this.camera.position.set(0, -0.75, 11);
     this.camera.lookAt(0, -0.8, 0);
-    this.scene.add(this.avatarRoot);
+    this.scene.add(this.figureAnchor);
+    this.figureAnchor.add(this.avatarRoot);
     this.avatarRoot.add(this.character);
     this.locomotion = new AvatarLocomotion(this.avatarRoot);
     this.sceneManager = new SceneManager(this.scene, settings.theme, settings.customColor);
     // THE LIVING WORLD (owner order 2026-11-21): five scenes grown from
     // the same particle code — office, beach, desert, park, coffee shop.
-    // The office is home, so it is the default; while a living scene is
-    // active the old backdrop (mountains/pines/stars) steps aside — the
-    // pines live in the park now, grown from the same builder.
+    // The Room (owner order 2026-11-22) is the default now — a bright,
+    // empty stage where he can SEE Osiris — and while a living scene
+    // is active the old backdrop (mountains/pines/stars) steps aside;
+    // the pines live in the park now, grown from the same builder.
     this.worldScenes = new WorldSceneManager(this.scene);
     this.worldScenes.setScene(DEFAULT_WORLD_SCENE);
     this.sceneManager.setEnvironmentVisible(false);
@@ -335,6 +368,7 @@ export class AvatarRenderer {
         uLegSwing: u(new THREE.Vector2()),
         uCore: u(1),
         uWhite: u(0),
+        uLight: u(0),
         uColA: u(new THREE.Color()),
         uColB: u(new THREE.Color()),
         uColCore: u(new THREE.Color()),
@@ -372,6 +406,8 @@ export class AvatarRenderer {
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(host);
     this.resize();
+    // The opening scene's look — the Room's light, on a fresh load.
+    this.applyStageLook(DEFAULT_WORLD_SCENE);
     document.addEventListener("visibilitychange", this.onVis);
     this.start();
   }
@@ -386,8 +422,15 @@ export class AvatarRenderer {
     cancelAnimationFrame(this.raf);
     this.raf = requestAnimationFrame(this.tick);
   }
+  /** The palette the figure wears right now: the Room's deep blue and
+   * gold while the white stage is up, the operator's theme elsewhere. */
+  private activePalette(): ThemePalette {
+    return this.lightStage
+      ? ROOM_PALETTE
+      : getThemePalette(this.settings.theme, this.settings.customColor);
+  }
   applyTheme() {
-    const t = getThemePalette(this.settings.theme, this.settings.customColor);
+    const t = this.activePalette();
     const U = this.mat.uniforms as unknown as Uniforms;
     rgb(U.uColA.value, t.a);
     rgb(U.uColB.value, t.b);
@@ -413,7 +456,7 @@ export class AvatarRenderer {
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(this.capeBasePositions.slice(), 3));
-    const palette = getThemePalette(this.settings.theme, this.settings.customColor);
+    const palette = this.activePalette();
     const cape = new THREE.Points(
       geometry,
       new THREE.PointsMaterial({
@@ -457,13 +500,14 @@ export class AvatarRenderer {
         uPixel: { value: this.renderer.getPixelRatio() },
         uGlow: { value: this.eyePulse },
         uTime: { value: 0 },
+        uLight: { value: 0 },
         uColor: { value: this.eyeColor.clone() },
       },
     });
     return new THREE.Points(geometry, material);
   }
   private applyPropTheme() {
-    const t = getThemePalette(this.settings.theme, this.settings.customColor);
+    const t = this.activePalette();
     for (const h of [...this.hands, ...this.arms, ...this.forearms]) {
       const U = h.material as THREE.ShaderMaterial;
       rgb(U.uniforms["uColA"]!.value, t.a);
@@ -672,7 +716,11 @@ export class AvatarRenderer {
       dt,
     );
     const eyeUniforms = (this.eyes.material as THREE.ShaderMaterial).uniforms;
-    (eyeUniforms["uColor"]!.value as THREE.Color).copy(this.eyeColor);
+    (eyeUniforms["uColor"]!.value as THREE.Color)
+      .copy(this.eyeColor)
+      // On the white Room the bright state colors wash out; deepened
+      // by half they stay themselves and stay readable.
+      .multiplyScalar(this.lightStage ? 0.45 : 1);
     eyeUniforms["uGlow"]!.value = this.eyePulse;
     eyeUniforms["uTime"]!.value = t;
     this.eyes.visible = !this.activeTransform;
@@ -836,6 +884,81 @@ export class AvatarRenderer {
   /** Switch the living world scene around him — he stays himself. */
   setWorldScene(id: WorldSceneId) {
     this.worldScenes.setScene(id);
+    this.applyStageLook(id);
+  }
+  /**
+   * THE STAGE LOOK (owner order 2026-11-22): the Room is a LIGHT
+   * stage. Additive particle glow over a warm-white ground would
+   * wash Osiris to invisibility — the exact defect he reported — so
+   * in the Room every one of his materials switches to normal
+   * blending with un-premultiplied color (uLight) in the deep blue
+   * and gold ROOM_PALETTE, bloom steps aside (a bright ground blooms
+   * to white-out), and the clear color becomes the room's warm
+   * white. Any other scene restores the dark stage exactly as it
+   * was, theme and all.
+   */
+  private applyStageLook(id: WorldSceneId) {
+    const light = id === "room";
+    this.lightStage = light;
+    this.renderer.setClearColor(light ? 0xf6f2e9 : 0x02040a, 1);
+    this.bloom.enabled = !light;
+    const blending = light ? THREE.NormalBlending : THREE.AdditiveBlending;
+    const setMaterial = (material: THREE.ShaderMaterial) => {
+      material.blending = blending;
+      material.needsUpdate = true;
+      if (material.uniforms["uLight"]) material.uniforms["uLight"]!.value = light ? 1 : 0;
+    };
+    setMaterial(this.mat);
+    setMaterial(this.eyes.material as THREE.ShaderMaterial);
+    for (const prop of [...this.hands, ...this.arms, ...this.forearms, this.file]) {
+      setMaterial(prop.material as THREE.ShaderMaterial);
+    }
+    const capeMaterial = this.cape.material as THREE.PointsMaterial;
+    capeMaterial.blending = blending;
+    capeMaterial.opacity = light ? 0.85 : 0.72;
+    capeMaterial.needsUpdate = true;
+    this.applyTheme();
+    this.applyPropTheme();
+  }
+  /* ---------------- OSIRIS, MOVABLE (owner order 2026-11-22) ---------------- */
+  /**
+   * Move Osiris's anchor — the drag from the stage lands here. The
+   * offset is clamped to the frame (osirisPosition.ts) so he can be
+   * pulled anywhere he can still be seen whole, and no farther.
+   */
+  setFigureOffset(x: number, y: number) {
+    const clamped = clampFigureOffset({ x, y });
+    this.figureAnchor.position.set(clamped.x, clamped.y, 0);
+  }
+  get figureOffset(): FigureOffset {
+    const p = this.figureAnchor.position;
+    return { x: p.x, y: p.y };
+  }
+  /** Back to the home spot at stage center. */
+  resetFigureOffset() {
+    this.figureAnchor.position.set(0, 0, 0);
+  }
+  /**
+   * Where his center stands on the host element, in pixels — the
+   * stage's drag hit-test. Follows him wherever locomotion or a
+   * previous drag has put him, because it reads his real world
+   * position through the camera.
+   */
+  figureScreenPoint(): { x: number; y: number } | null {
+    const w = this.host.clientWidth;
+    const h = this.host.clientHeight;
+    if (!w || !h) return null;
+    const center = new THREE.Vector3();
+    this.avatarRoot.getWorldPosition(center);
+    center.y += 0.1;
+    center.project(this.camera);
+    return { x: (center.x * 0.5 + 0.5) * w, y: (-center.y * 0.5 + 0.5) * h };
+  }
+  /** World units per screen pixel at the figure's depth plane. */
+  worldUnitsPerPixel(): number {
+    const h = this.host.clientHeight || 1;
+    const dist = Math.max(1, this.camera.position.z - this.figureAnchor.position.z);
+    return (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * dist) / h;
   }
   get worldScene(): WorldSceneId | null {
     return this.worldScenes.currentScene;

@@ -31,9 +31,9 @@ function expectFinite(values: Float32Array) {
 }
 
 describe("living world scenes — registry", () => {
-  it("fields exactly the five scenes, office at home as the default", () => {
-    expect(SCENE_IDS).toEqual(["office", "beach", "desert", "park", "coffee"]);
-    expect(DEFAULT_WORLD_SCENE).toBe("office");
+  it("fields the Room first among six scenes, the Room at home as the default", () => {
+    expect(SCENE_IDS).toEqual(["room", "office", "beach", "desert", "park", "coffee"]);
+    expect(DEFAULT_WORLD_SCENE).toBe("room");
     for (const scene of WORLD_SCENES) {
       expect(scene.name.length).toBeGreaterThan(0);
       expect(scene.blurb.length).toBeGreaterThan(0);
@@ -44,6 +44,7 @@ describe("living world scenes — registry", () => {
 
 describe("living world scenes — builds stay inside the particle budget", () => {
   const expectedPeople: Record<WorldSceneId, number> = {
+    room: 0,
     office: 10,
     beach: 3,
     desert: 3,
@@ -53,6 +54,16 @@ describe("living world scenes — builds stay inside the particle budget", () =>
   for (const id of SCENE_IDS) {
     it(`builds ${id}: real points, matching colors, under budget`, () => {
       const built = buildScene(id);
+      if (id === "room") {
+        // THE ROOM (owner order 2026-11-22): an empty stage on
+        // purpose — no set points, no citizens, no water. The room
+        // itself is drawn by the renderer (light + grid lines).
+        expect(built.staticCount).toBe(0);
+        expect(built.people.length).toBe(0);
+        expect(built.water).toBeNull();
+        expect(built.totalParticles).toBe(0);
+        return;
+      }
       expect(built.staticCount).toBeGreaterThan(500);
       expect(built.staticPositions.length).toBe(built.staticCount * 3);
       expect(built.staticColors.length).toBe(built.staticCount * 3);
@@ -381,7 +392,8 @@ describe("citizens — the facing law (owner defect 2026-11-21)", () => {
   // sometimes." Measured before the fix: dot(facing, velocity) hit
   // −1.0 (dead backwards) in every scene. The law now: a citizen only
   // ever covers ground in the direction they face.
-  for (const id of SCENE_IDS) {
+  // The Room has no citizens — the law binds the populated scenes.
+  for (const id of SCENE_IDS.filter((sceneId) => sceneId !== "room")) {
     it(`${id}: no citizen ever translates against their facing`, () => {
       const sim = new PeopleSim(buildScene(id).people);
       let worst = 0;

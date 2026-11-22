@@ -15,13 +15,14 @@ void main(){
   gl_Position = projectionMatrix * mv;
 }`;
 const frag = /* glsl */ `
-uniform vec3 uColA, uColB; uniform float uTime, uGlow;
+uniform vec3 uColA, uColB; uniform float uTime, uGlow, uLight;
 varying float vRand; varying float vA;
 void main(){
   vec2 c = gl_PointCoord - 0.5; float r = length(c); if (r > 0.5) discard;
   float a = smoothstep(0.5, 0.0, r) * (0.25 + 0.75 * vA);
   vec3 col = mix(uColB, uColA, 0.5 + 0.5 * sin(uTime * 2.0 + vRand * 9.0)) * uGlow;
-  gl_FragColor = vec4(col * a, a);
+  // uLight: the white Room's un-premultiplied form (see AvatarRenderer).
+  gl_FragColor = vec4(col * mix(a, 1.0, uLight), a);
 }`;
 
 export function makeProp(points: Float32Array, scatterRadius: number) {
@@ -53,6 +54,7 @@ export function makeProp(points: Float32Array, scatterRadius: number) {
       uPixel: { value: 1 },
       uSize: { value: 1.6 },
       uGlow: { value: 1 },
+      uLight: { value: 0 },
       uColA: { value: new THREE.Color() },
       uColB: { value: new THREE.Color() },
     },

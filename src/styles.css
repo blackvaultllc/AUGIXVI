@@ -1607,6 +1607,167 @@
   height: 100%;
   object-fit: cover;
 }
+/* ANUBIS AT COMMAND (owner order 2026-11-22): the command face at
+   top-center of the stage — a living vector presence, gold on deep
+   blue, sized to be seen across the room and contained enough to
+   never own the screen. Its life is state-driven from the stage
+   (AnubisPresence.tsx): slow blinks, a jaw that moves only while
+   Augie speaks, ears and ring attending while the ear is open. */
+.avatar-stage .anubis-presence {
+  position: absolute;
+  top: max(0.85rem, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+.anubis-presence__face {
+  width: 104px;
+  height: 104px;
+  border-radius: 9999px;
+  overflow: hidden;
+  /* The medallion's black (owner refinement 2026-11-22): inside the
+     circle it is black like the assistant's own presence; the gold
+     and deep blue of the face live on that black. */
+  background: #000;
+  box-shadow:
+    0 10px 28px rgb(10 20 40 / 28%),
+    0 0 0 1px rgb(212 175 55 / 35%);
+  animation: anubis-bob 7s ease-in-out infinite;
+}
+.anubis-presence__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.anubis-presence--connecting .anubis-presence__face {
+  opacity: 0.55;
+}
+.anubis-presence--listening .anubis-presence__face {
+  box-shadow:
+    0 10px 28px rgb(10 20 40 / 28%),
+    0 0 0 2px rgb(212 175 55 / 65%),
+    0 0 24px rgb(212 175 55 / 40%);
+}
+.anubis-presence--acting .anubis-presence__face {
+  animation:
+    anubis-bob 7s ease-in-out infinite,
+    anubis-attend 2.4s ease-in-out infinite;
+}
+.anubis-presence__plate {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.22rem 0.7rem;
+  border-radius: 9999px;
+  background: rgb(8 12 22 / 72%);
+  border: 1px solid rgb(212 175 55 / 45%);
+  line-height: 1;
+}
+.anubis-presence__name {
+  font-size: 0.66rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #f3d27a;
+}
+.anubis-presence__role {
+  font-size: 0.56rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgb(243 210 122 / 62%);
+}
+.anubis-lid {
+  transform: scaleY(0);
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: anubis-blink 5.4s ease-in-out infinite;
+}
+.anubis-ear {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transition: transform 0.45s ease;
+}
+.anubis-presence--listening .anubis-ear--left {
+  transform: rotate(-3.5deg);
+}
+.anubis-presence--listening .anubis-ear--right {
+  transform: rotate(3.5deg);
+}
+.anubis-presence--speaking .anubis-jaw {
+  animation: anubis-talk 0.3s ease-in-out infinite alternate;
+}
+@keyframes anubis-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(2.5px);
+  }
+}
+@keyframes anubis-attend {
+  0%,
+  100% {
+    box-shadow:
+      0 10px 28px rgb(10 20 40 / 28%),
+      0 0 0 1px rgb(212 175 55 / 35%);
+  }
+  50% {
+    box-shadow:
+      0 10px 28px rgb(10 20 40 / 28%),
+      0 0 0 2px rgb(212 175 55 / 60%),
+      0 0 18px rgb(212 175 55 / 30%);
+  }
+}
+@keyframes anubis-blink {
+  0%,
+  91%,
+  100% {
+    transform: scaleY(0);
+  }
+  94.5% {
+    transform: scaleY(1);
+  }
+  97.5% {
+    transform: scaleY(0);
+  }
+}
+@keyframes anubis-talk {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(1.6px);
+  }
+}
+/* THE LIGHT STAGE (owner order 2026-11-22): while the white Room is
+   up, the HUD's dark-stage styling inverts — ink-blue letters, no
+   glow shadow, values in the Room's deep blue. The Command box
+   keeps its own dark face on purpose: the desk the room works at. */
+.avatar-stage[data-stage-look="light"] {
+  background: #f6f2e9;
+  color: #1c2b4a;
+}
+.avatar-stage[data-stage-look="light"] .avatar-hud {
+  text-shadow: none;
+  color: #33507e;
+}
+.avatar-stage[data-stage-look="light"] .avatar-hud__value {
+  color: #1d4fb8;
+}
+.avatar-stage[data-stage-look="light"] .avatar-hud--tl {
+  opacity: 0.85;
+}
+/* While Osiris is being pulled around the stage, the whole stage
+   wears the grabbing hand — the drag is one gesture, owned openly. */
+.avatar-stage--dragging-osiris,
+.avatar-stage--dragging-osiris * {
+  cursor: grabbing !important;
+}
 .avatar-command-box__title {
   flex: 1;
   font-size: 0.62rem;

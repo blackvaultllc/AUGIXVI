@@ -220,6 +220,7 @@ export class WorldSceneManager {
   private built: BuiltScene | null = null;
   private staticPoints: THREE.Points | null = null;
   private waterPoints: THREE.Points | null = null;
+  private roomSet: THREE.Group | null = null;
   private sim: PeopleSim | null = null;
   private citizens: THREE.Points[] = [];
   private labelSprites: THREE.Sprite[] = [];
@@ -265,6 +266,16 @@ export class WorldSceneManager {
     this.clear();
     this.built = buildScene(id);
     this.current = id;
+    if (id === "room") {
+      // THE ROOM (owner order 2026-11-22): no point set at all — the
+      // room is drawn as faint grid lines, floor and back wall, in the
+      // house gold and a pale blue-gray over the renderer's warm-white
+      // clear color. A development room: bright, quiet, and empty on
+      // purpose, so anything can be brought up in it.
+      this.roomSet = this.buildRoomSet();
+      this.group.add(this.roomSet);
+      return;
+    }
     if (this.built.floors) {
       this.floors = this.built.floors;
       this.loadFloor(0);
@@ -287,6 +298,35 @@ export class WorldSceneManager {
       this.group.add(this.waterPoints);
     }
     this.spawnCitizens(this.built.people);
+  }
+
+  /**
+   * The Room's only furniture: two grids. The floor grid grounds
+   * Osiris (he stands at the group's ground line); the back-wall grid
+   * gives the white its faint "matrixy" character without ever
+   * becoming a pattern he has to look through. Both are lines, not
+   * points — the one scene in the world not made of sand.
+   */
+  private buildRoomSet(): THREE.Group {
+    const set = new THREE.Group();
+    set.name = "living-world-room";
+    const floor = new THREE.GridHelper(36, 36, 0xc9a227, 0x93a9c9);
+    const floorMaterial = floor.material as THREE.Material;
+    floorMaterial.transparent = true;
+    floorMaterial.opacity = 0.32;
+    floorMaterial.depthWrite = false;
+    floor.position.y = 0.02;
+    set.add(floor);
+    const wall = new THREE.GridHelper(18, 18, 0xd8b84a, 0xaebfd8);
+    const wallMaterial = wall.material as THREE.Material;
+    wallMaterial.transparent = true;
+    wallMaterial.opacity = 0.16;
+    wallMaterial.depthWrite = false;
+    wall.rotation.x = Math.PI / 2;
+    // Bottom edge rests exactly on the floor line (local y 0).
+    wall.position.set(0, 9, -10);
+    set.add(wall);
+    return set;
   }
 
   /** Swap the stage to one of the active scene's floors. */
@@ -416,6 +456,16 @@ export class WorldSceneManager {
       this.group.remove(this.waterPoints);
       disposePoints(this.waterPoints);
       this.waterPoints = null;
+    }
+    if (this.roomSet) {
+      this.group.remove(this.roomSet);
+      this.roomSet.traverse((child) => {
+        const grid = child as THREE.GridHelper;
+        if (grid.geometry) grid.geometry.dispose();
+        const material = grid.material as THREE.Material | undefined;
+        if (material) material.dispose();
+      });
+      this.roomSet = null;
     }
     this.floors = null;
     this.floorIndex = 0;
