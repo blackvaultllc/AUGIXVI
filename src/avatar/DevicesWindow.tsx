@@ -73,6 +73,8 @@ const EMPTY_FORM = {
   placementNote: "",
   activationSsid: "",
   beaconRole: false,
+  ownerConfirmed: false,
+  controlGranted: false,
   lastSeenRssi: "",
   streamType: "",
   streamAddress: "",
@@ -288,6 +290,8 @@ export function DevicesWindow({
       placementNote: device.placementNote ?? "",
       activationSsid: device.activationSsid ?? "",
       beaconRole: device.beaconRole === true,
+      ownerConfirmed: device.ownerConfirmed === true,
+      controlGranted: device.controlGranted === true,
       lastSeenRssi: device.lastSeenRssi !== undefined ? String(device.lastSeenRssi) : "",
       streamType: device.measured.streamType ?? "",
       streamAddress: device.measured.streamAddress ?? "",
@@ -341,6 +345,8 @@ export function DevicesWindow({
       placementNote: form.placementNote.trim() ? form.placementNote.trim() : undefined,
       activationSsid: form.activationSsid.trim() ? form.activationSsid.trim() : undefined,
       beaconRole: form.beaconRole ? (true as const) : undefined,
+      ownerConfirmed: form.ownerConfirmed ? (true as const) : undefined,
+      controlGranted: form.controlGranted ? (true as const) : undefined,
       lastSeenRssi: parseNumber(form.lastSeenRssi),
       capabilities: form.capabilities
         .split("\n")
@@ -615,6 +621,24 @@ export function DevicesWindow({
               />
               Beacon / wand role — this device's presence activates Augie
             </label>
+            <label className="window-devices__check">
+              <input
+                type="checkbox"
+                checked={form.ownerConfirmed}
+                onChange={(e) => setForm({ ...form, ownerConfirmed: e.target.checked })}
+              />
+              Owner-confirmed — this device is mine (the Permission Law: mapping is free, this
+              confirms ownership)
+            </label>
+            <label className="window-devices__check">
+              <input
+                type="checkbox"
+                checked={form.controlGranted}
+                onChange={(e) => setForm({ ...form, controlGranted: e.target.checked })}
+              />
+              Control granted — Osiris may CONTROL this device (off by default; only I grant
+              this, per device)
+            </label>
             <label>
               Wi-Fi SSID (hotspot devices)
               <input
@@ -791,6 +815,10 @@ export function DevicesWindow({
                   Beacon / wand role: this device's presence activates Augie.
                 </p>
               )}
+              <p className="window-devices__meta">
+                Permission Law: {selected.ownerConfirmed ? "owner-confirmed" : "not owner-confirmed"}{" "}
+                · control {selected.controlGranted ? "GRANTED by the operator" : "not granted — observation only"}.
+              </p>
               {selected.lastSeenRssi !== undefined && (
                 <p className="window-devices__meta">
                   Signal at last sighting: {selected.lastSeenRssi} dBm.

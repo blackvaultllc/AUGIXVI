@@ -150,6 +150,18 @@ export type DeviceProfile = {
   /** Beacon/wand role: this device's presence activates Augie (his
    *  otoscope is the "Magic Wand"). */
   beaconRole?: boolean | undefined;
+  /**
+   * THE PERMISSION LAW (operator order 2026-11-21, governing the
+   * whole device line): any device he owns that speaks Wi-Fi or
+   * Bluetooth may be MAPPED on sight — but CONTROL requires his
+   * explicit permission, per device. These two flags carry that
+   * law on every card. Both default ABSENT (= no): mapping never
+   * implies ownership confirmation, and nothing is controllable
+   * until he grants it for that exact device.
+   */
+  ownerConfirmed?: boolean | undefined;
+  /** His explicit grant that Osiris may CONTROL this device. */
+  controlGranted?: boolean | undefined;
   /** Signal strength (dBm) at the last sighting, when a scan or the
    *  operator recorded one. Absent = never recorded. */
   lastSeenRssi?: number | undefined;
@@ -372,6 +384,8 @@ export function sanitizeProfile(v: unknown): DeviceProfile | null {
         ? v["activationSsid"]
         : undefined,
     beaconRole: v["beaconRole"] === true ? true : undefined,
+    ownerConfirmed: v["ownerConfirmed"] === true ? true : undefined,
+    controlGranted: v["controlGranted"] === true ? true : undefined,
     lastSeenRssi:
       typeof v["lastSeenRssi"] === "number" && v["lastSeenRssi"] >= -120 && v["lastSeenRssi"] <= 0
         ? v["lastSeenRssi"]
@@ -452,4 +466,14 @@ let idCounter = 0;
 export function newDeviceId(): string {
   idCounter += 1;
   return `device-${Date.now()}-${idCounter}`;
+}
+
+/**
+ * The Permission Law as a check: Osiris may CONTROL a device only
+ * when the operator has both confirmed it is his AND granted
+ * control for that device. Anything less — mapped, seen, even
+ * owner-confirmed without the grant — is observation only.
+ */
+export function canControl(profile: DeviceProfile): boolean {
+  return profile.ownerConfirmed === true && profile.controlGranted === true;
 }

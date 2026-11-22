@@ -6,6 +6,8 @@ import {
   saveRegistry,
   updateDevice,
   upsertDevice,
+  canControl,
+  sanitizeProfile,
   type DeviceProfile,
 } from "@/avatar/devices/deviceRegistry";
 
@@ -137,5 +139,56 @@ describe("device registry", () => {
     const loaded = loadRegistry();
     expect(loaded[0]?.measured).toEqual({});
     expect(list[0]?.batteryLevel).toBeNull();
+  });
+});
+
+describe("the Permission Law flags (Part 29)", () => {
+  it("default to NO control: absent flags mean observation only", () => {
+    const profile = sanitizeProfile({
+      id: "d1",
+      displayName: "Test",
+      kind: "other",
+      transport: "wifi",
+      externalId: "",
+      presence: "unknown",
+      presenceEvents: [],
+      source: "manual",
+      declaredServices: [],
+      capabilities: [],
+      limitations: [],
+      batteryLevel: null,
+      measured: {},
+      firstSeen: 1,
+      lastSeen: 1,
+    });
+    expect(profile?.ownerConfirmed).toBeUndefined();
+    expect(profile?.controlGranted).toBeUndefined();
+    expect(profile && canControl(profile)).toBe(false);
+  });
+
+  it("control requires BOTH flags — either one alone is not enough", () => {
+    const base = {
+      id: "d2",
+      displayName: "Test",
+      kind: "other",
+      transport: "wifi",
+      externalId: "",
+      presence: "unknown",
+      presenceEvents: [],
+      source: "manual",
+      declaredServices: [],
+      capabilities: [],
+      limitations: [],
+      batteryLevel: null,
+      measured: {},
+      firstSeen: 1,
+      lastSeen: 1,
+    };
+    const ownerOnly = sanitizeProfile({ ...base, ownerConfirmed: true });
+    const grantOnly = sanitizeProfile({ ...base, controlGranted: true });
+    const both = sanitizeProfile({ ...base, ownerConfirmed: true, controlGranted: true });
+    expect(ownerOnly && canControl(ownerOnly)).toBe(false);
+    expect(grantOnly && canControl(grantOnly)).toBe(false);
+    expect(both && canControl(both)).toBe(true);
   });
 });
