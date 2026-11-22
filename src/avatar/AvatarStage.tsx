@@ -149,6 +149,12 @@ import { PERSONALITY_PROMPT, isFellowAITurn, livingWordGreeting } from "./person
 import { parseHandIntent } from "./bodyCapabilities";
 import { createProactiveEngine, EventQueueWatcher, shaWatcher } from "./proactive";
 import { loadAvatarSettings, saveAvatarSettings } from "./settings";
+import {
+  createSettingsSync,
+  settingsSyncLabel,
+  type SettingsSync,
+  type SettingsSyncStatus,
+} from "./settingsSync";
 import { lookupKnowledge } from "./knowledgeBase";
 import { parseSpaceNavigationCommand } from "./spaceNavigation";
 import { SpaceView } from "./SpaceView";
@@ -221,12 +227,17 @@ export function AvatarStage({
   const silentRef = useRef(silent);
   const lastQuestionRef = useRef("");
   const micFlashTimer = useRef<number | null>(null);
-  // SETTINGS THAT STICK: one store, every knob, saved on every change.
+  // SETTINGS THAT STICK: one store, every knob, saved on every change —
+  // and, while signed in, synced to the operator's account so the same
+  // configuration is waiting on his other devices (settingsSync.ts).
   const [settings, setSettings] = useState<Settings>(() => loadAvatarSettings());
+  const syncRef = useRef<SettingsSync | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SettingsSyncStatus>("connecting");
   const persistSettings = useCallback((next: Settings) => {
     settingsRef.current = next;
     setSettings(next);
     saveAvatarSettings(next);
+    syncRef.current?.notifyLocalChange(next);
   }, []);
   const settingsRef = useRef(settings);
   const [state, setState] = useState<AvatarState>("IDLE");
@@ -1294,6 +1305,33 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     rendRef.current?.updateSettings({ theme: "custom", customColor: color });
   }
 
+  // ACCOUNT SETTINGS: a newer account copy lands here and is applied
+  // through the same path as a local change — persisted, pushed into the
+  // renderer and sensors, and mirrored to the theme store — so what he
+  // sees IS his saved configuration, on whichever device he opened.
+  function applySyncedSettings(next: Settings) {
+    persistSettings(next);
+    const { sensitivity, cooldownMs, ...renderSettings } = next;
+    rendRef.current?.updateSettings(renderSettings);
+    sensRef.current?.setOptions({ sensitivity, cooldownMs });
+    saveThemePreference({ theme: next.theme, customColor: next.customColor });
+  }
+
+  useEffect(() => {
+    const sync = createSettingsSync({
+      apply: (incoming) => applySyncedSettings(incoming),
+      onStatus: setSyncStatus,
+    });
+    syncRef.current = sync;
+    sync.start();
+    return () => {
+      sync.stop();
+      if (syncRef.current === sync) syncRef.current = null;
+    };
+    // Mounted once for the stage's life; the applier reads live refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function saveCurrentHighlight() {
     const memory = memoryRef.current;
     if (!memory || !lastQuestionRef.current || lastWords === "No response yet.") return;
@@ -1669,6 +1707,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onChange={(e) => chooseCustomColor(e.target.value)}
                   />
                 </label>
+                <p role="status">{settingsSyncLabel(syncStatus)}</p>
               </CommandGroup>
               <CommandGroup label="Brain — where Augie lives">
                 <label className="avatar-hud__row">

@@ -1,17 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
-import { createLocalOperatorRegistry } from "./localOperatorRegistry.server";
-import type { OperatorRegistry } from "./OperatorRegistry";
+import {
+  hasOperatorRegistry,
+  requestOperatorRegistry,
+  type RequestWithCloudflareEnv,
+} from "./operatorRegistryAccess.server";
 
 type OperatorTokenInput = { token: string };
 type OperatorSessionInput = { accessToken: string };
-type RegistryBinding = {
-  idFromName: (name: string) => unknown;
-  get: (id: unknown) => { fetch: (request: Request) => Promise<Response> };
-};
-type RequestWithCloudflareEnv = Request & {
-  runtime?: { cloudflare?: { env?: Record<string, unknown> } };
-};
 
 function isOperatorTokenInput(input: unknown): input is OperatorTokenInput {
   return (
@@ -63,48 +59,6 @@ function getSupabaseConfig() {
   const url = readString("VITE_SUPABASE_URL")?.replace(/\/+$/, "");
   const publishableKey = readString("VITE_SUPABASE_PUBLISHABLE_KEY");
   return url && publishableKey ? { url, publishableKey } : null;
-}
-
-function getRegistryBinding(): RegistryBinding | null {
-  const request = getRequest() as RequestWithCloudflareEnv;
-  const binding: unknown = request.runtime?.cloudflare?.env?.["OSIRIS_OPERATOR_REGISTRY"];
-  if (
-    typeof binding !== "object" ||
-    binding === null ||
-    !("idFromName" in binding) ||
-    typeof binding.idFromName !== "function" ||
-    !("get" in binding) ||
-    typeof binding.get !== "function"
-  ) {
-    return null;
-  }
-  return binding as RegistryBinding;
-}
-
-let localRegistryPromise: Promise<OperatorRegistry | null> | null = null;
-
-function getLocalRegistry(): Promise<OperatorRegistry | null> {
-  localRegistryPromise ??= (() => {
-    const home = process.env["HOME"]?.trim();
-    if (!home) return Promise.resolve(null);
-    const directory = `${home}/.local/share/augie`;
-    return createLocalOperatorRegistry(directory, `${directory}/operator-registry.json`);
-  })();
-  return localRegistryPromise;
-}
-
-async function getRegistryStub() {
-  const binding = getRegistryBinding();
-  if (binding) return binding.get(binding.idFromName("operator"));
-  // Outside Cloudflare there is no Durable Object binding; serve the same
-  // registry from the local file-backed fallback instead.
-  return getLocalRegistry();
-}
-
-async function requestRegistry(path: string, init?: RequestInit): Promise<Response | null> {
-  const stub = await getRegistryStub();
-  if (!stub) return null;
-  return stub.fetch(new Request(`https://operator-registry${path}`, init));
 }
 
 async function readTokenClaims(
@@ -167,7 +121,7 @@ export const verifyOperatorAccess = createServerFn({ method: "POST" })
 export const getOperatorBootstrapStatus = createServerFn({ method: "GET" }).handler(async () => {
   if (!getSupabaseConfig()) return { configured: false, claimed: false };
 
-  const response = await requestRegistry("/status");
+  const response = await requestOperatorRegistry("/status");
   if (!response) return { configured: false, claimed: false };
   if (!response.ok) {
     throw new Error(`Operator registry status failed with status ${response.status}.`);
@@ -199,7 +153,7 @@ export const verifySupabaseOperatorSession = createServerFn({ method: "POST" })
       return typeof value === "string" ? value.trim() || undefined : undefined;
     };
     const config = getSupabaseConfig();
-    if (!config || !(await getRegistryStub())) {
+    if (!config || !(await hasOperatorRegistry())) {
       return {
         configured: false,
         authorized: false,
@@ -233,7 +187,7 @@ export const verifySupabaseOperatorSession = createServerFn({ method: "POST" })
       return { configured: true, authorized: false, requiresMfa: false };
     }
 
-    const checkResponse = await requestRegistry("/check", {
+    const checkResponse = await requestOperatorRegistry("/check", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ userId }),
@@ -268,7 +222,7 @@ export const verifySupabaseOperatorSession = createServerFn({ method: "POST" })
       return { configured: true, authorized: false, requiresMfa: true };
     }
 
-    const registryResponse = await requestRegistry("/authorize", {
+    const registryResponse = await requestOperatorRegistry("/authorize", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ userId }),
