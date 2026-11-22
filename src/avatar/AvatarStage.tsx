@@ -1,9 +1,11 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import * as THREE from "three";
@@ -27,7 +29,9 @@ import {
   FlaskConical,
   Gamepad2,
   Globe,
+  Hammer,
   History,
+  Map as MapIcon,
   Network,
   Laptop,
   LayoutGrid,
@@ -54,6 +58,40 @@ import {
 import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
 import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
+import { BuilderPanel } from "./builder/BuilderPanel";
+import { MapPanel } from "./builder/MapPanel";
+import {
+  activeLayout,
+  addItem,
+  emptyRoom,
+  exportRoomPackage,
+  loadLayoutStore,
+  makePlacedItem,
+  moveItem,
+  parseRoomPackage,
+  removeItem,
+  rotateItem,
+  saveLayoutStore,
+  setItemAnchored,
+  setSurfaces as setRoomSurfaces,
+  updateItemVariant,
+  withLayoutRoom,
+  type LayoutStore,
+  type RoomContent,
+} from "./builder/room";
+import { defaultVariant, libraryItem } from "./builder/library";
+import {
+  frameOffset,
+  loadFrameStore,
+  saveFrameStore,
+  snapFramePosition,
+  withFrameOffset,
+  withoutFrame,
+  type FrameId,
+  type FrameRect,
+  type FrameStore,
+  type SnapGuides,
+} from "./builder/frames";
 import { AugiePresence } from "./AugiePresence";
 import { speakingMsForText } from "./LivingPortrait";
 import { AnubisPresence } from "./AnubisPresence";
@@ -403,6 +441,26 @@ export function AvatarStage({
   // stage, and "open AUGI avatar" brings him back.
   const [constructOpen, setConstructOpen] = useState(true);
   const [constructDock, setConstructDock] = useState<HTMLElement | null>(null);
+  // THE ENVIRONMENT BUILDER (owner order 2026-11-22): the Captain's
+  // designed Room — layouts saved as he goes, the active room fed to
+  // the renderer, pieces placed/moved/anchored from the panel and
+  // by dragging on the stage itself. The stage frames (medallions,
+  // HUD clusters) carry their own offsets beside it.
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [layoutStore, setLayoutStore] = useState<LayoutStore>(() => loadLayoutStore());
+  const layoutStoreRef = useRef(layoutStore);
+  layoutStoreRef.current = layoutStore;
+  const [builderSelection, setBuilderSelection] = useState<string | null>(null);
+  const builderIdCounter = useRef(0);
+  const stageRootRef = useRef<HTMLDivElement>(null);
+  const [frameStore, setFrameStore] = useState<FrameStore>(() => loadFrameStore());
+  const frameStoreRef = useRef(frameStore);
+  frameStoreRef.current = frameStore;
+  const [framesArmed, setFramesArmed] = useState(false);
+  const framesArmedRef = useRef(framesArmed);
+  framesArmedRef.current = framesArmed;
+  const [snapGuides, setSnapGuides] = useState<SnapGuides | null>(null);
   const stageDockRef = useRef<HTMLDivElement>(null);
   // DOCKING: the renderer's host element is moved — not recreated —
   // between its home slot on the stage and the construct window's
@@ -589,6 +647,270 @@ export function AvatarStage({
       hatterSpeechTimer.current = null;
     }
   }, [state]);
+
+  /* --------------------- the environment builder --------------------- */
+
+  // Save-as-you-go + the renderer always holds the active room.
+  useEffect(() => {
+    saveLayoutStore(layoutStore);
+    rendRef.current?.setBuilderRoom(activeLayout(layoutStore).room);
+  }, [layoutStore]);
+
+  useEffect(() => {
+    rendRef.current?.setBuilderSelected(builderSelection);
+  }, [builderSelection]);
+
+  useEffect(() => {
+    saveFrameStore(frameStore);
+  }, [frameStore]);
+
+  const updateRoom = useCallback((next: RoomContent) => {
+    setLayoutStore((store) => withLayoutRoom(store, store.activeId, next));
+  }, []);
+
+  const newBuilderItemId = useCallback(() => {
+    builderIdCounter.current += 1;
+    return `piece-${Date.now().toString(36)}-${builderIdCounter.current}`;
+  }, []);
+
+  const placeFromLibrary = useCallback(
+    (baseId: string, at?: { x: number; z: number }) => {
+      const base = libraryItem(baseId);
+      if (!base) return;
+      const current = activeLayout(layoutStoreRef.current).room;
+      let spot = at;
+      if (!spot) {
+        // The next free floor spot, scanned front-to-back — pieces
+        // never land on top of each other from a panel click.
+        const taken = (x: number, z: number) =>
+          current.items.some((item) => Math.hypot(item.x - x, item.z - z) < 1.7);
+        outer: for (const z of [-1, -4, -7, 1.5, -2.5, -5.5]) {
+          for (let x = -9; x <= 9; x += 3) {
+            if (!taken(x, z)) {
+              spot = { x, z };
+              break outer;
+            }
+          }
+        }
+        spot ??= { x: 0, z: -1 };
+      }
+      const item = makePlacedItem(newBuilderItemId(), baseId, defaultVariant(base), spot.x, spot.z);
+      updateRoom(addItem(current, item));
+      setBuilderSelection(item.id);
+    },
+    [newBuilderItemId, updateRoom],
+  );
+
+  // Dragging pieces on the stage itself: capture-phase on the stage
+  // root, so a press that lands on a placed piece is the builder's
+  // before the figure's own press handlers ever see it. Only while
+  // the builder is open and the Room is on stage.
+  useEffect(() => {
+    const root = stageRootRef.current;
+    if (!root || !builderOpen || worldScene !== "room") return;
+    let drag: { id: string; dx: number; dz: number } | null = null;
+    const onDown = (event: PointerEvent) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (!(event.target as HTMLElement | null)?.closest?.("canvas")) return;
+      const renderer = rendRef.current;
+      if (!renderer) return;
+      const id = renderer.builderPick(event.clientX, event.clientY);
+      if (!id) {
+        setBuilderSelection(null);
+        return;
+      }
+      event.stopPropagation();
+      event.preventDefault();
+      setBuilderSelection(id);
+      const item = activeLayout(layoutStoreRef.current).room.items.find((entry) => entry.id === id);
+      if (!item || item.anchored) return; // selected — but the anchor law holds it fast
+      const floor = renderer.builderFloorPoint(event.clientX, event.clientY);
+      drag = { id, dx: floor ? item.x - floor.x : 0, dz: floor ? item.z - floor.z : 0 };
+    };
+    const onMove = (event: PointerEvent) => {
+      if (!drag) return;
+      const renderer = rendRef.current;
+      if (!renderer) return;
+      const floor = renderer.builderFloorPoint(event.clientX, event.clientY);
+      if (!floor) return;
+      const current = activeLayout(layoutStoreRef.current).room;
+      updateRoom(moveItem(current, drag.id, floor.x + drag.dx, floor.z + drag.dz));
+    };
+    const onUp = () => {
+      drag = null;
+    };
+    root.addEventListener("pointerdown", onDown, true);
+    root.addEventListener("pointermove", onMove, true);
+    root.addEventListener("pointerup", onUp, true);
+    root.addEventListener("pointercancel", onUp, true);
+    return () => {
+      root.removeEventListener("pointerdown", onDown, true);
+      root.removeEventListener("pointermove", onMove, true);
+      root.removeEventListener("pointerup", onUp, true);
+      root.removeEventListener("pointercancel", onUp, true);
+    };
+  }, [builderOpen, worldScene, updateRoom]);
+
+  const builderLayoutOps = useMemo(
+    () => ({
+      onSwitchLayout: (id: string) => {
+        setLayoutStore((store) => ({ ...store, activeId: id }));
+        setBuilderSelection(null);
+      },
+      onNewLayout: () => {
+        const id = `layout-${Date.now().toString(36)}`;
+        setLayoutStore((store) => ({
+          activeId: id,
+          layouts: [
+            ...store.layouts,
+            { id, name: `Room ${store.layouts.length + 1}`, room: emptyRoom() },
+          ],
+        }));
+        setBuilderSelection(null);
+      },
+      onRenameLayout: (id: string, name: string) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        setLayoutStore((store) => ({
+          ...store,
+          layouts: store.layouts.map((layout) =>
+            layout.id === id ? { ...layout, name: trimmed } : layout,
+          ),
+        }));
+      },
+      onDeleteLayout: (id: string) => {
+        setLayoutStore((store) => {
+          if (store.layouts.length <= 1) return store;
+          const layouts = store.layouts.filter((layout) => layout.id !== id);
+          return {
+            layouts,
+            activeId: store.activeId === id ? layouts[0]!.id : store.activeId,
+          };
+        });
+        setBuilderSelection(null);
+      },
+      onResetDefaultLayout: () => {
+        setLayoutStore((store) => withLayoutRoom(store, store.activeId, emptyRoom()));
+        setBuilderSelection(null);
+      },
+      onExport: () => exportRoomPackage(activeLayout(layoutStoreRef.current)),
+      onImport: (text: string) => {
+        const parsed = parseRoomPackage(text);
+        if (!parsed.ok) return parsed.error;
+        const id = `layout-${Date.now().toString(36)}`;
+        setLayoutStore((store) => ({
+          activeId: id,
+          layouts: [...store.layouts, { id, name: parsed.name, room: parsed.room }],
+        }));
+        setBuilderSelection(null);
+        return `Brought in as the layout “${parsed.name}”.`;
+      },
+    }),
+    [],
+  );
+
+  /* ------------------------- the stage frames ------------------------- */
+
+  const frameEls = useRef<Partial<Record<FrameId, HTMLElement | null>>>({});
+  const frameDrag = useRef<{
+    id: FrameId;
+    startX: number;
+    startY: number;
+    baseDx: number;
+    baseDy: number;
+    home: { x: number; y: number };
+    size: { w: number; h: number };
+    others: FrameRect[];
+  } | null>(null);
+
+  const frameStyle = useCallback(
+    (id: FrameId): CSSProperties => {
+      const offset = frameOffset(frameStore, id);
+      return offset.dx === 0 && offset.dy === 0
+        ? {}
+        : { translate: `${offset.dx}px ${offset.dy}px` };
+    },
+    [frameStore],
+  );
+
+  const framePointerDown =
+    (id: FrameId, self = false) =>
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!framesArmedRef.current) return;
+      if (event.button !== 0) return;
+      const target = self
+        ? event.currentTarget
+        : (event.currentTarget.firstElementChild as HTMLElement | null);
+      const rect = target?.getBoundingClientRect();
+      if (!rect) return;
+      const base = frameOffset(frameStoreRef.current, id);
+      const others: FrameRect[] = [];
+      for (const [otherId, el] of Object.entries(frameEls.current)) {
+        if (otherId === id || !el) continue;
+        const otherRect = el.getBoundingClientRect();
+        if (otherRect.width > 0) others.push({ x: otherRect.left, y: otherRect.top, w: otherRect.width, h: otherRect.height });
+      }
+      frameDrag.current = {
+        id,
+        startX: event.clientX,
+        startY: event.clientY,
+        baseDx: base.dx,
+        baseDy: base.dy,
+        home: { x: rect.left - base.dx, y: rect.top - base.dy },
+        size: { w: rect.width, h: rect.height },
+        others,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    };
+
+  const framePointerMove =
+    (id: FrameId) => (event: ReactPointerEvent<HTMLDivElement>) => {
+      const drag = frameDrag.current;
+      if (!drag || drag.id !== id) return;
+      const dx = drag.baseDx + (event.clientX - drag.startX);
+      const dy = drag.baseDy + (event.clientY - drag.startY);
+      // Snap the would-be top-left (Alt moves free), then read the
+      // offset back out of the snapped spot.
+      const snapped = snapFramePosition(
+        { x: drag.home.x + dx, y: drag.home.y + dy },
+        drag.size,
+        { w: window.innerWidth, h: window.innerHeight },
+        drag.others,
+        { enabled: !event.altKey },
+      );
+      setSnapGuides(snapped.guides);
+      setFrameStore((store) =>
+        withFrameOffset(store, id, {
+          dx: Math.round(snapped.x - drag.home.x),
+          dy: Math.round(snapped.y - drag.home.y),
+          anchored: true,
+        }),
+      );
+    };
+
+  const framePointerUp = () => {
+    frameDrag.current = null;
+    setSnapGuides(null);
+  };
+
+  /**
+   * Drag wiring for one stage frame. `self` frames (the HUD divs)
+   * carry the props on the frame element itself; wrapped frames
+   * (the medallions, the construct controls) carry them on a plain
+   * static wrapper — the frame inside keeps its own absolute
+   * placement against the stage, and the wrapper only listens.
+   */
+  const frameDragProps = (id: FrameId, self = false) => ({
+    ref: (el: HTMLDivElement | null) => {
+      frameEls.current[id] = self
+        ? el
+        : ((el?.firstElementChild as HTMLElement | null) ?? null);
+    },
+    onPointerDown: framePointerDown(id, self),
+    onPointerMove: framePointerMove(id),
+    onPointerUp: framePointerUp,
+    onPointerCancel: framePointerUp,
+  });
 
   /**
    * ONE WORLD, ONE FLIGHT: "entering"/"returning" are no longer screen
@@ -791,6 +1113,17 @@ export function AvatarStage({
       if (/^\/help\b/i.test(commandText)) {
         setCommandTab("commands");
         say("Every command is in the Commands tab — nothing hidden.");
+        return;
+      }
+      // THE BUILDER AND THE MAP, BY NAME (owner order 2026-11-22).
+      if (/^(open|show|start)?\s*(the\s+)?(environment\s+)?builder$/i.test(commandText.trim())) {
+        setBuilderOpen(true);
+        say("The Environment Builder is open, Captain. Design the Room your way.");
+        return;
+      }
+      if (/^(open|show)?\s*(the\s+)?(world\s+)?map$/i.test(commandText.trim())) {
+        setMapOpen(true);
+        say("The world map is up. Name a place and I will show it.");
         return;
       }
       commandText = commandText.replace(/^\/+/, "").trim();
@@ -1259,6 +1592,9 @@ export function AvatarStage({
     // FULL-BODY HOLD (owner order 2026-11-22): if the Captain left
     // the hold thrown, AUGI opens at full body and stays there.
     r.setFullBodyHold(loadFullBodyHold());
+    // THE BUILDER'S ROOM (owner order 2026-11-22): his saved design
+    // stands in the Room from the first frame.
+    r.setBuilderRoom(activeLayout(layoutStoreRef.current).room);
     // CENTER STAGE (owner order 2026-11-22): in the live Room the
     // construct starts OFF stage — the Black Hatter holds center —
     // until the Captain opens the AUGI avatar box. (The space view
@@ -1893,40 +2229,67 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
 
   return (
     <div
-      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}${osirisDragging ? " avatar-stage--dragging-osiris" : ""}${captainDriving ? " avatar-stage--captain-driving" : ""}${!constructAnchored ? " avatar-stage--construct-held" : ""}`}
+      ref={stageRootRef}
+      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}${osirisDragging ? " avatar-stage--dragging-osiris" : ""}${captainDriving ? " avatar-stage--captain-driving" : ""}${!constructAnchored ? " avatar-stage--construct-held" : ""}${framesArmed ? " avatar-stage--moving-frames" : ""}`}
       data-scene-ready={ready ? "" : undefined}
       data-stage-look={worldScreen === "live" && worldScene === "room" ? "light" : "dark"}
       style={stageStyle}
+      onDragOver={(event) => {
+        if (builderOpen && event.dataTransfer.types.includes("augi-builder-base")) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }
+      }}
+      onDrop={(event) => {
+        const baseId = event.dataTransfer.getData("augi-builder-base");
+        if (!baseId || !builderOpen) return;
+        event.preventDefault();
+        const floor = rendRef.current?.builderFloorPoint(event.clientX, event.clientY);
+        placeFromLibrary(baseId, floor ?? undefined);
+      }}
     >
       <div ref={stageDockRef} className="avatar-stage-dock">
         <div ref={host} className="avatar-construct-host" />
       </div>
       {!clearScreen && worldScreen === "live" && (
-        <BlackHatterPresence
-          inPerspective={perspective === "black-hatter"}
-          speaking={hatterSpeaking}
-          onSelect={() => setPerspective(DEFAULT_STAGE_PERSPECTIVE)}
-        />
+        <div className="avatar-frame" {...frameDragProps("black-hatter")}>
+          <BlackHatterPresence
+            inPerspective={perspective === "black-hatter"}
+            speaking={hatterSpeaking}
+            style={frameStyle("black-hatter")}
+            onSelect={() => {
+              if (!framesArmedRef.current) setPerspective(DEFAULT_STAGE_PERSPECTIVE);
+            }}
+          />
+        </div>
       )}
       {!clearScreen && worldScreen === "live" && (
-        <AnubisPresence
-          ready={ready}
-          speaking={state === "SPEAKING"}
-          listening={voiceListening}
-          acting={presenting || state === "THINKING"}
-          inPerspective={perspective === "anubis"}
-          onSelect={() => setPerspective("anubis")}
-        />
+        <div className="avatar-frame" {...frameDragProps("anubis")}>
+          <AnubisPresence
+            ready={ready}
+            speaking={state === "SPEAKING"}
+            listening={voiceListening}
+            acting={presenting || state === "THINKING"}
+            inPerspective={perspective === "anubis"}
+            style={frameStyle("anubis")}
+            onSelect={() => {
+              if (!framesArmedRef.current) setPerspective("anubis");
+            }}
+          />
+        </div>
       )}
       {!clearScreen && worldScreen === "live" && constructOpen && (
-        <ConstructControls
-          anchored={constructAnchored}
-          captainDriving={captainDriving}
-          onToggleAnchor={toggleAnchor}
-          onToggleControl={toggleControl}
-          fullBodyHold={fullBodyHold}
-          onToggleBodyHold={toggleBodyHold}
-        />
+        <div className="avatar-frame" {...frameDragProps("construct-controls")}>
+          <ConstructControls
+            anchored={constructAnchored}
+            captainDriving={captainDriving}
+            onToggleAnchor={toggleAnchor}
+            onToggleControl={toggleControl}
+            fullBodyHold={fullBodyHold}
+            onToggleBodyHold={toggleBodyHold}
+            style={frameStyle("construct-controls")}
+          />
+        </div>
       )}
       {cubeOpen && (
         <CubePanel
@@ -1949,7 +2312,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onImport={(file) => void importKnowledgeFile(file)}
         />
       )}
-      <div className="avatar-hud avatar-hud--tr">
+      <div className="avatar-hud avatar-hud--tr" style={frameStyle("hud-status")} {...frameDragProps("hud-status", true)}>
         {aiOffline && !clearScreen && (
           <div className="avatar-hud__offline" role="status">
             <span>OFFLINE</span>
@@ -1974,7 +2337,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           INTENSITY: <span className="avatar-hud__value">{intensityLabel(level)}</span>
         </div>
       </div>
-      <div className="avatar-hud avatar-hud--tl">
+      <div className="avatar-hud avatar-hud--tl" style={frameStyle("hud-core")} {...frameDragProps("hud-core", true)}>
         <div className="avatar-hud__db-status">CORE: {coreStatusLabel(coreStatus)}</div>
         <div className="avatar-hud__db-status">
           PHONE BRAIN: {phoneBrainState ? phoneBrainStatusLabel(phoneBrainState) : "CHECKING…"}
@@ -2178,6 +2541,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     icon={Waves}
                     label="Signal Map"
                     onClick={() => setSignalMapOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Hammer}
+                    label={builderOpen ? "Environment Builder · open" : "Environment Builder"}
+                    onClick={() => setBuilderOpen((open) => !open)}
+                  />
+                  <CommandAction
+                    icon={MapIcon}
+                    label={mapOpen ? "World Map · open" : "World Map"}
+                    onClick={() => setMapOpen((open) => !open)}
                   />
                   <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
                   <CommandAction
@@ -2490,6 +2863,62 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         >
           <div ref={setConstructDock} className="avatar-construct-dock" />
         </FloatingWindow>
+      )}
+      {builderOpen && (
+        <FloatingWindow
+          id="environment-builder"
+          title="Environment Builder — design the Room"
+          onClose={() => setBuilderOpen(false)}
+          initialWidth={480}
+          initialHeight={680}
+        >
+          <BuilderPanel
+            room={activeLayout(layoutStore).room}
+            layouts={layoutStore}
+            selectedId={builderSelection}
+            onPlace={(baseId) => placeFromLibrary(baseId)}
+            onSelectItem={setBuilderSelection}
+            onVariant={(id, patch) =>
+              updateRoom(updateItemVariant(activeLayout(layoutStoreRef.current).room, id, patch))
+            }
+            onRotate={(id, rotation) =>
+              updateRoom(rotateItem(activeLayout(layoutStoreRef.current).room, id, rotation))
+            }
+            onToggleAnchor={(id, anchored) =>
+              updateRoom(setItemAnchored(activeLayout(layoutStoreRef.current).room, id, anchored))
+            }
+            onRemove={(id) => {
+              updateRoom(removeItem(activeLayout(layoutStoreRef.current).room, id));
+              if (builderSelection === id) setBuilderSelection(null);
+            }}
+            onSurfaces={(surfaces) =>
+              updateRoom(setRoomSurfaces(activeLayout(layoutStoreRef.current).room, surfaces))
+            }
+            {...builderLayoutOps}
+            frames={frameStore}
+            framesArmed={framesArmed}
+            onToggleFramesArmed={() => setFramesArmed((armed) => !armed)}
+            onResetFrame={(id) => setFrameStore((store) => withoutFrame(store, id))}
+            onResetAllFrames={() => setFrameStore({})}
+          />
+        </FloatingWindow>
+      )}
+      {mapOpen && (
+        <FloatingWindow
+          id="command-map"
+          title="World Map — show a place"
+          onClose={() => setMapOpen(false)}
+          initialWidth={540}
+          initialHeight={600}
+        >
+          <MapPanel />
+        </FloatingWindow>
+      )}
+      {snapGuides?.vertical !== undefined && (
+        <div className="avatar-snap-guide avatar-snap-guide--vertical" style={{ left: snapGuides.vertical }} aria-hidden="true" />
+      )}
+      {snapGuides?.horizontal !== undefined && (
+        <div className="avatar-snap-guide avatar-snap-guide--horizontal" style={{ top: snapGuides.horizontal }} aria-hidden="true" />
       )}
       {worldScreen !== "live" && (
         <SpaceView

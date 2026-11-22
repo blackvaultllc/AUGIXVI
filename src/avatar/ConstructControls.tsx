@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Anchor, Gamepad2, Hand, PersonStanding, Shrink } from "lucide-react";
 
 /**
@@ -27,6 +28,7 @@ export function ConstructControls({
   onToggleControl,
   fullBodyHold = false,
   onToggleBodyHold,
+  style,
 }: {
   anchored: boolean;
   captainDriving: boolean;
@@ -34,9 +36,11 @@ export function ConstructControls({
   onToggleControl: () => void;
   fullBodyHold?: boolean;
   onToggleBodyHold?: () => void;
+  /** The stage-frame offset (Environment Builder). */
+  style?: CSSProperties;
 }) {
   return (
-    <div className="construct-controls" role="group" aria-label="AUGI construct controls">
+    <div className="construct-controls" style={style} role="group" aria-label="AUGI construct controls">
       <button
         type="button"
         className={`construct-controls__button${anchored ? " is-anchored" : " is-unanchored"}`}

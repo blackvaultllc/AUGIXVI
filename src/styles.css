@@ -2597,6 +2597,437 @@
   );
 }
 
+/* THE ENVIRONMENT BUILDER + COMMAND MAP (owner order 2026-11-22):
+   the Captain's design tools, in the stage's container windows.
+   Bright bifocal-readable type on the deep slate, gold for the
+   working accents — the readability standard, not the dim window
+   default. */
+.builder-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #f2f6ff;
+}
+.builder-panel__count {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #d4af37;
+  border-radius: 0.45rem;
+  background: #101d33;
+  color: #ffd75e;
+  font-weight: 700;
+}
+.builder-panel__hint,
+.builder-panel__empty {
+  margin: 0;
+  color: #cfe1ff;
+  font-size: 0.8rem;
+}
+.builder-panel__section {
+  border-top: 1px solid #3d5a85;
+  padding-top: 0.7rem;
+}
+.builder-panel__section h3 {
+  margin: 0 0 0.55rem;
+  color: #ffd75e;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.builder-panel__library {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+  gap: 0.5rem;
+}
+.builder-panel__piece {
+  border: 1px solid #5f7fae;
+  border-radius: 0.45rem;
+  background: #0c1729;
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.builder-panel__piece-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.builder-panel__piece-name {
+  font-weight: 700;
+  color: #ffffff;
+}
+.builder-panel__piece-count {
+  color: #9fc0ee;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.builder-panel__piece-blurb {
+  margin: 0;
+  color: #cfe1ff;
+  font-size: 0.78rem;
+}
+.builder-panel__add,
+.builder-panel__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.3rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid #8fb2e8;
+  border-radius: 0.45rem;
+  background: #20365f;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.builder-panel__add svg,
+.builder-panel__button svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+.builder-panel__add:hover,
+.builder-panel__button:hover:not(:disabled) {
+  border-color: #ffd75e;
+  background: #2b4a7d;
+  color: #ffd75e;
+}
+.builder-panel__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.builder-panel__button--danger {
+  border-color: #b86a5e;
+  background: #4a2320;
+}
+.builder-panel__button[aria-pressed="true"] {
+  border-color: #ffd75e;
+  background: #2b4a7d;
+  color: #ffd75e;
+}
+.builder-panel__selected {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.builder-panel__selected-name {
+  margin: 0;
+  font-weight: 700;
+  color: #ffffff;
+}
+.builder-panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.builder-panel__field > span {
+  color: #9fc0ee;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.builder-panel select,
+.builder-panel input[type="text"] {
+  min-height: 2.3rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid #5f7fae;
+  border-radius: 0.4rem;
+  background: #0c1729;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.84rem;
+}
+.builder-panel input[type="color"] {
+  width: 4.5rem;
+  height: 2.3rem;
+  padding: 0.15rem;
+  border: 1px solid #5f7fae;
+  border-radius: 0.4rem;
+  background: #0c1729;
+  cursor: pointer;
+}
+.builder-panel__colors {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.builder-panel__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.builder-panel__swatch {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.4rem;
+  border: 2px solid #5f7fae;
+  cursor: pointer;
+  padding: 0;
+}
+.builder-panel__swatch.is-picked {
+  border-color: #ffd75e;
+  box-shadow: 0 0 0 2px rgb(255 215 94 / 45%);
+}
+.builder-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.builder-panel__rotation {
+  color: #ffd75e;
+  font-weight: 700;
+  min-width: 3rem;
+  text-align: center;
+}
+.builder-panel__backdrops {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.2rem, 1fr));
+  gap: 0.45rem;
+}
+.builder-panel__backdrop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  border: 2px solid #5f7fae;
+  border-radius: 0.45rem;
+  background: #0c1729;
+  color: #cfe1ff;
+  font: inherit;
+  font-size: 0.68rem;
+  cursor: pointer;
+  text-align: left;
+}
+.builder-panel__backdrop img {
+  width: 100%;
+  height: 3rem;
+  object-fit: cover;
+  border-radius: 0.3rem;
+  display: block;
+}
+.builder-panel__backdrop.is-picked {
+  border-color: #ffd75e;
+  color: #ffd75e;
+}
+.builder-panel__package {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0.4rem 0;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #5f7fae;
+  border-radius: 0.4rem;
+  background: #08111f;
+  color: #dbe7fa;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  resize: vertical;
+}
+.builder-panel__status {
+  color: #ffd75e;
+  font-size: 0.8rem;
+}
+.builder-panel__frames {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.builder-panel__frame {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.builder-panel__frame-name {
+  font-weight: 600;
+  color: #ffffff;
+}
+.builder-panel__frame-offset {
+  color: #9fc0ee;
+  font-size: 0.76rem;
+  margin-left: auto;
+}
+.builder-panel__frame-pick {
+  background: none;
+  border: none;
+  color: #cfe1ff;
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+  text-align: left;
+}
+.builder-panel__frame-pick[aria-pressed="true"] {
+  color: #ffd75e;
+  font-weight: 700;
+}
+
+/* Frame-moving mode: the frames show themselves and take the pointer. */
+.avatar-stage--moving-frames .avatar-frame > *,
+.avatar-stage--moving-frames .avatar-hud {
+  outline: 2px dashed rgb(255 215 94 / 80%);
+  outline-offset: 4px;
+  cursor: grab;
+}
+.avatar-stage--moving-frames .avatar-hud {
+  pointer-events: auto;
+}
+.avatar-snap-guide {
+  position: fixed;
+  z-index: 90;
+  background: rgb(255 215 94 / 85%);
+  pointer-events: none;
+}
+.avatar-snap-guide--vertical {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+.avatar-snap-guide--horizontal {
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+/* THE COMMAND MAP */
+.map-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #f2f6ff;
+}
+.map-panel__maps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.map-panel__map-chip {
+  min-height: 2.1rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #8fb2e8;
+  border-radius: 9999px;
+  background: #20365f;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.map-panel__map-chip.is-picked {
+  border-color: #ffd75e;
+  background: #2b4a7d;
+  color: #ffd75e;
+}
+.map-panel__stage {
+  position: relative;
+  border: 1px solid #5f7fae;
+  border-radius: 0.45rem;
+  overflow: hidden;
+  background: #08111f;
+}
+.map-panel__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+.map-panel__marker {
+  position: absolute;
+  transform: translate(-50%, -92%);
+  color: #ff5347;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 70%));
+  pointer-events: none;
+}
+.map-panel__marker svg {
+  width: 1.9rem;
+  height: 1.9rem;
+  fill: rgb(255 83 71 / 25%);
+}
+.map-panel__projection {
+  margin: 0;
+  color: #9fc0ee;
+  font-size: 0.76rem;
+}
+.map-panel__form {
+  display: flex;
+  gap: 0.45rem;
+}
+.map-panel__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.4rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #5f7fae;
+  border-radius: 0.4rem;
+  background: #0c1729;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.86rem;
+}
+.map-panel__show {
+  min-height: 2.4rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #8fb2e8;
+  border-radius: 0.45rem;
+  background: #20365f;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.map-panel__show:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.map-panel__readout {
+  border: 1px solid #d4af37;
+  border-radius: 0.45rem;
+  background: #101d33;
+  padding: 0.55rem 0.7rem;
+}
+.map-panel__place {
+  margin: 0;
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+.map-panel__coords {
+  margin: 0.15rem 0 0;
+  color: #ffd75e;
+  font-weight: 700;
+}
+.map-panel__magnitude {
+  margin: 0.15rem 0 0;
+  color: #ff9d94;
+  font-weight: 700;
+}
+.map-panel__note,
+.map-panel__source {
+  margin: 0.2rem 0 0;
+  color: #9fc0ee;
+  font-size: 0.76rem;
+}
+.map-panel__miss {
+  margin: 0;
+  border: 1px solid #b86a5e;
+  border-radius: 0.45rem;
+  background: #2a1210;
+  color: #ffd9d4;
+  padding: 0.55rem 0.7rem;
+}
+
 /* CONSTRUCT CONTROLS (owner orders 2026-11-22): AUGI's anchor and
    control state, bottom-right of the stage, stated in plain words —
    who has the figure is never a guess. */

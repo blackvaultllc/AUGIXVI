@@ -130,6 +130,30 @@ export function removeItem(room: RoomContent, id: string): RoomContent {
   return { ...room, items: room.items.filter((item) => item.id !== id) };
 }
 
+/**
+ * Change a placed item's clothes — form, size, color. The anchor
+ * law locks POSITION, not appearance: an anchored store may still
+ * be repainted. Unknown forms/colors for the base are refused (the
+ * room comes back unchanged) so a bad patch can never corrupt a
+ * saved layout.
+ */
+export function updateItemVariant(
+  room: RoomContent,
+  id: string,
+  patch: Partial<Pick<PlacedItem, "form" | "size" | "color">>,
+): RoomContent {
+  const target = room.items.find((item) => item.id === id);
+  if (!target) return room;
+  const base = libraryItem(target.baseId);
+  if (!base) return room;
+  if (patch.form !== undefined && !base.forms.some((entry) => entry.id === patch.form)) return room;
+  if (patch.color !== undefined && !base.colors.some((entry) => entry.id === patch.color)) return room;
+  return {
+    ...room,
+    items: room.items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+  };
+}
+
 export function setSurfaces(room: RoomContent, surfaces: RoomSurfaces): RoomContent {
   return { ...room, surfaces: sanitizeSurfaces(surfaces) };
 }

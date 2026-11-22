@@ -42,6 +42,7 @@
  * lives inside Anubis's medallion only; the Room around it stays
  * light.
  */
+import type { CSSProperties } from "react";
 import { ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
 import { ANUBIS_FEATURES, LivingPortrait } from "./LivingPortrait";
 
@@ -54,6 +55,7 @@ export function AnubisPresence({
   acting,
   inPerspective = false,
   onSelect,
+  style,
 }: {
   /** False until the renderer's first frame — the stage is loading. */
   ready: boolean;
@@ -67,6 +69,8 @@ export function AnubisPresence({
   inPerspective?: boolean;
   /** Tapping the medallion brings Anubis into perspective. */
   onSelect?: () => void;
+  /** The stage-frame offset (Environment Builder) — the translate rides on top of the station's own CSS placement. */
+  style?: CSSProperties;
 }) {
   const classes = [
     "anubis-presence",
@@ -91,6 +95,7 @@ export function AnubisPresence({
   return (
     <div
       className={classes}
+      style={style}
       role={onSelect ? "button" : "img"}
       tabIndex={onSelect ? 0 : undefined}
       aria-label={`Anubis — ${state}`}

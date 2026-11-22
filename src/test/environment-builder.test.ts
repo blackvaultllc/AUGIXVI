@@ -24,9 +24,17 @@ import {
   sanitizeRoom,
   setItemAnchored,
   setSurfaces,
+  updateItemVariant,
   withLayoutRoom,
   type RoomContent,
 } from "@/avatar/builder/room";
+import {
+  GAZETTEER,
+  formatLatLon,
+  markerPosition,
+  parseCoordinates,
+  resolveLocation,
+} from "@/avatar/builder/gazetteer";
 import {
   STAGE_FRAMES,
   frameOffset,
@@ -294,5 +302,63 @@ describe("environment builder — stage frames (the Movers pattern)", () => {
       { enabled: false, grid: 25 },
     );
     expect(snapped).toEqual({ x: 125, y: 75, guides: {} });
+  });
+});
+
+describe("environment builder — variant changes on placed pieces", () => {
+  it("a placed piece can change form, size and color — even while anchored", () => {
+    let room = roomWithItem(true);
+    const id = room.items[0]!.id;
+    room = updateItemVariant(room, id, { form: "awning", size: "grand", color: "slate" });
+    expect(room.items[0]).toMatchObject({ form: "awning", size: "grand", color: "slate", anchored: true });
+  });
+
+  it("a form or color the base does not carry is refused whole", () => {
+    const room = roomWithItem(false);
+    const id = room.items[0]!.id;
+    expect(updateItemVariant(room, id, { form: "castle" })).toBe(room);
+    expect(updateItemVariant(room, id, { color: "invisible" })).toBe(room);
+    expect(updateItemVariant(room, "no-such-piece", { form: "gable" })).toBe(room);
+  });
+});
+
+describe("the command map's gazetteer — real data only", () => {
+  it("resolves home ground and the heritage anchors to their atlas coordinates", () => {
+    expect(resolveLocation("Mobile")).toMatchObject({ name: "Mobile, Alabama", lat: 30.6944, lon: -88.0431 });
+    expect(resolveLocation("cairo")).toMatchObject({ name: "Cairo, Egypt", lat: 30.0444, lon: 31.2357 });
+    expect(resolveLocation("the pyramids")).toMatchObject({ name: "Giza, Egypt" });
+    expect(resolveLocation("NYC")).toMatchObject({ name: "New York City", lat: 40.7128, lon: -74.006 });
+  });
+
+  it("magnitude rides only on the earthquake entries", () => {
+    const haiti = resolveLocation("2010 Haiti earthquake");
+    expect(haiti?.magnitude).toBe(7.0);
+    expect(haiti?.kind).toBe("earthquake");
+    expect(resolveLocation("Mobile")?.magnitude).toBeUndefined();
+    for (const entry of GAZETTEER) {
+      if (entry.kind === "place") expect(entry.magnitude).toBeUndefined();
+    }
+  });
+
+  it("an unknown or ambiguous name resolves to nothing — never a guess", () => {
+    expect(resolveLocation("Atlantis")).toBeNull();
+    expect(resolveLocation("")).toBeNull();
+    // "san" matches both San Francisco and the 1906 quake entry.
+    expect(resolveLocation("san")).toBeNull();
+  });
+
+  it("typed coordinates resolve as given, in both notations, and bad pairs refuse", () => {
+    expect(resolveLocation("30.69, -88.04")).toMatchObject({ lat: 30.69, lon: -88.04, kind: "coordinates" });
+    expect(resolveLocation("33.86S 151.21E")).toMatchObject({ lat: -33.86, lon: 151.21 });
+    expect(parseCoordinates("999, 999")).toBeNull();
+    expect(parseCoordinates("Mobile")).toBeNull();
+  });
+
+  it("the readout formats hemispheres, and the marker math is equirectangular", () => {
+    expect(formatLatLon(30.6944, -88.0431)).toBe("30.6944° N, 88.0431° W");
+    expect(formatLatLon(-33.8688, 151.2093)).toBe("33.8688° S, 151.2093° E");
+    expect(markerPosition(0, 0)).toEqual({ x: 50, y: 50 });
+    expect(markerPosition(90, -180)).toEqual({ x: 0, y: 0 });
+    expect(markerPosition(-90, 180)).toEqual({ x: 100, y: 100 });
   });
 });

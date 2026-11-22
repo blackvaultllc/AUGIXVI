@@ -19,6 +19,7 @@
  * while a station he opened holds the focus. Tapping the medallion
  * returns the perspective to him.
  */
+import type { CSSProperties } from "react";
 import { BLACK_HATTER_BINDING } from "./medallionPortraits";
 import { BLACK_HATTER_FEATURES, LivingPortrait } from "./LivingPortrait";
 
@@ -28,6 +29,7 @@ export function BlackHatterPresence({
   inPerspective,
   speaking = false,
   onSelect,
+  style,
 }: {
   /** True while the stage's focus is the owner's (the default). */
   inPerspective: boolean;
@@ -35,6 +37,8 @@ export function BlackHatterPresence({
   speaking?: boolean;
   /** Tapping the medallion returns the perspective to the owner. */
   onSelect?: () => void;
+  /** The stage-frame offset (Environment Builder). */
+  style?: CSSProperties;
 }) {
   const classes = [
     "black-hatter-presence",
@@ -48,6 +52,7 @@ export function BlackHatterPresence({
   return (
     <div
       className={classes}
+      style={style}
       role={onSelect ? "button" : "img"}
       tabIndex={onSelect ? 0 : undefined}
       aria-label={label}
