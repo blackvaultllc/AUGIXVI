@@ -118,14 +118,7 @@ export function FloatingWindow({
       const nextSize = clampWindowSize(size.w, size.h, vw, vh);
       setSize(nextSize);
       setPosition((current) =>
-        clampWindowPosition(
-          current.x,
-          current.y,
-          nextSize.w,
-          minimized ? 40 : nextSize.h,
-          vw,
-          vh,
-        ),
+        clampWindowPosition(current.x, current.y, nextSize.w, minimized ? 40 : nextSize.h, vw, vh),
       );
     };
     window.addEventListener("resize", onViewportResize);
