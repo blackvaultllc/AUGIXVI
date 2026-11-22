@@ -18,6 +18,7 @@ import {
   Mic,
   MicOff,
   Minus,
+  RotateCcw,
   Settings,
   Sparkles,
   Terminal,
@@ -38,25 +39,31 @@ import {
 export type CommandTab = "scene" | "motion" | "tools" | "settings" | "commands";
 
 const BOX_POSITION_KEY = "augi.avatar.command-box.position.v1";
-const BOX_MINIMIZED_KEY = "augi.avatar.command-box.minimized.v1";
-const BOX_SIZE_KEY = "augi.avatar.command-box.size.v1";
+const BOX_SIZE_KEY = "augi.avatar.command-box.size.v2";
 const BOX_ANCHOR_KEY = "augi.avatar.command-box.anchored.v1";
 
 /**
- * The chat window's opening size; his stretched size replaces it.
- * Enlarged 2026-11-22 on his order — the old 500×430 box was "too
- * darn small" and the conversation unreadable inside it.
+ * The chat window's HOME form (owner order 2026-11-22, the defect
+ * fix): compact — 500×430 class — anchored at the stage's
+ * bottom-left corner, so the center of the stage and the Captain's
+ * medallion stay clear. His own stretches replace the size (saved
+ * under the v2 key — the v1 sizes belonged to the broken layout),
+ * and the rail's reset button always brings the home form back in
+ * one click.
  */
-export const COMMAND_BOX_DEFAULT_SIZE = { w: 660, h: 540 } as const;
+export const COMMAND_BOX_DEFAULT_SIZE = { w: 500, h: 430 } as const;
+
+/** The anchored home spot: the bottom-left corner, in px margins. */
+export const COMMAND_BOX_HOME_MARGIN = 16;
 
 /**
  * THE ANCHOR (owner order 2026-11-22): the command box is ANCHORED
- * at the middle of the screen by default — locked in place, per his
- * anchor law (anchored = locked until unanchored). Unanchoring frees
- * it to be dragged and stretched; the anchor state persists like the
- * size and position do. Anything but the explicit "unanchored"
- * record reads as anchored, so the box opens centered for everyone
- * who has never touched the control.
+ * at its home corner by default — locked in place, per his anchor
+ * law (anchored = locked until unanchored). Unanchoring frees it to
+ * be dragged and stretched; the anchor state persists like the size
+ * and position do. Anything but the explicit "unanchored" record
+ * reads as anchored, so the box opens at home for everyone who has
+ * never touched the control.
  */
 export function loadBoxAnchored(): boolean {
   try {
@@ -133,17 +140,18 @@ function saveBoxPosition(position: { x: number; y: number }) {
   }
 }
 
-function loadBoxMinimized(): boolean {
+/**
+ * MINIMIZED IS SESSION-ONLY (owner defect fix 2026-11-22): the
+ * minimized state used to persist, so a box he once collapsed
+ * reopened as a tall empty panel with the conversation hidden and
+ * the input floating mid-box — the "horrible" broken panel on his
+ * screen. The box now ALWAYS reloads in its full home form;
+ * minimizing lasts only until he expands it or reloads.
+ */
+function clearPersistedBoxLayout() {
   try {
-    return globalThis.localStorage?.getItem(BOX_MINIMIZED_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function saveBoxMinimized(minimized: boolean) {
-  try {
-    globalThis.localStorage?.setItem(BOX_MINIMIZED_KEY, minimized ? "true" : "false");
+    globalThis.localStorage?.removeItem(BOX_POSITION_KEY);
+    globalThis.localStorage?.removeItem(BOX_SIZE_KEY);
   } catch {
     // best effort only
   }
@@ -213,7 +221,7 @@ export function CommandBox({
   partnerSpeaking?: boolean;
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
-  const [minimized, setMinimized] = useState(loadBoxMinimized);
+  const [minimized, setMinimized] = useState(false);
   const [boxSize, setBoxSize] = useState(loadBoxSize);
   const [anchored, setAnchored] = useState(loadBoxAnchored);
   const [viewport, setViewport] = useState(() =>
@@ -256,11 +264,9 @@ export function CommandBox({
 
   const minimizeNow = useCallback(() => {
     setMinimized(true);
-    saveBoxMinimized(true);
   }, []);
   const restoreNow = useCallback(() => {
     setMinimized(false);
-    saveBoxMinimized(false);
   }, []);
 
   const startDrag = useCallback(
@@ -308,10 +314,24 @@ export function CommandBox({
   }, []);
 
   const toggleMinimized = useCallback(() => {
-    setMinimized((current) => {
-      saveBoxMinimized(!current);
-      return !current;
-    });
+    setMinimized((current) => !current);
+  }, []);
+
+  /**
+   * ONE-CLICK RESET (ForeverUI pattern, owner order 2026-11-22):
+   * whatever he has dragged or stretched the panel into, one click
+   * on the rail's reset button restores the shipped home form —
+   * compact size, bottom-left home corner, anchored, expanded —
+   * and clears the saved size/position so a reload opens the same.
+   */
+  const resetBoxLayout = useCallback(() => {
+    clearPersistedBoxLayout();
+    setBoxSize({ ...COMMAND_BOX_DEFAULT_SIZE });
+    setPosition(null);
+    setAnchored(true);
+    saveBoxAnchored(true);
+    setMinimized(false);
+    setMachineryOpen(false);
   }, []);
 
   // RESIZE (owner correction 2026-11-22): the chat window stretches
@@ -349,10 +369,12 @@ export function CommandBox({
     saveBoxSize(sizeRef.current);
   }, []);
 
-  // THE ANCHOR TOGGLE: anchored, the box sits locked at the middle
-  // of the screen. Unanchoring keeps it exactly where it sits and
-  // hands him the drag and the stretch; anchoring again returns it
-  // to the middle. The state persists (loadBoxAnchored).
+  // THE ANCHOR TOGGLE: anchored, the box sits locked at its home
+  // corner — the stage's bottom-left (owner order 2026-11-22: the
+  // chat sits at the bottom, the stage's center and the Captain's
+  // medallion stay clear). Unanchoring keeps it exactly where it
+  // sits and hands him the drag and the stretch; anchoring again
+  // returns it home. The state persists (loadBoxAnchored).
   const [anchorPos, setAnchorPos] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -366,19 +388,10 @@ export function CommandBox({
       setAnchorPos(null);
       return;
     }
-    const width = boxRef.current?.offsetWidth || boxSize.w;
     const height = boxRef.current?.offsetHeight || boxSize.h;
-    // Anchored to the middle of the screen: centered on the middle
-    // column, its own center on the lower-middle line (0.73) — the
-    // one spot that leaves the Black Hatter's medallion, the stage's
-    // default center presence, uncovered above it. Locked there
-    // until he unanchors.
     setAnchorPos({
-      x: Math.max(8, Math.round((viewport.w - width) / 2)),
-      y: Math.min(
-        Math.max(8, Math.round(viewport.h * 0.73 - height / 2)),
-        Math.max(8, viewport.h - height - 8),
-      ),
+      x: COMMAND_BOX_HOME_MARGIN,
+      y: Math.max(8, viewport.h - height - COMMAND_BOX_HOME_MARGIN),
     });
   }, [anchored, boxSize, minimized, viewport]);
 
@@ -437,7 +450,7 @@ export function CommandBox({
     ...(anchored
       ? anchorPos
         ? { left: anchorPos.x, top: anchorPos.y, right: "auto", bottom: "auto", transform: "none" }
-        : { left: "50%", top: "50%", right: "auto", bottom: "auto", transform: "translate(-50%, -50%)" }
+        : { left: COMMAND_BOX_HOME_MARGIN, top: "auto", right: "auto", bottom: COMMAND_BOX_HOME_MARGIN, transform: "none" }
       : position
         ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
         : {}),
@@ -478,8 +491,8 @@ export function CommandBox({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         role="separator"
-        aria-label={anchored ? "Chat window anchored at the center" : "Drag to move the chat window"}
-        title={anchored ? "Anchored at the center — unanchor to move" : "Drag to move"}
+        aria-label={anchored ? "Chat window anchored at its home corner" : "Drag to move the chat window"}
+        title={anchored ? "Anchored at the bottom-left home corner — unanchor to move" : "Drag to move"}
       >
         <GripVertical aria-hidden="true" />
         {presence}
@@ -489,15 +502,25 @@ export function CommandBox({
           className="avatar-command-box__window-button avatar-command-box__anchor-button"
           onClick={toggleAnchored}
           aria-pressed={anchored}
-          aria-label={anchored ? "Unanchor the chat window" : "Anchor the chat window at the center"}
+          aria-label={anchored ? "Unanchor the chat window" : "Anchor the chat window at its home corner"}
           title={
             anchored
-              ? "Anchored at the center of the screen — tap to unanchor, then drag and stretch it"
-              : "Unanchored — tap to anchor it back at the center of the screen"
+              ? "Anchored at the bottom-left home corner — tap to unanchor, then drag and stretch it"
+              : "Unanchored — tap to anchor it back at the bottom-left home corner"
           }
         >
           <Anchor aria-hidden="true" />
           <span className="sr-only">{anchored ? "Unanchor" : "Anchor"}</span>
+        </button>
+        <button
+          type="button"
+          className="avatar-command-box__window-button avatar-command-box__reset-button"
+          onClick={resetBoxLayout}
+          aria-label="Reset the chat window to its home spot and size"
+          title="Reset — the chat window back to its compact home form, bottom-left"
+        >
+          <RotateCcw aria-hidden="true" />
+          <span className="sr-only">Reset</span>
         </button>
         <button
           type="button"
@@ -525,6 +548,11 @@ export function CommandBox({
         </button>
       </div>
 
+      {/* THE MAIN COLUMN (owner defect fix 2026-11-22): machinery on
+          top, the conversation filling the middle, and the input
+          form as the column's last child — pinned to the panel's
+          bottom at every size, by construction, not by luck. */}
+      <div className="avatar-command-box__main">
       {!minimized && machineryOpen && (
         <div id="avatar-command-machinery" className="avatar-command-box__machinery">
           <div className="avatar-command-box__tabs" role="tablist" aria-label="Command tabs">
@@ -565,6 +593,13 @@ export function CommandBox({
             aria-label="Chat log"
             aria-live="polite"
           >
+            {/* BOTTOM-STACKED FLOW (owner order 2026-11-22): the
+                lines stack from the bottom up like a regular chat
+                window — margin-top:auto pins the stack to the
+                thread's bottom when it is short, the newest line
+                sits last, right above the input, and a long log
+                scrolls with the newest kept in view. */}
+            <div className="avatar-command-box__thread-flow">
             {history?.map((entry, index) => (
               <div className="avatar-command-box__thread-entry" key={`${entry.at}-${index}`}>
                 {entry.question && (
@@ -604,6 +639,7 @@ export function CommandBox({
                 talk to Anubis here.
               </p>
             )}
+            </div>
           </div>
         </div>
       )}
@@ -677,6 +713,7 @@ export function CommandBox({
           <Sparkles aria-hidden="true" />
         </button>
       </form>
+      </div>
       {!minimized && (
         <>
           <div

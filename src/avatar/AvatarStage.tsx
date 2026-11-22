@@ -55,6 +55,7 @@ import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
 import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
 import { AugiePresence } from "./AugiePresence";
+import { speakingMsForText } from "./LivingPortrait";
 import { AnubisPresence } from "./AnubisPresence";
 import { BlackHatterPresence } from "./BlackHatterPresence";
 import {
@@ -395,10 +396,12 @@ export function AvatarStage({
   const [arCubeOpen, setArCubeOpen] = useState(false);
   // THE CONSTRUCT IN HIS OWN BOX (owner order 2026-11-22): the sand
   // construct no longer holds center stage — he stands in a floating
-  // container window when the Captain opens him ("open AUGI avatar"),
-  // and the renderer's canvas docks into that window's body. Off
-  // stage entirely while the window is closed.
-  const [constructOpen, setConstructOpen] = useState(false);
+  // container window, and the renderer's canvas docks into that
+  // window's body. OPEN BY DEFAULT (owner defect fix 2026-11-22):
+  // Osiris must be plainly visible working on the stage from load,
+  // not hidden until summoned — closing his box still takes him off
+  // stage, and "open AUGI avatar" brings him back.
+  const [constructOpen, setConstructOpen] = useState(true);
   const [constructDock, setConstructDock] = useState<HTMLElement | null>(null);
   const stageDockRef = useRef<HTMLDivElement>(null);
   // DOCKING: the renderer's host element is moved — not recreated —
@@ -488,6 +491,12 @@ export function AvatarStage({
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
   const [lastUserMessage, setLastUserMessage] = useState("");
+  // THE BLACK HATTER SPEAKS HIS TYPED WORDS (owner order 2026-11-22):
+  // while this is true, the owner's medallion carries the talking
+  // mouth for the line he just typed. Voice input never sets it —
+  // on the mic, the Captain is speaking himself.
+  const [hatterSpeaking, setHatterSpeaking] = useState(false);
+  const hatterSpeechTimer = useRef<number | null>(null);
   const recordReply = useCallback((text: string) => {
     setTranscript((prev) =>
       appendReplyHistory(prev, { at: Date.now(), question: lastQuestionRef.current, answer: text }),
@@ -568,6 +577,18 @@ export function AvatarStage({
       worldScreen !== "live" || (constructOpen && constructDock !== null),
     );
   }, [worldScreen, constructOpen, constructDock]);
+
+  // ONE VOICE AT A TIME: when Anubis starts answering, the Black
+  // Hatter's line is done — his mouth stills and Anubis's medallion
+  // carries the speech.
+  useEffect(() => {
+    if (state !== "SPEAKING") return;
+    setHatterSpeaking(false);
+    if (hatterSpeechTimer.current !== null) {
+      window.clearTimeout(hatterSpeechTimer.current);
+      hatterSpeechTimer.current = null;
+    }
+  }, [state]);
 
   /**
    * ONE WORLD, ONE FLIGHT: "entering"/"returning" are no longer screen
@@ -737,6 +758,18 @@ export function AvatarStage({
       // in the Command box above the reply, even for commands that
       // return early (rooms, /help, wake greeting).
       setLastUserMessage(text.trim());
+      // His typed words are spoken by his own medallion: the Black
+      // Hatter's mouth moves for the length of the line. The mic
+      // path (source "voice") is the Captain himself — the Hatter
+      // stays silent, per his protocol.
+      if (source === "typed") {
+        if (hatterSpeechTimer.current !== null) window.clearTimeout(hatterSpeechTimer.current);
+        setHatterSpeaking(true);
+        hatterSpeechTimer.current = window.setTimeout(() => {
+          setHatterSpeaking(false);
+          hatterSpeechTimer.current = null;
+        }, speakingMsForText(text));
+      }
       const applyInterfaceCommand = (type: "clear-screen" | "show-screen" | "silence") => {
         if (type === "clear-screen") {
           setClearScreen(true);
@@ -1871,6 +1904,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {!clearScreen && worldScreen === "live" && (
         <BlackHatterPresence
           inPerspective={perspective === "black-hatter"}
+          speaking={hatterSpeaking}
           onSelect={() => setPerspective(DEFAULT_STAGE_PERSPECTIVE)}
         />
       )}

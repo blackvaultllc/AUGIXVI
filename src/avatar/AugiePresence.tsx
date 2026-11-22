@@ -8,12 +8,15 @@ import {
 } from "./presenceState";
 
 /**
- * Augie's living presence: a small circular video face in the Command
- * box grip (owner order 2026-11-22). Contained by design — a 38px
- * circle that never takes over the screen — and honest: the clip is
- * chosen by presenceKindFor from the stage's real signals, and the
- * milestone face appears only in the brief window after a thinking
- * cycle actually completes (THINKING leaving the bridge state).
+ * OSIRIS IN THE PANEL (owner orders 2026-11-22): the chat panel's
+ * round face is OSIRIS — the construct — shown at a size the Captain
+ * can actually SEE working (76px, captioned OSIRIS), not a tiny
+ * icon. The clip is chosen by presenceKindFor from the stage's real
+ * signals, and the milestone face appears only in the brief window
+ * after a thinking cycle actually completes (THINKING leaving the
+ * bridge state). The construct's full presence stands on the stage
+ * in his own box; this is his face in the panel, at the head of the
+ * rail, working.
  */
 export function AugiePresence({
   ready,
@@ -50,24 +53,29 @@ export function AugiePresence({
   const asset = PRESENCE_ASSETS[kind];
 
   return (
-    <div
-      className="augie-presence"
-      data-presence={kind}
-      role="img"
-      aria-label={`Augie — ${asset.label}`}
-      title={`Augie — ${asset.label}`}
-    >
-      <video
-        key={asset.video}
-        className="augie-presence__video"
-        src={asset.video}
-        poster={PRESENCE_POSTER}
-        autoPlay
-        muted
-        loop
-        playsInline
-        aria-hidden="true"
-      />
+    <div className="osiris-presence">
+      <div
+        className="augie-presence"
+        data-presence={kind}
+        role="img"
+        aria-label={`Osiris — the construct, ${asset.label}`}
+        title={`Osiris — the construct, ${asset.label}`}
+      >
+        <video
+          key={asset.video}
+          className="augie-presence__video"
+          src={asset.video}
+          poster={PRESENCE_POSTER}
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden="true"
+        />
+      </div>
+      <span className="osiris-presence__caption" aria-hidden="true">
+        Osiris
+      </span>
     </div>
   );
 }

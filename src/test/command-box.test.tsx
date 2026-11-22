@@ -76,15 +76,15 @@ describe("command box grip controls", () => {
 
   it("dragging still starts from the rail itself — once unanchored", () => {
     renderBox();
-    // The box opens ANCHORED (owner order 2026-11-22): locked at the
-    // middle of the screen, the rail does not drag. Unanchor first —
-    // then the rail drags exactly as it always did.
+    // The box opens ANCHORED (owner order 2026-11-22): locked at its
+    // home corner, the rail does not drag. Unanchor first — then the
+    // rail drags exactly as it always did.
     fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
     pointerDown(screen.getByText("Chat"));
     expect(captureSpy).toHaveBeenCalled();
   });
 
-  it("opens anchored at the middle — locked, and the state persists", () => {
+  it("opens anchored at its home corner — locked, and the state persists", () => {
     const { container } = renderBox();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
     expect(box.dataset["anchored"]).toBe("true");
@@ -93,7 +93,7 @@ describe("command box grip controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
     expect(box.dataset["anchored"]).toBe("false");
     expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("unanchored");
-    fireEvent.click(screen.getByRole("button", { name: "Anchor the chat window at the center" }));
+    fireEvent.click(screen.getByRole("button", { name: "Anchor the chat window at its home corner" }));
     expect(box.dataset["anchored"]).toBe("true");
     expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("anchored");
   });
@@ -265,10 +265,10 @@ describe("command box resize", () => {
       </CommandBox>,
     );
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
-    // The enlarged default (owner order 2026-11-22 — the old 500×430
-    // box was "too darn small").
-    expect(box.style.width).toBe("660px");
-    expect(box.style.height).toBe("540px");
+    // The compact home default (owner order 2026-11-22, defect fix:
+    // 500×430 class, bottom-left — the stage's center stays clear).
+    expect(box.style.width).toBe("500px");
+    expect(box.style.height).toBe("430px");
     // Anchored boxes do not stretch — unanchor first.
     fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
     const corner = screen.getByRole("separator", { name: "Resize the chat window" });
@@ -276,16 +276,16 @@ describe("command box resize", () => {
     expect(captureSpy).toHaveBeenCalled();
     pointer(corner, "pointermove", 200, 150);
     pointer(corner, "pointerup", 200, 150);
-    expect(box.style.width).toBe("760px");
-    expect(box.style.height).toBe("590px");
-    expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v1")!)).toEqual({
-      w: 760,
-      h: 590,
+    expect(box.style.width).toBe("600px");
+    expect(box.style.height).toBe("480px");
+    expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v2")!)).toEqual({
+      w: 600,
+      h: 480,
     });
   });
 
   it("a saved size is the size the window opens at", () => {
-    localStorage.setItem("augi.avatar.command-box.size.v1", JSON.stringify({ w: 640, h: 300 }));
+    localStorage.setItem("augi.avatar.command-box.size.v2", JSON.stringify({ w: 640, h: 300 }));
     const { container } = render(
       <CommandBox
         accent="#d4af37"
@@ -489,5 +489,144 @@ describe("command box plain chat face", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Start voice input" }));
     expect(onToggleVoice).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * THE HOME FORM + BOTTOM-STACKED LOG (owner defect fix 2026-11-22):
+ * his live panel was a big empty box mid-stage — persisted minimized
+ * state hid the conversation, the input floated, and the anchored
+ * "home" was the screen's center, covering his medallion. The panel
+ * now: reloads expanded in the compact home form, stacks its lines
+ * from the bottom up inside a bottom-pinned flow, keeps the input
+ * as the main column's last child (the panel's bottom at every
+ * size), and carries a one-click reset on the rail.
+ */
+describe("command box home form and bottom-stacked log", () => {
+  const captureSpy = vi.fn();
+
+  beforeEach(() => {
+    localStorage.clear();
+    captureSpy.mockClear();
+    Element.prototype.setPointerCapture = captureSpy;
+    Element.prototype.releasePointerCapture = vi.fn();
+  });
+
+  function pointer(node: Element, type: string, x: number, y: number) {
+    const ev = new window.MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: x,
+      clientY: y,
+    });
+    Object.defineProperty(ev, "pointerId", { value: 9 });
+    fireEvent(node, ev);
+  }
+
+  const history: ReplyHistoryEntry[] = [
+    { at: 1, question: "open the cube", answer: "The cube is open." },
+    { at: 2, question: "now fly", answer: "Flying." },
+  ];
+
+  function renderHome() {
+    return render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+        history={history}
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+  }
+
+  it("opens compact and anchored — 500×430 at the home corner", () => {
+    const { container } = renderHome();
+    const box = container.querySelector(".avatar-command-box") as HTMLElement;
+    expect(box.style.width).toBe("500px");
+    expect(box.style.height).toBe("430px");
+    expect(box.dataset["anchored"]).toBe("true");
+    // Anchored home is the bottom-left: left margin, no centering transform.
+    expect(box.style.left).toBe("16px");
+    expect(box.style.transform).toBe("none");
+  });
+
+  it("a persisted minimized state from the old build never hides the conversation again", () => {
+    localStorage.setItem("augi.avatar.command-box.minimized.v1", "true");
+    renderHome();
+    expect(screen.getByRole("log", { name: "Chat log" })).toBeInTheDocument();
+    expect(screen.getByText("Flying.")).toBeInTheDocument();
+  });
+
+  it("the log lines live in the bottom-pinned flow, newest last, input below them all", () => {
+    const { container } = renderHome();
+    const log = screen.getByRole("log", { name: "Chat log" });
+    const flow = log.querySelector(".avatar-command-box__thread-flow");
+    expect(flow).not.toBeNull();
+    expect(flow!.contains(screen.getByText("open the cube"))).toBe(true);
+    expect(flow!.contains(screen.getByText("Flying."))).toBe(true);
+    // The input form is the main column's last child — the panel's
+    // bottom edge at every size — and the log's column sits above it.
+    const main = container.querySelector(".avatar-command-box__main") as HTMLElement;
+    const form = container.querySelector(".avatar-command-box__form") as HTMLElement;
+    expect(main.lastElementChild).toBe(form);
+    const conversation = container.querySelector(".avatar-command-box__conversation") as HTMLElement;
+    expect(
+      conversation.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("the log still renders every line when the panel is stretched large", () => {
+    localStorage.setItem(
+      "augi.avatar.command-box.size.v2",
+      JSON.stringify({ w: 1000, h: 740 }),
+    );
+    renderHome();
+    const box = document.querySelector(".avatar-command-box") as HTMLElement;
+    // 1000 saved, clamped to the jsdom viewport minus the window
+    // margin (1024 − 2×16) — a genuinely large panel either way.
+    expect(box.style.width).toBe("992px");
+    for (const line of ["open the cube", "The cube is open.", "now fly", "Flying."]) {
+      expect(screen.getByText(line)).toBeInTheDocument();
+    }
+    expect(screen.getByRole("log", { name: "Chat log" })).toBeInTheDocument();
+  });
+
+  it("one click on the rail's reset restores the home form and clears the saved layout", () => {
+    localStorage.setItem(
+      "augi.avatar.command-box.size.v2",
+      JSON.stringify({ w: 900, h: 700 }),
+    );
+    const { container } = renderHome();
+    const box = container.querySelector(".avatar-command-box") as HTMLElement;
+    expect(box.style.width).toBe("900px");
+    fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
+    const corner = screen.getByRole("separator", { name: "Resize the chat window" });
+    pointer(corner, "pointerdown", 100, 100);
+    pointer(corner, "pointermove", 160, 140);
+    pointer(corner, "pointerup", 160, 140);
+    expect(localStorage.getItem("augi.avatar.command-box.size.v2")).not.toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reset the chat window to its home spot and size" }),
+    );
+    expect(box.style.width).toBe("500px");
+    expect(box.style.height).toBe("430px");
+    expect(box.dataset["anchored"]).toBe("true");
+    expect(box.style.left).toBe("16px");
+    expect(localStorage.getItem("augi.avatar.command-box.size.v2")).toBeNull();
+    expect(localStorage.getItem("augi.avatar.command-box.position.v1")).toBeNull();
+    expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("anchored");
   });
 });

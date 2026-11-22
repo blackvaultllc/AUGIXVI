@@ -2389,24 +2389,38 @@
 }
 
 /* THE MMO PANEL LAYOUT (owner orders 2026-11-22, the picked
-   Drakensang-style reference): the chat window sits at the stage's
-   bottom-left like an MMO chat panel — the world and the character
-   keep the middle of the screen. Inside: a slim rail of round
-   controls down the left edge, the flowing log, one input bar at
-   the bottom, and stretch handles on the right/bottom edges and
-   corner. While Anubis speaks, the panel's frame carries the same
-   gold pulse as his medallion — the conversation visibly lives here. */
+   Drakensang-style reference; rebuilt as flex the same day for the
+   defect fix): the chat window sits at the stage's bottom-left
+   like an MMO chat panel — the world and the character keep the
+   middle of the screen. Inside: a rail of round controls down the
+   left edge, then a main column — machinery (when he opens it),
+   the flowing log filling the middle, and ONE input bar as the
+   column's last child, pinned to the panel's bottom at every size
+   by construction. The earlier grid version could collapse the
+   log's row and strand the input mid-panel; flex cannot. Stretch
+   handles ride the right/bottom edges and corner. While Anubis
+   speaks, the panel's frame carries the same gold pulse as his
+   medallion — the conversation visibly lives here. */
 .avatar-command-box {
   left: 1rem;
+  bottom: 1rem;
+  top: auto;
   transform: none;
-  display: grid;
-  grid-template-columns: 3.4rem minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  column-gap: 0.6rem;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+.avatar-command-box__main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .avatar-command-box__rail {
-  grid-row: 1 / -1;
-  grid-column: 1;
+  flex: none;
+  width: 5.9rem;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
@@ -2433,14 +2447,14 @@
   margin-left: 0;
 }
 .avatar-command-box__machinery {
-  grid-column: 2;
-  grid-row: 1;
+  flex: none;
+  max-height: 46%;
   min-height: 0;
   overflow-y: auto;
+  margin-bottom: 0.45rem;
 }
 .avatar-command-box__conversation {
-  grid-column: 2;
-  grid-row: 2;
+  flex: 1;
   min-height: 0;
   display: flex;
 }
@@ -2449,6 +2463,18 @@
   min-height: 0;
   max-height: none;
   background: rgb(9 17 32 / 94%);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+/* The lines stack from the thread's bottom up (owner order
+   2026-11-22): margin-top:auto pins a short stack to the bottom,
+   the newest line sits last — right above the input — and a long
+   log scrolls normally with the newest kept in view. */
+.avatar-command-box__thread-flow {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
 }
 .avatar-command-box__thread-entry {
   border-bottom: none;
@@ -2471,16 +2497,51 @@
   text-transform: uppercase;
 }
 .avatar-command-box__form {
-  grid-column: 2;
-  grid-row: 3;
+  flex: none;
+  margin-top: 0.45rem;
 }
+/* MINIMIZED = A SLIM BAR (defect fix 2026-11-22): the rail folds
+   to a row, the face shrinks, and the input rides the bar — never
+   a tall empty panel with the conversation hidden inside it. */
 .avatar-command-box--minimized {
-  grid-template-rows: auto;
   height: auto;
+  align-items: center;
+}
+.avatar-command-box--minimized .avatar-command-box__rail {
+  flex-direction: row;
+  width: auto;
+  padding: 0;
+}
+.avatar-command-box--minimized .avatar-command-box__title,
+.avatar-command-box--minimized .osiris-presence__caption {
+  display: none;
+}
+.avatar-command-box.avatar-command-box--minimized .augie-presence {
+  width: 44px;
+  height: 44px;
 }
 .avatar-command-box--minimized .avatar-command-box__form {
-  grid-row: 1;
-  align-self: center;
+  margin-top: 0;
+}
+/* OSIRIS IN THE PANEL (owner order 2026-11-22): the construct's
+   face at a size he can SEE working — 76px, captioned — at the
+   head of the rail. */
+.osiris-presence {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+.avatar-command-box .augie-presence {
+  width: 76px;
+  height: 76px;
+}
+.osiris-presence__caption {
+  color: #ffd75e;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
 }
 .avatar-command-box--partner-speaking {
   animation: command-box-speaking 1.1s ease-in-out infinite alternate;
@@ -6126,6 +6187,53 @@
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: #f3d27a;
+}
+
+/* LIVING FACES (owner order 2026-11-22): eyelids and mouths laid
+   over the medallion portraits by LivingPortrait.tsx — the lids
+   rest swept up (scaleY 0, origin at the eye's top edge) and sweep
+   down for a blink; the mouth is a dark ellipse over the portrait's
+   own mouth, opening on a speech rhythm while its face speaks.
+   The portrait files themselves are never altered. */
+.anubis-presence__face,
+.black-hatter-presence__face {
+  position: relative;
+}
+.living-face__lid {
+  position: absolute;
+  border-radius: 50%;
+  transform: scaleY(0);
+  transform-origin: 50% 0%;
+  transition: transform 150ms ease-out;
+  pointer-events: none;
+  z-index: 2;
+}
+.living-face__lid.is-closed {
+  transform: scaleY(1);
+  transition-duration: 80ms;
+  transition-timing-function: ease-in;
+}
+.living-face__mouth {
+  position: absolute;
+  border-radius: 50%;
+  transform-origin: 50% 50%;
+  transition:
+    transform 95ms linear,
+    opacity 120ms ease;
+  pointer-events: none;
+  z-index: 2;
+}
+.black-hatter-presence--speaking .black-hatter-presence__face {
+  box-shadow:
+    0 18px 48px rgb(10 20 40 / 35%),
+    0 0 0 3px rgb(212 175 55 / 85%),
+    0 0 52px rgb(212 175 55 / 40%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .living-face__lid,
+  .living-face__mouth {
+    transition: none;
+  }
 }
 
 /* PERSPECTIVE (owner order 2026-11-22): a station in perspective

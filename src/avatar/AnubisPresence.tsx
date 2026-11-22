@@ -43,6 +43,7 @@
  * light.
  */
 import { ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
+import { ANUBIS_FEATURES, LivingPortrait } from "./LivingPortrait";
 
 export const ANUBIS_FACE_SRC = ANUBIS_PORTRAIT_SRC;
 
@@ -107,12 +108,14 @@ export function AnubisPresence({
       }
     >
       <div className="anubis-presence__face">
-        <img
-          className="anubis-presence__img"
+        {/* LIVING FACE (owner order 2026-11-22): the portrait itself,
+            plus blinking eyelids and a mouth that moves while Anubis
+            speaks — a face, not a frozen picture (LivingPortrait). */}
+        <LivingPortrait
           src={ANUBIS_FACE_SRC}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
+          features={ANUBIS_FEATURES}
+          speaking={speaking}
+          imgClassName="anubis-presence__img"
         />
       </div>
       <div className="anubis-presence__plate">
