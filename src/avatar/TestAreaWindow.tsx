@@ -25,12 +25,25 @@ import {
   type TestResult,
 } from "./testArea";
 import { buildCaptureBundle, captureFilename } from "./capture";
+import { createCoreTransport, recallFromCore } from "./coreLinkClient";
+import { askCloud } from "./cloudBrain";
 
 type Probe = {
   id: string;
   label: string;
   run: () => Promise<TestResult>;
 };
+
+/** One id per browser session — how the survival probe knows a restart happened. */
+function currentTestSession(): string {
+  const KEY = "augi.testarea.session";
+  let session = sessionStorage.getItem(KEY);
+  if (!session) {
+    session = `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    sessionStorage.setItem(KEY, session);
+  }
+  return session;
+}
 
 const at = () => Date.now();
 const works = (reason: string): TestResult => ({ status: "works", reason, at: at() });
@@ -139,6 +152,88 @@ const PROBES: Probe[] = [
         );
       } catch (e) {
         return fails(`Ear service unreachable: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+  },
+  {
+    id: "core-roundtrip",
+    label: "Phone-to-core: memory round trip",
+    run: async () => {
+      try {
+        const token = `probe-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const transport = createCoreTransport();
+        const outcome = await transport.append({
+          exchangeId: token,
+          question: `Test Area core probe ${token}`,
+          answer: "core round trip probe",
+          provider: "test-area",
+          surface: "test-area",
+          queuedAt: new Date().toISOString(),
+        });
+        if (outcome === "unavailable") {
+          return fails(
+            "The core store did not take the probe exchange (no core store on this server, or no operator session).",
+          );
+        }
+        localStorage.setItem(
+          "augi.testarea.core-probe",
+          JSON.stringify({ token, sessionId: currentTestSession() }),
+        );
+        const found = await recallFromCore(token);
+        if (!found) return fails("The probe was written but recall could not run.");
+        return found.some((r) => r.id === token)
+          ? works(`Exchange ${token} was written to the core store and recalled back from it.`)
+          : fails("The probe exchange was written but recall did not return it.");
+      } catch (e) {
+        return fails(`Core round trip failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+  },
+  {
+    id: "core-survives",
+    label: "Phone-to-core: memory survives restart",
+    run: async () => {
+      try {
+        const session = currentTestSession();
+        const marker = localStorage.getItem("augi.testarea.core-probe");
+        if (!marker) {
+          return fails(
+            "No earlier round-trip token is stored — run the memory round trip probe first, then restart the app and run this.",
+          );
+        }
+        const { token, sessionId } = JSON.parse(marker) as { token: string; sessionId: string };
+        if (sessionId === session) {
+          return fails(
+            "The stored token was written in THIS session — restart the app, then run this probe again for the survival proof.",
+          );
+        }
+        const found = await recallFromCore(token);
+        if (!found) return fails("Recall could not run against the core store.");
+        return found.some((r) => r.id === token)
+          ? works(
+              `Exchange ${token} was written before this session began and is still in the core store — memory survived the restart.`,
+            )
+          : fails("The pre-restart probe exchange is not in the core store.");
+      } catch (e) {
+        return fails(`Survival check failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+  },
+  {
+    id: "provider-failover",
+    label: "Provider failover (Groq → Gemini → OpenRouter → Ollama → simulated)",
+    run: async () => {
+      try {
+        const result = await askCloud("ping — reply with one word");
+        if (result.answer) {
+          return works(`The failover pipe answered through ${result.provider} — named, as required.`);
+        }
+        return fails(
+          result.notice ??
+            `No real provider answered; the pipe fell through to ${result.provider}.`,
+        );
+      } catch (e) {
+        return fails(`Failover probe failed: ${e instanceof Error ? e.message : String(e)}`);
       }
     },
   },

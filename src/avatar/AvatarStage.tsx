@@ -168,10 +168,8 @@ import {
 import { lookupKnowledge } from "./knowledgeBase";
 import { parseSpaceNavigationCommand } from "./spaceNavigation";
 import { SpaceView } from "./SpaceView";
-import {
-  createReadOnlySupabaseClient,
-  type SupabaseConnectionStatus,
-} from "@/lib/supabase-readonly";
+import { coreStatusLabel, type CoreStatus } from "./coreLink";
+import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
 
 type Settings = RenderSettings & { sensitivity: number; cooldownMs: number };
 type WorldScreen = "space" | "entering" | "live" | "returning";
@@ -323,7 +321,13 @@ export function AvatarStage({
   const [worldScreen, setWorldScreen] = useState<WorldScreen>("space");
   const worldScreenRef = useRef<WorldScreen>("space");
   const worldTransitionTimer = useRef<number | null>(null);
-  const [databaseStatus, setDatabaseStatus] = useState<SupabaseConnectionStatus>("not configured");
+  // CORE LINK (Part 30): the status is earned by a real round trip to
+  // the core's memory store — CONNECTED only when the store answered,
+  // QUEUED while exchanges wait in the outbox, NOT CONFIGURED when no
+  // core store answers. The old Supabase REST ping could never succeed
+  // with the publishable key and read NOT CONFIGURED forever; it is gone.
+  const [coreStatus, setCoreStatus] = useState<CoreStatus>("not-configured");
+  const responseSourceRef = useRef("awaiting response");
   const navigate = useNavigate();
   // REPLY HISTORY: every line Augie speaks is logged (persisted on this
   // device) so the operator can scroll back through his replies — the
@@ -373,6 +377,22 @@ export function AvatarStage({
     setTranscript((prev) =>
       appendReplyHistory(prev, { at: Date.now(), question: lastQuestionRef.current, answer: text }),
     );
+    // Every exchange also goes to the CORE's durable memory (Part 30):
+    // written now, or queued on this surface and synced when the core
+    // answers again. Fire-and-forget — a memory write never blocks a reply.
+    const question = lastQuestionRef.current;
+    if (question) {
+      void getCoreLink()
+        .record({
+          exchangeId: `ex-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          question,
+          answer: text,
+          provider: responseSourceRef.current,
+          surface: "stage",
+          queuedAt: new Date().toISOString(),
+        })
+        .catch(() => undefined);
+    }
   }, []);
   const displayName = import.meta.env["VITE_AVATAR_NAME"] || "Osiris";
   // Wake-word response falls back to the owner's call sign when the
@@ -1272,11 +1292,24 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
   }, []);
 
   useEffect(() => {
-    const client = createReadOnlySupabaseClient();
+    responseSourceRef.current = responseSource;
+  }, [responseSource]);
+
+  // CORE LINK: probe on mount and on a slow cadence; a successful probe
+  // also flushes the outbox and syncs the core's facts DOWN into this
+  // surface's local operator memory, so what was said on another surface
+  // is remembered here too (dedupe is by content, inside save()).
+  useEffect(() => {
+    const link = getCoreLink(setCoreStatus);
     let active = true;
     const check = () => {
-      void client.checkConnection().then((status) => {
-        if (active) setDatabaseStatus(status);
+      void link.probe().then(async (status) => {
+        if (!active || status !== "connected") return;
+        const facts = await fetchCoreFacts().catch(() => null);
+        if (!active || !facts) return;
+        for (const fact of facts) {
+          operatorMemory.save(createOperatorFact(fact.content, fact.category, new Date(fact.at)));
+        }
       });
     };
     check();
@@ -1285,6 +1318,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       active = false;
       window.clearInterval(interval);
     };
+    // operatorMemory is the stable ref-backed singleton.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function aim(nx: number, ny: number, k: number) {
@@ -1460,7 +1495,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         </div>
       </div>
       <div className="avatar-hud avatar-hud--tl">
-        <div className="avatar-hud__db-status">DB: {databaseStatus.toUpperCase()}</div>
+        <div className="avatar-hud__db-status">CORE: {coreStatusLabel(coreStatus)}</div>
         <div>
           {perf.fps} FPS {!clearScreen && `· ${(perf.particles / 1000).toFixed(0)}K PTS`}
         </div>

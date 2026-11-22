@@ -50,12 +50,40 @@ function defaultStorage(): StorageLike | null {
   }
 }
 
+/**
+ * The brain address for a surface that has saved nothing: when the app
+ * itself was served from another machine (the phone loading Augie from
+ * the Parrot over Tailscale/LAN), the brain lives on THAT machine —
+ * never on localhost, which on a phone means the phone itself (the
+ * Part 30 defect). On the core machine itself the page host IS
+ * localhost, and the default stands.
+ */
+export function defaultBrainForPageHost(pageHost: string | null | undefined): string {
+  if (!pageHost) return DEFAULT_BRAIN_URL;
+  const host = pageHost.split(":")[0]?.trim().toLowerCase() ?? "";
+  if (!host || host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]") {
+    return DEFAULT_BRAIN_URL;
+  }
+  return `http://${host}:11434`;
+}
+
+function currentPageHost(): string | null {
+  try {
+    return typeof window !== "undefined" ? window.location.hostname : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The saved brain address for this device, or the default. Never throws. */
-export function loadBrainAddress(storage: StorageLike | null = defaultStorage()): string {
+export function loadBrainAddress(
+  storage: StorageLike | null = defaultStorage(),
+  pageHost: string | null = currentPageHost(),
+): string {
   try {
     const saved = storage?.getItem(BRAIN_STORAGE_KEY);
     const normalized = saved ? normalizeBrainAddress(saved) : null;
-    return normalized ?? DEFAULT_BRAIN_URL;
+    return normalized ?? defaultBrainForPageHost(pageHost);
   } catch {
     return DEFAULT_BRAIN_URL;
   }
