@@ -18,6 +18,7 @@ import {
   Clapperboard,
   Camera,
   Coffee,
+  Ear,
   Expand,
   Eye,
   Gamepad2,
@@ -82,8 +83,10 @@ import { ArCubeWindow } from "./ArCubeWindow";
 import { PulseWindow } from "./PulseWindow";
 import { AnalyticWindow } from "./AnalyticWindow";
 import { GateLogWindow } from "./GateLogWindow";
+import { SignalMapWindow } from "./SignalMapWindow";
 import { LogsWindow } from "./LogsWindow";
 import { TestAreaWindow } from "./TestAreaWindow";
+import { ListeningWindow } from "./ListeningWindow";
 import { AnatomyWindow } from "./AnatomyWindow";
 import { DepartmentsWindow } from "./DepartmentsWindow";
 import { CaptainsLogWindow } from "./CaptainsLogWindow";
@@ -168,10 +171,8 @@ import {
 import { lookupKnowledge } from "./knowledgeBase";
 import { parseSpaceNavigationCommand } from "./spaceNavigation";
 import { SpaceView } from "./SpaceView";
-import {
-  createReadOnlySupabaseClient,
-  type SupabaseConnectionStatus,
-} from "@/lib/supabase-readonly";
+import { coreStatusLabel, type CoreStatus } from "./coreLink";
+import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
 
 type Settings = RenderSettings & { sensitivity: number; cooldownMs: number };
 type WorldScreen = "space" | "entering" | "live" | "returning";
@@ -323,7 +324,13 @@ export function AvatarStage({
   const [worldScreen, setWorldScreen] = useState<WorldScreen>("space");
   const worldScreenRef = useRef<WorldScreen>("space");
   const worldTransitionTimer = useRef<number | null>(null);
-  const [databaseStatus, setDatabaseStatus] = useState<SupabaseConnectionStatus>("not configured");
+  // CORE LINK (Part 30): the status is earned by a real round trip to
+  // the core's memory store — CONNECTED only when the store answered,
+  // QUEUED while exchanges wait in the outbox, NOT CONFIGURED when no
+  // core store answers. The old Supabase REST ping could never succeed
+  // with the publishable key and read NOT CONFIGURED forever; it is gone.
+  const [coreStatus, setCoreStatus] = useState<CoreStatus>("not-configured");
+  const responseSourceRef = useRef("awaiting response");
   const navigate = useNavigate();
   // REPLY HISTORY: every line Augie speaks is logged (persisted on this
   // device) so the operator can scroll back through his replies — the
@@ -344,6 +351,7 @@ export function AvatarStage({
   // order 2026-11-21 — "Honeypot city"). Opens from Tools → Rooms and
   // from "open gate log" / "honeypot".
   const [gateLogOpen, setGateLogOpen] = useState(false);
+  const [signalMapOpen, setSignalMapOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [testAreaOpen, setTestAreaOpen] = useState(false);
   const [anatomyOpen, setAnatomyOpen] = useState(false);
@@ -365,6 +373,34 @@ export function AvatarStage({
   // (operator order 2026-11-21). Opens from Tools → Rooms and from
   // "open devices".
   const [devicesOpen, setDevicesOpen] = useState(false);
+  // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
+  // surface. Opens from Tools → Rooms and from "open listening mode".
+  const [listeningOpen, setListeningOpen] = useState(false);
+  // LISTENING INDICATOR: while the speech service reports a session
+  // armed, a badge stays visible on the stage — recording state is
+  // never covert, even with the window closed. Polled from the
+  // service's own status endpoint, not local state.
+  const [listeningArmed, setListeningArmed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await fetch("/api/listening/status");
+        if (!response.ok) return;
+        const payload = (await response.json()) as { armed?: unknown };
+        if (!cancelled) setListeningArmed(payload.armed === true);
+      } catch {
+        /* service unreachable: the badge stays as last known; the
+           window itself reports the outage in words. */
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
   // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
@@ -373,6 +409,22 @@ export function AvatarStage({
     setTranscript((prev) =>
       appendReplyHistory(prev, { at: Date.now(), question: lastQuestionRef.current, answer: text }),
     );
+    // Every exchange also goes to the CORE's durable memory (Part 30):
+    // written now, or queued on this surface and synced when the core
+    // answers again. Fire-and-forget — a memory write never blocks a reply.
+    const question = lastQuestionRef.current;
+    if (question) {
+      void getCoreLink()
+        .record({
+          exchangeId: `ex-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          question,
+          answer: text,
+          provider: responseSourceRef.current,
+          surface: "stage",
+          queuedAt: new Date().toISOString(),
+        })
+        .catch(() => undefined);
+    }
   }, []);
   const displayName = import.meta.env["VITE_AVATAR_NAME"] || "Osiris";
   // Wake-word response falls back to the owner's call sign when the
@@ -741,6 +793,11 @@ export function AvatarStage({
         say("Gate log is open — every recorded knock on the gate, newest first.");
         return;
       }
+      if (room === "signal-map") {
+        setSignalMapOpen(true);
+        say("Signal map is open — what the core's scanners report, registered and unknown.");
+        return;
+      }
       if (room === "captains-log") {
         setCaptainsLogOpen(true);
         say("Captain's log is open — record when ready; entries stay on this machine.");
@@ -777,6 +834,13 @@ export function AvatarStage({
         setLibraryOpen(true);
         say(
           "Library is open — your shelves, read from the books on this machine. No internet involved.",
+        );
+        return;
+      }
+      if (room === "listening") {
+        setListeningOpen(true);
+        say(
+          "Listening Mode is open — arm it there and I record silently on this machine until you say Osiris. The indicator stays visible the whole time.",
         );
         return;
       }
@@ -1272,11 +1336,24 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
   }, []);
 
   useEffect(() => {
-    const client = createReadOnlySupabaseClient();
+    responseSourceRef.current = responseSource;
+  }, [responseSource]);
+
+  // CORE LINK: probe on mount and on a slow cadence; a successful probe
+  // also flushes the outbox and syncs the core's facts DOWN into this
+  // surface's local operator memory, so what was said on another surface
+  // is remembered here too (dedupe is by content, inside save()).
+  useEffect(() => {
+    const link = getCoreLink(setCoreStatus);
     let active = true;
     const check = () => {
-      void client.checkConnection().then((status) => {
-        if (active) setDatabaseStatus(status);
+      void link.probe().then(async (status) => {
+        if (!active || status !== "connected") return;
+        const facts = await fetchCoreFacts().catch(() => null);
+        if (!active || !facts) return;
+        for (const fact of facts) {
+          operatorMemory.save(createOperatorFact(fact.content, fact.category, new Date(fact.at)));
+        }
       });
     };
     check();
@@ -1285,6 +1362,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       active = false;
       window.clearInterval(interval);
     };
+    // operatorMemory is the stable ref-backed singleton.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function aim(nx: number, ny: number, k: number) {
@@ -1460,7 +1539,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         </div>
       </div>
       <div className="avatar-hud avatar-hud--tl">
-        <div className="avatar-hud__db-status">DB: {databaseStatus.toUpperCase()}</div>
+        <div className="avatar-hud__db-status">CORE: {coreStatusLabel(coreStatus)}</div>
         <div>
           {perf.fps} FPS {!clearScreen && `· ${(perf.particles / 1000).toFixed(0)}K PTS`}
         </div>
@@ -1596,6 +1675,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Gate Log"
                     onClick={() => setGateLogOpen(true)}
                   />
+                  <CommandAction
+                    icon={Waves}
+                    label="Signal Map"
+                    onClick={() => setSignalMapOpen(true)}
+                  />
                   <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
                   <CommandAction
                     icon={ScrollText}
@@ -1626,6 +1710,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     icon={BookOpen}
                     label="Library"
                     onClick={() => setLibraryOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Ear}
+                    label="Listening Mode"
+                    onClick={() => setListeningOpen(true)}
                   />
                   <CommandAction
                     icon={Bluetooth}
@@ -1833,6 +1922,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
       {analyzeOpen && <AnalyticWindow onClose={() => setAnalyzeOpen(false)} />}
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
+      {signalMapOpen && <SignalMapWindow onClose={() => setSignalMapOpen(false)} />}
       {logsOpen && <LogsWindow onClose={() => setLogsOpen(false)} />}
       {testAreaOpen && <TestAreaWindow onClose={() => setTestAreaOpen(false)} />}
       {anatomyOpen && <AnatomyWindow onClose={() => setAnatomyOpen(false)} />}
@@ -1840,6 +1930,18 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {captainsLogOpen && <CaptainsLogWindow onClose={() => setCaptainsLogOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
+      {listeningOpen && <ListeningWindow onClose={() => setListeningOpen(false)} />}
+      {listeningArmed && !listeningOpen && (
+        <button
+          type="button"
+          className="listening-stage-badge"
+          onClick={() => setListeningOpen(true)}
+          aria-label="Listening Mode is armed — open the Listening window"
+        >
+          <span className="listening-stage-badge__dot" aria-hidden="true" />
+          LISTENING
+        </button>
+      )}
       {devicesOpen && (
         <DevicesWindow
           onClose={() => setDevicesOpen(false)}

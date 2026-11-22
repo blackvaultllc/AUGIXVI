@@ -75,3 +75,26 @@ describe("brain address storage", () => {
     expect(saveBrainAddress("192.168.1.50", null)).toBe("http://192.168.1.50:11434");
   });
 });
+
+describe("defaultBrainForPageHost (Part 30)", () => {
+  it("keeps localhost surfaces on the local default", async () => {
+    const { defaultBrainForPageHost } = await import("@/avatar/brain");
+    expect(defaultBrainForPageHost("localhost")).toBe(DEFAULT_BRAIN_URL);
+    expect(defaultBrainForPageHost("127.0.0.1")).toBe(DEFAULT_BRAIN_URL);
+    expect(defaultBrainForPageHost(null)).toBe(DEFAULT_BRAIN_URL);
+    expect(defaultBrainForPageHost("")).toBe(DEFAULT_BRAIN_URL);
+  });
+
+  it("points a phone served by the core at the core's own brain", async () => {
+    const { defaultBrainForPageHost } = await import("@/avatar/brain");
+    expect(defaultBrainForPageHost("100.67.177.55")).toBe("http://100.67.177.55:11434");
+    expect(defaultBrainForPageHost("192.168.1.50")).toBe("http://192.168.1.50:11434");
+  });
+
+  it("loadBrainAddress uses the page host when nothing is saved, and a saved address still wins", async () => {
+    const storage = fakeStorage();
+    expect(loadBrainAddress(storage, "100.67.177.55")).toBe("http://100.67.177.55:11434");
+    saveBrainAddress("192.168.1.9", storage);
+    expect(loadBrainAddress(storage, "100.67.177.55")).toBe("http://192.168.1.9:11434");
+  });
+});

@@ -214,7 +214,7 @@ export async function recordPhoneWifiSightings(report: SightingsReport): Promise
 export async function getWifiScanState(now: number): Promise<ScanStateView & { available: boolean }> {
   const store = await getStore();
   if (!store) {
-    return { available: false, watcher: null, networks: [], graceMs: 0 };
+    return { available: false, watcher: null, networks: [], sightings: [], graceMs: 0 };
   }
   const state = await store.scanState(now);
   return { available: true, ...state };

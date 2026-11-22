@@ -676,7 +676,70 @@ function buildOfficeFloor1(): BuiltFloor {
   cloud.ellipsoid(9.9, 1.16, -8.2, 0.16, 0.28, 0.16, 48, [0.45, 0.75, 0.95]);
   // Office plants — the tree code again, desk-sized.
   stampTree(cloud, -10.2, -8.3, 0.34, 0.3, PINE_GREEN, random);
-  stampTree(cloud, 10.3, -1.0, 0.3, 0.3, PINE_GREEN, random);
+  stampTree(cloud, 10.35, 2.45, 0.3, 0.3, PINE_GREEN, random);
+
+  /* PART 9 REMAINDER (owner order 2026-11-22): the HALLWAY and the
+   * COFFEE BREAK ROOM as real geometry, not just trips. The hallway
+   * runs along the front band (z ≈ 0.4…2.6): a warm carpet the eye can
+   * follow from the lobby to the break room door. The break room is
+   * partitioned off in the front-east corner (x ≈ 6.4…10.9,
+   * z ≈ −1.2…2.9) — a framed west partition with a real doorway gap
+   * (z ≈ 0.6…2.0) off the hallway, a solid north partition, and its
+   * own furniture inside: counter, coffee machine with cups and
+   * steam, a table with chairs, a couch along the south wall. */
+  const CARPET: Rgb = [0.4, 0.29, 0.2];
+  const CARPET_EDGE: Rgb = [0.72, 0.55, 0.3];
+  const PARTITION: Rgb = [0.55, 0.48, 0.38];
+  cloud.slab(-2.3, 0.03, 1.5, 17.4, 2.2, 0.44, CARPET);
+  cloud.line([-10.9, 0.05, 0.42], [6.3, 0.05, 0.42], 40, CARPET_EDGE);
+  cloud.line([-10.9, 0.05, 2.58], [6.3, 0.05, 2.58], 40, CARPET_EDGE);
+  // Hallway lamps along its back edge.
+  for (const lx of [-9, -5.5, -2, 1.5, 5]) {
+    cloud.ellipsoid(lx, 2.7, 0.45, 0.14, 0.09, 0.09, 8, [1.0, 0.85, 0.55]);
+  }
+  // Break room west partition (x = 6.4): posts + rails, doorway gap.
+  for (const pz of [-1.2, -0.3, 0.6, 2.0, 2.9]) {
+    cloud.line([6.4, 0, pz], [6.4, 2.4, pz], 12, PARTITION);
+  }
+  for (const seg of [
+    [-1.2, 0.6],
+    [2.0, 2.9],
+  ] as const) {
+    cloud.line([6.4, 0.9, seg[0]], [6.4, 0.9, seg[1]], 9, PARTITION);
+    cloud.line([6.4, 2.3, seg[0]], [6.4, 2.3, seg[1]], 9, PARTITION);
+  }
+  cloud.line([6.4, 2.3, 0.6], [6.4, 2.3, 2.0], 7, PARTITION); // doorway header
+  // Break room north partition (z = −1.2): a solid panel run.
+  cloud.panel(8.65, 1.15, -1.2, 4.5, 2.3, 0.3, PARTITION);
+  // The counter along the east wall, machine + cups + steam on top.
+  cloud.boxEdges(10.55, 0.5, 0.9, 0.7, 1.0, 3.4, 6, [0.45, 0.36, 0.26]);
+  cloud.slab(10.55, 1.02, 0.9, 0.74, 3.4, 0.24, [0.55, 0.44, 0.3]);
+  cloud.boxEdges(10.5, 1.32, 0.1, 0.52, 0.56, 0.6, 5, [0.3, 0.3, 0.34]);
+  cloud.panel(10.22, 1.32, 0.1, 0.05, 0.3, 0.12, [0.9, 0.45, 0.2]);
+  for (const cupZ of [0.75, 1.05, 1.35]) {
+    cloud.ellipsoid(10.5, 1.1, cupZ, 0.05, 0.05, 0.05, 8, [0.9, 0.9, 0.92]);
+  }
+  for (let i = 0; i < 8; i += 1) {
+    cloud.point(10.5 + (random() - 0.5) * 0.1, 1.7 + i * 0.09, 0.1 + (random() - 0.5) * 0.1, [
+      0.8, 0.85, 0.9,
+    ]);
+  }
+  // Table + two chairs mid-room.
+  cloud.slab(8.6, 0.78, 0.9, 1.5, 1.0, 0.2, [0.5, 0.38, 0.24]);
+  for (const [lx, lz] of [
+    [8.0, 0.55],
+    [9.2, 0.55],
+    [8.0, 1.25],
+    [9.2, 1.25],
+  ] as const) {
+    cloud.line([lx, 0, lz], [lx, 0.78, lz], 5, [0.4, 0.3, 0.2]);
+  }
+  for (const chairX of [7.55, 9.65]) {
+    cloud.slab(chairX, 0.5, 0.9, 0.4, 0.45, 0.14, [0.3, 0.3, 0.38]);
+  }
+  // Couch along the south wall.
+  cloud.slab(8.8, 0.45, 2.5, 2.6, 0.75, 0.24, [0.36, 0.3, 0.42]);
+  cloud.panel(8.8, 0.95, 2.88, 2.6, 1.0, 0.24, [0.42, 0.36, 0.5]);
 
   portalArch(cloud, random, UP_SPOT, PORTAL_UP_COLOR);
 
@@ -718,11 +781,20 @@ function buildOfficeFloor1(): BuiltFloor {
   });
   people.push({
     // The runner: mostly at her Social Media desk, with a real errand
-    // — across the floor to the water cooler and straight back.
+    // (Part 9 remainder, 2026-11-22): west around the break room's
+    // north partition, down the HALLWAY, through the doorway, a pause
+    // at the break room table — then the same honest route back. The
+    // waypoint loop is the full circuit, so neither leg cuts a wall.
     appearance: makeAppearance(9, 21),
     waypoints: [
       wp(8.75, -3.0 + seatOffset, "work", [20, 36], Math.PI),
-      wp(9.3, -7.3, "stand", [3, 6]),
+      wp(5.6, -1.5, "walk", [0, 0]),
+      wp(5.6, 1.3, "walk", [0, 0]),
+      wp(6.4, 1.3, "walk", [0, 0]),
+      wp(7.6, 0.9, "stand", [4, 7]),
+      wp(6.4, 1.3, "walk", [0, 0]),
+      wp(5.6, 1.3, "walk", [0, 0]),
+      wp(5.6, -1.5, "walk", [0, 0]),
     ],
   });
   return finishFloor(
@@ -747,6 +819,8 @@ function buildOfficeFloor1(): BuiltFloor {
       { text: "MAIN FLOOR", x: 0, y: 3.15, z: -4.3 },
       { text: "MARKETING", x: 5.25, y: 2.95, z: -4.3 },
       { text: "SOCIAL MEDIA", x: 8.75, y: 3.45, z: -4.3 },
+      { text: "HALLWAY", x: -2.3, y: 2.9, z: 1.5 },
+      { text: "COFFEE BREAK ROOM", x: 8.65, y: 3.1, z: 0.9 },
     ],
   );
 }

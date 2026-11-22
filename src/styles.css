@@ -2909,6 +2909,91 @@
   word-break: break-word;
   opacity: 0.92;
 }
+.window-listening {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 100%;
+  overflow: auto;
+}
+.window-listening__indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.window-listening__indicator .window-listening__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--avatar-hud-muted, #64748b);
+  flex: none;
+}
+.window-listening__indicator.is-armed {
+  font-weight: 600;
+}
+.window-listening__indicator.is-armed .window-listening__dot {
+  background: #f43f5e;
+  animation: window-listening-pulse 1.6s ease-in-out infinite;
+}
+@keyframes window-listening-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.window-listening__error {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin: 0;
+  color: #fda4af;
+}
+.window-listening__recap {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0;
+}
+.window-listening h3,
+.window-listening h4 {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+}
+.speaker-stores {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  border-top: 1px solid var(--avatar-hud-border, rgba(148, 163, 184, 0.25));
+  padding-top: 0.6rem;
+}
+.listening-stage-badge {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid #f43f5e;
+  background: rgba(24, 8, 14, 0.88);
+  color: #fecdd3;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.listening-stage-badge__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #f43f5e;
+  animation: window-listening-pulse 1.6s ease-in-out infinite;
+}
 .window-gate-log__note {
   font-size: 0.9rem;
   opacity: 0.85;
@@ -4401,17 +4486,47 @@
   font-weight: 800;
   cursor: pointer;
 }
-.racing-sprint-start {
-  min-height: 4rem;
-  padding: 0.7rem 1.4rem;
+/* Part 16 remainder — THE CIRCUIT (one closed loop with turns,
+   replacing the straight lanes). Karts are placed by the circuit
+   path's own geometry and rotated to its tangent. */
+.racing-circuit {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0.2rem 0;
+}
+.racing-circuit__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.racing-car--circuit {
+  position: absolute;
+  width: 4.6rem;
+  top: auto;
+  transition:
+    left 0.12s linear,
+    top 0.12s linear,
+    transform 0.12s linear;
+}
+.racing-car--circuit svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.racing-car__name {
+  position: absolute;
+  left: 50%;
+  bottom: -0.9rem;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #3c2a4d;
+  background: rgba(255, 255, 255, 0.75);
   border-radius: 999px;
-  border: 3px solid #4361ee;
-  background: #fff;
-  color: #3a2b20;
-  font: inherit;
-  font-size: 1.15rem;
-  font-weight: 800;
-  cursor: pointer;
+  padding: 0 0.3rem;
 }
 .racing-hud {
   display: flex;

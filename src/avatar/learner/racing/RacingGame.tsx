@@ -10,13 +10,7 @@ import {
   type KartUpgrades,
 } from "./Kart";
 import { playRaceSound, racingMuted, setRacingMuted } from "./sounds";
-import {
-  pitProblems,
-  questionKey,
-  raceQuestion,
-  sprintQuestion,
-  type MathQuestion,
-} from "./questions";
+import { pitProblems, questionKey, raceQuestion, type MathQuestion } from "./questions";
 
 /**
  * MULTIPLICATION RACING GAME — a TEST feature for DIJA'S Academy
@@ -41,9 +35,19 @@ import {
  * PIT STOP: no timer, no rush, problems that teach the strategy
  * trick behind the facts, and every solved problem bolts a real
  * upgrade onto her kart. Solve all three and the next lap gets a
- * NOS button — one tap, big zoom. A separate 1-Minute Sprint
- * (Eureka-style) is on the start screen for beating her own best
- * score.
+ * NOS button — one tap, big zoom.
+ *
+ * Part 16 remainder (owner order 2026-11-22): the track is ONE
+ * LONGER CLOSED CIRCUIT WITH TURNS — a real loop road, not four
+ * straight lanes. Every kart rides the same circuit geometry
+ * (SVG getPointAtLength), offset by lane, rotating to the road's
+ * tangent through the bends. Three laps of the circuit is a much
+ * longer race than the old drag strip. The speed loop above is
+ * unchanged, exactly as specced.
+ *
+ * There is NO timed mode: the 1-Minute Sprint was removed on the
+ * owner's order — no sprint, no clock, no best-score chase. A
+ * guard test pins its absence.
  */
 
 const TOTAL_LAPS = 3;
@@ -59,8 +63,27 @@ const MIN_PLAYER_SPEED = 3;
 const UPGRADE_BONUS = 0.35;
 const NOS_BONUS = 9;
 const NOS_SECONDS = 3;
-const SPRINT_SECONDS = 60;
-const SPRINT_BEST_KEY = "dija.racing.sprintBest";
+
+/**
+ * THE CIRCUIT (Part 16): one closed loop with real turns — down the
+ * front straight, a sweeping right-hander, a tight S-bend at the
+ * top, and back. Drawn as a wide-stroked SVG path; karts ride the
+ * same path geometry, so where a kart sits IS where the road is.
+ */
+const CIRCUIT_D =
+  "M 120 380 L 560 380 Q 680 380 680 300 L 680 252 Q 680 192 608 187 L 472 181 Q 402 178 402 112 L 402 108 Q 402 46 322 46 L 202 46 Q 122 46 122 128 L 122 380 Z";
+const CIRCUIT_TREES: readonly (readonly [number, number])[] = [
+  [250, 130],
+  [330, 250],
+  [560, 120],
+  [90, 60],
+  [730, 420],
+  [60, 420],
+  [520, 300],
+  [250, 320],
+  [740, 90],
+  [180, 210],
+];
 
 const PIT_UPGRADES: { id: string; name: string }[][] = [
   [
@@ -77,7 +100,7 @@ const PIT_UPGRADES: { id: string; name: string }[][] = [
 
 const PRAISE = ["Zoom! That's right!", "Yes! Faster!", "Great job!", "You got it — go go go!"];
 
-type Phase = "setup" | "countdown" | "racing" | "pit" | "finished" | "sprint" | "sprintDone";
+type Phase = "setup" | "countdown" | "racing" | "pit" | "finished";
 
 interface Racer {
   id: string;
@@ -136,16 +159,6 @@ function standingsOf(racers: Racer[]): Racer[] {
   });
 }
 
-function readSprintBest(): number {
-  try {
-    const raw = window.localStorage.getItem(SPRINT_BEST_KEY);
-    const value = raw ? Number.parseInt(raw, 10) : 0;
-    return Number.isFinite(value) && value > 0 ? value : 0;
-  } catch {
-    return 0;
-  }
-}
-
 export function RacingGame() {
   const [phase, setPhase] = useState<Phase>("setup");
   const [muted, setMuted] = useState<boolean>(() => racingMuted());
@@ -165,12 +178,8 @@ export function RacingGame() {
   const [pitFeedback, setPitFeedback] = useState<string | null>(null);
   const [pitEarnedNos, setPitEarnedNos] = useState(false);
 
-  // Sprint state.
-  const [sprintTimeLeft, setSprintTimeLeft] = useState(SPRINT_SECONDS);
-  const [sprintScore, setSprintScore] = useState(0);
-  const [sprintQ, setSprintQ] = useState<MathQuestion | null>(null);
-  const [sprintMsg, setSprintMsg] = useState<string | null>(null);
-  const [sprintBest, setSprintBest] = useState(readSprintBest);
+  // The circuit path element — karts are placed by its geometry.
+  const [circuitPath, setCircuitPath] = useState<SVGPathElement | null>(null);
 
   const engineRef = useRef<Engine>(emptyEngine());
   const upgradeBonusRef = useRef(0);
@@ -431,54 +440,6 @@ export function RacingGame() {
     setPhase("racing");
   }
 
-  /* ---------- sprint ---------- */
-
-  function startSprint() {
-    setSprintScore(0);
-    setSprintTimeLeft(SPRINT_SECONDS);
-    setSprintMsg("Answer as fast as you can!");
-    setSprintQ(sprintQuestion());
-    setPhase("sprint");
-  }
-
-  useEffect(() => {
-    if (phase !== "sprint") return;
-    const id = window.setInterval(() => {
-      setSprintTimeLeft((t) => {
-        if (t <= 0.1) {
-          window.clearInterval(id);
-          setPhase("sprintDone");
-          return 0;
-        }
-        return Math.max(0, t - 0.1);
-      });
-    }, 100);
-    return () => window.clearInterval(id);
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase !== "sprintDone") return;
-    if (sprintScore > sprintBest) {
-      setSprintBest(sprintScore);
-      try {
-        window.localStorage.setItem(SPRINT_BEST_KEY, String(sprintScore));
-      } catch {
-        // Best score just won't persist on this device.
-      }
-    }
-  }, [phase, sprintScore, sprintBest]);
-
-  function answerSprint(choice: number) {
-    if (!sprintQ || phase !== "sprint") return;
-    if (choice === sprintQ.answer) {
-      setSprintScore((s) => s + 1);
-      setSprintMsg("Yes!");
-    } else {
-      setSprintMsg(`That one was ${sprintQ.answer}.`);
-    }
-    setSprintQ(sprintQuestion(Math.random, questionKey(sprintQ)));
-  }
-
   /* ---------- derived render values ---------- */
 
   const eng = engineRef.current;
@@ -522,29 +483,87 @@ export function RacingGame() {
       )
     : PLAYER_BASE_SPEED;
 
+  /** Where a kart sits on the circuit: its lap fraction along the
+   *  shared loop, offset sideways by lane, turned to the road's
+   *  tangent — so it points INTO every bend, never across it. */
+  function kartPose(r: Racer, index: number): { left: string; top: string; angle: number } {
+    if (!circuitPath || typeof circuitPath.getTotalLength !== "function") {
+      // No SVG geometry (test DOMs): karts wait on the start grid.
+      return { left: `${15 + index * 3}%`, top: "82%", angle: 0 };
+    }
+    const len = circuitPath.getTotalLength();
+    const frac = r.finishedOrder != null ? 0.999 : (r.progress % LAP_LENGTH) / LAP_LENGTH;
+    const d = frac * len;
+    const p = circuitPath.getPointAtLength(d);
+    const ahead = circuitPath.getPointAtLength((d + 3) % len);
+    const angle = Math.atan2(ahead.y - p.y, ahead.x - p.x);
+    const off = (index - 1.5) * 14;
+    const x = p.x - Math.sin(angle) * off;
+    const y = p.y + Math.cos(angle) * off;
+    return {
+      left: `${(x / 800) * 100}%`,
+      top: `${(y / 460) * 100}%`,
+      angle: (angle * 180) / Math.PI,
+    };
+  }
+
   function track() {
     return (
-      <div className="racing-track" aria-label="Race track">
-        {racers.map((r) => {
-          // One continuous race: cars travel the WHOLE track from
-          // the start to the checkered finish — no jumping back at
-          // each lap. The dashed marks show where laps 2 and 3 start.
-          const leftPct =
-            r.finishedOrder != null ? 92 : Math.min(88, (r.progress / TOTAL_DISTANCE) * 88);
+      <div className="racing-circuit" aria-label="Race track — a big circuit with turns">
+        <svg className="racing-circuit__svg" viewBox="0 0 800 460" aria-hidden="true">
+          <path d={CIRCUIT_D} fill="#8fd45f" stroke="none" />
+          <path
+            ref={setCircuitPath}
+            d={CIRCUIT_D}
+            fill="none"
+            stroke="#4a4a52"
+            strokeWidth={46}
+            strokeLinejoin="round"
+          />
+          <path
+            d={CIRCUIT_D}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth={2.5}
+            strokeDasharray="14 12"
+            opacity={0.7}
+          />
+          {/* Start/finish checkers at the path's start point. */}
+          <g transform="translate(120 380) rotate(90)">
+            {Array.from({ length: 8 }, (_, i) => (
+              <rect
+                key={i}
+                x={-23 + (i % 4) * 11.5}
+                y={i < 4 ? -6 : 5}
+                width={11.5}
+                height={11}
+                fill={(i + (i < 4 ? 0 : 1)) % 2 === 0 ? "#222" : "#fff"}
+              />
+            ))}
+          </g>
+          {CIRCUIT_TREES.map(([tx, ty], i) => (
+            <g key={i}>
+              <circle cx={tx} cy={ty} r={13} fill="#3e9e4f" />
+              <circle cx={tx - 8} cy={ty + 5} r={9} fill="#55b765" />
+              <circle cx={tx + 8} cy={ty + 5} r={9} fill="#2f8a42" />
+            </g>
+          ))}
+        </svg>
+        {racers.map((r, i) => {
+          const pose = kartPose(r, i);
           return (
-            <div className="racing-lane" key={r.id}>
-              <span className="racing-lane__name">{r.name}</span>
-              <div className="racing-lane__road">
-                <span className="racing-lane__lapmark" style={{ left: "29.3%" }} />
-                <span className="racing-lane__lapmark" style={{ left: "58.6%" }} />
-                <span className="racing-lane__finish" aria-hidden="true" />
-                <div className="racing-car" style={{ left: `${leftPct}%` }}>
-                  {renderKart(r)}
-                </div>
-                <span className="racing-lane__flag">
-                  {r.finishedOrder != null ? "Finished!" : ""}
-                </span>
-              </div>
+            <div
+              key={r.id}
+              className="racing-car racing-car--circuit"
+              style={{
+                left: pose.left,
+                top: pose.top,
+                transform: `translate(-50%, -50%) rotate(${pose.angle}deg)`,
+              }}
+            >
+              {renderKart(r)}
+              <span className="racing-car__name">{r.name}</span>
+              {r.finishedOrder != null && <span className="racing-lane__flag">Finished!</span>}
             </div>
           );
         })}
@@ -612,69 +631,10 @@ export function RacingGame() {
             <button type="button" className="racing-start" onClick={startRace}>
               Start the Race!
             </button>
-            <button type="button" className="racing-sprint-start" onClick={startSprint}>
-              1-Minute Sprint
-            </button>
           </div>
           <p className="learner-note">
-            Sprint: answer as many as you can in 1 minute and beat your best
-            {sprintBest > 0 ? ` (${sprintBest})` : ""}!
+            Race the big circuit — three laps, with turns! Answer questions to speed up.
           </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (phase === "sprint") {
-    return (
-      <div className="racing">
-        <div className="racing-sprint">
-          <div className="racing-sprint__hud">
-            <span>Time: {Math.ceil(sprintTimeLeft)}</span>
-            <span>Score: {sprintScore}</span>
-          </div>
-          {sprintQ && (
-            <>
-              <p className="racing-question__prompt">{sprintQ.prompt}</p>
-              <div className="racing-answers">
-                {sprintQ.choices.map((choice) => (
-                  <button
-                    key={choice}
-                    type="button"
-                    className="racing-answer"
-                    onClick={() => answerSprint(choice)}
-                  >
-                    {choice}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-          {sprintMsg && <p className="racing-feedback">{sprintMsg}</p>}
-        </div>
-      </div>
-    );
-  }
-
-  if (phase === "sprintDone") {
-    return (
-      <div className="racing">
-        <div className="racing-results">
-          <h2>Time! Sprint over</h2>
-          <p className="racing-results__big">You answered {sprintScore} right!</p>
-          <p className="racing-results__sub">
-            {sprintScore >= sprintBest && sprintScore > 0
-              ? "That's your best score yet!"
-              : `Your best is ${sprintBest}.`}
-          </p>
-          <div className="racing-start-row">
-            <button type="button" className="racing-start" onClick={startSprint}>
-              Sprint Again
-            </button>
-            <button type="button" className="racing-sprint-start" onClick={() => setPhase("setup")}>
-              Back
-            </button>
-          </div>
         </div>
       </div>
     );

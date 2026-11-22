@@ -230,6 +230,46 @@ describe("citizens — the daily round (PeopleSim)", () => {
     expect(labels.some((text) => text.includes("OSIRIS"))).toBe(true);
   });
 
+  it("floor 1 has the hallway and the coffee break room, labeled (Part 9 remainder)", () => {
+    const office = buildScene("office");
+    const floor1 = office.floors![0]!;
+    const labels = floor1.labels.map((l) => l.text);
+    expect(labels).toContain("HALLWAY");
+    expect(labels).toContain("COFFEE BREAK ROOM");
+    // The rooms cost particles; the floor still fits the budget.
+    expect(floor1.totalParticles).toBeLessThanOrEqual(SCENE_PARTICLE_BUDGET);
+  });
+
+  it("the runner's errand routes through the hallway and the doorway into the break room", () => {
+    const office = buildScene("office");
+    const runner = office.people[office.people.length - 1]!;
+    const pts = runner.waypoints.map((w) => ({ x: w.x, z: w.z, mode: w.mode }));
+    // She leaves her desk, passes WEST of the break room's north
+    // partition (x < 6.4 while z < 0), walks the hallway band
+    // (0.4 ≤ z ≤ 2.6), crosses the doorway line x = 6.4 inside the
+    // gap (0.6 ≤ z ≤ 2.0), and stands inside the room.
+    const inHallway = pts.filter((p) => p.z >= 0.4 && p.z <= 2.6 && p.x < 6.4);
+    expect(inHallway.length).toBeGreaterThanOrEqual(2);
+    const westPass = pts.some((p) => p.x < 6.4 && p.z < 0);
+    expect(westPass).toBe(true);
+    const inside = pts.find((p) => p.x > 6.4 && p.x < 10.9 && p.z > -1.2 && p.z < 2.9 && p.mode === "stand");
+    expect(inside).toBeDefined();
+    // And the loop comes back out the same door — no wall is crossed
+    // in either direction: every leg between consecutive waypoints
+    // stays out of the north partition segment (z = −1.2, x in
+    // 6.4…10.9) unless it crosses at the doorway's x.
+    for (let i = 0; i < pts.length; i += 1) {
+      const a = pts[i]!;
+      const b = pts[(i + 1) % pts.length]!;
+      const crossesNorthWall =
+        (a.z + 1.2) * (b.z + 1.2) < 0 &&
+        Math.min(a.x, b.x) < 10.9 &&
+        Math.max(a.x, b.x) > 6.4 &&
+        !(a.x <= 6.4 || b.x <= 6.4);
+      expect(crossesNorthWall).toBe(false);
+    }
+  });
+
   it("floor 1's crew starts seated at work — nobody opens on a patrol loop (Part 9)", () => {
     const office = buildScene("office");
     for (const person of office.people) {

@@ -10,8 +10,9 @@ import { startLearnerSession } from "@/avatar/learner/learnerProfile";
  * questions (correct = the car speeds up, wrong = the car slows
  * down, and NO question timer — a question waits to be answered),
  * a full pit stop (NOS earned and spent), a partial pit stop
- * (green GO button early), the finish podium, Play Again, and the
- * 1-Minute Sprint.
+ * (green GO button early), the finish podium, Play Again — and a
+ * guard that the 1-Minute Sprint stays REMOVED (owner's order):
+ * no sprint, no clock, no best-score chase anywhere.
  */
 
 function readPrompt(container: HTMLElement): { a: number; b: number } | null {
@@ -212,21 +213,24 @@ describe("multiplication racing — full play-through", () => {
   });
 });
 
-describe("1-Minute Sprint", () => {
-  it("scores correct answers, ends on the timer, and remembers the best", () => {
-    const { container } = render(<RacingGame />);
-    fireEvent.click(screen.getByRole("button", { name: "1-Minute Sprint" }));
-    for (let i = 0; i < 3; i++) {
-      const prompt = readPrompt(container);
-      if (!prompt) throw new Error("no sprint question");
-      clickAnswer(container, prompt.a * prompt.b);
-    }
-    expect(screen.getByText("Score: 3")).toBeInTheDocument();
-    advance(61000);
-    expect(screen.getByText("Time! Sprint over")).toBeInTheDocument();
-    expect(screen.getByText("You answered 3 right!")).toBeInTheDocument();
-    expect(localStorage.getItem("dija.racing.sprintBest")).toBe("3");
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+describe("no timed mode — the 1-Minute Sprint is removed (owner's order)", () => {
+  it("the start screen offers no sprint, no clock, and no best-score chase", () => {
+    render(<RacingGame />);
+    expect(screen.queryByRole("button", { name: /sprint/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/sprint/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Start the Race!" })).toBeInTheDocument();
+    expect(localStorage.getItem("dija.racing.sprintBest")).toBeNull();
+  });
+
+  it("the race runs on the circuit — one loop with turns, not straight lanes", () => {
+    const { container } = render(<RacingGame />);
+    startRace(container);
+    const circuit = container.querySelector(".racing-circuit");
+    expect(circuit).not.toBeNull();
+    expect(circuit?.getAttribute("aria-label")).toMatch(/circuit with turns/i);
+    // The old straight-lane markup is gone.
+    expect(container.querySelector(".racing-lane")).toBeNull();
+    // All four karts are on the circuit.
+    expect(container.querySelectorAll(".racing-car--circuit").length).toBe(4);
   });
 });

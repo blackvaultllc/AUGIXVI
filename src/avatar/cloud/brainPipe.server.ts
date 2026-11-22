@@ -62,12 +62,26 @@ function getOperatorAccessToken(): string | null {
   return header?.replace(/^Bearer\s+/i, "").trim() || null;
 }
 
+/**
+ * Ollama is KEYLESS — it is the operator's own machine, not a cloud
+ * account. Its address comes from OLLAMA_URL when set (a base URL or a
+ * full chat URL) and otherwise defaults to the local endpoint. Gating
+ * it on a "key" being present silently removed the last real fallback
+ * on the core machine itself (Part 30 fix).
+ */
+function ollamaChatUrl(entry: (typeof PROVIDER_SECRETS)[number]): string {
+  const raw = readEnv(entry.secret);
+  if (!raw) return entry.endpoint;
+  return raw.endsWith("/api/chat") ? raw : `${raw.replace(/\/+$/, "")}/api/chat`;
+}
+
 /** Probe one provider with a trivial completion. Returns ok/error — no values. */
 async function probe(
   entry: (typeof PROVIDER_SECRETS)[number],
 ): Promise<{ ok: boolean; detail: string }> {
   const key = readEnv(entry.secret);
-  if (!key) return { ok: false, detail: `${entry.secret} is not set in the Worker secrets` };
+  if (entry.provider !== "Ollama" && !key)
+    return { ok: false, detail: `${entry.secret} is not set in the Worker secrets` };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 6000);
   try {
@@ -78,12 +92,12 @@ async function probe(
       url = `${entry.endpoint}/${entry.defaultModel}:generateContent`;
       init = {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key ?? "" },
         signal: controller.signal,
         body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] }),
       };
     } else if (entry.provider === "Ollama") {
-      url = entry.endpoint;
+      url = ollamaChatUrl(entry);
       init = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -174,7 +188,7 @@ export const askCloudBrain = createServerFn({ method: "POST" })
     const deaths: string[] = [];
     for (const entry of PROVIDER_SECRETS) {
       const key = readEnv(entry.secret);
-      if (!key) {
+      if (entry.provider !== "Ollama" && !key) {
         deaths.push(`${entry.provider}: ${entry.secret} not set`);
         continue;
       }
@@ -185,7 +199,7 @@ export const askCloudBrain = createServerFn({ method: "POST" })
         if (entry.provider === "Gemini") {
           const res = await fetch(`${entry.endpoint}/${entry.defaultModel}:generateContent`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+            headers: { "Content-Type": "application/json", "x-goog-api-key": key ?? "" },
             signal: controller.signal,
             body: JSON.stringify({
               contents: [
@@ -204,7 +218,7 @@ export const askCloudBrain = createServerFn({ method: "POST" })
           };
           answer = payload.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? null;
         } else if (entry.provider === "Ollama") {
-          const res = await fetch(entry.endpoint, {
+          const res = await fetch(ollamaChatUrl(entry), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             signal: controller.signal,
