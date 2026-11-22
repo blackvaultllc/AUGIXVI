@@ -39,15 +39,13 @@ import {
 } from "./pulse";
 
 /**
- * FaceLandmarker model (Google's MediaPipe model bucket — the same
- * host sensors.ts uses for the hand model). NOTE: the BlazeFace
- * face_detector .task file that older MediaPipe docs point at no
- * longer exists in that bucket (verified 2026-11-21: NoSuchKey), so
- * presence runs on the landmarker: landmarks present = a face is in
- * frame, and their extent gives the box the pulse ROI is cut from.
+ * FaceLandmarker model — BUNDLED with the app under public/mediapipe/
+ * (Part 19): Pulse no longer fetches it from Google's bucket at
+ * runtime, so the tracker loads with the network unplugged. Presence
+ * runs on the landmarker: landmarks present = a face is in frame, and
+ * their extent gives the box the pulse ROI is cut from.
  */
-export const FACE_LANDMARKER_MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+export const FACE_LANDMARKER_MODEL_URL = "/mediapipe/face_landmarker.task";
 
 /** Below this mean ROI brightness (0..255) the room is too dark to read. */
 const TOO_DARK = 28;
@@ -115,7 +113,13 @@ function foreheadRoi(face: FaceBox): FaceBox {
   };
 }
 
-export function PulsePanel() {
+/**
+ * The camera implementation of Pulse (presence, motion, rPPG estimate,
+ * room frequencies). Kept whole under the source switch — Part 20's
+ * extension adds the WATCH source beside it, and switching away
+ * unmounts this panel, which stops the camera and mic.
+ */
+function CameraPulsePanel() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const sparkRef = useRef<HTMLCanvasElement>(null);
@@ -148,6 +152,10 @@ export function PulsePanel() {
     reason: "not started",
   });
   const [domFreq, setDomFreq] = useState<{ hz: number; strength: number } | null>(null);
+  /** The stream's own aspect ("640 / 480") once it is live — Part 21:
+   * the stage takes the frame's shape so the FULL frame is the
+   * default view, never an aggressive crop. */
+  const [frameAspect, setFrameAspect] = useState<string | undefined>(undefined);
   const [freqState, setFreqState] = useState<"off" | "live" | "quiet">("off");
 
   const drawSparkline = useCallback((waveform: number[]) => {
@@ -384,6 +392,9 @@ export function PulsePanel() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => undefined);
+        if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+          setFrameAspect(`${videoRef.current.videoWidth} / ${videoRef.current.videoHeight}`);
+        }
       }
       videoOk = true;
     } catch {
@@ -411,7 +422,7 @@ export function PulsePanel() {
         detectorRef.current = await loadFaceDetector();
       } catch {
         setDetectorError(
-          "The face tracker could not be loaded (its model is fetched from Google's MediaPipe CDN). Presence and pulse are unavailable until it loads — motion and frequency still work.",
+          "The face tracker could not be loaded from the app's own bundled MediaPipe files. Presence and pulse are unavailable until it loads — motion and frequency still work.",
         );
       }
     }
@@ -443,7 +454,10 @@ export function PulsePanel() {
 
   return (
     <div className="window-pulse">
-      <div className="window-pulse__stage">
+      <div
+        className="window-pulse__stage"
+        style={frameAspect ? { aspectRatio: frameAspect } : undefined}
+      >
         <video ref={videoRef} className="window-pulse__video" playsInline muted autoPlay />
         <canvas ref={overlayRef} className="window-pulse__overlay" aria-hidden="true" />
         {!running && (
@@ -513,6 +527,71 @@ export function PulsePanel() {
         All processing happens in this browser on this machine. Nothing is recorded or stored, and
         no faces are identified — presence and pulse only.
       </p>
+    </div>
+  );
+}
+
+/**
+ * The WATCH source (Part 20 extension). The watch is the primary
+ * vitals sensor in the owner's design — blood pressure, stress,
+ * oxygen, heart data — but its readings reach Augie only through the
+ * phone: watch -> phone (Bluetooth, its own app) -> Ghost Protocol
+ * One -> the core. That pipe has not delivered a single real reading
+ * yet, so this source is honestly UNAVAILABLE and shows no numbers.
+ * The day the pipe lands, real readings render here — never before.
+ */
+function WatchPulsePanel() {
+  return (
+    <div className="window-pulse">
+      <p className="window-pulse__state" role="status">
+        WATCH — UNAVAILABLE
+      </p>
+      <p>
+        No watch data pipe yet. Your watch talks to your phone; the phone-side bridge (Ghost
+        Protocol One) is what will carry its readings — heart rate, blood pressure, stress,
+        oxygen — into Augie. Until that pipe delivers a real reading, this source stays empty on
+        purpose: Augie never invents vitals.
+      </p>
+      <p className="window-pulse__privacy">
+        When the pipe lands, watch data stays local — your machine, your core, nobody else's
+        servers.
+      </p>
+    </div>
+  );
+}
+
+type PulseSource = "camera" | "watch";
+
+/**
+ * PULSE with its vitals SOURCE SWITCH (Part 20 extension): Camera or
+ * Watch, switchable in the window. Camera is the working sense today;
+ * the watch is the primary sensor in the design and reads UNAVAILABLE
+ * until its phone pipe delivers real data.
+ */
+export function PulsePanel() {
+  const [source, setSource] = useState<PulseSource>("camera");
+  return (
+    <div>
+      <div className="window-pulse__source" role="group" aria-label="Vitals source">
+        <span className="window-pulse__source-label">Source</span>
+        <button
+          type="button"
+          className="window-btn"
+          aria-pressed={source === "camera"}
+          onClick={() => setSource("camera")}
+        >
+          Camera
+        </button>
+        <button
+          type="button"
+          className="window-btn"
+          aria-pressed={source === "watch"}
+          onClick={() => setSource("watch")}
+        >
+          Watch
+        </button>
+      </div>
+      {source === "camera" ? <CameraPulsePanel /> : <WatchPulsePanel />}
     </div>
   );
 }

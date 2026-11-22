@@ -3372,9 +3372,31 @@
 .window-pulse__video {
   display: block;
   width: 100%;
+  height: 100%;
   max-height: 300px;
-  object-fit: cover;
+  /* Part 21: the FULL frame is the default view — contain, never the
+     old cover crop. The stage adopts the stream's aspect ratio, so
+     the whole picture shows with no bars and no cut edges; close
+     framing (the forehead ROI) stays an internal sensing detail. */
+  object-fit: contain;
   background: #000;
+}
+/* Part 20 extension: the vitals source switch (Camera / Watch). */
+.window-pulse__source {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+}
+.window-pulse__source-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.window-pulse__source .window-btn[aria-pressed="true"] {
+  outline: 2px solid var(--avatar-hud-accent, #d4af37);
+  outline-offset: 1px;
 }
 .window-pulse__overlay {
   position: absolute;

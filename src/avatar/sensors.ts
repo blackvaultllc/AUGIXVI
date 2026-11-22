@@ -15,10 +15,17 @@ export type SensorOptions = {
   handModelUrl?: string | undefined;
 };
 
-export const DEFAULT_MEDIAPIPE_WASM_ROOT =
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm";
-export const DEFAULT_MEDIAPIPE_HAND_MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+/**
+ * MediaPipe assets are BUNDLED WITH THE APP (Part 19, owner order
+ * 2026-11-21): the wasm fileset and both landmarker models live under
+ * public/mediapipe/ and are served from Augie's own origin, so hand
+ * and face tracking work with the network unplugged. They used to be
+ * fetched from jsDelivr / Google's bucket at runtime — on the Parrot
+ * that made Pulse a coin flip on the connection. Env overrides still
+ * win where a build sets them.
+ */
+export const DEFAULT_MEDIAPIPE_WASM_ROOT = "/mediapipe/wasm";
+export const DEFAULT_MEDIAPIPE_HAND_MODEL_URL = "/mediapipe/hand_landmarker.task";
 
 export function getVisionAssetCandidates(wasmRoot?: string, handModelUrl?: string) {
   const configured = {

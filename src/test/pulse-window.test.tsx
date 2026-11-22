@@ -39,6 +39,23 @@ describe("Pulse window", () => {
     expect(screen.queryByText(/BPM · estimate/)).toBeNull();
   });
 
+  it("switches vitals source: Watch reads honestly UNAVAILABLE with no invented numbers (Part 20)", () => {
+    render(<PulseWindow onClose={vi.fn()} />);
+    const watch = screen.getByRole("button", { name: "Watch" });
+    const camera = screen.getByRole("button", { name: "Camera" });
+    expect(camera).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(watch);
+    expect(watch).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(/WATCH — UNAVAILABLE/)).toBeTruthy();
+    expect(screen.getByText(/Ghost Protocol One/)).toBeTruthy();
+    // The camera sense is gone while the watch source is showing, and
+    // no vitals number of any kind is displayed.
+    expect(screen.queryByRole("button", { name: "Start sensing" })).toBeNull();
+    expect(screen.queryByText(/BPM/)).toBeNull();
+    fireEvent.click(camera);
+    expect(screen.getByRole("button", { name: "Start sensing" })).toBeTruthy();
+  });
+
   it("minimizes to the title bar and closes through the X button", () => {
     const onClose = vi.fn();
     const { container } = render(<PulseWindow onClose={onClose} />);
