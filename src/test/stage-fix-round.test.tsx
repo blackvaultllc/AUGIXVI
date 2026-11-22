@@ -95,8 +95,9 @@ describe("medallion controls — moving made obvious", () => {
       <AnubisPresence ready speaking={false} listening={false} acting={false} onSelect={vi.fn()} />,
     );
     const root = container.querySelector(".anubis-presence") as HTMLElement;
-    // Factory home on the jsdom stage (1024×768): center stage — Anubis
-    // is the resident now (presence doctrine, size 264).
+    // Factory home on the jsdom stage (1024×768): CENTER stage at
+    // his resident size — the presence doctrine (owner order
+    // 2026-11-22) superseded the old top-center 168px home.
     expect(root.style.left).toBe("380px");
     expect(root.style.top).toBe("229px");
     const handle = screen.getByRole("button", { name: /^Move Anubis/ });
@@ -125,7 +126,8 @@ describe("medallion controls — moving made obvious", () => {
     const anubis = container.querySelector(".anubis-presence") as HTMLElement;
     // The Captain stands at {322,154} with a 380 face on this stage;
     // dead-center would stack Anubis onto him, so he lands flanking
-    // — right of the Captain, vertically centered.
+    // — right of the Captain, vertically centered at his resident
+    // size (264, presence doctrine 2026-11-22).
     expect(anubis.style.left).toBe("714px");
     expect(anubis.style.top).toBe("212px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.medallion.anubis.v1") ?? "{}")).toEqual({
