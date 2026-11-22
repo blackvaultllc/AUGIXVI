@@ -22,6 +22,7 @@ import {
 } from "@/avatar/people";
 import { makeObjectPoints, SceneManager } from "@/avatar/sceneManager";
 import { WorldSceneManager, softenCitizenColors } from "@/avatar/worldSceneRenderer";
+import { LABEL_PLAQUE_HEIGHT, labelPlaqueSize } from "@/avatar/labelPlaque";
 
 const SCENE_IDS = WORLD_SCENES.map((scene) => scene.id);
 
@@ -228,6 +229,30 @@ describe("citizens — the daily round (PeopleSim)", () => {
     }
     // And the boss's own office is labeled on his floor.
     expect(labels.some((text) => text.includes("OSIRIS"))).toBe(true);
+  });
+
+  it("plaques are signs, not billboards (label scale fix, owner report 2026-11-22)", () => {
+    const office = buildScene("office");
+    // A desk top is 1.9 × FURNITURE_SCALE(0.62) ≈ 1.18 world units wide.
+    const DESK_WIDTH = 1.9 * 0.62;
+    for (const floor of office.floors ?? []) {
+      for (const label of floor.labels) {
+        const size = labelPlaqueSize(label.text);
+        expect(size.height).toBeCloseTo(LABEL_PLAQUE_HEIGHT);
+        // No plaque spans more than ~1.8 desk widths — the longest
+        // name in the building ("SECURITY OPERATIONS") is the bound.
+        expect(size.width).toBeLessThanOrEqual(DESK_WIDTH * 1.8);
+        // The bottom edge never crosses a head: citizens top out at
+        // ≈2.26 on the staff floors; on the boss's floor the plaque
+        // clears Augie himself (≈3.1).
+        const bottom = label.y - size.height / 2;
+        if (floor.floor === 3) expect(bottom).toBeGreaterThan(3.1);
+        else expect(bottom).toBeGreaterThan(2.4);
+      }
+    }
+    // A short name fits inside a single desk's footprint.
+    expect(labelPlaqueSize("FINANCE").width).toBeLessThan(DESK_WIDTH);
+    expect(labelPlaqueSize("MAIN FLOOR").width).toBeLessThan(DESK_WIDTH * 1.05);
   });
 
   it("floor 1 has the hallway and the coffee break room, labeled (Part 9 remainder)", () => {

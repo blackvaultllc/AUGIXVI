@@ -438,6 +438,14 @@ export type PortalDef = {
  * owner order 2026-11-21: "I don't even know what office they're in").
  * The renderer draws these as text sprites; the data lives here so
  * tests can assert every named department is actually on a floor.
+ *
+ * `y` is the plaque's CENTER. Plaques are 0.30 world units tall
+ * (labelPlaque.ts), and centers sit in the office's sign band: on the
+ * staff floors y = 2.7–2.75, so the bottom edge (2.55) clears the
+ * tallest citizen (≈2.26) with room to spare; on the boss's floor
+ * y = 3.35, so the bottom edge (3.20) clears Augie himself (≈3.1)
+ * and the cube over his desk. A plaque hangs over its own department
+ * and never crosses a head.
  */
 export type FloorLabel = {
   text: string;
@@ -815,12 +823,12 @@ function buildOfficeFloor1(): BuiltFloor {
       },
     ],
     [
-      { text: "FINANCE", x: -7.0, y: 3.15, z: -4.3 },
-      { text: "MAIN FLOOR", x: 0, y: 3.15, z: -4.3 },
-      { text: "MARKETING", x: 5.25, y: 2.95, z: -4.3 },
-      { text: "SOCIAL MEDIA", x: 8.75, y: 3.45, z: -4.3 },
-      { text: "HALLWAY", x: -2.3, y: 2.9, z: 1.5 },
-      { text: "COFFEE BREAK ROOM", x: 8.65, y: 3.1, z: 0.9 },
+      { text: "FINANCE", x: -7.0, y: 2.7, z: -4.3 },
+      { text: "MAIN FLOOR", x: 0, y: 2.7, z: -4.3 },
+      { text: "MARKETING", x: 5.25, y: 2.7, z: -4.3 },
+      { text: "SOCIAL MEDIA", x: 8.75, y: 2.7, z: -4.3 },
+      { text: "HALLWAY", x: -2.3, y: 2.7, z: 1.5 },
+      { text: "COFFEE BREAK ROOM", x: 8.65, y: 2.7, z: 0.9 },
     ],
   );
 }
@@ -944,7 +952,7 @@ function buildOfficeFloor2(): BuiltFloor {
         arriveZ: UP_SPOT.z + 1.4,
       },
     ],
-    [{ text: "SECURITY OPERATIONS", x: 0, y: 3.3, z: -3.2 }],
+    [{ text: "SECURITY OPERATIONS", x: 0, y: 2.75, z: -3.2 }],
   );
 }
 
@@ -1050,7 +1058,7 @@ function buildOfficeFloor3(): BuiltFloor {
         arriveZ: UP_SPOT.z + 1.4,
       },
     ],
-    [{ text: "OSIRIS — THE BOSS", x: 0, y: 3.2, z: -6.4 }],
+    [{ text: "OSIRIS — THE BOSS", x: 0, y: 3.35, z: -6.4 }],
   );
 }
 

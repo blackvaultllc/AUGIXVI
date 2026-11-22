@@ -16,6 +16,7 @@ import {
   type WorldSceneId,
 } from "./worldScenes";
 import { buildPersonPoints, PeopleSim } from "./people";
+import { LABEL_CANVAS_HEIGHT, LABEL_FONT_PX, labelCanvasWidth, labelPlaqueSize } from "./labelPlaque";
 
 /** Same ground line the SceneManager builds on. */
 const GROUND_Y = -3.2;
@@ -65,13 +66,24 @@ function makePoints(
 /** A department label as a text sprite (Part 9): gold letters on a
  * dark plaque, drawn once to a canvas — no font loading, no assets.
  * Where a 2D canvas is unavailable (test DOMs, odd browsers) the
- * sprite falls back to a plain gold plaque instead of throwing. */
+ * sprite falls back to a plain gold plaque instead of throwing.
+ *
+ * SCALE (owner defect report 2026-11-22, "the names are way too
+ * big"): the first build drew every plaque on one fixed 1024px canvas
+ * and scaled every sprite to 4.4 × 0.76 world units — 3.7 desk widths
+ * (a desk is ≈1.18) — so at the stage's working camera the plaques
+ * filled the frame and painted over the citizens. A plaque is now
+ * SIGN-sized in world units (labelPlaque.ts): 0.30 tall, only as wide
+ * as its name needs, the canvas fitted to the same numbers. Being
+ * world-sized, perspective shrinks it with distance like everything
+ * else in the room, at any camera the stage uses. */
 function makeLabelSprite(text: string): THREE.Sprite {
+  const canvasWidth = labelCanvasWidth(text);
   let texture: THREE.Texture | null = null;
   try {
     const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 176;
+    canvas.width = canvasWidth;
+    canvas.height = LABEL_CANVAS_HEIGHT;
     const ctx = canvas.getContext("2d");
     if (ctx) {
       ctx.fillStyle = "rgba(10, 14, 24, 0.82)";
@@ -86,7 +98,7 @@ function makeLabelSprite(text: string): THREE.Sprite {
         ctx.fillRect(8, 8, canvas.width - 16, canvas.height - 16);
         ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
       }
-      ctx.font = "700 92px system-ui, sans-serif";
+      ctx.font = `700 ${LABEL_FONT_PX}px system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "#ffd98a";
@@ -103,7 +115,8 @@ function makeLabelSprite(text: string): THREE.Sprite {
       ...(texture ? { map: texture } : { color: 0xd4af37 }),
     }),
   );
-  sprite.scale.set(4.4, 0.76, 1);
+  const plaque = labelPlaqueSize(text);
+  sprite.scale.set(plaque.width, plaque.height, 1);
   sprite.name = `living-world-label-${text}`;
   return sprite;
 }
