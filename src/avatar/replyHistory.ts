@@ -16,6 +16,13 @@ export type ReplyHistoryEntry = {
   question: string;
   /** What Augie said. */
   answer: string;
+  /**
+   * How the operator's words arrived (speaking protocol, owner
+   * order 2026-11-22): "typed" — his character, the Black Hatter,
+   * is the speaker of record; "voice" — the operator himself, on
+   * the mic. Absent on entries kept before the protocol landed.
+   */
+  source?: "typed" | "voice";
 };
 
 const STORAGE_KEY = "augi.reply-history.v1";

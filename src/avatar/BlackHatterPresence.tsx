@@ -13,23 +13,61 @@
  * is his (the default), stepped back — a shade smaller, a shade
  * dimmer — while a station he opened holds the focus. Tapping the
  * medallion returns the perspective to him.
+ *
+ * THE ANCHOR (owner order 2026-11-22): his medallion is an anchored
+ * element on the shared medallion system (useMedallionAnchor) —
+ * BIG in the middle of the screen by default, and his to grab,
+ * move, and stretch; where he leaves it persists.
  */
+import { useState } from "react";
 import { BLACK_HATTER_BINDING } from "./medallionPortraits";
+import {
+  availablePresenceViews,
+  effectivePresenceView,
+  loadPresenceView,
+  savePresenceView,
+  type PresenceView,
+} from "./presenceView";
+import { useMedallionAnchor } from "./useMedallionAnchor";
 
 export const BLACK_HATTER_FACE_SRC = BLACK_HATTER_BINDING.portrait;
 
 export function BlackHatterPresence({
   inPerspective,
+  inCall = false,
   onSelect,
 }: {
   /** True while the stage's focus is the owner's (the default). */
   inPerspective: boolean;
+  /**
+   * A one-god CALL conversation is live (owner order 2026-11-22):
+   * the Black Hatter stands in the call beside the god — he never
+   * shrinks for a council; the gods come to him.
+   */
+  inCall?: boolean;
   /** Tapping the medallion returns the perspective to the owner. */
   onSelect?: () => void;
 }) {
+  const anchor = useMedallionAnchor(BLACK_HATTER_BINDING.id);
+  // HEAD OR BODY (owner order 2026-11-22): the switch offers the
+  // body perspective only when the binding carries body artwork —
+  // his binding has none yet, so he is head-only until it lands.
+  const views = availablePresenceViews(BLACK_HATTER_BINDING);
+  const [view, setView] = useState<PresenceView>(() =>
+    effectivePresenceView(BLACK_HATTER_BINDING, loadPresenceView(BLACK_HATTER_BINDING.id)),
+  );
+  const showBody = view === "body" && Boolean(BLACK_HATTER_BINDING.body);
+  const toggleView = () => {
+    const next: PresenceView = view === "head" ? "body" : "head";
+    setView(next);
+    savePresenceView(BLACK_HATTER_BINDING.id, next);
+  };
   const classes = [
     "black-hatter-presence",
+    "medallion-anchor",
+    anchor.lifted ? "medallion-anchor--lifted" : "",
     inPerspective ? "black-hatter-presence--in-perspective" : "black-hatter-presence--stepped-back",
+    inCall ? "medallion-anchor--in-call" : "",
     onSelect ? "black-hatter-presence--selectable" : "",
   ]
     .filter(Boolean)
@@ -43,10 +81,10 @@ export function BlackHatterPresence({
       aria-label={label}
       title={
         onSelect
-          ? `${label} — tap to return the stage to the Black Hatter`
+          ? `${label} — tap to return the stage to the Black Hatter; drag to move his medallion`
           : label
       }
-      onClick={onSelect}
+      onClick={anchor.wrapSelect(onSelect)}
       onKeyDown={
         onSelect
           ? (event) => {
@@ -57,11 +95,12 @@ export function BlackHatterPresence({
             }
           : undefined
       }
+      {...anchor.rootProps}
     >
-      <div className="black-hatter-presence__face">
+      <div className="black-hatter-presence__face" style={anchor.faceStyle}>
         <img
           className="black-hatter-presence__img"
-          src={BLACK_HATTER_FACE_SRC}
+          src={showBody ? BLACK_HATTER_BINDING.body : BLACK_HATTER_FACE_SRC}
           alt=""
           aria-hidden="true"
           draggable={false}
@@ -71,6 +110,30 @@ export function BlackHatterPresence({
         <span className="black-hatter-presence__name">{BLACK_HATTER_BINDING.name}</span>
         <span className="black-hatter-presence__role">{BLACK_HATTER_BINDING.roleLabel}</span>
       </div>
+      {views.length > 1 && (
+        <button
+          type="button"
+          className="medallion-anchor__view-toggle"
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleView();
+          }}
+          aria-pressed={view === "body"}
+          aria-label={
+            view === "head" ? "Show the Black Hatter full body" : "Show the Black Hatter head only"
+          }
+          title={view === "head" ? "Body perspective" : "Head perspective"}
+        >
+          {view === "head" ? "Body" : "Head"}
+        </button>
+      )}
+      <div
+        className="medallion-anchor__stretch"
+        role="separator"
+        aria-label="Stretch the Black Hatter medallion"
+        title="Drag to stretch the medallion"
+        {...anchor.stretchProps}
+      />
     </div>
   );
 }

@@ -76,24 +76,29 @@ describe("command box grip controls", () => {
 
   it("dragging still starts from the rail itself — once unanchored", () => {
     renderBox();
-    // The box opens ANCHORED (owner order 2026-11-22): locked at the
-    // middle of the screen, the rail does not drag. Unanchor first —
-    // then the rail drags exactly as it always did.
+    // The box opens ANCHORED (owner order 2026-11-22): locked at
+    // its home, the rail does not drag. Unanchor first — then the
+    // rail drags exactly as it always did.
     fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
     pointerDown(screen.getByText("Chat"));
     expect(captureSpy).toHaveBeenCalled();
   });
 
-  it("opens anchored at the middle — locked, and the state persists", () => {
+  it("opens anchored at the bottom-left — locked, fully on screen, and the state persists", () => {
     const { container } = renderBox();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
     expect(box.dataset["anchored"]).toBe("true");
+    // The anchored home (owner orders 2026-11-22): the LEFT side,
+    // bottom corner, margin from the edges — jsdom is 1024×768 and
+    // the standard box is 660×540, so home is x=16, y=768−540−16.
+    expect(box.style.left).toBe("16px");
+    expect(box.style.top).toBe("212px");
     pointerDown(screen.getByText("Chat"));
     expect(captureSpy).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
     expect(box.dataset["anchored"]).toBe("false");
     expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("unanchored");
-    fireEvent.click(screen.getByRole("button", { name: "Anchor the chat window at the center" }));
+    fireEvent.click(screen.getByRole("button", { name: "Anchor the chat window at the left side" }));
     expect(box.dataset["anchored"]).toBe("true");
     expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("anchored");
   });
@@ -138,14 +143,41 @@ describe("command box message echo", () => {
     renderBoxWithEcho("open the cube");
     const mine = screen.getByText("open the cube");
     const reply = screen.getByText("Standing by.");
-    expect(screen.getByText("Captain:")).toBeInTheDocument();
+    // SPEAKING PROTOCOL (owner order 2026-11-22): a typed line's
+    // speaker of record is his character — the Black Hatter.
+    expect(screen.getByText("The Black Hatter:")).toBeInTheDocument();
     expect(mine.compareDocumentPosition(reply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows no echo line before he has sent anything", () => {
     renderBoxWithEcho(undefined);
-    expect(screen.queryByText("Captain:")).not.toBeInTheDocument();
+    expect(screen.queryByText("The Black Hatter:")).not.toBeInTheDocument();
     expect(screen.getByText("Standing by.")).toBeInTheDocument();
+  });
+
+  it("a mic line is the operator himself — no presence speaks for him", () => {
+    render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+        userLine="open the cube"
+        userSource="voice"
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+    expect(screen.getByText("Operator — voice:")).toBeInTheDocument();
+    expect(screen.queryByText("The Black Hatter:")).not.toBeInTheDocument();
   });
 });
 
@@ -207,7 +239,7 @@ describe("command box chat log", () => {
     expect(
       second.compareDocumentPosition(secondReply) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(screen.getAllByText("Captain:")).toHaveLength(2);
+    expect(screen.getAllByText("The Black Hatter:")).toHaveLength(2);
     expect(screen.getAllByText("Anubis:").length).toBeGreaterThanOrEqual(2);
   });
 
@@ -489,5 +521,145 @@ describe("command box plain chat face", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Start voice input" }));
     expect(onToggleVoice).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * THE EVENING PASS (owner orders 2026-11-22): the panel heals into
+ * the viewport when a saved position would put it off screen; the
+ * dot grip toggles an enlarged state in the SAME format (both sizes
+ * persist separately — the standard size stays the default); and
+ * at phone width the anchored box sits fully inside the small
+ * viewport with its margin.
+ */
+describe("command box viewport heal + enlarge + phone form", () => {
+  const captureSpy = vi.fn();
+
+  beforeEach(() => {
+    localStorage.clear();
+    captureSpy.mockClear();
+    Element.prototype.setPointerCapture = captureSpy;
+    Element.prototype.releasePointerCapture = vi.fn();
+  });
+
+  function pointerDown(node: Element) {
+    const ev = new window.MouseEvent("pointerdown", { bubbles: true, cancelable: true, button: 0 });
+    Object.defineProperty(ev, "pointerId", { value: 1 });
+    fireEvent(node, ev);
+  }
+
+  function renderBox() {
+    return render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+  }
+
+  function boxOf(container: HTMLElement) {
+    return container.querySelector(".avatar-command-box") as HTMLElement;
+  }
+
+  it("heals a saved off-screen position back inside the viewport on open", () => {
+    localStorage.setItem("augi.avatar.command-box.anchored.v1", "unanchored");
+    localStorage.setItem(
+      "augi.avatar.command-box.position.v1",
+      JSON.stringify({ x: 4000, y: 4000 }),
+    );
+    const { container } = renderBox();
+    const box = boxOf(container);
+    // 660×540 at 1024×768 clamps to the far inside corner (edge 4).
+    expect(box.style.left).toBe("360px");
+    expect(box.style.top).toBe("224px");
+    expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.position.v1") ?? "{}")).toEqual(
+      { x: 360, y: 224 },
+    );
+  });
+
+  it("the dot grip enlarges the box in the same format — and shrinks it back", () => {
+    const { container } = renderBox();
+    const box = boxOf(container);
+    expect(box.style.width).toBe("660px");
+    expect(box.style.height).toBe("540px");
+    fireEvent.click(screen.getByRole("button", { name: "Enlarge the chat window" }));
+    expect(box.dataset["enlarged"]).toBe("true");
+    // 660×540 × 1.4, height clamped by the 768px viewport (736 max).
+    expect(box.style.width).toBe("924px");
+    expect(box.style.height).toBe("736px");
+    expect(localStorage.getItem("augi.avatar.command-box.enlarged.v1")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Shrink the chat window to standard size" }));
+    expect(box.dataset["enlarged"]).toBe("false");
+    expect(box.style.width).toBe("660px");
+    expect(box.style.height).toBe("540px");
+    expect(localStorage.getItem("augi.avatar.command-box.enlarged.v1")).toBe("false");
+  });
+
+  it("a press on the grip toggle never starts a rail drag", () => {
+    renderBox();
+    pointerDown(screen.getByRole("button", { name: "Enlarge the chat window" }));
+    expect(captureSpy).not.toHaveBeenCalled();
+  });
+
+  it("opens enlarged when the enlarged state was saved", () => {
+    localStorage.setItem("augi.avatar.command-box.enlarged.v1", "true");
+    const { container } = renderBox();
+    const box = boxOf(container);
+    expect(box.dataset["enlarged"]).toBe("true");
+    expect(box.style.width).toBe("924px");
+    expect(box.style.height).toBe("736px");
+  });
+
+  it("the standard size is never overwritten by enlarging", () => {
+    localStorage.setItem(
+      "augi.avatar.command-box.size.v1",
+      JSON.stringify({ w: 640, h: 300 }),
+    );
+    const { container } = renderBox();
+    const box = boxOf(container);
+    fireEvent.click(screen.getByRole("button", { name: "Enlarge the chat window" }));
+    expect(box.style.width).toBe("896px");
+    expect(box.style.height).toBe("420px");
+    fireEvent.click(screen.getByRole("button", { name: "Shrink the chat window to standard size" }));
+    expect(box.style.width).toBe("640px");
+    expect(box.style.height).toBe("300px");
+    expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v1") ?? "{}")).toEqual({
+      w: 640,
+      h: 300,
+    });
+  });
+
+  it("at phone width the anchored box sits fully inside the viewport with margin", () => {
+    const widthSpy = vi
+      .spyOn(window, "innerWidth", "get")
+      .mockReturnValue(390);
+    const heightSpy = vi
+      .spyOn(window, "innerHeight", "get")
+      .mockReturnValue(844);
+    try {
+      const { container } = renderBox();
+      const box = boxOf(container);
+      expect(box.dataset["anchored"]).toBe("true");
+      // Width clamps to the phone (390 − 2×16 margin); the box
+      // stands at the bottom-left, its input row above the edge.
+      expect(box.style.width).toBe("358px");
+      expect(box.style.left).toBe("16px");
+      expect(box.style.top).toBe("288px");
+    } finally {
+      widthSpy.mockRestore();
+      heightSpy.mockRestore();
+    }
   });
 });

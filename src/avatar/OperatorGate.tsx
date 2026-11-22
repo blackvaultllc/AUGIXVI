@@ -6,6 +6,7 @@ import {
   verifySupabaseOperatorSession,
 } from "./operatorAuth.server";
 import { AvatarStage } from "./AvatarStage";
+import { MummyGuardianDeterrent } from "./MummyGuardian";
 import { SpaceView } from "./SpaceView";
 import { LearnerHeartDoor } from "./learner/LearnerHeartDoor";
 import { confirmThisDevice, fetchDeviceStatus } from "./trustedDevice";
@@ -111,6 +112,11 @@ export function OperatorGate() {
   const [mfaFactorId, setMfaFactorId] = useState("");
   const [mfaEnrollment, setMfaEnrollment] = useState<MfaEnrollment | null>(null);
   const [message, setMessage] = useState("");
+  // A DENIED attempt at this gate (failed sign-in, an account the
+  // registry refuses, a rejected verification code) raises the
+  // mummy guardian deterrent on the denial surface (owner order
+  // 2026-11-22). Display only — the sign-in flow itself is unchanged.
+  const [denied, setDenied] = useState(false);
   const [signOutError, setSignOutError] = useState("");
   const [operatorName, setOperatorName] = useState<string | null>(null);
   const [operatorFullName, setOperatorFullName] = useState<string | null>(null);
@@ -239,6 +245,7 @@ export function OperatorGate() {
           setOperatorFullName(null);
           setOperatorClaimed(true);
           setState("signed-out");
+          setDenied(true);
           setMessage("This account is not authorized for operator access.");
           return;
         }
@@ -324,6 +331,7 @@ export function OperatorGate() {
     if (!client || busy) return;
     setBusy(true);
     setMessage("");
+    setDenied(false);
     setSignOutError("");
     try {
       const { data, error } = await client.auth.signInWithPassword({
@@ -332,6 +340,7 @@ export function OperatorGate() {
       });
       setPassword("");
       if (error || !data.session) {
+        setDenied(true);
         setMessage("Sign-in failed. Check the email and password and try again.");
         return;
       }
@@ -390,12 +399,14 @@ export function OperatorGate() {
     if (!client || busy || !mfaFactorId) return;
     setBusy(true);
     setMessage("");
+    setDenied(false);
     try {
       const { data, error } = await client.auth.mfa.challengeAndVerify({
         factorId: mfaFactorId,
         code,
       });
       if (error || !data.access_token) {
+        setDenied(true);
         setMessage("Verification code was not accepted. Try again.");
         return;
       }
@@ -504,6 +515,7 @@ export function OperatorGate() {
                 required
               />
             </label>
+            {denied && <MummyGuardianDeterrent />}
             {message && (
               <p className="operator-auth__error" role="alert">
                 {message}
@@ -563,6 +575,7 @@ export function OperatorGate() {
               required
             />
           </label>
+          {denied && !registrationMode && <MummyGuardianDeterrent />}
           {message && (
             <p className="operator-auth__error" role="alert">
               {message}

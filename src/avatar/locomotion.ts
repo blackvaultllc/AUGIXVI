@@ -255,6 +255,21 @@ export class AvatarLocomotion {
     this.root.rotation.y = 0; // 0 yaw = facing the camera
   }
 
+  /**
+   * SIDE VIEW (owner order 2026-11-22): stepped aside, he holds a
+   * profile — turned toward the middle of the stage, so the Captain
+   * sees him side-on and the whole screen stays clear. Yaw ±90° from
+   * camera-forward; faceForward() restores the front.
+   */
+  faceSide(direction: 1 | -1) {
+    this.faceCamera = false;
+    this.returning = false;
+    this.looking = false;
+    this.holdPosition = false;
+    this.mode = "idle";
+    this.root.rotation.y = direction * (Math.PI / 2);
+  }
+
   tick(deltaSeconds: number) {
     const delta = Math.max(0, Math.min(deltaSeconds, 0.05));
     this.root.scale.lerp(

@@ -1616,9 +1616,10 @@
    Augie speaks. */
 .avatar-stage .anubis-presence {
   position: absolute;
-  top: max(0.85rem, env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
+  /* Position and size come from the medallion anchor system
+     (useMedallionAnchor — inline left/top, face size in px):
+     top-center is his factory home, and where the Captain leaves
+     the medallion is where it stands. No CSS centering here. */
   z-index: 6;
   display: flex;
   flex-direction: column;
@@ -6062,14 +6063,16 @@
    stage to its default — him. */
 .avatar-stage .black-hatter-presence {
   position: absolute;
-  left: 50%;
-  top: 42%;
-  transform: translate(-50%, -50%);
+  /* Position and size come from the medallion anchor system
+     (useMedallionAnchor — inline left/top, face size in px): BIG
+     in the middle by default, his to move and stretch. No CSS
+     centering here — it would fight his saved placement. */
   z-index: 5;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;
+  cursor: grab;
   transition:
     opacity 0.45s ease,
     filter 0.45s ease;
@@ -6080,12 +6083,21 @@
   border-radius: 9999px;
   overflow: hidden;
   background: #000;
+  /* FORWARD IN THE ROOM (owner order 2026-11-22): the medallion
+     sits IN the stage's 3D space, not pasted on the wall — a deep
+     cast shadow thrown down-stage grounds it, the gold halo lifts
+     it off the backdrop, and the slow bob floats it in the air of
+     the room. */
   box-shadow:
-    0 18px 48px rgb(10 20 40 / 35%),
+    0 34px 54px rgb(5 8 18 / 48%),
+    0 14px 26px rgb(5 8 18 / 38%),
     0 0 0 2px rgb(212 175 55 / 55%),
-    0 0 44px rgb(212 175 55 / 22%);
+    0 0 52px rgb(212 175 55 / 26%);
   animation: anubis-bob 7s ease-in-out infinite;
   transition: transform 0.45s ease;
+}
+.black-hatter-presence--in-perspective .black-hatter-presence__face {
+  transform: scale(1.03);
 }
 .black-hatter-presence__img {
   display: block;
@@ -6182,4 +6194,495 @@
 .avatar-command-box__anchor-button[aria-pressed="true"] {
   color: #f3d27a;
   border-color: rgb(212 175 55 / 65%);
+}
+
+/* =====================================================================
+   MEDALLION ANCHORS + THE 2026-11-22 EVENING PASS (owner orders):
+   the shared medallion anchor system, Montu's station, conversation
+   views, attention, the chat box's enlarge/grip/scrollbar finish,
+   the mummy guardian, stage notifications, the toolbar area, the
+   photo backdrop layer, and the phone form of the whole system.
+   ===================================================================== */
+
+/* THE SHARED MEDALLION ANCHOR SYSTEM: every stage medallion (the
+   Black Hatter, Anubis, Montu) is positioned by useMedallionAnchor
+   (inline left/top + face size). These rules are the shared half:
+   the hand, the stretch corner, the head/body view switch, and the
+   conversation-view presentations. A drag surface never selects
+   text (owner defect 2026-11-22). */
+.medallion-anchor {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.45s ease;
+}
+.medallion-anchor--lifted {
+  cursor: grabbing !important;
+}
+.medallion-anchor__stretch {
+  position: absolute;
+  right: -4px;
+  bottom: 1.6rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 0 0 0.4rem 0;
+  cursor: nwse-resize;
+  touch-action: none;
+  opacity: 0.55;
+  background: linear-gradient(
+    135deg,
+    transparent 52%,
+    rgb(212 175 55 / 85%) 53%,
+    rgb(212 175 55 / 85%) 68%,
+    transparent 69%,
+    transparent 78%,
+    rgb(212 175 55 / 85%) 79%
+  );
+}
+.medallion-anchor:hover .medallion-anchor__stretch,
+.medallion-anchor:focus-within .medallion-anchor__stretch,
+.medallion-anchor--lifted .medallion-anchor__stretch {
+  opacity: 1;
+}
+.medallion-anchor__view-toggle {
+  padding: 0.18rem 0.7rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 55%);
+  background: rgb(8 12 22 / 78%);
+  color: #f3d27a;
+  font-size: 0.64rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+/* COUNCIL (group conversation): each god presents at the smaller
+   factor. Presentation only — his anchored placement and set size
+   are untouched underneath. */
+.medallion-anchor--in-council {
+  transform: scale(0.62);
+}
+/* CALL (one god): the pair in the call carries the lit ring. */
+.medallion-anchor--in-call .black-hatter-presence__face,
+.medallion-anchor--in-call .anubis-presence__face,
+.medallion-anchor--in-call .montu-presence__face {
+  box-shadow:
+    0 18px 40px rgb(5 8 18 / 45%),
+    0 0 0 3px rgb(212 175 55 / 90%),
+    0 0 38px rgb(212 175 55 / 55%);
+}
+/* AT ATTENTION: the addressed god stills and stands lit — the bob
+   stops; he is being spoken to. */
+.medallion-anchor--attention .anubis-presence__face,
+.medallion-anchor--attention .montu-presence__face {
+  animation: none;
+  box-shadow:
+    0 12px 30px rgb(5 8 18 / 40%),
+    0 0 0 3px rgb(255 215 94 / 95%),
+    0 0 30px rgb(255 215 94 / 60%);
+}
+
+/* MONTU AT HIS STATION (owner pick 2026-11-22): the falcon war god,
+   commander of the army under Anubis — his medallion mirrors the
+   command medallion's form (black face, gold ring, plate below),
+   positioned by the shared anchor system at the right flank. */
+.avatar-stage .montu-presence {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+.montu-presence__face {
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #000;
+  box-shadow:
+    0 10px 28px rgb(10 20 40 / 28%),
+    0 0 0 1px rgb(212 175 55 / 35%);
+  animation: anubis-bob 7s ease-in-out infinite;
+}
+.montu-presence__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
+  user-select: none;
+}
+.montu-presence--connecting .montu-presence__face {
+  opacity: 0.55;
+}
+.montu-presence--in-perspective .montu-presence__face {
+  box-shadow:
+    0 10px 28px rgb(10 20 40 / 28%),
+    0 0 0 3px rgb(212 175 55 / 85%),
+    0 0 34px rgb(212 175 55 / 55%);
+  transform: scale(1.07);
+}
+.montu-presence--selectable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.montu-presence__plate {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.22rem 0.7rem;
+  border-radius: 9999px;
+  background: rgb(8 12 22 / 72%);
+  border: 1px solid rgb(212 175 55 / 45%);
+  line-height: 1;
+}
+.montu-presence__name {
+  font-size: 0.66rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #f3d27a;
+}
+.montu-presence__role {
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #f3d27a;
+}
+
+/* CHAT BOX FINISH (owner orders 2026-11-22): the dot grip is a real
+   button — the enlarge toggle — centered over the rail column by
+   the rail's own centering (a full-width flex box centering its
+   dots); the rail never starts a text selection; the thread and
+   panels scroll without ever showing a bar; the panel's picture
+   stands bigger; the form row aligns on one line. */
+.avatar-command-box__grip-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0;
+  background: transparent;
+  border: none;
+  color: #9fc0ee;
+  cursor: pointer;
+}
+.avatar-command-box__grip-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.avatar-command-box__grip-toggle:hover {
+  color: #ffe98a;
+}
+.avatar-command-box__grip-toggle:focus-visible {
+  outline: 2px solid #ffe98a;
+  outline-offset: 2px;
+}
+.avatar-command-box__rail {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.avatar-command-box__thread,
+.avatar-command-box__machinery {
+  scrollbar-width: none;
+}
+.avatar-command-box__thread::-webkit-scrollbar,
+.avatar-command-box__machinery::-webkit-scrollbar {
+  display: none;
+}
+.avatar-command-box .augie-presence {
+  width: 3rem;
+  height: 3rem;
+}
+.avatar-command-box__form {
+  align-items: center;
+}
+.avatar-command-box__form button {
+  flex: none;
+}
+/* ENLARGED (click the grip): the same format, larger — the type
+   scale rises with the box. The standard size stays the default;
+   this is his override on top of it, never a new default. */
+.avatar-command-box--enlarged .avatar-command-box__thread {
+  font-size: 1.13rem;
+  line-height: 1.65;
+}
+.avatar-command-box--enlarged .avatar-command-box__thread-who,
+.avatar-command-box--enlarged .avatar-command-box__response-source {
+  font-size: 0.8rem;
+}
+.avatar-command-box--enlarged .avatar-command-box__form input {
+  font-size: 1.08rem;
+  min-height: 3.3rem;
+}
+.avatar-command-box--enlarged .avatar-command-box__title {
+  font-size: 0.85rem;
+}
+.avatar-command-box--enlarged .avatar-command-box__tab {
+  font-size: 0.85rem;
+}
+.avatar-command-box--enlarged .avatar-command-box__machinery {
+  font-size: 0.92rem;
+}
+
+/* THE MUMMY GUARDIAN (owner order 2026-11-22): the deterrent on
+   the operator gate's denial surface — serious, dark, final. */
+.mummy-guardian {
+  margin: 0.9rem 0 0.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+}
+.mummy-guardian__face {
+  width: 9.5rem;
+  height: 9.5rem;
+  object-fit: cover;
+  border-radius: 0.6rem;
+  border: 1px solid rgb(212 175 55 / 65%);
+  box-shadow:
+    0 16px 34px rgb(0 0 0 / 55%),
+    0 0 24px rgb(212 175 55 / 25%);
+}
+.mummy-guardian__frame {
+  width: 9.5rem;
+  height: 9.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.6rem;
+  border: 1px solid rgb(212 175 55 / 65%);
+  background: #05070c;
+  color: #f3d27a;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-size: 0.66rem;
+  text-align: center;
+  padding: 0.6rem;
+}
+.mummy-guardian__word {
+  color: #f3d27a;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-align: center;
+  margin: 0;
+}
+
+/* REPORTS AS NOTIFICATIONS (owner order 2026-11-22): completions
+   surface on the stage, stacked under the top-right HUD — read at
+   a glance, dismissed with one tap, never buried in the thread. */
+.stage-notifications {
+  position: absolute;
+  top: 5.2rem;
+  right: 1rem;
+  z-index: 24;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(21rem, calc(100vw - 2rem));
+}
+.stage-notifications__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgb(212 175 55 / 65%);
+  background: rgb(8 12 22 / 92%);
+  box-shadow: 0 14px 30px rgb(0 0 0 / 45%);
+  color: #e8eefc;
+}
+.stage-notifications__topic {
+  flex: none;
+  margin-top: 0.1rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 55%);
+  color: #f3d27a;
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.stage-notifications__text {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.stage-notifications__dismiss {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  border: 1px solid #8fb2e8;
+  background: #20365f;
+  color: #ffffff;
+  cursor: pointer;
+}
+.stage-notifications__dismiss svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+/* THE TOOLBAR AREA (owner order 2026-11-22 — his uploaded toolbar
+   schema's arrangement, re-implemented originally): a framed main
+   bar bottom-center — square buttons in labeled groups with a
+   separator — read with the right-side construct cluster as one
+   toolbar system. The chat window stacks above it wherever they
+   meet; the bar never takes the screen. */
+.stage-toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 0.9rem;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  align-items: stretch;
+  gap: 0.55rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgb(212 175 55 / 55%);
+  background: rgb(8 12 22 / 88%);
+  box-shadow: 0 16px 34px rgb(0 0 0 / 45%);
+}
+.stage-toolbar__group {
+  display: flex;
+  gap: 0.4rem;
+}
+.stage-toolbar__separator {
+  width: 1px;
+  background: rgb(212 175 55 / 40%);
+}
+.stage-toolbar__button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 0.55rem;
+  border: 1px solid #8fb2e8;
+  background: #20365f;
+  color: #ffffff;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.stage-toolbar__button svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.stage-toolbar__button[aria-pressed="true"] {
+  border-color: #ffd75e;
+  color: #ffe98a;
+  box-shadow: 0 0 14px rgb(255 215 94 / 35%);
+}
+.stage-toolbar__thumb {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 1px solid rgb(212 175 55 / 65%);
+}
+
+/* THE PHOTO BACKDROP (owner order 2026-11-22): his supplied
+   photograph fills the stage behind the living world — the Desert
+   slot, filled by dropping the file at its registered path. */
+.avatar-stage__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* =====================================================================
+   PHONE FORM (owner verdict 2026-11-22 — "Phone version not good"):
+   the same system at portrait width. The chat panel is compact —
+   rail + input, the thread taking room only when the conversation
+   is open; no dead box, ever; nothing covers the center presence's
+   nameplate; the HUD wraps inside its own columns, clear of the
+   medallions; the rail's buttons are the desktop's buttons.
+   ===================================================================== */
+@media (max-width: 700px) {
+  .avatar-command-box {
+    left: 0.6rem !important;
+    right: 0.6rem !important;
+    top: auto !important;
+    bottom: 0.6rem !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: 54dvh;
+    grid-template-rows: auto minmax(0, auto) auto;
+  }
+  .avatar-command-box__conversation {
+    max-height: 30dvh;
+  }
+  .avatar-command-box__thread {
+    max-height: 30dvh;
+  }
+  /* The rail's controls: the desktop's appearance and size. */
+  .avatar-command-box__rail .avatar-command-box__window-button,
+  .avatar-command-box__rail .avatar-command-box__menu-button {
+    width: 2.6rem;
+    min-width: 2.6rem;
+    height: 2.6rem;
+    min-height: 2.6rem;
+    padding: 0;
+    border-radius: 9999px;
+  }
+  .avatar-command-box .augie-presence {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  /* HUD containment: narrow wrapped columns at the top corners,
+     ending before the command medallion's span begins. */
+  .avatar-stage .avatar-hud {
+    font-size: 0.58rem;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+  }
+  .avatar-stage .avatar-hud--tl {
+    left: 0.5rem;
+    top: 0.5rem;
+    max-width: 25vw;
+    overflow-wrap: anywhere;
+  }
+  .avatar-stage .avatar-hud--tr {
+    right: 0.5rem;
+    top: 0.5rem;
+    max-width: 25vw;
+    overflow-wrap: anywhere;
+    text-align: right;
+  }
+  /* The toolbar becomes the schema's vertical side bar on the
+     right edge — clear of the panel below and the cluster at the
+     bottom-right. */
+  .stage-toolbar {
+    left: auto;
+    right: 0.5rem;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    flex-direction: column;
+    padding: 0.4rem;
+  }
+  .stage-toolbar__group {
+    flex-direction: column;
+  }
+  .stage-toolbar__separator {
+    width: auto;
+    height: 1px;
+  }
+  .stage-toolbar__button {
+    width: 3.1rem;
+    height: 3.1rem;
+  }
+  .stage-notifications {
+    top: auto;
+    bottom: 0.6rem;
+    right: 0.6rem;
+    width: min(19rem, calc(100vw - 1.2rem));
+  }
 }

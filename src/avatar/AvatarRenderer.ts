@@ -884,6 +884,14 @@ export class AvatarRenderer {
     this.alertAttention();
   }
   /**
+   * SIDE VIEW (owner order 2026-11-22): stepped aside at a side of
+   * the stage, he turns in profile toward the middle — standing at
+   * the left he faces right, at the right he faces left.
+   */
+  faceSide(side: "left" | "right") {
+    this.locomotion.faceSide(side === "left" ? -1 : 1);
+  }
+  /**
    * Attention systems only — look, attractor, intensity — WITHOUT
    * touching locomotion. COME BACK uses this: the old code called
    * faceOperator() right after comeBack(), and faceForward() cancelled
