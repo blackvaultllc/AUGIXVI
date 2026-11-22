@@ -9,6 +9,7 @@ import {
   type Driver,
   type KartUpgrades,
 } from "./Kart";
+import { playRaceSound, racingMuted, setRacingMuted } from "./sounds";
 import {
   pitProblems,
   questionKey,
@@ -147,6 +148,7 @@ function readSprintBest(): number {
 
 export function RacingGame() {
   const [phase, setPhase] = useState<Phase>("setup");
+  const [muted, setMuted] = useState<boolean>(() => racingMuted());
   const [carStyle, setCarStyle] = useState(CAR_STYLES[0]!.id);
   const [colorId, setColorId] = useState(CAR_COLORS[0]!.id);
   const [driverId, setDriverId] = useState(DRIVERS[0]!.id);
@@ -324,6 +326,7 @@ export function RacingGame() {
       if (racer.progress >= TOTAL_DISTANCE && racer.finishedOrder == null) {
         finishCounter += 1;
         racer.finishedOrder = finishCounter;
+        if (racer.isPlayer) playRaceSound("finish");
       }
     }
 
@@ -361,6 +364,7 @@ export function RacingGame() {
     if (!q || phase !== "racing") return;
     if (choice === q.answer) {
       // RIGHT — the car SPEEDS UP, and any slow-down shakes off.
+      playRaceSound("speed-up");
       eng.boost = BOOST_AMOUNT;
       eng.slow = 0;
       eng.correctCount += 1;
@@ -369,6 +373,7 @@ export function RacingGame() {
       // WRONG — the car SLOWS DOWN for a few seconds. The right
       // fact is shown kindly, and the next right answer speeds
       // her right back up.
+      playRaceSound("slow-down");
       eng.boost = 0;
       eng.slow = SLOW_AMOUNT;
       eng.feedback = `Good try! ${q.a} × ${q.b} = ${q.answer}. Your car slows down a little — the next right answer speeds it back up!`;
@@ -382,6 +387,7 @@ export function RacingGame() {
     const eng = engineRef.current;
     if (phase !== "racing" || nosCharges <= 0 || eng.nosTimeLeft > 0) return;
     setNosCharges((c) => c - 1);
+    playRaceSound("zoom");
     eng.nosTimeLeft = NOS_SECONDS;
     eng.feedback = "NOS! ZOOM!";
     setFrame((f) => f + 1);
@@ -716,6 +722,17 @@ export function RacingGame() {
         <span className="racing-hud__speed" data-testid="player-speed">
           Your speed: {Math.round(playerSpeed)}
         </span>
+        <button
+          type="button"
+          className="racing-sound-toggle"
+          aria-pressed={!muted}
+          onClick={() => {
+            setRacingMuted(!muted);
+            setMuted(!muted);
+          }}
+        >
+          {muted ? "Sound: off" : "Sound: on"}
+        </button>
         {upgradeNames.length > 0 && (
           <span className="racing-hud__upgrades">
             {upgradeNames.map((u) => u.name).join(" · ")}
