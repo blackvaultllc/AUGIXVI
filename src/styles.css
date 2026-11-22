@@ -2433,6 +2433,17 @@
   border-radius: 9999px;
   margin-left: 0;
 }
+/* THE THREE LINES, CENTERED (owner order 2026-11-22 — "those three
+   lines are to the left, they should be centered"): the anchor and
+   minimize buttons are grids with place-items: center, so their
+   icons sit dead center in the circle; the Menu button is a flex
+   row, so its three-lines icon packed against the left edge. Its
+   "Menu" label span is sr-only (absolutely positioned, out of
+   flow), so centering the flex row centers the icon itself —
+   the same standard as every other button in the rail. */
+.avatar-command-box__rail .avatar-command-box__menu-button {
+  justify-content: center;
+}
 .avatar-command-box__machinery {
   grid-column: 2;
   grid-row: 1;
@@ -6599,28 +6610,45 @@
 
 /* =====================================================================
    PHONE FORM (owner verdict 2026-11-22 — "Phone version not good"):
-   the same system at portrait width. The chat panel is compact —
-   rail + input, the thread taking room only when the conversation
-   is open; no dead box, ever; nothing covers the center presence's
+   the same system at portrait width. The chat panel opens at a
+   compact phone default and answers to his own size controls —
+   minimize, stretch, enlarge — with his sizes persisting as they
+   do on desktop; the input bar sits at the panel's bottom with the
+   chat rising above it; nothing covers the center presence's
    nameplate; the HUD wraps inside its own columns, clear of the
    medallions; the rail's buttons are the desktop's buttons.
    ===================================================================== */
 @media (max-width: 700px) {
+  /* PHONE GEOMETRY (owner orders 2026-11-22 — "make the box smaller
+     for the phone and I can minimize and make it bigger"): the box's
+     own size and position records govern on the phone exactly as on
+     desktop — the compact phone default, his stretches, minimize
+     and enlarge all live in the component's state, and the
+     stylesheet no longer overrides them into a full-width slab that
+     ignored his controls. These caps are only a safety net: the
+     panel can never exceed the screen it sits on. */
   .avatar-command-box {
-    left: 0.6rem !important;
-    right: 0.6rem !important;
-    top: auto !important;
-    bottom: 0.6rem !important;
-    width: auto !important;
-    height: auto !important;
-    max-height: 54dvh;
-    grid-template-rows: auto minmax(0, auto) auto;
+    max-width: calc(100vw - 1.2rem);
+    max-height: calc(100dvh - 1.2rem);
+    /* THE MESSAGE BOX SITS AT THE BOTTOM (owner order 2026-11-22 —
+       "that message box with the mic is supposed to be on the
+       bottom not the top"): the thread row takes the panel's
+       slack, so the form — pinned to the last row — rests on the
+       panel's bottom edge and the chat rises above it, the
+       MMORPG way. Placement is stated outright here so no phone
+       state (fresh, enlarged, machinery open) can float the input
+       to the top again. */
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
   .avatar-command-box__conversation {
-    max-height: 30dvh;
+    grid-row: 2;
+    max-height: none;
   }
   .avatar-command-box__thread {
-    max-height: 30dvh;
+    max-height: none;
+  }
+  .avatar-command-box__form {
+    grid-row: 3;
   }
   /* The rail's controls: the desktop's appearance and size. */
   .avatar-command-box__rail .avatar-command-box__window-button,
