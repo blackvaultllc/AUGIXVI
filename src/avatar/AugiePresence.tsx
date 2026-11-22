@@ -19,12 +19,12 @@ export function AugiePresence({
   ready,
   avatarState,
   voiceListening,
-  actingLocally,
+  acting,
 }: {
   ready: boolean;
   avatarState: AvatarState;
   voiceListening: boolean;
-  actingLocally: boolean;
+  acting: boolean;
 }) {
   const [milestone, setMilestone] = useState(false);
   const previousState = useRef<AvatarState>(avatarState);
@@ -44,7 +44,7 @@ export function AugiePresence({
     ready,
     avatarState,
     voiceListening,
-    actingLocally,
+    acting,
     milestone,
   });
   const asset = PRESENCE_ASSETS[kind];

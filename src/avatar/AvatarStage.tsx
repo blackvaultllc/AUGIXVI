@@ -1609,7 +1609,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
               ready={ready}
               avatarState={state}
               voiceListening={voiceListening}
-              actingLocally={responseSource === "local command"}
+              acting={presenting || worldScreen === "entering" || worldScreen === "returning"}
             />
           }
         >

@@ -23,7 +23,7 @@ const base: PresenceSignals = {
   ready: true,
   avatarState: "IDLE",
   voiceListening: false,
-  actingLocally: false,
+  acting: false,
   milestone: false,
 };
 
@@ -44,11 +44,16 @@ describe("presence state mapping", () => {
     expect(presenceKindFor({ ...base, avatarState: "THINKING" })).toBe("working");
   });
 
-  it("working while the brain's answer is spoken, making while a local command's action is spoken", () => {
-    expect(presenceKindFor({ ...base, avatarState: "SPEAKING" })).toBe("working");
-    expect(presenceKindFor({ ...base, avatarState: "SPEAKING", actingLocally: true })).toBe(
-      "making",
-    );
+  it("speaking always shows the talking face — the owner's rule, whoever produced the line", () => {
+    expect(presenceKindFor({ ...base, avatarState: "SPEAKING" })).toBe("speaking");
+    expect(presenceKindFor({ ...base, avatarState: "SPEAKING", acting: true })).toBe("speaking");
+    expect(PRESENCE_ASSETS.speaking.video).toBe("/augie-presence/speaking.mp4");
+  });
+
+  it("making while Augie visibly acts without speaking (world flight, presenting)", () => {
+    expect(presenceKindFor({ ...base, acting: true })).toBe("making");
+    // Thinking outranks the acting beat: the brain at work is working.
+    expect(presenceKindFor({ ...base, avatarState: "THINKING", acting: true })).toBe("working");
   });
 
   it("waiting while listening for the operator", () => {
@@ -93,12 +98,7 @@ describe("AugiePresence component", () => {
 
   it("shows the connecting face (idle clip, still poster) before the stage is ready", () => {
     const { container } = render(
-      <AugiePresence
-        ready={false}
-        avatarState="IDLE"
-        voiceListening={false}
-        actingLocally={false}
-      />,
+      <AugiePresence ready={false} avatarState="IDLE" voiceListening={false} acting={false} />,
     );
     const { root, video } = face(container);
     expect(root.getAttribute("data-presence")).toBe("connecting");
@@ -108,31 +108,36 @@ describe("AugiePresence component", () => {
     expect(video.loop).toBe(true);
   });
 
-  it("works while thinking, flashes milestone when the cycle completes, then settles", () => {
+  it("works while thinking, flashes milestone when the cycle completes, then settles into the talking face", () => {
     const { container, rerender } = render(
-      <AugiePresence ready avatarState="THINKING" voiceListening={false} actingLocally={false} />,
+      <AugiePresence ready avatarState="THINKING" voiceListening={false} acting={false} />,
     );
     expect(face(container).root.getAttribute("data-presence")).toBe("working");
     expect(face(container).video.getAttribute("src")).toBe("/augie-presence/working.mp4");
 
-    rerender(
-      <AugiePresence ready avatarState="SPEAKING" voiceListening={false} actingLocally={false} />,
-    );
+    rerender(<AugiePresence ready avatarState="SPEAKING" voiceListening={false} acting={false} />);
     expect(face(container).root.getAttribute("data-presence")).toBe("milestone");
     expect(face(container).video.getAttribute("src")).toBe("/augie-presence/milestone.mp4");
 
     act(() => {
       vi.advanceTimersByTime(MILESTONE_FLASH_MS + 100);
     });
-    expect(face(container).root.getAttribute("data-presence")).toBe("working");
+    expect(face(container).root.getAttribute("data-presence")).toBe("speaking");
+    expect(face(container).video.getAttribute("src")).toBe("/augie-presence/speaking.mp4");
   });
 
-  it("no milestone flash when speech did not come out of a thinking cycle", () => {
+  it("no milestone flash when speech did not come out of a thinking cycle — straight to the talking face", () => {
     const { container, rerender } = render(
-      <AugiePresence ready avatarState="IDLE" voiceListening={false} actingLocally={false} />,
+      <AugiePresence ready avatarState="IDLE" voiceListening={false} acting={false} />,
     );
-    rerender(
-      <AugiePresence ready avatarState="SPEAKING" voiceListening={false} actingLocally={true} />,
+    rerender(<AugiePresence ready avatarState="SPEAKING" voiceListening={false} acting={false} />);
+    expect(face(container).root.getAttribute("data-presence")).toBe("speaking");
+    expect(face(container).video.getAttribute("src")).toBe("/augie-presence/speaking.mp4");
+  });
+
+  it("makes while Augie acts without speaking", () => {
+    const { container } = render(
+      <AugiePresence ready avatarState="IDLE" voiceListening={false} acting={true} />,
     );
     expect(face(container).root.getAttribute("data-presence")).toBe("making");
     expect(face(container).video.getAttribute("src")).toBe("/augie-presence/making.mp4");
@@ -140,7 +145,7 @@ describe("AugiePresence component", () => {
 
   it("waits while listening", () => {
     const { container } = render(
-      <AugiePresence ready avatarState="LISTENING" voiceListening actingLocally={false} />,
+      <AugiePresence ready avatarState="LISTENING" voiceListening acting={false} />,
     );
     expect(face(container).root.getAttribute("data-presence")).toBe("waiting");
   });
