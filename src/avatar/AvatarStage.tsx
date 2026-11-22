@@ -58,6 +58,7 @@ import {
 import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
 import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
+import "./stage-fix-round.css";
 import { BuilderPanel } from "./builder/BuilderPanel";
 import { MapPanel } from "./builder/MapPanel";
 import {
@@ -1058,6 +1059,20 @@ export function AvatarStage({
     transitionWorldScreen("returning");
     return true;
   }, [transitionWorldScreen]);
+
+  /**
+   * BACK TO THE CHAT (owner order 2026-11-22): the chat lives on
+   * the live screen. Tapping the chat strip on another screen flies
+   * him back to it — from space, the fly-in; mid-return, the flight
+   * turns around; mid-entry, he is already coming.
+   */
+  const returnToChat = useCallback(() => {
+    if (worldScreenRef.current === "space") {
+      enterLiveMode();
+    } else if (worldScreenRef.current === "returning") {
+      transitionWorldScreen("entering");
+    }
+  }, [enterLiveMode, transitionWorldScreen]);
 
   const executeWorldCommand = useCallback(
     (command: NonNullable<ReturnType<typeof parseWorldCommand>>) => {
@@ -2644,6 +2659,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           userSource={lastUserSource}
           history={transcript}
           partnerSpeaking={state === "SPEAKING"}
+          away={worldScreen !== "live"}
+          onReturnToChat={returnToChat}
           presence={
             <AugiePresence
               ready={ready}

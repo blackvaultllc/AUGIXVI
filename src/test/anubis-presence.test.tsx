@@ -17,7 +17,9 @@ describe("AnubisPresence", () => {
     const image = container.querySelector<HTMLImageElement>(".anubis-presence__img");
     expect(image).not.toBeNull();
     expect(image!.getAttribute("src")).toBe(ANUBIS_FACE_SRC);
-    expect(container.querySelector("svg")).toBeNull();
+    // The FACE is the raster portrait — never an SVG substitute.
+    // (The move controls under the plate carry their own icons.)
+    expect(container.querySelector(".anubis-presence__face svg")).toBeNull();
   });
 
   it("marks speaking, listening, working, and connecting from its signals", () => {

@@ -262,6 +262,12 @@ function clearPersistedBoxLayout() {
   }
 }
 
+/** The chat strip's preview: how long a faded-in message stays
+ *  readable over the bottom of another screen before it fades. */
+export const STRIP_PREVIEW_HOLD_MS = 5200;
+/** The fade itself — a smooth opacity glide, never a flash. */
+export const STRIP_PREVIEW_FADE_MS = 650;
+
 export function CommandBox({
   accent,
   tabs,
@@ -282,6 +288,8 @@ export function CommandBox({
   onMinimizeShortcut,
   presence,
   partnerSpeaking,
+  away = false,
+  onReturnToChat,
 }: {
   accent: string;
   tabs: Array<{ id: CommandTab; label: string; icon: LucideIcon }>;
@@ -333,6 +341,17 @@ export function CommandBox({
    * visibly tied to the medallion at top-center.
    */
   partnerSpeaking?: boolean;
+  /**
+   * TWO-MODE CHAT (owner order 2026-11-22, his Twitch model): on
+   * the chat screen the full box shows; on OTHER screens the chat
+   * leaves only a slim bottom strip. While `away`, this component
+   * renders the strip instead of the box — incoming messages fade
+   * in over the strip, stay readable a few seconds, fade out, and a
+   * tap on the strip returns him to the full chat to answer.
+   */
+  away?: boolean;
+  /** The strip's tap: AvatarStage brings the chat screen back. */
+  onReturnToChat?: () => void;
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
   // Minimized starts EXPANDED on every load — session-only (the
@@ -600,11 +619,100 @@ export function CommandBox({
     }
   }, [anchored, anchorPos]);
 
+  const lastEntry = history && history.length > 0 ? history[history.length - 1] : undefined;
+  const showLiveUser = Boolean(userLine) && userLine !== lastEntry?.question;
+  // The speaker of record (speaking protocol, owner order
+  // 2026-11-22): typed lines are spoken by his character, the Black
+  // Hatter; mic lines are the operator himself, in his own voice.
+  const speakerLabel = (source: "typed" | "voice" | undefined) =>
+    source === "voice" ? "Operator — voice" : "The Black Hatter";
+  const liveSpeaker =
+    responseSource === "microphone" || responseSource === "awaiting response"
+      ? "System"
+      : "Anubis";
+  const showLiveResponse = Boolean(responseLine) && responseLine !== lastEntry?.answer;
+
   // Keep the newest line in view as the conversation flows.
   useEffect(() => {
     const thread = threadRef.current;
     if (!minimized && thread) thread.scrollTop = thread.scrollHeight;
   }, [minimized, history, responseLine, userLine]);
+
+  /**
+   * THE STRIP'S MESSAGE PREVIEWS (owner order 2026-11-22, his
+   * Twitch model): while he is on another screen, a NEW incoming
+   * line fades in over the bottom strip, holds readable for a few
+   * seconds, then fades out — smooth opacity fades only, never a
+   * flash or a strobe. The newest line replaces any preview still
+   * showing. The line that was already latest when he left the chat
+   * screen does not preview; only arrivals while away do. A line
+   * moving from the live slot into the history is one message, not
+   * two previews.
+   */
+  const incoming =
+    showLiveResponse && responseLine
+      ? { key: `live:${responseLine}`, speaker: liveSpeaker, text: responseLine }
+      : lastEntry?.answer
+        ? { key: `hist:${lastEntry.at}`, speaker: "Anubis", text: lastEntry.answer }
+        : null;
+  const [stripPreview, setStripPreview] = useState<{
+    speaker: string;
+    text: string;
+    fading: boolean;
+  } | null>(null);
+  const [missedCount, setMissedCount] = useState(0);
+  const stripSeenKey = useRef<string | null>(null);
+  const stripLastText = useRef<{ text: string; at: number } | null>(null);
+  const stripTimers = useRef<number[]>([]);
+
+  const clearStripTimers = useCallback(() => {
+    stripTimers.current.forEach((timer) => window.clearTimeout(timer));
+    stripTimers.current = [];
+  }, []);
+
+  // Leaving for another screen: the current latest line becomes the
+  // baseline — it does not preview. Back on the chat screen: the
+  // strip folds away and the missed count resets.
+  useEffect(() => {
+    if (away) {
+      stripSeenKey.current = incoming?.key ?? null;
+    } else {
+      clearStripTimers();
+      setStripPreview(null);
+      setMissedCount(0);
+      stripSeenKey.current = null;
+      stripLastText.current = null;
+    }
+    // The baseline is the incoming line at the moment of the flip;
+    // tracking it live would re-baseline on every arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [away]);
+
+  useEffect(() => {
+    if (!away || !incoming) return;
+    if (incoming.key === stripSeenKey.current) return;
+    const lastText = stripLastText.current;
+    if (lastText && lastText.text === incoming.text && Date.now() - lastText.at < 30000) {
+      // The live line settling into the history — already shown.
+      stripSeenKey.current = incoming.key;
+      return;
+    }
+    stripSeenKey.current = incoming.key;
+    stripLastText.current = { text: incoming.text, at: Date.now() };
+    setMissedCount((count) => count + 1);
+    clearStripTimers();
+    setStripPreview({ speaker: incoming.speaker, text: incoming.text, fading: false });
+    stripTimers.current.push(
+      window.setTimeout(() => {
+        setStripPreview((current) => (current ? { ...current, fading: true } : current));
+        stripTimers.current.push(
+          window.setTimeout(() => setStripPreview(null), STRIP_PREVIEW_FADE_MS),
+        );
+      }, STRIP_PREVIEW_HOLD_MS),
+    );
+  }, [away, incoming, clearStripTimers]);
+
+  useEffect(() => clearStripTimers, [clearStripTimers]);
 
   // Slash-menu state derived from the draft text.
   const menuOpen = !minimized && isSlashMenuActive(chat);
@@ -660,18 +768,46 @@ export function CommandBox({
   // drags by its rail and stretches from its edges/corner; position
   // and size both persist.
 
-  const lastEntry = history && history.length > 0 ? history[history.length - 1] : undefined;
-  const showLiveUser = Boolean(userLine) && userLine !== lastEntry?.question;
-  // The speaker of record (speaking protocol, owner order
-  // 2026-11-22): typed lines are spoken by his character, the Black
-  // Hatter; mic lines are the operator himself, in his own voice.
-  const speakerLabel = (source: "typed" | "voice" | undefined) =>
-    source === "voice" ? "Operator — voice" : "The Black Hatter";
-  const liveSpeaker =
-    responseSource === "microphone" || responseSource === "awaiting response"
-      ? "System"
-      : "Anubis";
-  const showLiveResponse = Boolean(responseLine) && responseLine !== lastEntry?.answer;
+  // TWO-MODE CHAT (owner order 2026-11-22): on another screen the
+  // box leaves only this slim bottom strip — Osiris's face, the word
+  // Chat, and room for a message to fade in over it. A tap anywhere
+  // on the strip returns him to the chat screen to answer.
+  if (away) {
+    return (
+      <section
+        className="avatar-chat-strip"
+        role="button"
+        tabIndex={0}
+        aria-label="Chat — you are on another screen. Activate to open the chat and answer."
+        onClick={() => onReturnToChat?.()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onReturnToChat?.();
+          }
+        }}
+      >
+        {presence && <span className="avatar-chat-strip__presence">{presence}</span>}
+        <span className="avatar-chat-strip__label">Chat</span>
+        {stripPreview ? (
+          <p
+            className={`avatar-chat-strip__preview${stripPreview.fading ? " is-fading" : ""}`}
+            role="status"
+          >
+            <span className="avatar-chat-strip__who">{stripPreview.speaker}:</span>{" "}
+            {stripPreview.text}
+          </p>
+        ) : (
+          <span className="avatar-chat-strip__hint">
+            {missedCount > 0
+              ? `${missedCount} new message${missedCount === 1 ? "" : "s"} — tap to open and answer`
+              : "Tap to open the chat and answer"}
+          </span>
+        )}
+        <style>{`--augi-command-accent:${accent}`}</style>
+      </section>
+    );
+  }
 
   return (
     <section

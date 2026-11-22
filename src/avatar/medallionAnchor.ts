@@ -32,6 +32,18 @@ export const MEDALLION_MAX_SIZE = 560;
  */
 export const MEDALLION_PLATE_HEIGHT = 46;
 
+/**
+ * Vertical allowance for the visible move controls under the plate
+ * (owner order 2026-11-22: moving an avatar must be OBVIOUS — a
+ * labeled Move handle, a Center button, and the anchor state, all
+ * shown on the medallion itself). The controls are part of the
+ * medallion's body for clamping, exactly like the plate.
+ */
+export const MEDALLION_CONTROLS_HEIGHT = 34;
+
+/** Everything under the face: plate + gap + the move controls row. */
+export const MEDALLION_UNDER_FACE_HEIGHT = MEDALLION_PLATE_HEIGHT + MEDALLION_CONTROLS_HEIGHT;
+
 export function medallionStorageKey(id: string): string {
   return `augi.avatar.medallion.${id}.v1`;
 }
@@ -80,7 +92,7 @@ export function clampMedallionGeometry(
     Math.min(
       MEDALLION_MAX_SIZE,
       stageW - WINDOW_MARGIN * 2,
-      stageH - WINDOW_MARGIN * 2 - MEDALLION_PLATE_HEIGHT,
+      stageH - WINDOW_MARGIN * 2 - MEDALLION_UNDER_FACE_HEIGHT,
     ),
   );
   const size = Math.round(Math.min(Math.max(geometry.size, MEDALLION_MIN_SIZE), maxSize));
@@ -88,7 +100,7 @@ export function clampMedallionGeometry(
     geometry.x,
     geometry.y,
     size,
-    size + MEDALLION_PLATE_HEIGHT,
+    size + MEDALLION_UNDER_FACE_HEIGHT,
     stageW,
     stageH,
   );
@@ -124,7 +136,7 @@ export function defaultMedallionGeometry(
     return clampMedallionGeometry(
       {
         x: stageW - size - WINDOW_MARGIN,
-        y: stageH / 2 - (size + MEDALLION_PLATE_HEIGHT) / 2,
+        y: stageH / 2 - (size + MEDALLION_UNDER_FACE_HEIGHT) / 2,
         size,
       },
       stageW,
@@ -142,7 +154,7 @@ export function defaultMedallionGeometry(
   return clampMedallionGeometry(
     {
       x: (stageW - size) / 2,
-      y: stageH * centerY - (size + MEDALLION_PLATE_HEIGHT) / 2,
+      y: stageH * centerY - (size + MEDALLION_UNDER_FACE_HEIGHT) / 2,
       size,
     },
     stageW,
@@ -164,4 +176,97 @@ export function loadOrDefaultMedallionGeometry(
   const saved = loadMedallionGeometry(id);
   if (saved) return clampMedallionGeometry(saved, stageW, stageH);
   return defaultMedallionGeometry(id, stageW, stageH);
+}
+
+/**
+ * THE CENTER ACTION (owner order 2026-11-22): he could not find how
+ * to move the other avatars or get them centered — a hidden gesture
+ * is a defect. Every medallion now carries a visible Center button;
+ * this is the geometry it lands on: the medallion (face + plate +
+ * controls) dead-center of the stage, at the size it already wears.
+ *
+ * THE CAPTAIN'S FACE IS NEVER COVERED (standing law): centering any
+ * OTHER medallion must not stack it onto the Black Hatter. When the
+ * centered spot would overlap the owner's face, the medallion tries
+ * the spots that clear him — below his medallion, above it, then
+ * flanking him right and left. On a stage too small for any of
+ * them, the centered spot stands (the clamp keeps it on-screen) —
+ * the only case the law cannot be kept.
+ */
+export const OWNER_MEDALLION_ID = "black-hatter";
+
+/** Live geometry of the mounted medallions, by id — the registry
+ *  the center action consults so one face never covers another. */
+const liveMedallionGeometry = new Map<string, MedallionGeometry>();
+
+export function registerMedallionGeometry(id: string, geometry: MedallionGeometry) {
+  liveMedallionGeometry.set(id, geometry);
+}
+
+export function registeredMedallionGeometry(id: string): MedallionGeometry | null {
+  return liveMedallionGeometry.get(id) ?? null;
+}
+
+export function unregisterMedallionGeometry(id: string) {
+  liveMedallionGeometry.delete(id);
+}
+
+function rectsOverlap(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+export function centeredMedallionGeometry(
+  current: MedallionGeometry,
+  stageW: number,
+  stageH: number,
+  avoid?: MedallionGeometry | null,
+): MedallionGeometry {
+  const size = current.size;
+  const centered = clampMedallionGeometry(
+    {
+      x: (stageW - size) / 2,
+      y: (stageH - (size + MEDALLION_UNDER_FACE_HEIGHT)) / 2,
+      size,
+    },
+    stageW,
+    stageH,
+  );
+  if (!avoid) return centered;
+  const ownerFace = { x: avoid.x, y: avoid.y, w: avoid.size, h: avoid.size };
+  const clears = (g: MedallionGeometry) =>
+    !rectsOverlap({ x: g.x, y: g.y, w: size, h: size }, ownerFace);
+  if (clears(centered)) return centered;
+  // Clear him, in order: below his whole medallion, above it, then
+  // flanking him on the right and the left (the free axis stays
+  // centered). The first spot that clears his face wins.
+  const gap = 12;
+  const candidates: MedallionGeometry[] = [
+    clampMedallionGeometry(
+      { x: centered.x, y: avoid.y + avoid.size + MEDALLION_UNDER_FACE_HEIGHT + gap, size },
+      stageW,
+      stageH,
+    ),
+    clampMedallionGeometry(
+      { x: centered.x, y: avoid.y - size - MEDALLION_UNDER_FACE_HEIGHT - gap, size },
+      stageW,
+      stageH,
+    ),
+    clampMedallionGeometry(
+      { x: avoid.x + avoid.size + gap, y: centered.y, size },
+      stageW,
+      stageH,
+    ),
+    clampMedallionGeometry(
+      { x: avoid.x - size - gap, y: centered.y, size },
+      stageW,
+      stageH,
+    ),
+  ];
+  for (const candidate of candidates) {
+    if (clears(candidate)) return candidate;
+  }
+  return centered;
 }

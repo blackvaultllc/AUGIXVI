@@ -43,17 +43,18 @@ describe("medallion anchor geometry", () => {
 
   it("the Black Hatter's factory home is bigger, in the middle", () => {
     // 1200×800 stage: 380px face, centered; the whole medallion
-    // (face + 46px plate) centered vertically.
+    // (face + 80px under the face — plate and the move controls)
+    // centered vertically.
     expect(defaultMedallionGeometry("black-hatter", 1200, 800)).toEqual({
       x: 410,
-      y: 187,
+      y: 170,
       size: 380,
     });
   });
 
   it("Anubis's home is top-center; Montu's is the right flank", () => {
     expect(defaultMedallionGeometry("anubis", 1200, 800)).toEqual({ x: 516, y: 16, size: 168 });
-    expect(defaultMedallionGeometry("montu", 1200, 800)).toEqual({ x: 1028, y: 299, size: 156 });
+    expect(defaultMedallionGeometry("montu", 1200, 800)).toEqual({ x: 1028, y: 282, size: 156 });
   });
 
   it("a saved placement heals back inside a smaller stage", () => {
@@ -63,7 +64,7 @@ describe("medallion anchor geometry", () => {
     );
     expect(loadOrDefaultMedallionGeometry("black-hatter", 1024, 768)).toEqual({
       x: 720,
-      y: 418,
+      y: 384,
       size: 300,
     });
   });
@@ -97,7 +98,7 @@ describe("BlackHatterPresence — the anchor at work", () => {
     const { container } = render(<BlackHatterPresence inPerspective onSelect={vi.fn()} />);
     const root = container.querySelector(".black-hatter-presence") as HTMLElement;
     expect(root.style.left).toBe("322px");
-    expect(root.style.top).toBe("171px");
+    expect(root.style.top).toBe("154px");
     const face = container.querySelector(".black-hatter-presence__face") as HTMLElement;
     expect(face.style.width).toBe("380px");
   });
@@ -110,10 +111,10 @@ describe("BlackHatterPresence — the anchor at work", () => {
     pointer(root, "pointermove", 460, 340);
     pointer(root, "pointerup", 460, 340);
     expect(root.style.left).toBe("382px");
-    expect(root.style.top).toBe("211px");
+    expect(root.style.top).toBe("194px");
     expect(
       JSON.parse(localStorage.getItem("augi.avatar.medallion.black-hatter.v1") ?? "{}"),
-    ).toEqual({ x: 382, y: 211, size: 380 });
+    ).toEqual({ x: 382, y: 194, size: 380 });
     fireEvent.click(root);
     expect(onSelect).not.toHaveBeenCalled();
     fireEvent.click(root);

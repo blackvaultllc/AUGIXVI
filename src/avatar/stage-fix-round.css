@@ -1,0 +1,149 @@
+/* STAGE FIX ROUND (owner orders 2026-11-22, from his live screen):
+   1) obvious avatar moving — the medallions' Move / Center controls
+      and anchor-state chip (MedallionControls.tsx);
+   2) the chat's two modes — the slim bottom strip shown on other
+      screens, with Twitch-style fade-in message previews
+      (CommandBox.tsx);
+   3) the blink repair — the Black Hatter's lids now close over HIS
+      eyes in 150ms (the feature maps themselves live in
+      LivingPortrait.tsx, re-measured from the shipped portraits).
+   These rules ride in their own file so this round never rewrites
+   the shared stylesheet's other lines' work in flight. */
+
+/* ---- 1) THE MEDALLION CONTROLS ---------------------------------- */
+.medallion-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  pointer-events: auto;
+}
+.medallion-controls__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 65%);
+  background: rgb(8 12 22 / 85%);
+  color: #f3d27a;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  touch-action: none;
+  white-space: nowrap;
+}
+.medallion-controls__button:hover,
+.medallion-controls__button:focus-visible {
+  background: rgb(24 32 52 / 92%);
+  border-color: rgb(212 175 55 / 95%);
+  outline: none;
+}
+.medallion-controls__move {
+  cursor: grab;
+}
+.medallion-controls__move:active {
+  cursor: grabbing;
+}
+.medallion-controls__state {
+  padding: 0.28rem 0.55rem;
+  border-radius: 9999px;
+  background: rgb(8 12 22 / 62%);
+  border: 1px solid rgb(212 175 55 / 30%);
+  color: #cfd8e6;
+  font-size: 0.66rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+/* The stretch corner rides above the controls row now that the row
+   is part of the medallion's body. */
+.avatar-stage .medallion-anchor__stretch {
+  bottom: 3.6rem;
+}
+
+/* ---- 3) THE BLINK, AT THE ORDERED PACE --------------------------- */
+/* The close sweep is 150ms (owner order 2026-11-22) — the shared
+   stylesheet's 80ms snap is part of what made the blink read wrong.
+   Higher specificity on purpose: this round's pace wins without
+   rewriting the shared rule. */
+.avatar-stage .living-face__lid.is-closed {
+  transition-duration: 150ms;
+}
+
+/* ---- 2) THE CHAT STRIP (the chat on other screens) --------------- */
+.avatar-chat-strip {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 3rem;
+  padding: 0.4rem 0.8rem;
+  border: 2px solid #d4af37;
+  border-radius: 0.55rem;
+  background: #08111f;
+  box-shadow: 0 16px 44px rgb(0 0 0 / 42%);
+  color: #f8fbff;
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+.avatar-chat-strip:focus-visible {
+  outline: 2px solid #f3d27a;
+  outline-offset: 2px;
+}
+.avatar-chat-strip__presence {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+/* In the strip, Osiris's face rides without his caption — the strip
+   stays slim. */
+.avatar-chat-strip__presence .osiris-presence__caption {
+  display: none;
+}
+.avatar-chat-strip__label {
+  flex: none;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #f3d27a;
+}
+.avatar-chat-strip__hint {
+  color: #9fb2c8;
+  font-size: 0.85rem;
+}
+.avatar-chat-strip__preview {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 650ms ease;
+  animation: avatar-chat-strip-fade-in 650ms ease-out;
+}
+.avatar-chat-strip__preview.is-fading {
+  opacity: 0;
+}
+.avatar-chat-strip__who {
+  color: #f3d27a;
+  font-weight: 700;
+}
+@keyframes avatar-chat-strip-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar-chat-strip__preview {
+    animation: none;
+    transition: none;
+  }
+}

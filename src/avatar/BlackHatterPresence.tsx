@@ -27,6 +27,7 @@
 import { useState } from "react";
 import { BLACK_HATTER_BINDING } from "./medallionPortraits";
 import { BLACK_HATTER_FEATURES, LivingPortrait } from "./LivingPortrait";
+import { MedallionControls } from "./MedallionControls";
 import {
   availablePresenceViews,
   effectivePresenceView,
@@ -129,6 +130,13 @@ export function BlackHatterPresence({
         <span className="black-hatter-presence__name">{BLACK_HATTER_BINDING.name}</span>
         <span className="black-hatter-presence__role">{BLACK_HATTER_BINDING.roleLabel}</span>
       </div>
+      <MedallionControls
+        name={BLACK_HATTER_BINDING.name}
+        lifted={anchor.lifted}
+        moveHandleProps={anchor.moveHandleProps}
+        eatClick={anchor.eatClick}
+        onCenter={anchor.center}
+      />
       {views.length > 1 && (
         <button
           type="button"

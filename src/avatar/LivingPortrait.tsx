@@ -43,34 +43,52 @@ export type FaceFeatures = {
 
 /**
  * Feature maps measured on the registered artwork (visual grounding
- * on the shipped files, 2026-11-22): Anubis's eyes sit at
- * (42.2, 39.4) / (57.9, 39.4), his mouth under the muzzle at
- * (50.1, 58.0); the Black Hatter's eyes at (42.2, 38.8) /
- * (57.6, 38.8), his mouth at (49.8, 53.9).
+ * on the shipped files, 2026-11-22; RE-MEASURED the same day after
+ * the Captain's verdict "blackhatter eyes look weird when blinking"
+ * — the first map sat high and wide on his eyes, so the lids swept
+ * over his brow ridge instead of his eyes):
+ *
+ * CAPTAIN (captain-infinity.webp, bounding boxes in percent): his
+ * eyes span x 39.3–46.7 / 53.7–60.8, y 37.6–40.8 — centers
+ * (43.0, 39.2) and (57.3, 39.2), openings ≈7.4×3.2. His mouth spans
+ * x 43.8–56.2, y 51.2–56.6 — center (50.0, 53.9). The lid colors
+ * are sampled from the portrait's own skin around the eyes (brow
+ * #473830, lid line #322a2a, cheek #2e1b14, lit side #6e5b55) — the
+ * first map's lighter reddish lid read as a foreign patch sliding
+ * over his face.
+ *
+ * ANUBIS (face.webp): his eyes span x 39.0–45.5 / 54.3–61.0,
+ * y 37.3–42.0 — centers (42.3, 39.6) and (57.7, 39.8), openings
+ * ≈6.6×4.5. His mouth spans x 46.3–53.8, y 56.5–59.8 — center
+ * (50.1, 58.2). His centers were true; his lids were HALF AGAIN
+ * wider than his eyes (9.5 against a 6.6 opening), painting gold
+ * over the engraved cheek lines beside them — narrowed to the eye.
+ * Lid gold is sampled from the fur around the eyes (#a0752f /
+ * #a87a3d), not the muzzle's bright highlight.
  */
 export const ANUBIS_FEATURES: FaceFeatures = {
-  leftEye: { x: 42.2, y: 39.4 },
-  rightEye: { x: 57.9, y: 39.4 },
-  eyeW: 9.5,
-  eyeH: 4.6,
-  mouth: { x: 50.1, y: 58.0 },
-  mouthW: 8.5,
-  mouthH: 2.8,
+  leftEye: { x: 42.3, y: 39.6 },
+  rightEye: { x: 57.7, y: 39.8 },
+  eyeW: 7.4,
+  eyeH: 4.8,
+  mouth: { x: 50.1, y: 58.2 },
+  mouthW: 7.5,
+  mouthH: 3.0,
   lidBackground:
-    "radial-gradient(ellipse at 50% 35%, #dcb34a 0%, #a37e22 70%, #7c5c14 100%)",
+    "radial-gradient(ellipse at 50% 35%, #c49a48 0%, #a0752f 70%, #7c5a24 100%)",
   mouthBackground: "radial-gradient(ellipse at 50% 50%, #3a2a08 0%, #241a04 100%)",
 };
 
 export const BLACK_HATTER_FEATURES: FaceFeatures = {
-  leftEye: { x: 42.2, y: 38.8 },
-  rightEye: { x: 57.6, y: 38.8 },
-  eyeW: 8.6,
-  eyeH: 4.0,
-  mouth: { x: 49.8, y: 53.9 },
-  mouthW: 11.5,
+  leftEye: { x: 43.0, y: 39.2 },
+  rightEye: { x: 57.3, y: 39.2 },
+  eyeW: 8.2,
+  eyeH: 3.8,
+  mouth: { x: 50.0, y: 53.9 },
+  mouthW: 12.0,
   mouthH: 3.4,
   lidBackground:
-    "radial-gradient(ellipse at 50% 35%, #6b4a30 0%, #402818 70%, #2a180c 100%)",
+    "radial-gradient(ellipse at 50% 35%, #54423a 0%, #3a2a21 60%, #271b13 100%)",
   mouthBackground: "radial-gradient(ellipse at 50% 50%, #33150c 0%, #1c0b06 100%)",
 };
 

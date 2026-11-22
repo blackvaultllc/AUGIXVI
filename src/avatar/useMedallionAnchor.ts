@@ -26,9 +26,14 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
+  OWNER_MEDALLION_ID,
+  centeredMedallionGeometry,
   clampMedallionGeometry,
   loadOrDefaultMedallionGeometry,
+  registerMedallionGeometry,
+  registeredMedallionGeometry,
   saveMedallionGeometry,
+  unregisterMedallionGeometry,
   type MedallionGeometry,
 } from "./medallionAnchor";
 
@@ -57,6 +62,13 @@ export function useMedallionAnchor(id: string) {
     moved: boolean;
   } | null>(null);
   const suppressClick = useRef(false);
+
+  // Keep the live registry current: the center action consults it
+  // so no medallion is ever centered onto the Captain's face.
+  useEffect(() => {
+    registerMedallionGeometry(id, geometry);
+    return () => unregisterMedallionGeometry(id);
+  }, [id, geometry]);
 
   // The stage shrank (rotation, split screen, a smaller pane): pull
   // the medallion back inside the bounds instead of leaving it
@@ -110,6 +122,38 @@ export function useMedallionAnchor(id: string) {
     event.stopPropagation();
     beginDrag("stretch", event);
   }, []);
+
+  /**
+   * THE MOVE HANDLE (owner order 2026-11-22): a labeled button ON
+   * the medallion that IS the drag — press it and drag, the face
+   * follows the hand. Moving an avatar is no longer a gesture he
+   * has to guess at; the handle says "Move" in plain words and the
+   * medallion's state chip says whether it sits anchored or free in
+   * his hand.
+   */
+  const onMoveHandlePointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    event.stopPropagation();
+    beginDrag("move", event);
+  }, []);
+
+  /**
+   * ONE-CLICK CENTER (owner order 2026-11-22): the medallion goes
+   * dead-center at the size it wears — no pixel-hunting. Another
+   * face never lands on the Captain's: his registered geometry is
+   * the obstacle the centering clears (centeredMedallionGeometry).
+   */
+  const center = useCallback(() => {
+    const avoid =
+      id === OWNER_MEDALLION_ID ? null : registeredMedallionGeometry(OWNER_MEDALLION_ID);
+    const next = centeredMedallionGeometry(
+      geometryRef.current,
+      stageWidth(),
+      stageHeight(),
+      avoid,
+    );
+    setGeometry(next);
+    saveMedallionGeometry(id, next);
+  }, [id]);
 
   const onPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     const active = drag.current;
@@ -179,6 +223,7 @@ export function useMedallionAnchor(id: string) {
   return {
     geometry,
     lifted,
+    center,
     rootProps: {
       style: rootStyle,
       onPointerDown,
@@ -194,6 +239,21 @@ export function useMedallionAnchor(id: string) {
       onPointerUp,
       onPointerCancel: onPointerUp,
     },
+    moveHandleProps: {
+      "data-medallion-move": "true",
+      onPointerDown: onMoveHandlePointerDown,
+      onPointerMove,
+      onPointerUp,
+      onPointerCancel: onPointerUp,
+    },
+    /**
+     * For the Move button's click: consumes a drag's suppression
+     * flag exactly like a click on the medallion itself would, so a
+     * drag that started on the handle never leaks its eaten click
+     * into the next genuine tap — and a plain tap on Move selects
+     * nothing.
+     */
+    eatClick: wrapSelect(),
     wrapSelect,
   };
 }

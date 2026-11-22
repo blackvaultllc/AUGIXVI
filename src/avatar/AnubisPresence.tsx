@@ -52,6 +52,7 @@
 import { useState } from "react";
 import { ANUBIS_BINDING, ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
 import { ANUBIS_FEATURES, LivingPortrait } from "./LivingPortrait";
+import { MedallionControls } from "./MedallionControls";
 import {
   availablePresenceViews,
   effectivePresenceView,
@@ -187,6 +188,13 @@ export function AnubisPresence({
         <span className="anubis-presence__name">{ANUBIS_BINDING.name}</span>
         <span className="anubis-presence__role">{ANUBIS_BINDING.roleLabel}</span>
       </div>
+      <MedallionControls
+        name={ANUBIS_BINDING.name}
+        lifted={anchor.lifted}
+        moveHandleProps={anchor.moveHandleProps}
+        eatClick={anchor.eatClick}
+        onCenter={anchor.center}
+      />
       {views.length > 1 && (
         <button
           type="button"

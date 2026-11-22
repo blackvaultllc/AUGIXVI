@@ -23,6 +23,7 @@
  */
 import { useState } from "react";
 import { MONTU_BINDING } from "./medallionPortraits";
+import { MedallionControls } from "./MedallionControls";
 import {
   availablePresenceViews,
   effectivePresenceView,
@@ -125,6 +126,13 @@ export function MontuPresence({
         <span className="montu-presence__name">{MONTU_BINDING.name}</span>
         <span className="montu-presence__role">{MONTU_BINDING.roleLabel}</span>
       </div>
+      <MedallionControls
+        name={MONTU_BINDING.name}
+        lifted={anchor.lifted}
+        moveHandleProps={anchor.moveHandleProps}
+        eatClick={anchor.eatClick}
+        onCenter={anchor.center}
+      />
       {views.length > 1 && (
         <button
           type="button"
