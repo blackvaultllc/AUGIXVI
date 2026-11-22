@@ -1,11 +1,18 @@
 /**
- * THE BLACK HATTER AT CENTER (owner order 2026-11-22).
+ * THE BLACK HATTER (owner orders 2026-11-22).
  *
- * The default presence of the stage is DOMENICK HIMSELF — the Black
- * Hatter. His medallion stands in the middle of the screen: the face
- * he speaks with in the system, and the face every station
- * recognizes as the boss, the owner (BLACK_HATTER_BINDING —
- * medallionPortraits.ts; the binding is permanent, picture↔name).
+ * The Black Hatter is DOMENICK HIMSELF: the face he speaks with in
+ * the system, and the face every station recognizes as the boss,
+ * the owner (BLACK_HATTER_BINDING — medallionPortraits.ts; the
+ * binding is permanent, picture↔name).
+ *
+ * PUT AWAY BY DEFAULT (presence doctrine, owner order 2026-11-22):
+ * his medallion does NOT stand on the stage when the stage opens —
+ * Anubis, the resident commander, holds it. The Owner seat brings
+ * the Hatter back, at his saved placement and size (nothing of his
+ * is deleted or reset by being away), standing in the middle of
+ * the screen as before. His speaker-of-record role for the
+ * Captain's typed lines in the Command box is unchanged.
  *
  * LIVING FACE (owner order 2026-11-22, superseding the still-
  * portrait treatment): the Black Hatter TALKS — his eyes blink on
@@ -14,10 +21,10 @@
  * TYPED words (AvatarStage drives `speaking` for the length of the
  * line); when the Captain uses the mic, that is the Captain
  * himself and this face stays silent. The medallion also carries
- * the perspective: full and bright while the stage's focus is his
- * (the default), stepped back — a shade smaller, a shade dimmer —
- * while a station he opened holds the focus. Tapping the medallion
- * returns the perspective to him.
+ * the perspective: full and bright while the stage's focus is his,
+ * stepped back — a shade smaller, a shade dimmer — while a station
+ * he opened holds the focus. Tapping the medallion returns the
+ * perspective to him.
  *
  * THE ANCHOR (owner order 2026-11-22): his medallion is an anchored
  * element on the shared medallion system (useMedallionAnchor) —

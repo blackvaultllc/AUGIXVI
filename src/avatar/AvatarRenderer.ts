@@ -1060,6 +1060,47 @@ export class AvatarRenderer {
     const clamped = clampFigureOffset({ x, y });
     this.figureAnchor.position.set(clamped.x, clamped.y, 0);
   }
+  /**
+   * COMMANDED MOVES WALK (owner order 2026-11-22): bring in / step
+   * aside travel on the locomotion walker — the root moves along
+   * the floor with the gait playing — never as an eased slide of
+   * the figure anchor across the screen (the "zoom" he called
+   * weird). The target is in ROOT space (floor x/z inside the
+   * anchor); the stage folds the travelled x into the anchor on
+   * arrival (rebaseFigureAnchor) so the landing persists exactly
+   * like a drag.
+   */
+  walkFigureTo(
+    point: { x: number; z: number },
+    options?: { fullSizeOnArrive?: boolean; onArrive?: () => void },
+  ): boolean {
+    return this.locomotion.walkToPoint(point, options);
+  }
+  /** Drop a commanded walk where it stands (a newer order rules). */
+  cancelFigureWalk() {
+    this.locomotion.cancelGuidedWalk();
+  }
+  /** A commanded walk is travelling now. */
+  get isFigureWalking(): boolean {
+    return this.locomotion.isGuidedWalking;
+  }
+  /** Where the root stands inside the anchor — floor x and depth z. */
+  figureRootPosition(): { x: number; z: number } {
+    return { x: this.avatarRoot.position.x, z: this.avatarRoot.position.z };
+  }
+  /**
+   * Fold the root's travelled x into the figure anchor and zero the
+   * root's x — his world spot does not change by a hair; what
+   * changes is which record holds it, so the landing saves through
+   * the anchor's own persistence (saveFigureOffset) like a drag.
+   */
+  rebaseFigureAnchor(): FigureOffset {
+    const travelledX = this.avatarRoot.position.x;
+    this.avatarRoot.position.x = 0;
+    const current = this.figureOffset;
+    this.setFigureOffset(current.x + travelledX, current.y);
+    return this.figureOffset;
+  }
   get figureOffset(): FigureOffset {
     const p = this.figureAnchor.position;
     return { x: p.x, y: p.y };

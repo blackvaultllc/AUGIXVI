@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { lidGradientFromSamples, lidSamplePoints, type Rgb } from "./lidColor";
 
 /**
  * LIVING PORTRAITS (owner order 2026-11-22, the core-defect fix):
@@ -65,6 +66,16 @@ export type FaceFeatures = {
  * over the engraved cheek lines beside them — narrowed to the eye.
  * Lid gold is sampled from the fur around the eyes (#a0752f /
  * #a87a3d), not the muzzle's bright highlight.
+ *
+ * MONTU (face.webp): the falcon's eyes at (43.7, 40.5) /
+ * (56.3, 40.5), his mouth at the beak's seam (50.0, 46.8).
+ *
+ * The lid COLOR is not part of the map's authority: on top of the
+ * hand-sampled tones recorded in each map, the lid is re-sampled
+ * from each portrait itself at runtime (lidColor.ts), at points
+ * derived FROM this map — so a face blinks in its own colors and a
+ * corrected map corrects the colors with it. The gradients
+ * recorded here are the pre-sample first paint and the fallback.
  */
 export const ANUBIS_FEATURES: FaceFeatures = {
   leftEye: { x: 42.3, y: 39.6 },
@@ -91,6 +102,81 @@ export const BLACK_HATTER_FEATURES: FaceFeatures = {
     "radial-gradient(ellipse at 50% 35%, #54423a 0%, #3a2a21 60%, #271b13 100%)",
   mouthBackground: "radial-gradient(ellipse at 50% 50%, #33150c 0%, #1c0b06 100%)",
 };
+
+/**
+ * Montu's map, measured on his shipped portrait the same way
+ * (visual grounding on public/montu-presence/face.webp,
+ * 2026-11-22): the falcon's amber eyes sit at (43.7, 40.5) /
+ * (56.3, 40.5); his mouth is the beak's seam, centered (50.0,
+ * 46.8) between the beak's base and its tip (49.8). His authored
+ * lid gradient is the fallback — the dark blue-black feather
+ * around his eyes; the sampled gradient (below) is what he
+ * actually blinks with once his own portrait has been read.
+ */
+export const MONTU_FEATURES: FaceFeatures = {
+  leftEye: { x: 43.7, y: 40.5 },
+  rightEye: { x: 56.3, y: 40.5 },
+  eyeW: 7.4,
+  eyeH: 3.9,
+  mouth: { x: 50.0, y: 46.8 },
+  mouthW: 5.2,
+  mouthH: 2.0,
+  lidBackground:
+    "radial-gradient(ellipse at 50% 35%, #2c3850 0%, #161d2e 70%, #0a0e18 100%)",
+  mouthBackground: "radial-gradient(ellipse at 50% 50%, #14100a 0%, #070503 100%)",
+};
+
+/**
+ * THE LID WEARS THE FACE'S OWN COLORS (owner order 2026-11-22):
+ * once the portrait loads, sample the pixels of its own lid
+ * territory (lidColor.ts — the strip above each eye and the eye's
+ * corners, placed from this face's feature map) and build the
+ * lid's gradient from them. Each face blinks in its own colors
+ * because each gradient is read off its own artwork. Any failure —
+ * an unreadable image, a blocked canvas — leaves the authored
+ * gradient standing; the blink never waits on the sampling.
+ */
+function useSampledLidBackground(src: string, features: FaceFeatures): string | null {
+  const [sampled, setSampled] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const image = new Image();
+    image.onload = () => {
+      if (!alive) return;
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d");
+        if (!context || canvas.width === 0 || canvas.height === 0) return;
+        context.drawImage(image, 0, 0);
+        const samples: Rgb[] = [];
+        for (const point of lidSamplePoints(features)) {
+          const px = Math.min(
+            canvas.width - 1,
+            Math.max(0, Math.round((point.x / 100) * canvas.width)),
+          );
+          const py = Math.min(
+            canvas.height - 1,
+            Math.max(0, Math.round((point.y / 100) * canvas.height)),
+          );
+          const data = context.getImageData(px, py, 1, 1).data;
+          samples.push({ r: data[0] ?? 0, g: data[1] ?? 0, b: data[2] ?? 0 });
+        }
+        const gradient = lidGradientFromSamples(samples);
+        if (alive && gradient) setSampled(gradient);
+      } catch {
+        // The authored gradient stands — sampling is an enhancement,
+        // never a dependency of the blink.
+      }
+    };
+    image.src = src;
+    return () => {
+      alive = false;
+    };
+  }, [src, features]);
+  return sampled;
+}
 
 function prefersReducedMotion(): boolean {
   try {
@@ -184,12 +270,13 @@ export function LivingPortrait({
 }) {
   const closed = useBlink();
   const open = useMouthOpen(speaking);
+  const sampledLid = useSampledLidBackground(src, features);
   const lidStyle = (eye: { x: number; y: number }) => ({
     left: `${eye.x - features.eyeW / 2}%`,
     top: `${eye.y - features.eyeH / 2}%`,
     width: `${features.eyeW}%`,
     height: `${features.eyeH}%`,
-    background: features.lidBackground,
+    background: sampledLid ?? features.lidBackground,
   });
   return (
     <>

@@ -9,11 +9,13 @@ import {
 } from "@/avatar/stagePerspective";
 
 /**
- * THE BLACK HATTER AT CENTER (owner order 2026-11-22): the stage's
- * default presence is Domenick himself. These tests pin the binding
- * — his registered portrait, his name, the owner role every station
- * reads him by — and that the face is his alone: never Anubis's
- * portrait, never AUGI's animated clips.
+ * THE BLACK HATTER'S BINDING (owner orders 2026-11-22): these tests
+ * pin the binding — his registered portrait, his name, the owner
+ * role every station reads him by — and that the face is his
+ * alone: never Anubis's portrait, never AUGI's animated clips. His
+ * MEDALLION is put away by default under the presence doctrine
+ * (Anubis is the resident default now); the binding itself — and
+ * his speaker-of-record role — is untouched by that.
  */
 describe("the Black Hatter binding", () => {
   it("binds the Captain's registered portrait to his name and the owner role", () => {
@@ -31,9 +33,12 @@ describe("the Black Hatter binding", () => {
     }
   });
 
-  it("makes the Black Hatter the default perspective, and every close returns to him", () => {
-    expect(DEFAULT_STAGE_PERSPECTIVE).toBe("black-hatter");
-    expect(perspectiveAfterClose()).toBe("black-hatter");
+  it("makes ANUBIS the default perspective — the resident commander — and every close returns to him", () => {
+    // Presence doctrine (owner order 2026-11-22), superseding the
+    // Black-Hatter-center default: Anubis holds the stage; the
+    // Hatter's medallion is away until the Owner seat returns him.
+    expect(DEFAULT_STAGE_PERSPECTIVE).toBe("anubis");
+    expect(perspectiveAfterClose()).toBe("anubis");
   });
 });
 

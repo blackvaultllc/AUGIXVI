@@ -14,16 +14,21 @@
  * (MONTU_BINDING) and served from the single replaceable asset
  * public/montu-presence/face.webp.
  *
- * THE STATION: like Anubis's medallion, Montu speaks from his
- * place — the right flank of the stage by default — and tapping his
- * medallion brings him into perspective. His medallion is an
- * anchored element under the same anchor law as every stage
- * medallion (useMedallionAnchor): grab it to move it, stretch it
- * from its corner, and where he leaves it is where it stays.
+ * THE STATION: Montu is NOT resident (presence doctrine, owner
+ * order 2026-11-22) — his medallion stands on the stage only while
+ * he is summoned for a conversation, popped in with a report, or
+ * bowing out under dismissal. When he is on, he speaks from his
+ * place — the right flank of the stage by default, or a clear spot
+ * under the no-overlap law — and tapping his medallion brings him
+ * into perspective. His medallion is an anchored element under the
+ * same anchor law as every stage medallion (useMedallionAnchor):
+ * grab it to move it, stretch it from its corner, and where he
+ * leaves it is where it stays.
  */
 import { useState } from "react";
 import { MONTU_BINDING } from "./medallionPortraits";
 import { MedallionControls } from "./MedallionControls";
+import { LivingPortrait, MONTU_FEATURES } from "./LivingPortrait";
 import {
   availablePresenceViews,
   effectivePresenceView,
@@ -37,6 +42,8 @@ export const MONTU_FACE_SRC = MONTU_BINDING.portrait;
 
 export function MontuPresence({
   ready,
+  speaking = false,
+  bowing = false,
   inPerspective = false,
   inCall = false,
   inCouncil = false,
@@ -45,6 +52,14 @@ export function MontuPresence({
 }: {
   /** False until the renderer's first frame — the stage is loading. */
   ready: boolean;
+  /** Montu is speaking right now — his beak moves with the line. */
+  speaking?: boolean;
+  /**
+   * SHOWING ALLEGIANCE (owner order 2026-11-22): dismissed, he bows
+   * — the respect gesture with the blessing — before he leaves the
+   * stage back to his work.
+   */
+  bowing?: boolean;
   /** The stage's focus is on Montu's station right now. */
   inPerspective?: boolean;
   /** A one-god CALL conversation is live with Montu (owner order 2026-11-22). */
@@ -79,6 +94,8 @@ export function MontuPresence({
     "medallion-anchor",
     anchor.lifted ? "medallion-anchor--lifted" : "",
     !ready ? "montu-presence--connecting" : "",
+    speaking ? "montu-presence--speaking" : "",
+    bowing ? "medallion-anchor--bow" : "",
     inPerspective ? "montu-presence--in-perspective" : "",
     inCall ? "medallion-anchor--in-call" : "",
     inCouncil ? "medallion-anchor--in-council" : "",
@@ -114,13 +131,28 @@ export function MontuPresence({
       {...anchor.rootProps}
     >
       <div className="montu-presence__face" style={anchor.faceStyle}>
-        <img
-          className="montu-presence__img"
-          src={showBody ? MONTU_BINDING.body : MONTU_FACE_SRC}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-        />
+        {showBody ? (
+          <img
+            className="montu-presence__img"
+            src={MONTU_BINDING.body}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+          />
+        ) : (
+          /* LIVING FACE (owner order 2026-11-22): Montu blinks like
+             every other face on the stage — eyelids in his own
+             portrait's colors over the falcon's eyes, and the beak's
+             seam moves while he speaks (LivingPortrait). He was the
+             one face left frozen; that defect is closed here. The
+             body view carries no feature map and stays a portrait. */
+          <LivingPortrait
+            src={MONTU_FACE_SRC}
+            features={MONTU_FEATURES}
+            speaking={speaking}
+            imgClassName="montu-presence__img"
+          />
+        )}
       </div>
       <div className="montu-presence__plate">
         <span className="montu-presence__name">{MONTU_BINDING.name}</span>

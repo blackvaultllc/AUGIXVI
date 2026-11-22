@@ -7358,7 +7358,8 @@
    own mouth, opening on a speech rhythm while its face speaks.
    The portrait files themselves are never altered. */
 .anubis-presence__face,
-.black-hatter-presence__face {
+.black-hatter-presence__face,
+.montu-presence__face {
   position: relative;
 }
 .living-face__lid {
@@ -7537,6 +7538,39 @@
     0 12px 30px rgb(5 8 18 / 40%),
     0 0 0 3px rgb(255 215 94 / 95%),
     0 0 30px rgb(255 215 94 / 60%);
+}
+/* THE BOW (presence doctrine, owner order 2026-11-22): dismissed,
+   a god shows his allegiance before he leaves — the whole
+   medallion dips in a slow, deliberate bow and rises, lit gold.
+   One breath, about the length of the spoken blessing. */
+@keyframes medallion-bow {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(16px) scale(0.965);
+  }
+  70% {
+    transform: translateY(16px) scale(0.965);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+.medallion-anchor--bow {
+  animation: medallion-bow 1.6s ease-in-out;
+}
+.medallion-anchor--bow .montu-presence__face,
+.medallion-anchor--bow .anubis-presence__face {
+  box-shadow:
+    0 18px 40px rgb(5 8 18 / 45%),
+    0 0 0 3px rgb(255 215 94 / 95%),
+    0 0 44px rgb(255 215 94 / 65%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .medallion-anchor--bow {
+    animation: none;
+  }
 }
 
 /* MONTU AT HIS STATION (owner pick 2026-11-22): the falcon war god,
@@ -7755,6 +7789,18 @@
   border: 1px solid rgb(212 175 55 / 55%);
   color: #f3d27a;
   font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.stage-notifications__god {
+  flex: none;
+  margin-top: 0.1rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  background: rgb(212 175 55 / 88%);
+  color: #14100a;
+  font-size: 0.6rem;
+  font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }

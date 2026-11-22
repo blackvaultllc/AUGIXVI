@@ -4,8 +4,11 @@ import { BlackHatterPresence } from "@/avatar/BlackHatterPresence";
 import { MontuPresence } from "@/avatar/MontuPresence";
 import {
   clampMedallionGeometry,
+  clearMedallionSpot,
   defaultMedallionGeometry,
   loadOrDefaultMedallionGeometry,
+  medallionRect,
+  medallionRectsOverlap,
   medallionStorageKey,
 } from "@/avatar/medallionAnchor";
 import {
@@ -52,9 +55,40 @@ describe("medallion anchor geometry", () => {
     });
   });
 
-  it("Anubis's home is top-center; Montu's is the right flank", () => {
-    expect(defaultMedallionGeometry("anubis", 1200, 800)).toEqual({ x: 516, y: 16, size: 168 });
+  it("Anubis's home is CENTER stage (presence doctrine); Montu's is the right flank", () => {
+    // The resident commander stands in the middle: 264px face,
+    // centered both ways, the whole medallion (face + plate)
+    // centered vertically. Montu's flank home rides 17px higher
+    // since the move-controls round counted the controls row in
+    // the medallion's full height.
+    expect(defaultMedallionGeometry("anubis", 1200, 800)).toEqual({ x: 468, y: 245, size: 264 });
     expect(defaultMedallionGeometry("montu", 1200, 800)).toEqual({ x: 1028, y: 282, size: 156 });
+  });
+
+  it("a clear spot: a standing spot that overlaps nobody is returned untouched", () => {
+    const anubis = defaultMedallionGeometry("anubis", 1200, 800);
+    const montu = defaultMedallionGeometry("montu", 1200, 800);
+    expect(clearMedallionSpot(montu, [anubis], 1200, 800)).toEqual(montu);
+  });
+
+  it("a clear spot: an overlapping spot is moved to one that overlaps nobody (no-overlap law)", () => {
+    const anubis = defaultMedallionGeometry("anubis", 390, 844); // phone stage
+    // A Montu spot dropped right on top of Anubis at center:
+    const onTop = { x: anubis.x, y: anubis.y, size: 156 };
+    const spot = clearMedallionSpot(onTop, [anubis], 390, 844);
+    expect(medallionRectsOverlap(medallionRect(spot), medallionRect(anubis))).toBe(false);
+    // The whole medallion stays inside the phone stage.
+    expect(spot.x).toBeGreaterThanOrEqual(0);
+    expect(spot.y).toBeGreaterThanOrEqual(0);
+    expect(spot.x + spot.size).toBeLessThanOrEqual(390);
+  });
+
+  it("overlap is judged on the whole medallion — face plus plate — with air between", () => {
+    const a = { x: 0, y: 0, w: 100, h: 146 };
+    expect(medallionRectsOverlap(a, { x: 120, y: 0, w: 100, h: 146 })).toBe(false);
+    expect(medallionRectsOverlap(a, { x: 105, y: 0, w: 100, h: 146 })).toBe(true); // within the gap
+    expect(medallionRectsOverlap(a, { x: 0, y: 140, w: 100, h: 146 })).toBe(true); // plate reaches
+    expect(medallionRectsOverlap(a, { x: 0, y: 160, w: 100, h: 146 })).toBe(false);
   });
 
   it("a saved placement heals back inside a smaller stage", () => {

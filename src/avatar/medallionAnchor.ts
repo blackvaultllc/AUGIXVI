@@ -109,11 +109,13 @@ export function clampMedallionGeometry(
 
 /**
  * A medallion's factory home — where it stands before he has ever
- * moved it. The default state is BIG in the middle of the screen:
- * the Black Hatter, the default presence, stands at center at a
- * commanding size. Anubis's station is top-center (he speaks from
- * his place; the station's home does not move) — larger than before,
- * and equally his to lift and reset wherever he wants it.
+ * moved it. ANUBIS'S HOME IS CENTER STAGE (presence doctrine,
+ * owner order 2026-11-22): he is the resident commander, the one
+ * presence on the stage by default, standing in the middle of it.
+ * The Black Hatter's home is likewise the middle, at his commanding
+ * size — for when the Captain brings him back from put-away. A
+ * saved placement always outranks the home: where the Captain
+ * leaves a medallion is where it stands.
  */
 export function defaultMedallionGeometry(
   id: string,
@@ -121,17 +123,24 @@ export function defaultMedallionGeometry(
   stageH: number,
 ): MedallionGeometry {
   if (id === "anubis") {
-    const size = 168;
+    const size = 264;
     return clampMedallionGeometry(
-      { x: (stageW - size) / 2, y: WINDOW_MARGIN, size },
+      {
+        x: (stageW - size) / 2,
+        y: stageH * 0.5 - (size + MEDALLION_PLATE_HEIGHT) / 2,
+        size,
+      },
       stageW,
       stageH,
     );
   }
   if (id === "montu") {
     // Montu's station: the right flank, mid-height — the seat of the
-    // commander who is sent out, clear of Anubis at top-center and
-    // of the owner at center. His to move, like every medallion.
+    // commander who is sent out, clear of Anubis at center. It is
+    // where he appears when summoned (he is not resident); if the
+    // spot would overlap someone on a given stage, the summon takes
+    // a clear spot instead (clearMedallionSpot). His to move, like
+    // every medallion.
     const size = 156;
     return clampMedallionGeometry(
       {
@@ -269,4 +278,67 @@ export function centeredMedallionGeometry(
     if (clears(candidate)) return candidate;
   }
   return centered;
+}
+
+/** A medallion's full footprint on the stage — face plus its plate. */
+export interface MedallionRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export function medallionRect(geometry: MedallionGeometry): MedallionRect {
+  return {
+    x: geometry.x,
+    y: geometry.y,
+    w: geometry.size,
+    h: geometry.size + MEDALLION_PLATE_HEIGHT,
+  };
+}
+
+/** True when two footprints touch or cross, with `gap` of air demanded between them. */
+export function medallionRectsOverlap(a: MedallionRect, b: MedallionRect, gap = 8): boolean {
+  return (
+    a.x - gap < b.x + b.w && b.x - gap < a.x + a.w && a.y - gap < b.y + b.h && b.y - gap < a.y + a.h
+  );
+}
+
+/**
+ * A CLEAR SPOT FOR A GOD WHO COMES ON (the no-overlap law, owner
+ * order 2026-11-22): when a summoned god's standing spot would
+ * overlap someone already on the stage, he takes another spot that
+ * overlaps nobody — the flanks and corners in order — at his own
+ * size. A spot that overlaps nobody is returned exactly as given:
+ * where he was left is respected until the law itself is violated.
+ * If every candidate overlaps (a very small stage), the clamped
+ * standing spot stands — the stage's bounds outrank the preference.
+ */
+export function clearMedallionSpot(
+  geometry: MedallionGeometry,
+  others: readonly MedallionGeometry[],
+  stageW: number,
+  stageH: number,
+): MedallionGeometry {
+  const taken = others.map(medallionRect);
+  const clear = (candidate: MedallionGeometry) =>
+    !taken.some((rect) => medallionRectsOverlap(medallionRect(candidate), rect));
+  const standing = clampMedallionGeometry(geometry, stageW, stageH);
+  if (clear(standing)) return standing;
+  const size = standing.size;
+  const bottom = stageH - (size + MEDALLION_PLATE_HEIGHT) - WINDOW_MARGIN;
+  const midY = stageH / 2 - (size + MEDALLION_PLATE_HEIGHT) / 2;
+  const candidates: MedallionGeometry[] = [
+    { x: stageW - size - WINDOW_MARGIN, y: midY, size }, // right flank
+    { x: WINDOW_MARGIN, y: midY, size }, // left flank
+    { x: stageW - size - WINDOW_MARGIN, y: bottom, size }, // bottom right
+    { x: WINDOW_MARGIN, y: bottom, size }, // bottom left
+    { x: stageW - size - WINDOW_MARGIN, y: WINDOW_MARGIN, size }, // top right
+    { x: WINDOW_MARGIN, y: WINDOW_MARGIN, size }, // top left
+  ];
+  for (const candidate of candidates) {
+    const clamped = clampMedallionGeometry(candidate, stageW, stageH);
+    if (clear(clamped)) return clamped;
+  }
+  return standing;
 }

@@ -15,6 +15,12 @@ export interface StageNotification {
   /** The report line itself (already closed with the blessing). */
   text: string;
   at: number;
+  /**
+   * The god this report is attributed to, when it is one god's
+   * report (presence doctrine): a non-resident god pops onto the
+   * stage with his report and leaves when its life ends.
+   */
+  god?: "anubis" | "montu";
 }
 
 export function StageNotifications({
@@ -30,6 +36,11 @@ export function StageNotifications({
       {items.map((item) => (
         <div className="stage-notifications__item" key={item.id} role="status">
           <span className="stage-notifications__topic">{item.topic}</span>
+          {item.god && (
+            <span className="stage-notifications__god">
+              {item.god === "montu" ? "Montu" : "Anubis"}
+            </span>
+          )}
           <p className="stage-notifications__text">{item.text}</p>
           <button
             type="button"

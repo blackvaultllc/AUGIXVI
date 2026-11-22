@@ -111,6 +111,21 @@ import {
   type StagePerspective,
 } from "./stagePerspective";
 import {
+  constructStandsOnStage,
+  dismissalTarget,
+  godOnStage,
+  isDismissal,
+  summonTarget,
+  type StageResidency,
+} from "./presenceDoctrine";
+import {
+  clearMedallionSpot,
+  loadOrDefaultMedallionGeometry,
+  saveMedallionGeometry,
+} from "./medallionAnchor";
+import { ANUBIS_BINDING, MONTU_BINDING } from "./medallionPortraits";
+import { closeWithBlessing } from "./etiquette";
+import {
   applyNotificationInstruction,
   describeNotificationInstruction,
   loadNotificationPrefs,
@@ -288,6 +303,14 @@ import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
 
 type Settings = RenderSettings & { sensitivity: number; cooldownMs: number };
 type WorldScreen = "space" | "entering" | "live" | "returning";
+/**
+ * How near a press must land to the construct's center to be a
+ * press ON HIM — shared by his own press handlers and by the
+ * environment builder's capture pass, which yields to him in edit
+ * mode (owner order 2026-11-22).
+ */
+const FIGURE_GRAB_RADIUS_PX = 175;
+
 const DEFAULTS: Settings = {
   maxParticles: 120000,
   bloom: 0.25,
@@ -530,10 +553,54 @@ export function AvatarStage({
     if (target && el.parentElement !== target) target.appendChild(el);
   }, [constructDock]);
   // STAGE PERSPECTIVE (owner order 2026-11-22): whose presence holds
-  // the stage's focus. The default is the Black Hatter — the owner
-  // himself; a station takes the focus when he turns to it, and the
-  // perspective returns to him when it closes.
+  // the stage's focus. The default is ANUBIS — the resident
+  // commander; a station takes the focus when he turns to it, and
+  // the perspective returns to Anubis when it closes.
   const [perspective, setPerspective] = useState<StagePerspective>(DEFAULT_STAGE_PERSPECTIVE);
+  // PRESENCE DOCTRINE (owner order 2026-11-22; rules in
+  // presenceDoctrine.ts): Anubis is resident — alone on the stage by
+  // default. The Black Hatter is PUT AWAY until the Owner seat
+  // brings him back. Every other god is on the stage only while
+  // summoned for a conversation, popped in for a report, or bowing
+  // out under dismissal.
+  const [ownerPresent, setOwnerPresent] = useState(false);
+  const [summonedGods, setSummonedGods] = useState<GodPerspective[]>([]);
+  const [reportGod, setReportGod] = useState<GodPerspective | null>(null);
+  const [bowingGod, setBowingGod] = useState<GodPerspective | null>(null);
+  const reportGodTimer = useRef<number | null>(null);
+  const residency: StageResidency = {
+    ownerPresent,
+    summoned: summonedGods,
+    reportGod,
+    bowingGod,
+  };
+  // Live mirrors for the command path, which outlives any single
+  // render's closure (the file's standing ref pattern).
+  const residencyRef = useRef(residency);
+  residencyRef.current = residency;
+  const perspectiveRef = useRef(perspective);
+  perspectiveRef.current = perspective;
+  // A god answers a summon: he comes onto the stage and stays for
+  // the conversation. Under the no-overlap law he takes a clear
+  // spot — if the spot he was left at would overlap someone already
+  // standing, a clear spot is written for him BEFORE he mounts, so
+  // he never appears on top of another face.
+  const summonGod = useCallback((god: GodPerspective) => {
+    if (god !== "anubis") {
+      const stageW = typeof window === "undefined" ? 0 : window.innerWidth;
+      const stageH = typeof window === "undefined" ? 0 : window.innerHeight;
+      if (stageW > 0 && stageH > 0) {
+        const others = [loadOrDefaultMedallionGeometry("anubis", stageW, stageH)];
+        if (ownerPresent) others.push(loadOrDefaultMedallionGeometry("black-hatter", stageW, stageH));
+        const standing = loadOrDefaultMedallionGeometry(god, stageW, stageH);
+        const spot = clearMedallionSpot(standing, others, stageW, stageH);
+        if (spot.x !== standing.x || spot.y !== standing.y || spot.size !== standing.size) {
+          saveMedallionGeometry(god, spot);
+        }
+      }
+    }
+    setSummonedGods((current) => (current.includes(god) ? current : [...current, god]));
+  }, [ownerPresent]);
   // CONVERSATION VIEWS (owner order 2026-11-22): speaking with ONE
   // god is a CALL — his Black Hatter and the god, side by side.
   // Tapping a SECOND god while one holds the perspective raises a
@@ -545,6 +612,11 @@ export function AvatarStage({
   const conversationView = conversationViewFor(perspective, council);
   const selectGod = useCallback(
     (god: GodPerspective) => {
+      // Residency first: a non-resident god tapped by name is
+      // SUMMONED onto the stage; returning to Anubis puts the
+      // Black Hatter away again — the resident holds the stage.
+      if (god === "anubis") setOwnerPresent(false);
+      else summonGod(god);
       if (council.length >= 2) {
         // Already in council: tapping a god takes the call to him alone.
         setCouncil([]);
@@ -559,12 +631,17 @@ export function AvatarStage({
       }
       setPerspective(god);
     },
-    [perspective, council],
+    [perspective, council, summonGod],
   );
   const selectOwner = useCallback(() => {
+    // The Owner seat brings the Black Hatter BACK onto the stage
+    // from put-away — at his saved placement, with the perspective.
+    setOwnerPresent(true);
     setCouncil([]);
-    setPerspective(DEFAULT_STAGE_PERSPECTIVE);
+    setPerspective("black-hatter");
   }, []);
+  const selectGodRef = useRef(selectGod);
+  selectGodRef.current = selectGod;
   // PULSE WINDOW: presence + motion, the rPPG heart-rate estimate and
   // the room-frequency readout in a small floating box (operator order
   // 2026-11-21). Opens from Tools → Rooms and from "open pulse".
@@ -662,15 +739,34 @@ export function AvatarStage({
   const dismissGodPopUp = useCallback((id: number) => {
     setGodPopUp((current) => (current && current.id === id ? null : current));
   }, []);
-  const notify = useCallback((topic: string, text: string) => {
+  const notify = useCallback((topic: string, text: string, god?: GodPerspective) => {
     if (!shouldNotify(loadNotificationPrefs(), topic, Date.now())) return;
     notificationIdRef.current += 1;
     const id = notificationIdRef.current;
-    setNotifications((current) => [...current.slice(-3), { id, topic, text, at: Date.now() }]);
-    setGodPopUp({ id, god: godForReportTopic(topic), text });
+    setNotifications((current) => [
+      ...current.slice(-3),
+      { id, topic, text, at: Date.now(), ...(god ? { god } : {}) },
+    ]);
+    // The reporting god delivers the line himself in the bubble: an
+    // explicitly attributed god wins; otherwise the topic decides
+    // (Montu for defense and security, Anubis in command for the rest).
+    setGodPopUp({ id, god: god ?? godForReportTopic(topic), text });
     window.setTimeout(() => {
       setNotifications((current) => current.filter((item) => item.id !== id));
     }, 14_000);
+    // REPORT POP-IN (presence doctrine): a report attributed to a
+    // non-resident god brings HIM onto the stage with it — portrait
+    // up like the message itself — and he goes away on his own when
+    // the report's life ends, unless the Captain has since summoned
+    // him to stay. Anubis is resident; his reports need no pop-in.
+    if (god && god !== "anubis") {
+      setReportGod(god);
+      if (reportGodTimer.current !== null) window.clearTimeout(reportGodTimer.current);
+      reportGodTimer.current = window.setTimeout(() => {
+        reportGodTimer.current = null;
+        setReportGod((current) => (current === god ? null : current));
+      }, 14_000);
+    }
   }, []);
   const dismissNotification = useCallback((id: number) => {
     setNotifications((current) => current.filter((item) => item.id !== id));
@@ -767,17 +863,27 @@ export function AvatarStage({
     setPerspective(perspectiveAfterClose());
   }, []);
 
-  // He stands on the stage only outside the live Room (the space
-  // view keeps him) or inside his box while it is open and docked.
-  // In the live Room with his box closed, center stage belongs to
-  // the Black Hatter and the construct is off stage.
+  // He stands on the stage outside the live Room (the space view
+  // keeps him), when he has been brought on, inside his box while
+  // it is open and docked — and WHILE THE CAPTAIN IS EDITING
+  // (owner order 2026-11-22): with the Environment Builder open he
+  // stands IN the environment being edited, present and workable
+  // there — moved, positioned, adjusted under the same anchor law
+  // and the same saved spot as in his own sandbox — never exiled
+  // to the sandbox only. In the live Room with none of those true,
+  // the stage belongs to the resident commander and he is off
+  // stage. The rule itself lives in presenceDoctrine.ts.
   useEffect(() => {
     rendRef.current?.setConstructVisible(
-      worldScreen !== "live" ||
-        constructOnStage ||
-        (constructOpen && constructDock !== null),
+      constructStandsOnStage({
+        worldScreen,
+        constructOnStage,
+        builderOpen,
+        constructOpen,
+        constructDocked: constructDock !== null,
+      }),
     );
-  }, [worldScreen, constructOpen, constructDock, constructOnStage]);
+  }, [worldScreen, constructOpen, constructDock, constructOnStage, builderOpen]);
 
   // ONE VOICE AT A TIME: when Anubis starts answering, the Black
   // Hatter's line is done — his mouth stills and Anubis's medallion
@@ -857,6 +963,25 @@ export function AvatarStage({
       if (!(event.target as HTMLElement | null)?.closest?.("canvas")) return;
       const renderer = rendRef.current;
       if (!renderer) return;
+      // THE CONSTRUCT FIRST (owner order 2026-11-22): in edit mode
+      // he stands in this environment to be worked on — a press
+      // that lands on HIM is his, even over a placed piece behind
+      // him, so the builder never locks him out of his own stage.
+      // His own press handlers (drag when unanchored, the keys when
+      // anchored) take it from here; the builder simply steps aside.
+      if (renderer.constructVisible) {
+        const point = renderer.figureScreenPoint();
+        const hostEl = host.current;
+        if (point && hostEl) {
+          const rect = hostEl.getBoundingClientRect();
+          if (
+            Math.hypot(event.clientX - rect.left - point.x, event.clientY - rect.top - point.y) <=
+            FIGURE_GRAB_RADIUS_PX
+          ) {
+            return;
+          }
+        }
+      }
       const id = renderer.builderPick(event.clientX, event.clientY);
       if (!id) {
         setBuilderSelection(null);
@@ -1227,38 +1352,30 @@ export function AvatarStage({
     [say],
   );
 
-  // CONSTRUCT POSITION ORDERS (owner order 2026-11-22): the typed
+  // CONSTRUCT POSITION ORDERS (owner orders 2026-11-22): the typed
   // and spoken forms — "bring Augie in", "move to the left side",
   // "move right", "step aside" — and the toolbar's buttons run
-  // these same moves. He FLOATS (an eased glide, never a jump), the
-  // landing spot persists like every drag (saveFigureOffset), and
-  // aside he turns in profile toward the middle of the stage so the
-  // Captain sees the whole screen.
-  const constructFloatRef = useRef<number | null>(null);
-  const floatConstructTo = useCallback((targetX: number, targetY: number) => {
-    const renderer = rendRef.current;
-    if (!renderer) return;
-    if (constructFloatRef.current !== null) {
-      window.cancelAnimationFrame(constructFloatRef.current);
+  // these same moves. HE WALKS THEM: the travel rides the
+  // locomotion walker along the floor — gait playing, feet on the
+  // floor line, his size set by where he stands — never the old
+  // screen-plane float of his anchor, which read as a zoom and a
+  // slide (owner verdict 2026-11-22: "kind of weird"). While he
+  // travels, his anchor's height settles back to the floor line;
+  // on arrival the travelled distance folds into the anchor, the
+  // landing persists like every drag (saveFigureOffset), and he
+  // takes his facing: profile toward the middle when aside, the
+  // Captain himself when brought in.
+  const constructWalkRef = useRef<number | null>(null);
+  // Assigned in the anchor/drag section below: releases the
+  // Captain's WASD drive, so a position order hands AUGI back to
+  // himself before he walks it (the order rules, as the float did).
+  const releaseDriveRef = useRef<() => void>(() => {});
+  const cancelConstructWalk = useCallback(() => {
+    if (constructWalkRef.current !== null) {
+      window.cancelAnimationFrame(constructWalkRef.current);
+      constructWalkRef.current = null;
     }
-    const start = renderer.figureOffset;
-    const startedAt = performance.now();
-    const DURATION_MS = 900;
-    const step = (now: number) => {
-      const t = Math.min(1, (now - startedAt) / DURATION_MS);
-      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-      renderer.setFigureOffset(
-        start.x + (targetX - start.x) * eased,
-        start.y + (targetY - start.y) * eased,
-      );
-      if (t < 1) {
-        constructFloatRef.current = window.requestAnimationFrame(step);
-      } else {
-        constructFloatRef.current = null;
-        saveFigureOffset(renderer.figureOffset);
-      }
-    };
-    constructFloatRef.current = window.requestAnimationFrame(step);
+    rendRef.current?.cancelFigureWalk();
   }, []);
   const settleConstructOnStage = useCallback(() => {
     // Off the box, onto the stage, anchored and free at the landing.
@@ -1271,13 +1388,80 @@ export function AvatarStage({
     saveConstructAnchored(true);
     rendRef.current?.setConstructAnchored(true);
   }, []);
+  const walkConstructTo = useCallback(
+    (
+      targetRoot: { x: number; z: number },
+      opts: { fullSizeOnArrive: boolean; onLanded: () => void },
+    ) => {
+      const renderer = rendRef.current;
+      if (!renderer) return;
+      releaseDriveRef.current();
+      cancelConstructWalk();
+      const startedAt = performance.now();
+      let last = startedAt;
+      // The floor settle: while the walk runs, ease the anchor's
+      // height back to the floor line. The watcher ends itself when
+      // the walk does — arrived (the landing runs through
+      // locomotion's own hand-back) or taken over by a newer order
+      // (no landing side effects at all, like a wander cut short).
+      const settle = (now: number) => {
+        const r = rendRef.current;
+        if (!r || !r.isFigureWalking || now - startedAt > 30_000) {
+          constructWalkRef.current = null;
+          return;
+        }
+        const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+        last = now;
+        const current = r.figureOffset;
+        if (Math.abs(current.y) > 0.005) {
+          r.setFigureOffset(current.x, current.y * Math.exp(-2.4 * dt));
+        }
+        constructWalkRef.current = window.requestAnimationFrame(settle);
+      };
+      const started = renderer.walkFigureTo(targetRoot, {
+        fullSizeOnArrive: opts.fullSizeOnArrive,
+        onArrive: () => {
+          if (constructWalkRef.current !== null) {
+            window.cancelAnimationFrame(constructWalkRef.current);
+            constructWalkRef.current = null;
+          }
+          opts.onLanded();
+        },
+      });
+      if (started) {
+        constructWalkRef.current = window.requestAnimationFrame(settle);
+      } else {
+        opts.onLanded();
+      }
+    },
+    [cancelConstructWalk],
+  );
   const bringConstructIn = useCallback(() => {
     settleConstructOnStage();
-    rendRef.current?.resetFigureOffset();
-    clearFigureOffset();
-    rendRef.current?.faceOperator();
-  }, [settleConstructOnStage]);
-  const floatConstructAside = useCallback(
+    const renderer = rendRef.current;
+    if (!renderer) return;
+    // He walks home to his mark from wherever he stands and arrives
+    // WHOLE — full size, facing the Captain (the come-back rule).
+    // The landing folds into the anchor as home itself, and the
+    // saved spot is cleared: home is the mark, not a placement.
+    const anchor = renderer.figureOffset;
+    walkConstructTo(
+      { x: -anchor.x, z: 0 },
+      {
+        fullSizeOnArrive: true,
+        onLanded: () => {
+          const r = rendRef.current;
+          if (!r) return;
+          r.rebaseFigureAnchor();
+          const landed = r.figureOffset;
+          r.setFigureOffset(landed.x, 0);
+          clearFigureOffset();
+          r.faceOperator();
+        },
+      },
+    );
+  }, [settleConstructOnStage, walkConstructTo]);
+  const walkConstructAside = useCallback(
     (side: "left" | "right") => {
       const renderer = rendRef.current;
       const hostEl = host.current;
@@ -1288,11 +1472,50 @@ export function AvatarStage({
       const rect = hostEl.getBoundingClientRect();
       const targetPx = side === "left" ? rect.width * 0.13 : rect.width * 0.87;
       const scale = renderer.worldUnitsPerPixel();
-      const current = renderer.figureOffset;
-      floatConstructTo(current.x + (targetPx - point.x) * scale, current.y);
-      renderer.faceSide(side);
+      const root = renderer.figureRootPosition();
+      // The target in root space: his root plus the world distance
+      // between where he stands on screen and the side's mark. The
+      // anchor does not move while he walks — his legs cover it.
+      walkConstructTo(
+        { x: root.x + (targetPx - point.x) * scale, z: root.z },
+        {
+          fullSizeOnArrive: false,
+          onLanded: () => {
+            const r = rendRef.current;
+            if (!r) return;
+            const landed = r.rebaseFigureAnchor();
+            r.setFigureOffset(landed.x, 0);
+            saveFigureOffset(r.figureOffset);
+            r.faceSide(side);
+          },
+        },
+      );
     },
-    [floatConstructTo, settleConstructOnStage],
+    [settleConstructOnStage, walkConstructTo],
+  );
+  // DISMISSAL (presence doctrine, owner order 2026-11-22): the
+  // Captain's word sends a summoned god off — and the god SHOWS
+  // HIS ALLEGIANCE on the way out: the bow, with the blessing
+  // spoken, holds for a breath, and then he is gone back to his
+  // work. The resident is never dismissed; a report pop-in is
+  // never dismissed (it leaves on its own).
+  const bowTimerRef = useRef<number | null>(null);
+  const dismissGod = useCallback(
+    (god: GodPerspective) => {
+      const name = god === "montu" ? MONTU_BINDING.name : ANUBIS_BINDING.name;
+      setBowingGod(god);
+      say(closeWithBlessing(`As you command, Captain — ${name} bows and returns to his work`));
+      if (bowTimerRef.current !== null) window.clearTimeout(bowTimerRef.current);
+      bowTimerRef.current = window.setTimeout(() => {
+        bowTimerRef.current = null;
+        setBowingGod((current) => (current === god ? null : current));
+        setSummonedGods((current) => current.filter((entry) => entry !== god));
+        setReportGod((current) => (current === god ? null : current));
+        setCouncil((current) => current.filter((entry) => entry !== god));
+        setPerspective((current) => (current === god ? DEFAULT_STAGE_PERSPECTIVE : current));
+      }, 1600);
+    },
+    [say],
   );
 
   function togglePresent() {
@@ -1730,9 +1953,38 @@ export function AvatarStage({
       );
       if (asideMatch?.[1] || avatarRequest === "step aside") {
         const side = asideMatch?.[1] === "right" ? "right" : "left";
-        floatConstructAside(side);
+        walkConstructAside(side);
         say(`AUGI steps to the ${side}, Captain — side-on and out of your way.`);
         return;
+      }
+      // SUMMON A GOD BY NAME (presence doctrine, owner order
+      // 2026-11-22): his name — typed here or spoken through the
+      // same command path — calls him onto the stage, where he
+      // stays for the conversation.
+      const summonedGod = summonTarget(avatarRequest);
+      if (summonedGod) {
+        selectGodRef.current(summonedGod);
+        say(
+          summonedGod === "montu"
+            ? "Montu answers your call, Captain — commander of the army, on the stage and at your command."
+            : "He answers your call, Captain.",
+        );
+        return;
+      }
+      // DISMISSAL (presence doctrine): the Captain's word — "good
+      // work", "you can leave", "that'll be all" — sends the
+      // summoned god off with his allegiance shown. With nobody
+      // summoned to send, the line is ordinary conversation and
+      // falls through untouched.
+      if (isDismissal(avatarRequest)) {
+        const addressed = isGodPerspective(perspectiveRef.current)
+          ? perspectiveRef.current
+          : null;
+        const target = dismissalTarget(residencyRef.current, addressed);
+        if (target) {
+          dismissGod(target);
+          return;
+        }
       }
       // Movable windows: notepad, chalkboard, player.
       const windowRequest = commandText.toLowerCase().replace(/\s+/g, " ").trim();
@@ -2092,6 +2344,13 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
   anchoredRef.current = constructAnchored;
   const drivingRef = useRef(captainDriving);
   drivingRef.current = captainDriving;
+  // The position orders (defined above) release the Captain's drive
+  // through this ref before AUGI walks an order out.
+  releaseDriveRef.current = () => {
+    if (!drivingRef.current) return;
+    setCaptainDriving(false);
+    rendRef.current?.setCaptainDriving(false);
+  };
 
   const applyAnchor = useCallback((next: boolean) => {
     setConstructAnchored(next);
@@ -2137,7 +2396,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
   useEffect(() => {
     const hostEl = host.current;
     if (!hostEl) return;
-    const GRAB_RADIUS_PX = 175;
+    const GRAB_RADIUS_PX = FIGURE_GRAB_RADIUS_PX;
     let press: {
       pointerId: number;
       startX: number;
@@ -2552,7 +2811,12 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       <div ref={stageDockRef} className="avatar-stage-dock">
         <div ref={host} className="avatar-construct-host" />
       </div>
-      {!clearScreen && worldScreen === "live" && (
+      {/* PRESENCE DOCTRINE (owner order 2026-11-22): the Black
+          Hatter's medallion stands on the stage only when the
+          Captain has brought him back from put-away (the Owner
+          seat). His place in the Command box — speaker of record
+          for typed lines — is not stage presence and is unchanged. */}
+      {!clearScreen && worldScreen === "live" && ownerPresent && (
         <BlackHatterPresence
           inPerspective={perspective === "black-hatter"}
           speaking={hatterSpeaking}
@@ -2573,9 +2837,14 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onSelect={() => selectGod("anubis")}
         />
       )}
-      {!clearScreen && worldScreen === "live" && (
+      {/* Montu is NOT resident: his medallion stands on the stage
+          only while he is summoned, popped in with a report, or
+          bowing out under dismissal (presenceDoctrine.ts). */}
+      {!clearScreen && worldScreen === "live" && godOnStage(residency, "montu") && (
         <MontuPresence
           ready={ready}
+          speaking={perspective === "montu" && state === "SPEAKING"}
+          bowing={bowingGod === "montu"}
           inPerspective={perspective === "montu"}
           inCall={conversationView === "call" && perspective === "montu"}
           inCouncil={council.includes("montu")}
@@ -2588,7 +2857,10 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           and construct-position orders now live INSIDE the chat box
           (Scene tab: Seats; Motion tab: Construct position). The
           chat box is the main box that controls everything; the
-          stage carries no extra controls he does not need. */}
+          stage carries no extra controls he does not need. The
+          position orders it fires are the WALK orders of this round
+          (walkConstructAside / bringConstructIn), passed down to the
+          CommandBox below. */}
       {!clearScreen && worldScreen === "live" && (
         <StageNotifications items={notifications} onDismiss={dismissNotification} />
       )}
@@ -2881,7 +3153,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   icon={MoveLeft}
                   label="Left"
                   onClick={() => {
-                    floatConstructAside("left");
+                    walkConstructAside("left");
                     say("AUGI steps to the left, Captain — side-on and out of your way.");
                   }}
                 />
@@ -2889,7 +3161,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   icon={MoveRight}
                   label="Right"
                   onClick={() => {
-                    floatConstructAside("right");
+                    walkConstructAside("right");
                     say("AUGI steps to the right, Captain — side-on and out of your way.");
                   }}
                 />
