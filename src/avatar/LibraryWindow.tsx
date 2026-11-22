@@ -26,6 +26,7 @@ import {
   type LibraryResultInfo,
 } from "./library";
 import { LIBRARY_SHELVES, shelfAvailability, type LibraryShelf } from "./libraryShelves";
+import { formatLawCitation, LAW_DISCLAIMER, LAW_SHELF_ID } from "./lawDesk";
 
 type CatalogState =
   | { kind: "loading" }
@@ -41,6 +42,9 @@ type View =
       query: string;
       results: LibraryResultInfo[] | null;
       error: string | null;
+      /** True when this search ran on the Law shelf (Part 11):
+       * results carry citation lines and the desk's disclaimer. */
+      law?: boolean;
     }
   | {
       kind: "article";
@@ -85,13 +89,13 @@ export function LibraryWindow({ onClose }: { onClose: () => void }) {
   }, []);
 
   const runSearch = useCallback(
-    (query: string, heading: string, bookIds: readonly string[]) => {
-      const pending: View = { kind: "results", heading, query, results: null, error: null };
+    (query: string, heading: string, bookIds: readonly string[], law = false) => {
+      const pending: View = { kind: "results", heading, query, results: null, error: null, law };
       go(pending);
       void (async () => {
         try {
           const results = await searchLibrary(query, bookIds);
-          replaceTop({ kind: "results", heading, query, results, error: null });
+          replaceTop({ kind: "results", heading, query, results, error: null, law });
         } catch (error) {
           replaceTop({
             kind: "results",
@@ -99,6 +103,7 @@ export function LibraryWindow({ onClose }: { onClose: () => void }) {
             query,
             results: null,
             error: error instanceof Error ? error.message : "The library search failed.",
+            law,
           });
         }
       })();
@@ -191,6 +196,16 @@ export function LibraryWindow({ onClose }: { onClose: () => void }) {
               {books.reduce((sum, b) => sum + (b.articleCount ?? 0), 0).toLocaleString()} articles,
               all on this machine.
             </p>
+            <button
+              type="button"
+              className="window-btn"
+              onClick={() => {
+                const lawShelf = LIBRARY_SHELVES.find((s) => s.id === LAW_SHELF_ID);
+                if (lawShelf) go({ kind: "shelf", shelf: lawShelf });
+              }}
+            >
+              Law Desk — cited sources from the Law shelf
+            </button>
             <div className="window-library__shelves">
               {LIBRARY_SHELVES.map((shelf) => {
                 const state = shelfAvailability(shelf, catalogNames);
@@ -233,6 +248,9 @@ export function LibraryWindow({ onClose }: { onClose: () => void }) {
                 );
               })}
             </ul>
+            {view.shelf.id === LAW_SHELF_ID && (
+              <p className="window-library__note">{LAW_DISCLAIMER}</p>
+            )}
             <p className="window-library__note">Start with a question:</p>
             <div className="window-library__chips">
               {view.shelf.queries.map((query) => {
@@ -246,7 +264,14 @@ export function LibraryWindow({ onClose }: { onClose: () => void }) {
                     type="button"
                     className="window-library__chip"
                     disabled={!state.ready}
-                    onClick={() => runSearch(query, `${view.shelf.title} — “${query}”`, bookIds)}
+                    onClick={() =>
+                      runSearch(
+                        query,
+                        `${view.shelf.title} — “${query}”`,
+                        bookIds,
+                        view.shelf.id === LAW_SHELF_ID,
+                      )
+                    }
                   >
                     {query}
                   </button>
@@ -265,6 +290,7 @@ export function LibraryWindow({ onClose }: { onClose: () => void }) {
         {view.kind === "results" && (
           <div className="window-library__results">
             <h3 className="window-library__heading">{view.heading}</h3>
+            {view.law && <p className="window-library__note">{LAW_DISCLAIMER}</p>}
             {view.results === null && view.error === null && (
               <p className="window-library__note">Searching the shelves…</p>
             )}
@@ -289,6 +315,11 @@ export function LibraryWindow({ onClose }: { onClose: () => void }) {
                         from {result.bookTitle}
                         {result.words !== null ? ` · ${result.words.toLocaleString()} words` : ""}
                       </span>
+                      {view.law && (
+                        <span className="window-library__result-book">
+                          {formatLawCitation(result.bookTitle, result.title)}
+                        </span>
+                      )}
                       {result.snippet && (
                         <span className="window-library__result-snippet">{result.snippet}</span>
                       )}
