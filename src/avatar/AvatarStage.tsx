@@ -115,6 +115,13 @@ import {
   shouldNotify,
 } from "./notificationPrefs";
 import { StageNotifications, type StageNotification } from "./StageNotifications";
+import { GodReportPopUp, type GodPopUpRequest } from "./GodReportPopUp";
+import { godForReportTopic, type StageRect } from "./godPopUp";
+import {
+  MEDALLION_UNDER_FACE_HEIGHT,
+  defaultMedallionGeometry,
+  loadMedallionGeometry,
+} from "./medallionAnchor";
 import { StageToolbar } from "./StageToolbar";
 import {
   STAGE_BACKDROPS,
@@ -147,6 +154,7 @@ import { OfficeScene } from "./world/OfficeScene";
 import { parseTransformRequest, isTransformBackRequest, type TransformShape } from "./transforms";
 import { askCloud } from "./cloudBrain";
 import { CloudKeysPanel } from "./CloudKeysPanel";
+import { ConnectionsPanel } from "./ConnectionsPanel";
 import { LabPanel } from "./LabPanel";
 import {
   parseOracleSendCommand,
@@ -421,6 +429,8 @@ export function AvatarStage({
   const [officeOpen, setOfficeOpen] = useState(false);
   const [battleOpen, setBattleOpen] = useState(false);
   const [cloudKeysOpen, setCloudKeysOpen] = useState(false);
+  // CONNECTIONS PANEL: the universal API/data slots (owner order 2026-11-22).
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
   const [worldScreen, setWorldScreen] = useState<WorldScreen>("space");
   const worldScreenRef = useRef<WorldScreen>("space");
@@ -628,11 +638,22 @@ export function AvatarStage({
   // notification rules (notificationPrefs.ts) at raise time.
   const [notifications, setNotifications] = useState<StageNotification[]>([]);
   const notificationIdRef = useRef(0);
+  // A GOD POPS UP TO REPORT (owner order 2026-11-22): a report also
+  // brings its god to the stage — his face pops up at a clear edge
+  // with the anime bubble beside his head, he speaks the line, and
+  // he goes. One at a time: a newer report steps up in his place.
+  // The notification card stays as the record; the pop-up is the
+  // god himself delivering it.
+  const [godPopUp, setGodPopUp] = useState<GodPopUpRequest | null>(null);
+  const dismissGodPopUp = useCallback((id: number) => {
+    setGodPopUp((current) => (current && current.id === id ? null : current));
+  }, []);
   const notify = useCallback((topic: string, text: string) => {
     if (!shouldNotify(loadNotificationPrefs(), topic, Date.now())) return;
     notificationIdRef.current += 1;
     const id = notificationIdRef.current;
     setNotifications((current) => [...current.slice(-3), { id, topic, text, at: Date.now() }]);
+    setGodPopUp({ id, god: godForReportTopic(topic), text });
     window.setTimeout(() => {
       setNotifications((current) => current.filter((item) => item.id !== id));
     }, 14_000);
@@ -1425,6 +1446,17 @@ export function AvatarStage({
       if (commandText === "/cloudkeys" || /open\s+(?:the\s+)?cloud\s+keys?/i.test(commandText)) {
         setCloudKeysOpen(true);
         say("Cloud keys — green means present and working. Values stay in Cloudflare.");
+        return;
+      }
+      // CONNECTIONS: the universal API/data slots area (owner order
+      // 2026-11-22) — open slots he fills himself, values server-side.
+      if (
+        commandText === "/connections" ||
+        /open\s+(?:the\s+)?connections?/i.test(commandText) ||
+        /open\s+(?:the\s+)?api\s+slots?/i.test(commandText)
+      ) {
+        setConnectionsOpen(true);
+        say("Connections is open, Captain — the slots for APIs and data. Fill one and it works; an empty slot just waits.");
         return;
       }
       // ROOMS — deterministic and TERMINAL (operator incident
@@ -2560,6 +2592,28 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {!clearScreen && worldScreen === "live" && (
         <StageNotifications items={notifications} onDismiss={dismissNotification} />
       )}
+      {!clearScreen && worldScreen === "live" && godPopUp && (
+        <GodReportPopUp
+          request={godPopUp}
+          stageSize={{
+            w: stageRootRef.current?.clientWidth ?? 1440,
+            h: stageRootRef.current?.clientHeight ?? 900,
+          }}
+          occupiedRects={["black-hatter", "anubis", "montu"].map((id): StageRect => {
+            const stageW = stageRootRef.current?.clientWidth ?? 1440;
+            const stageH = stageRootRef.current?.clientHeight ?? 900;
+            const geometry =
+              loadMedallionGeometry(id) ?? defaultMedallionGeometry(id, stageW, stageH);
+            return {
+              x: geometry.x,
+              y: geometry.y,
+              w: geometry.size,
+              h: geometry.size + MEDALLION_UNDER_FACE_HEIGHT,
+            };
+          })}
+          onDone={dismissGodPopUp}
+        />
+      )}
       {!clearScreen && worldScreen === "live" && constructOpen && (
         <div className="avatar-frame" {...frameDragProps("construct-controls")}>
           <ConstructControls
@@ -2814,14 +2868,13 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           )}
           {commandTab === "tools" && (
             <>
-              <CommandGroup label="Rooms">
+              {/* ORGANIZATION (owner order 2026-11-22): the rooms used
+                  to be one long undifferentiated grid of two dozen
+                  buttons. Now subcategories — each thing in exactly
+                  one obvious place, same standard as the builder. */}
+              <CommandGroup label="Worlds & building">
                 <div className="avatar-command-box__grid">
                   <CommandAction icon={Box} label="AR Cube" onClick={() => setArCubeOpen(true)} />
-                  <CommandAction
-                    icon={ScanSearch}
-                    label="Picture Analysis"
-                    onClick={() => setAnalyzeOpen(true)}
-                  />
                   <CommandAction
                     icon={Gamepad2}
                     label="Legend of Logic"
@@ -2833,22 +2886,6 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => void navigate({ to: "/avatar/world" })}
                   />
                   <CommandAction
-                    icon={History}
-                    label="Reply history"
-                    onClick={() => setHistoryOpen(true)}
-                  />
-                  <CommandAction icon={Activity} label="Pulse" onClick={() => setPulseOpen(true)} />
-                  <CommandAction
-                    icon={Shield}
-                    label="Gate Log"
-                    onClick={() => setGateLogOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Waves}
-                    label="Signal Map"
-                    onClick={() => setSignalMapOpen(true)}
-                  />
-                  <CommandAction
                     icon={Hammer}
                     label={builderOpen ? "Environment Builder · open" : "Environment Builder"}
                     onClick={() => setBuilderOpen((open) => !open)}
@@ -2858,26 +2895,59 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label={mapOpen ? "World Map · open" : "World Map"}
                     onClick={() => setMapOpen((open) => !open)}
                   />
-                  <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
-                  <CommandAction
-                    icon={ScrollText}
-                    label="Logs"
-                    onClick={() => setLogsOpen(true)}
-                  />
-                  <CommandAction
-                    icon={FlaskConical}
-                    label="Test Area"
-                    onClick={() => setTestAreaOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Network}
-                    label="Anatomy"
-                    onClick={() => setAnatomyOpen(true)}
-                  />
                   <CommandAction
                     icon={Building2}
                     label="Departments"
                     onClick={() => setDepartmentsOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Smartphone}
+                    label="Phone Bridge — Ghost Protocol One"
+                    onClick={() => void navigate({ to: "/phone-bridge" })}
+                  />
+                </div>
+              </CommandGroup>
+              <CommandGroup label="Senses & analysis">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={ScanSearch}
+                    label="Picture Analysis"
+                    onClick={() => setAnalyzeOpen(true)}
+                  />
+                  <CommandAction icon={Activity} label="Pulse" onClick={() => setPulseOpen(true)} />
+                  <CommandAction
+                    icon={Waves}
+                    label="Signal Map"
+                    onClick={() => setSignalMapOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Ear}
+                    label="Listening Mode"
+                    onClick={() => setListeningOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Bluetooth}
+                    label="Devices"
+                    onClick={() => setDevicesOpen(true)}
+                  />
+                </div>
+              </CommandGroup>
+              <CommandGroup label="Records & safety">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={History}
+                    label="Reply history"
+                    onClick={() => setHistoryOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Shield}
+                    label="Gate Log"
+                    onClick={() => setGateLogOpen(true)}
+                  />
+                  <CommandAction
+                    icon={ScrollText}
+                    label="Logs"
+                    onClick={() => setLogsOpen(true)}
                   />
                   <CommandAction
                     icon={Clapperboard}
@@ -2899,20 +2969,20 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Office Analytics"
                     onClick={() => setAnalyticsOpen(true)}
                   />
+                </div>
+              </CommandGroup>
+              <CommandGroup label="Workshop & study">
+                <div className="avatar-command-box__grid">
+                  <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
                   <CommandAction
-                    icon={Ear}
-                    label="Listening Mode"
-                    onClick={() => setListeningOpen(true)}
+                    icon={FlaskConical}
+                    label="Test Area"
+                    onClick={() => setTestAreaOpen(true)}
                   />
                   <CommandAction
-                    icon={Bluetooth}
-                    label="Devices"
-                    onClick={() => setDevicesOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Smartphone}
-                    label="Phone Bridge — Ghost Protocol One"
-                    onClick={() => void navigate({ to: "/phone-bridge" })}
+                    icon={Network}
+                    label="Anatomy"
+                    onClick={() => setAnatomyOpen(true)}
                   />
                 </div>
               </CommandGroup>
@@ -3089,6 +3159,25 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                 </p>
                 {brainMsg && <p role="status">{brainMsg}</p>}
               </CommandGroup>
+              <CommandGroup label="Connections — APIs & data">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={Globe}
+                    label="Connections — the universal slots"
+                    onClick={() => setConnectionsOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Network}
+                    label="Cloud keys — the lights"
+                    onClick={() => setCloudKeysOpen(true)}
+                  />
+                </div>
+                <p>
+                  Open slots for APIs and data from other websites — fill one and the system can
+                  use it; an empty slot waits, honestly labeled. Values live on the server, never
+                  shown.
+                </p>
+              </CommandGroup>
               <CommandGroup label="On-phone brain — the emergency brain">
                 <PhoneBrainPanel onStatusChange={setPhoneBrainState} />
               </CommandGroup>
@@ -3112,6 +3201,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         onTurn={(turn) => aiRef.current?.speak(turn.outcome)}
       />
       {cloudKeysOpen && <CloudKeysPanel onClose={() => setCloudKeysOpen(false)} />}
+      {connectionsOpen && <ConnectionsPanel onClose={() => setConnectionsOpen(false)} />}
       {labOpen && <LabPanel onClose={() => setLabOpen(false)} />}
       {historyOpen && (
         <ReplyHistoryWindow

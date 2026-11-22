@@ -82,6 +82,9 @@ describe("BuilderPanel", () => {
 
   it("the frames list names every frame, and the self-managed read as their own movers", () => {
     render(<BuilderPanel {...panelProps()} />);
+    // The frames live under their own category head now (the Captain's
+    // categories order) — open it, then the list reads as before.
+    fireEvent.click(screen.getByRole("button", { name: /Stage frames/ }));
     expect(screen.getByText("Anubis medallion")).toBeInTheDocument();
     expect(screen.getByText("Black Hatter medallion")).toBeInTheDocument();
     expect(screen.getByText("Command box (chat)")).toBeInTheDocument();

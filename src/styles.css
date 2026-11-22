@@ -2648,6 +2648,188 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
+
+/* CATEGORIES + SUBCATEGORIES (owner order 2026-11-22): the
+   organization standard — every panel's contents live under a
+   labeled category with a plain open/close head, subcategories
+   inside, one obvious home per thing. No long scrolls. */
+.category-section {
+  border-top: 1px solid #3d5a85;
+  padding-top: 0.55rem;
+}
+.category-section__head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0.3rem 0.2rem;
+  border: 0;
+  background: transparent;
+  color: #ffd75e;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.category-section__head svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+.category-section__head:hover {
+  color: #ffe89a;
+}
+.category-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 0.35rem 0 0.4rem;
+}
+.category-section__hint {
+  margin: 0;
+  color: #cfe1ff;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.category-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.category-sub__title {
+  margin: 0;
+  color: #9fc0ee;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* A GOD POPS UP TO REPORT (owner order 2026-11-22): the Bellwood
+   bubble standard on the Augie stage — cream bubble beside the
+   speaker's head, tail pointing at him, one short line typed
+   slow. The face is a medallion on black, gold ring, like every
+   presence in the house. */
+.god-popup {
+  position: absolute;
+  z-index: 42;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  pointer-events: none;
+  animation: god-popup-in 260ms ease-out;
+}
+@keyframes god-popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.god-popup__who {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  flex: none;
+}
+.god-popup__face {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #d4af37;
+  background: #05070c;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 45%);
+}
+.god-popup__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.god-popup__img--speaking {
+  animation: god-popup-speaking 0.9s ease-in-out infinite alternate;
+}
+@keyframes god-popup-speaking {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.045);
+  }
+}
+.god-popup__name {
+  padding: 0.14rem 0.6rem;
+  border-radius: 999px;
+  background: rgb(5 7 12 / 88%);
+  border: 1px solid #d4af37;
+  color: #ffd75e;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.god-popup__bubble {
+  position: relative;
+  width: 300px;
+  max-width: 62vw;
+  margin-top: 0.9rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 1rem;
+  background: #fffbe8;
+  color: #1a2a33;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 35%);
+  pointer-events: auto;
+}
+.god-popup__bubble p {
+  margin: 0;
+}
+.god-popup__bubble::after {
+  content: "";
+  position: absolute;
+  top: 2.1rem;
+  border: 0.55rem solid transparent;
+}
+.god-popup__bubble--tail-left::after {
+  left: -1.05rem;
+  border-right-color: #fffbe8;
+}
+.god-popup__bubble--tail-right::after {
+  right: -1.05rem;
+  border-left-color: #fffbe8;
+}
+.god-popup__caret {
+  color: #8a6d00;
+}
+.god-popup__dismiss {
+  pointer-events: auto;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-top: 0.4rem;
+  border-radius: 50%;
+  border: 1px solid #d4af37;
+  background: rgb(5 7 12 / 85%);
+  color: #ffd75e;
+  cursor: pointer;
+}
+.god-popup__dismiss svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
 .builder-panel__library {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
@@ -3402,6 +3584,85 @@
 .window-cloud-keys__detail {
   color: oklch(0.65 0.05 205 / 75%);
   font-size: 0.56rem;
+}
+
+/* Connections — the universal API/data slots (owner order
+   2026-11-22): categorized like everything else; bifocal-readable
+   type; a slot's state reads in plain words, values never show. */
+.connections-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.connections-panel__slots {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.connections-panel__slot {
+  border: 1px solid #3d5a85;
+  border-radius: 0.5rem;
+  background: rgb(12 23 41 / 65%);
+  padding: 0.6rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.connections-panel__slot-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.connections-panel__light {
+  flex: none;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+}
+.connections-panel__light--on {
+  background: oklch(0.75 0.18 145);
+  box-shadow: 0 0 8px oklch(0.75 0.18 145 / 70%);
+}
+.connections-panel__light--off {
+  background: oklch(0.55 0.03 230);
+  box-shadow: inset 0 0 0 2px oklch(0.7 0.04 230 / 60%);
+}
+.connections-panel__slot-name {
+  font-weight: 700;
+  color: #ffffff;
+}
+.connections-panel__purpose {
+  margin: 0;
+  color: #e6efff;
+}
+.connections-panel__state {
+  margin: 0;
+  color: #9fc0ee;
+  font-size: 0.8rem;
+}
+.connections-panel__entry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+.connections-panel__entry input {
+  flex: 1 1 12rem;
+  min-height: 2.3rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid #5f7fae;
+  border-radius: 0.4rem;
+  background: #0c1729;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.84rem;
+}
+.connections-panel__note {
+  margin: 0;
+  color: #ffd75e;
+  font-size: 0.8rem;
 }
 
 /* Investigative lab */

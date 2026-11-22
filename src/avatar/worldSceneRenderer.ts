@@ -19,11 +19,10 @@ import { buildPersonPoints, PeopleSim } from "./people";
 import { LABEL_CANVAS_HEIGHT, LABEL_FONT_PX, labelCanvasWidth, labelPlaqueSize } from "./labelPlaque";
 import {
   BACKDROP_IMAGE_OPACITY,
-  BACKDROP_VEIL_OPACITY,
   backdropById,
   backdropPlaneSize,
 } from "./builder/backdrops";
-import type { RoomSurfaces } from "./builder/room";
+import { floorGridVisible, standingFloorImage, type RoomSurfaces } from "./builder/room";
 
 /** Same ground line the SceneManager builds on. */
 const GROUND_Y = -3.2;
@@ -247,6 +246,8 @@ export class WorldSceneManager {
     backdrop: "#f6f2e9",
     backdropImage: null,
     floor: "#93a9c9",
+    floorStyle: "grid",
+    floorImage: null,
     wall: "#aebfd8",
   };
   /** The stage camera's aspect — the backdrop's cover-fit reads it. */
@@ -345,11 +346,12 @@ export class WorldSceneManager {
   }
 
   /**
-   * The Room's only furniture: two grids. The floor grid grounds
-   * Osiris (he stands at the group's ground line); the back-wall grid
-   * gives the white its faint "matrixy" character without ever
-   * becoming a pattern he has to look through. Both are lines, not
-   * points — the one scene in the world not made of sand.
+   * The Room's only furniture: its surfaces. The back wall carries
+   * the grid's faint "matrixy" character or his chosen backdrop
+   * picture at full strength; the floor is the grid, a solid color,
+   * or a picture — his choice, and a chosen color/picture covers
+   * the grid whole (his cover rule). Lines and planes, not points —
+   * the one scene in the world not made of sand.
    */
   private buildRoomSet(): THREE.Group {
     const set = new THREE.Group();
@@ -358,8 +360,11 @@ export class WorldSceneManager {
     // THE BACKDROP PICTURE (Environment Builder): one of the
     // Captain's theme pictures, cover-fit on the back wall — scaled
     // to cover with its aspect intact, overflow cropped, never
-    // stretched — under a veil tinted by the room's backdrop color,
-    // so the art never overpowers the interface (his fit rule).
+    // stretched — and rendered TRUE, at full strength (owner
+    // correction 2026-11-22: the veil that used to hang over it
+    // washed the picture out; the picture itself is the backdrop,
+    // a composed stage scene. The interface's panels are solid and
+    // carry the text; the room carries the art.)
     const backdrop = backdropById(surfaces.backdropImage);
     if (backdrop) {
       // The view the wall must cover: the camera (fov 40, z = 11)
@@ -384,44 +389,79 @@ export class WorldSceneManager {
           material.needsUpdate = true;
         });
       } catch {
-        // No image loading here (test DOMs): the veil and the room
-        // still render; the picture simply never lands.
+        // No image loading here (test DOMs): the room still renders;
+        // the picture simply never lands.
       }
-      const veil = new THREE.Mesh(
-        new THREE.PlaneGeometry(size.w, size.h),
+    }
+    // THE FLOOR (owner order 2026-11-22): the floor is what he
+    // chose — the grid, a solid color, or a picture — and a chosen
+    // color or picture COVERS. His defect, in his words: he set a
+    // floor color and "still saw the grid there — I shouldn't have
+    // saw the grid." So the grid is built only when the grid is the
+    // chosen floor (floorGridVisible); the color floor is an opaque
+    // plane; the picture floor is an opaque cover-fit plane. No
+    // grid lines bleed through either.
+    if (floorGridVisible(surfaces)) {
+      // The grid floor: a quiet tint plane under the grid lines, so
+      // his floor color reads as a floor and not only as lines.
+      const floorPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(36, 36),
         new THREE.MeshBasicMaterial({
-          color: new THREE.Color(surfaces.backdrop),
+          color: new THREE.Color(surfaces.floor),
           transparent: true,
-          opacity: BACKDROP_VEIL_OPACITY,
+          opacity: 0.3,
           depthWrite: false,
         }),
       );
-      veil.position.set(0, size.h / 2, -10.5);
-      veil.name = "living-world-room-backdrop-veil";
-      set.add(veil);
+      floorPlane.rotation.x = -Math.PI / 2;
+      floorPlane.position.y = 0.01;
+      floorPlane.name = "living-world-room-floor";
+      set.add(floorPlane);
+      const floor = new THREE.GridHelper(36, 36, 0xc9a227, new THREE.Color(surfaces.floor));
+      const floorMaterial = floor.material as THREE.Material;
+      floorMaterial.transparent = true;
+      floorMaterial.opacity = 0.32;
+      floorMaterial.depthWrite = false;
+      floor.position.y = 0.02;
+      floor.name = "living-world-room-floor-grid";
+      set.add(floor);
+    } else if (surfaces.floorStyle === "picture" && standingFloorImage(surfaces)) {
+      // The picture floor: cover-fit across the framed floor (the
+      // room's bounds, ROOM_BOUNDS: x ±10.5, z −8.5…2.5), opaque.
+      const floorArt = backdropById(standingFloorImage(surfaces));
+      if (floorArt) {
+        const size = backdropPlaneSize(floorArt, 21.6, 11.6);
+        const material = new THREE.MeshBasicMaterial({ depthWrite: false });
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(size.w, size.h), material);
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.set(0, 0.01, -3);
+        plane.name = "living-world-room-floor-picture";
+        set.add(plane);
+        try {
+          new THREE.TextureLoader().load(floorArt.src, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            material.map = texture;
+            material.needsUpdate = true;
+          });
+        } catch {
+          // No image loading here (test DOMs): the floor simply
+          // never lands; nothing pretends otherwise.
+        }
+      }
+    } else {
+      // The solid color floor: one opaque plane in his color.
+      const floorPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(36, 36),
+        new THREE.MeshBasicMaterial({
+          color: new THREE.Color(surfaces.floor),
+          depthWrite: false,
+        }),
+      );
+      floorPlane.rotation.x = -Math.PI / 2;
+      floorPlane.position.y = 0.01;
+      floorPlane.name = "living-world-room-floor-solid";
+      set.add(floorPlane);
     }
-    // The floor tint: a quiet plane under the grid, so his floor
-    // color reads as a floor and not only as grid lines.
-    const floorPlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(36, 36),
-      new THREE.MeshBasicMaterial({
-        color: new THREE.Color(surfaces.floor),
-        transparent: true,
-        opacity: 0.3,
-        depthWrite: false,
-      }),
-    );
-    floorPlane.rotation.x = -Math.PI / 2;
-    floorPlane.position.y = 0.01;
-    floorPlane.name = "living-world-room-floor";
-    set.add(floorPlane);
-    const floor = new THREE.GridHelper(36, 36, 0xc9a227, new THREE.Color(surfaces.floor));
-    const floorMaterial = floor.material as THREE.Material;
-    floorMaterial.transparent = true;
-    floorMaterial.opacity = 0.32;
-    floorMaterial.depthWrite = false;
-    floor.position.y = 0.02;
-    set.add(floor);
     const wall = new THREE.GridHelper(18, 18, 0xd8b84a, new THREE.Color(surfaces.wall));
     const wallMaterial = wall.material as THREE.Material;
     wallMaterial.transparent = true;

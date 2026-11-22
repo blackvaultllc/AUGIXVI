@@ -5,13 +5,19 @@
  * surface choice and saved with the layout.
  *
  * THE FIT RULE (his binding words): a backdrop must FIT correctly
- * and must NOT overpower the color of the interface. So a backdrop
- * is cover-fit — scaled to cover the stage's back wall with no
- * distortion, cropping overflow, never stretched — and it sits
- * behind everything under a quieting veil, so the interface's own
- * colors, the medallions, and every line of text stay fully
- * readable at his bifocal standard. The art serves the interface,
- * never the other way around.
+ * — cover-fit, scaled to cover the stage's back wall with no
+ * distortion, cropping overflow, never stretched.
+ *
+ * THE PICTURE IS THE BACKDROP (owner correction 2026-11-22, from
+ * his live screen): the first build hung the picture under a
+ * quieting veil, and the veil washed the art out — he could not
+ * see the picture he picked. That is dead. A chosen backdrop now
+ * renders TRUE — full strength, the picture itself, the way a
+ * Street Fighter stage is a composed scene behind the action.
+ * Readability is carried the honest way: the interface's own
+ * panels are solid, so every line of text sits on its own ground
+ * and reads at his bifocal standard no matter what art is behind
+ * the room. The room shows the picture; the panels carry the text.
  *
  * Plain data + the cover-fit math; the renderer and the panel both
  * read this registry. Asset files live in public/stage-backdrops
@@ -100,7 +106,9 @@ export function backdropPlaneSize(
   return { w: viewH * imageAspect, h: viewH };
 }
 
-/** How strongly the veil quiets a backdrop (0–1): art present, interface first. */
-export const BACKDROP_VEIL_OPACITY = 0.42;
-/** The backdrop picture's own opacity under the veil. */
-export const BACKDROP_IMAGE_OPACITY = 0.9;
+/**
+ * The backdrop picture renders at FULL strength (owner correction
+ * 2026-11-22): the picture itself is the backdrop — no veil plane
+ * hangs over it anymore. Pinned by test so the wash cannot return.
+ */
+export const BACKDROP_IMAGE_OPACITY = 1;

@@ -39,6 +39,26 @@ async function getTrapHandler(): Promise<TrapHandler | null> {
   return trapHandlerPromise;
 }
 
+let connectionsBootPromise: Promise<unknown> | undefined;
+
+/**
+ * CONNECTIONS BOOT (local server): the Captain's stored API/data
+ * slot values (Connections area) are applied to the server
+ * process's environment once, lazily, so the plumbing that reads
+ * env names — the brain pipe, the server voice — sees a filled
+ * slot after a restart exactly as it did when he saved it. Where
+ * the store does not exist (the Cloudflare Worker) this is a
+ * no-op; Worker secrets carry the same names there.
+ */
+async function bootConnectionsOnce(): Promise<void> {
+  if (!connectionsBootPromise) {
+    connectionsBootPromise = import("./avatar/connections.server")
+      .then((module) => module.bootConnections())
+      .catch(() => null);
+  }
+  await connectionsBootPromise;
+}
+
 // h3 swallows in-handler throws into a normal 500 Response with body
 // {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
 async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
@@ -76,6 +96,7 @@ export default {
         const trapResponse = await trapHandler.handleTrapRequest(request);
         if (trapResponse) return trapResponse;
       }
+      await bootConnectionsOnce();
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

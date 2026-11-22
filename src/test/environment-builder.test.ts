@@ -131,6 +131,8 @@ describe("environment builder — room surfaces persist like items", () => {
       backdrop: "#101018",
       backdropImage: "egypt-throne",
       floor: "#2a4a7a",
+      floorStyle: "color" as const,
+      floorImage: null,
       wall: "#3a3f4a",
     };
     layouts = withLayoutRoom(layouts, layouts.activeId, setSurfaces(emptyRoom(), surfaces));
