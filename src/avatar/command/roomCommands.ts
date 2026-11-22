@@ -39,7 +39,9 @@ export type RoomTarget =
   | "sandbox"
   | "library"
   | "listening"
-  | "devices";
+  | "devices"
+  | "law-desk"
+  | "office-analytics";
 
 /** Lowercase, single-spaced, no leading slash, no trailing punctuation. */
 function normalizeRoomPhrase(text: string): string {
@@ -153,14 +155,28 @@ const LIBRARY_PATTERNS: readonly RegExp[] = [
 // the window, never from a phrase alone: the phrase opens the window
 // where the state is visible and the arm button lives.
 const LISTENING_PATTERNS: readonly RegExp[] = [
-  /^(?:listening|listening\s+mode)$/,
-  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:listening|listening\s+mode)$/,
+  /^(?:listening|listening\s+mode|wand\s+listening)$/,
+  /^(?:open|show|start)\s+(?:me\s+)?(?:the\s+)?(?:listening|listening\s+mode)$/,
 ];
 
 const DEVICES_PATTERNS: readonly RegExp[] = [
   /^(?:devices|device\s+capabilities)$/,
   /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:devices|device\s+capabilities)$/,
   /^check\s+(?:the\s+)?wi-?fi\s+signals?$/,
+];
+
+// The Law Desk window (learner-build line's Part 11 face): "law",
+// "law desk", "open law desk".
+const LAW_DESK_PATTERNS: readonly RegExp[] = [
+  /^(?:law|law\s+desk)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?law\s+desk$/,
+];
+
+// The Office Analytics window (learner-build line's Part 10 face):
+// "analytics", "office analytics", "department status".
+const OFFICE_ANALYTICS_PATTERNS: readonly RegExp[] = [
+  /^(?:analytics|office\s+analytics|department\s+status)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:office\s+)?analytics$/,
 ];
 
 /**
@@ -192,5 +208,7 @@ export function parseRoomCommand(text: string): RoomTarget | null {
   if (LIBRARY_PATTERNS.some((p) => p.test(phrase))) return "library";
   if (LISTENING_PATTERNS.some((p) => p.test(phrase))) return "listening";
   if (DEVICES_PATTERNS.some((p) => p.test(phrase))) return "devices";
+  if (LAW_DESK_PATTERNS.some((p) => p.test(phrase))) return "law-desk";
+  if (OFFICE_ANALYTICS_PATTERNS.some((p) => p.test(phrase))) return "office-analytics";
   return null;
 }

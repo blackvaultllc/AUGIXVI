@@ -5,7 +5,6 @@ import {
   pitProblems,
   raceQuestion,
   reviewTablesForLap,
-  sprintQuestion,
   strategyFor,
   type Rng,
 } from "@/avatar/learner/racing/questions";
@@ -120,14 +119,5 @@ describe("pit stop strategies teach the trick", () => {
     const problems = pitProblems(1, mulberry32(11));
     expect(problems).toHaveLength(3);
     expect(new Set(problems.map((q) => `${q.a}x${q.b}`)).size).toBe(3);
-  });
-});
-
-describe("sprint questions", () => {
-  it("are always valid multiplication questions", () => {
-    const rng = mulberry32(3);
-    for (let i = 0; i < 100; i++) {
-      expectValidQuestion(sprintQuestion(rng));
-    }
   });
 });

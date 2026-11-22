@@ -371,6 +371,54 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     example: "open the library",
   },
   {
+    command: "/law",
+    description:
+      "Open the Law Desk — ask a law question and get an answer grounded only in the library's books, with the source cited after it. Knowledge from books, not a licensed attorney. If no dedicated law book has landed yet, the desk says so and cites the general books instead.",
+    category: "tools",
+    voice: true,
+    example: "open the law desk",
+  },
+  {
+    command: "/analytics",
+    description:
+      "Open Office Analytics — every department's real status (Security, Knowledge, Brain, Academy, Systems, Finance, Social Media), read live from the sources inside this app. A department with no in-app source reads UNAVAILABLE, never invented activity.",
+    category: "tools",
+    voice: true,
+    example: "open office analytics",
+  },
+  {
+    command: "/anatomy",
+    description:
+      "Open Augi Anatomy — the visual map of Augie's core brain schema with the deep tuning settings in one place, plus named configuration versions you can save ('this version right here') and restore. Operator-only; keys and credentials are never settings and never appear there.",
+    category: "tools",
+    voice: true,
+    example: "open anatomy",
+  },
+  {
+    command: "/tests",
+    description:
+      "Open the Test Area — Domenick's compare-and-contrast board: every ability (voice in, voice out, vision, picture analysis, library, rooms, settings persistence, Pulse assets, watch, wand, cube) with a runnable end-to-end test. A verdict shows WORKS only with a real run behind it, ages to STALE after a day, and failures carry their reasons into the Logs.",
+    category: "tools",
+    voice: true,
+    example: "open the test area",
+  },
+  {
+    command: "/listening",
+    description:
+      "Open Listening Mode (the wand): Augie records the conversation on this device from the moment it is turned on, shows its LISTENING indicator the whole time, stays silent, and wakes only when the operator says 'Osiris' — then the recap of what was said is one tap away. Sessions save locally in the data core only.",
+    category: "tools",
+    voice: true,
+    example: "open listening mode",
+  },
+  {
+    command: "/logs",
+    description:
+      "Open the Logs window — the service journal with the reason for every cough, the gate log, and Augie's event log (update checks, repair proposals, test results) in one place. Checking for updates is automatic; applying one is recorded and runs through the deploy path, never silently.",
+    category: "tools",
+    voice: true,
+    example: "open the logs",
+  },
+  {
     command: "/beach",
     description:
       "Change the living world around Augie to the Beach — sand, palms reshaped from his own pine code, and particle waves that roll. He stays himself; only the world changes.",

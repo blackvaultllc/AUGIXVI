@@ -149,24 +149,6 @@ export function raceQuestion(lap: number, rng: Rng = Math.random, avoidKey?: str
   return questionFromTables(currentTablesForLap(lap), rng, avoidKey);
 }
 
-/** Sprint mode draws from every family, weighted toward the friendly
- *  ones a young racer knows best. */
-export function sprintQuestion(rng: Rng = Math.random, avoidKey?: string): MathQuestion {
-  const pool = [
-    ...FAMILY_STAGES[0]!,
-    ...FAMILY_STAGES[0]!,
-    ...FAMILY_STAGES[0]!,
-    ...FAMILY_STAGES[0]!,
-    ...FAMILY_STAGES[1]!,
-    ...FAMILY_STAGES[1]!,
-    ...FAMILY_STAGES[1]!,
-    ...FAMILY_STAGES[2]!,
-    ...FAMILY_STAGES[2]!,
-    ...FAMILY_STAGES[3]!,
-  ];
-  return questionFromTables(pool, rng, avoidKey);
-}
-
 /**
  * The strategy trick behind a fact, in kid words. The decomposition
  * stops one step short of the final answer — he still gets to land

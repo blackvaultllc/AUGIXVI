@@ -10,9 +10,11 @@ import * as THREE from "three";
 import {
   Activity,
   ArrowUp,
+  BarChart3,
   Bluetooth,
   BookOpen,
   Box,
+  Brain,
   Bug,
   Building2,
   Clapperboard,
@@ -21,20 +23,22 @@ import {
   Ear,
   Expand,
   Eye,
+  FlaskConical,
   Gamepad2,
   Globe,
   History,
-  ScrollText,
-  FlaskConical,
   Network,
   Laptop,
   LogOut,
   Plane,
   Presentation,
   Save,
+  Scale,
   ScanSearch,
+  ScrollText,
   Shield,
   Shrink,
+  Smartphone,
   Sparkles,
   Square,
   Sun,
@@ -101,6 +105,9 @@ import {
   scanWifiEnvironment,
 } from "./devices/presence";
 import { loadRegistry } from "./devices/deviceRegistry";
+import { LawWindow } from "./LawWindow";
+import { OfficeAnalyticsWindow } from "./OfficeAnalyticsWindow";
+import { SpeakerStoresPanel } from "./SpeakerStoresPanel";
 import { parseRoomCommand } from "./command/roomCommands";
 import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
@@ -144,6 +151,7 @@ import {
 import { createHighlight, createLocalMemory, findLocalAnswer, splitDocument } from "./localMemory";
 import { createLocalEar, type LocalEar } from "./localEar";
 import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
+import { TrustedDevicesPanel } from "./TrustedDevicesPanel";
 import {
   createVoiceGateVerifier,
   loadVoiceCalibrationPrefs,
@@ -178,7 +186,7 @@ type Settings = RenderSettings & { sensitivity: number; cooldownMs: number };
 type WorldScreen = "space" | "entering" | "live" | "returning";
 const DEFAULTS: Settings = {
   maxParticles: 120000,
-  bloom: 1.1,
+  bloom: 0.25,
   glitch: 0.4,
   theme: "cyan",
   customColor: "#22d3ee",
@@ -401,6 +409,11 @@ export function AvatarStage({
       clearInterval(timer);
     };
   }, []);
+  // LAW DESK + OFFICE ANALYTICS WINDOWS (learner-build line's Parts
+  // 11/10 faces): their own windows beside this line's Library-law door
+  // and Departments window. Open from Tools → Rooms and by phrase.
+  const [lawOpen, setLawOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
@@ -766,6 +779,9 @@ export function AvatarStage({
         // Part 27: the analytic WINDOW is the primary face now; the
         // /avatar/analyze page remains as the secondary full page.
         setAnalyzeOpen(true);
+        say(
+          "Picture Analysis is open in its window — scan the room or pick a picture, and the findings land beside the picture.",
+        );
         return;
       }
       if (room === "game") {
@@ -841,6 +857,20 @@ export function AvatarStage({
         setListeningOpen(true);
         say(
           "Listening Mode is open — arm it there and I record silently on this machine until you say Osiris. The indicator stays visible the whole time.",
+        );
+        return;
+      }
+      if (room === "law-desk") {
+        setLawOpen(true);
+        say(
+          "Law Desk is open — law answers from the books on this machine, cited. Knowledge, not a licensed attorney.",
+        );
+        return;
+      }
+      if (room === "office-analytics") {
+        setAnalyticsOpen(true);
+        say(
+          "Office Analytics is open — every department's real status, or an honest unavailable where no source exists.",
         );
         return;
       }
@@ -1712,6 +1742,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setLibraryOpen(true)}
                   />
                   <CommandAction
+                    icon={Scale}
+                    label="Law Desk"
+                    onClick={() => setLawOpen(true)}
+                  />
+                  <CommandAction
+                    icon={BarChart3}
+                    label="Office Analytics"
+                    onClick={() => setAnalyticsOpen(true)}
+                  />
+                  <CommandAction
                     icon={Ear}
                     label="Listening Mode"
                     onClick={() => setListeningOpen(true)}
@@ -1720,6 +1760,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     icon={Bluetooth}
                     label="Devices"
                     onClick={() => setDevicesOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Smartphone}
+                    label="Phone Bridge — Ghost Protocol One"
+                    onClick={() => void navigate({ to: "/phone-bridge" })}
                   />
                 </div>
               </CommandGroup>
@@ -1899,6 +1944,12 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
               <CommandGroup label="Voice calibration — only my operator's voice">
                 <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
               </CommandGroup>
+              <CommandGroup label="Trusted devices — confirmed by full sign-in">
+                <TrustedDevicesPanel />
+              </CommandGroup>
+              <CommandGroup label="Other voices — kept separate, never merged (Part 13)">
+                <SpeakerStoresPanel />
+              </CommandGroup>
             </div>
           )}
         </CommandBox>
@@ -1930,6 +1981,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {captainsLogOpen && <CaptainsLogWindow onClose={() => setCaptainsLogOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
+      {lawOpen && <LawWindow onClose={() => setLawOpen(false)} />}
+      {analyticsOpen && <OfficeAnalyticsWindow onClose={() => setAnalyticsOpen(false)} />}
       {listeningOpen && <ListeningWindow onClose={() => setListeningOpen(false)} />}
       {listeningArmed && !listeningOpen && (
         <button
