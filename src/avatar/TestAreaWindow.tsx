@@ -27,6 +27,12 @@ import {
 import { buildCaptureBundle, captureFilename } from "./capture";
 import { createCoreTransport, recallFromCore } from "./coreLinkClient";
 import { askCloud } from "./cloudBrain";
+import {
+  PHONE_BRAIN_PROVIDER,
+  askPhoneBrain,
+  getPhoneBrainStatus,
+  phoneBrainSupport,
+} from "./phoneBrain";
 
 type Probe = {
   id: string;
@@ -221,7 +227,7 @@ const PROBES: Probe[] = [
   },
   {
     id: "provider-failover",
-    label: "Provider failover (Groq → Gemini → OpenRouter → Ollama → simulated)",
+    label: "Provider failover (Groq → Gemini → OpenRouter → Ollama → on-phone → simulated)",
     run: async () => {
       try {
         const result = await askCloud("ping — reply with one word");
@@ -234,6 +240,37 @@ const PROBES: Probe[] = [
         );
       } catch (e) {
         return fails(`Failover probe failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+  },
+  {
+    id: "phone-brain",
+    label: "On-phone brain (small brain inside this device)",
+    run: async () => {
+      // This probe reports what THIS device can do — on a desktop
+      // test browser it may read differently than on the operator's
+      // phone, and it says so rather than borrowing the phone's result.
+      try {
+        const support = await phoneBrainSupport();
+        if (!support.webgpu) {
+          return fails(
+            "This browser/device reports no WebGPU adapter — the on-phone brain cannot run here. On the operator's phone it reports its own result.",
+          );
+        }
+        const status = await getPhoneBrainStatus();
+        if (status !== "ready") {
+          return fails(
+            "No on-phone model is downloaded on this device yet — Settings → On-phone brain is where it lands.",
+          );
+        }
+        const answer = await askPhoneBrain("Reply with exactly one word: ready");
+        return answer
+          ? works(
+              `The on-phone brain generated on this device ("${answer.slice(0, 60)}") — provider "${PHONE_BRAIN_PROVIDER}", no network involved.`,
+            )
+          : fails("A model is cached on this device, but generation failed here.");
+      } catch (e) {
+        return fails(`On-phone brain probe failed: ${e instanceof Error ? e.message : String(e)}`);
       }
     },
   },

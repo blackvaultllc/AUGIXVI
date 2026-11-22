@@ -161,6 +161,14 @@ import { createHighlight, createLocalMemory, findLocalAnswer, splitDocument } fr
 import { createLocalEar, type LocalEar } from "./localEar";
 import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
 import { TrustedDevicesPanel } from "./TrustedDevicesPanel";
+import { PhoneBrainPanel } from "./PhoneBrainPanel";
+import {
+  PHONE_BRAIN_PROVIDER,
+  askPhoneBrain,
+  getPhoneBrainStatus,
+  phoneBrainStatusLabel,
+  type PhoneBrainStatus,
+} from "./phoneBrain";
 import {
   createVoiceGateVerifier,
   loadVoiceCalibrationPrefs,
@@ -348,6 +356,19 @@ export function AvatarStage({
   // core store answers. The old Supabase REST ping could never succeed
   // with the publishable key and read NOT CONFIGURED forever; it is gone.
   const [coreStatus, setCoreStatus] = useState<CoreStatus>("not-configured");
+  // ON-PHONE BRAIN (owner order 2026-11-22): the HUD line beside the
+  // core status — earned from WebLLM's cache check on this device,
+  // refreshed when Settings downloads or deletes a model.
+  const [phoneBrainState, setPhoneBrainState] = useState<PhoneBrainStatus | null>(null);
+  useEffect(() => {
+    let active = true;
+    void getPhoneBrainStatus().then((status) => {
+      if (active) setPhoneBrainState(status);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
   const responseSourceRef = useRef("awaiting response");
   const navigate = useNavigate();
   // REPLY HISTORY: every line Augie speaks is logged (persisted on this
@@ -1168,6 +1189,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         if (cloud.answer) return { answer: cloud.answer, provider: cloud.provider };
         return null;
       },
+      // ON-PHONE BRAIN (owner order 2026-11-22): the latched-offline
+      // door to the small brain inside this device. (In the unlatched
+      // path the same leg is tried inside askCloud, below Ollama and
+      // above simulated.) When it answers, its provider name —
+      // "On-phone brain (small)" — is what the reply is labeled with.
+      onPhoneFallback: async (text) => {
+        const answer = await askPhoneBrain(text);
+        return answer ? { answer, provider: PHONE_BRAIN_PROVIDER } : null;
+      },
       findOfflineAnswer: (text) => {
         const memory = memoryRef.current;
         if (!memory) return null;
@@ -1666,6 +1696,9 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       </div>
       <div className="avatar-hud avatar-hud--tl">
         <div className="avatar-hud__db-status">CORE: {coreStatusLabel(coreStatus)}</div>
+        <div className="avatar-hud__db-status">
+          PHONE BRAIN: {phoneBrainState ? phoneBrainStatusLabel(phoneBrainState) : "CHECKING…"}
+        </div>
         <div>
           {perf.fps} FPS {!clearScreen && `· ${(perf.particles / 1000).toFixed(0)}K PTS`}
         </div>
@@ -2052,6 +2085,9 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   address — home Wi-Fi or Tailscale — and Augie answers from the computer.
                 </p>
                 {brainMsg && <p role="status">{brainMsg}</p>}
+              </CommandGroup>
+              <CommandGroup label="On-phone brain — the emergency brain">
+                <PhoneBrainPanel onStatusChange={setPhoneBrainState} />
               </CommandGroup>
               <CommandGroup label="Voice calibration — only my operator's voice">
                 <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />

@@ -242,3 +242,56 @@ describe("Ollama AI speech notifications", () => {
     ai.dispose();
   });
 });
+
+describe("fallback provider naming + the on-phone leg", () => {
+  it("names the cloud provider that answered — never a generic label", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("brain unreachable")));
+    const voice = { speak: vi.fn(), stop: vi.fn() };
+    const onResponseSource = vi.fn();
+    const ai = attachOllamaAI(new AvatarBridge(), {
+      voice,
+      onResponseSource,
+      cloudFallback: async () => ({ answer: "cloud answer", provider: "Groq" }),
+    });
+
+    await expect(ai.handleText("Hello")).resolves.toBe("cloud answer");
+    expect(onResponseSource).toHaveBeenLastCalledWith("Groq");
+    ai.dispose();
+  });
+
+  it("in the latched offline state, the on-phone brain answers and is named", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("brain unreachable")));
+    const voice = { speak: vi.fn(), stop: vi.fn() };
+    const onResponseSource = vi.fn();
+    const onPhoneFallback = vi.fn(async () => ({
+      answer: "phone answer",
+      provider: "On-phone brain (small)",
+    }));
+    const ai = attachOllamaAI(new AvatarBridge(), { voice, onResponseSource, onPhoneFallback });
+
+    // First message latches offline (nothing else can answer yet).
+    await ai.handleText("First request");
+    expect(ai.isOffline()).toBe(true);
+
+    // Second message: saved memory has nothing, so the on-phone leg —
+    // which the latched path would otherwise never reach — answers.
+    await expect(ai.handleText("Second request")).resolves.toBe("phone answer");
+    expect(onPhoneFallback).toHaveBeenCalledWith("Second request");
+    expect(onResponseSource).toHaveBeenLastCalledWith("On-phone brain (small)");
+    ai.dispose();
+  });
+
+  it("when the on-phone leg also has nothing, offline behavior is unchanged", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("brain unreachable")));
+    const voice = { speak: vi.fn(), stop: vi.fn() };
+    const ai = attachOllamaAI(new AvatarBridge(), {
+      voice,
+      onPhoneFallback: async () => null,
+    });
+
+    await ai.handleText("First request");
+    await expect(ai.handleText("Second request")).resolves.toBe("");
+    expect(ai.isOffline()).toBe(true);
+    ai.dispose();
+  });
+});
