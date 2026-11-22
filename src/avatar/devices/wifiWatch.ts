@@ -40,11 +40,29 @@ export type WatcherView = {
   watchedSsids: string[];
 };
 
+/** Which scanner reported a sighting (Part 31 — the signal map's provenance). */
+export type SightingSource = "parrot-watcher" | "phone";
+
+/**
+ * One present network WITH its provenance: which scanner saw it and
+ * when that scanner's report was made. The merged `networks` list
+ * below deliberately stays source-less for the presence pipeline;
+ * this detail list is what the Signal Map shows, so a sighting is
+ * never presented without the scanner that actually reported it.
+ */
+export type SightingDetail = SightingNetwork & {
+  source: SightingSource;
+  /** Epoch ms of the report this sighting came from. */
+  seenAt: number;
+};
+
 /** The full answer of GET /api/devices/scan-state. */
 export type ScanStateView = {
   watcher: WatcherView | null;
   /** Watched networks present within the grace window. */
   networks: SightingNetwork[];
+  /** Present networks with per-scanner provenance (Part 31). */
+  sightings: SightingDetail[];
   graceMs: number;
 };
 
@@ -164,8 +182,33 @@ export function buildScanState(
       presentNetworks(input.sightings, now),
       presentNetworks(input.phoneSightings ?? null, now),
     ),
+    sightings: mergeSightingDetails(
+      detailSightings(input.sightings, "parrot-watcher", now),
+      detailSightings(input.phoneSightings ?? null, "phone", now),
+    ),
     graceMs: WATCH_GRACE_MS,
   };
+}
+
+/** One report's present networks, stamped with their scanner + report time. */
+function detailSightings(
+  report: SightingsReport | null,
+  source: SightingSource,
+  now: number,
+): SightingDetail[] {
+  return presentNetworks(report, now).map((net) => ({ ...net, source, seenAt: report!.at }));
+}
+
+/**
+ * Union of two detail lists. A network seen by both scanners keeps
+ * BOTH entries — provenance is the point; nothing is merged away.
+ * Sorted newest first.
+ */
+export function mergeSightingDetails(
+  a: SightingDetail[],
+  b: SightingDetail[],
+): SightingDetail[] {
+  return [...a, ...b].sort((x, y) => y.seenAt - x.seenAt);
 }
 
 /** Union of two present-network lists; per SSID the stronger rssi wins. */

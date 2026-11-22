@@ -82,6 +82,7 @@ import { ArCubeWindow } from "./ArCubeWindow";
 import { PulseWindow } from "./PulseWindow";
 import { AnalyticWindow } from "./AnalyticWindow";
 import { GateLogWindow } from "./GateLogWindow";
+import { SignalMapWindow } from "./SignalMapWindow";
 import { LogsWindow } from "./LogsWindow";
 import { TestAreaWindow } from "./TestAreaWindow";
 import { AnatomyWindow } from "./AnatomyWindow";
@@ -348,6 +349,7 @@ export function AvatarStage({
   // order 2026-11-21 — "Honeypot city"). Opens from Tools → Rooms and
   // from "open gate log" / "honeypot".
   const [gateLogOpen, setGateLogOpen] = useState(false);
+  const [signalMapOpen, setSignalMapOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [testAreaOpen, setTestAreaOpen] = useState(false);
   const [anatomyOpen, setAnatomyOpen] = useState(false);
@@ -759,6 +761,11 @@ export function AvatarStage({
       if (room === "gate-log") {
         setGateLogOpen(true);
         say("Gate log is open — every recorded knock on the gate, newest first.");
+        return;
+      }
+      if (room === "signal-map") {
+        setSignalMapOpen(true);
+        say("Signal map is open — what the core's scanners report, registered and unknown.");
         return;
       }
       if (room === "captains-log") {
@@ -1631,6 +1638,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Gate Log"
                     onClick={() => setGateLogOpen(true)}
                   />
+                  <CommandAction
+                    icon={Waves}
+                    label="Signal Map"
+                    onClick={() => setSignalMapOpen(true)}
+                  />
                   <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
                   <CommandAction
                     icon={ScrollText}
@@ -1868,6 +1880,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
       {analyzeOpen && <AnalyticWindow onClose={() => setAnalyzeOpen(false)} />}
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
+      {signalMapOpen && <SignalMapWindow onClose={() => setSignalMapOpen(false)} />}
       {logsOpen && <LogsWindow onClose={() => setLogsOpen(false)} />}
       {testAreaOpen && <TestAreaWindow onClose={() => setTestAreaOpen(false)} />}
       {anatomyOpen && <AnatomyWindow onClose={() => setAnatomyOpen(false)} />}

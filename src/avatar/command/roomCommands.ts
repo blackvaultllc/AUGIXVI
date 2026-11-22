@@ -30,6 +30,7 @@ export type RoomTarget =
   | "my-cube"
   | "pulse"
   | "gate-log"
+  | "signal-map"
   | "logs"
   | "test-area"
   | "anatomy"
@@ -99,6 +100,11 @@ const GATE_LOG_PATTERNS: readonly RegExp[] = [
   /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:gate\s+log|honeypot)$/,
 ];
 
+const SIGNAL_MAP_PATTERNS: readonly RegExp[] = [
+  /^(?:signal\s+map|signals)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?signal\s+map$/,
+];
+
 const CAPTAINS_LOG_PATTERNS: readonly RegExp[] = [
   /^(?:captain'?s\s+log|video\s+(?:log|journal))$/,
   /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:captain'?s\s+log|video\s+(?:log|journal))$/,
@@ -166,6 +172,7 @@ export function parseRoomCommand(text: string): RoomTarget | null {
   if (REPLY_HISTORY_PATTERNS.some((p) => p.test(phrase))) return "reply-history";
   if (PULSE_PATTERNS.some((p) => p.test(phrase))) return "pulse";
   if (GATE_LOG_PATTERNS.some((p) => p.test(phrase))) return "gate-log";
+  if (SIGNAL_MAP_PATTERNS.some((p) => p.test(phrase))) return "signal-map";
   if (LOGS_PATTERNS.some((p) => p.test(phrase))) return "logs";
   if (TEST_AREA_PATTERNS.some((p) => p.test(phrase))) return "test-area";
   if (ANATOMY_PATTERNS.some((p) => p.test(phrase))) return "anatomy";
