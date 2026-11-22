@@ -157,8 +157,10 @@ describe("the Room — on the stage", () => {
     expect(manager.particleCount).toBe(0);
     const set = scene.getObjectByName("living-world-room");
     expect(set).toBeDefined();
-    // Floor grid + back-wall grid — two line sets, nothing else.
-    expect(set!.children.length).toBe(2);
+    // Floor tint plane (Environment Builder surfaces, 2026-11-22) +
+    // floor grid + back-wall grid — and no citizens, ever.
+    expect(set!.children.length).toBe(3);
+    expect(scene.getObjectByName("living-world-room-floor")).toBeDefined();
 
     manager.setScene("office");
     expect(scene.getObjectByName("living-world-room")).toBeUndefined();
