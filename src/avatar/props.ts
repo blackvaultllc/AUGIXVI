@@ -21,8 +21,10 @@ void main(){
   vec2 c = gl_PointCoord - 0.5; float r = length(c); if (r > 0.5) discard;
   float a = smoothstep(0.5, 0.0, r) * (0.25 + 0.75 * vA);
   vec3 col = mix(uColB, uColA, 0.5 + 0.5 * sin(uTime * 2.0 + vRand * 9.0)) * uGlow;
-  // uLight: the white Room's un-premultiplied form (see AvatarRenderer).
-  gl_FragColor = vec4(col * mix(a, 1.0, uLight), a);
+  // uLight: the white Room's un-premultiplied, fattened-alpha form
+  // (see AvatarRenderer's body shader for the reasoning).
+  float alphaOut = mix(a, clamp(a * 1.8, 0.0, 1.0), uLight);
+  gl_FragColor = vec4(col * mix(a, 1.0, uLight), alphaOut);
 }`;
 
 export function makeProp(points: Float32Array, scatterRadius: number) {

@@ -1608,11 +1608,12 @@
   object-fit: cover;
 }
 /* ANUBIS AT COMMAND (owner order 2026-11-22): the command face at
-   top-center of the stage — a living vector presence, gold on deep
-   blue, sized to be seen across the room and contained enough to
-   never own the screen. Its life is state-driven from the stage
-   (AnubisPresence.tsx): slow blinks, a jaw that moves only while
-   Augie speaks, ears and ring attending while the ear is open. */
+   top-center of the stage — Khadija's chosen portrait in a circular
+   black medallion, sized to be seen across the room and contained
+   enough to never own the screen. Its life is state-driven from the
+   stage (AnubisPresence.tsx): the medallion breathes, its ring
+   attends while the ear is open, and the portrait pulses only while
+   Augie speaks. */
 .avatar-stage .anubis-presence {
   position: absolute;
   top: max(0.85rem, env(safe-area-inset-top));
@@ -1639,10 +1640,16 @@
     0 0 0 1px rgb(212 175 55 / 35%);
   animation: anubis-bob 7s ease-in-out infinite;
 }
-.anubis-presence__svg {
+.anubis-presence__img {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
+  user-select: none;
+}
+.anubis-presence--speaking .anubis-presence__img {
+  animation: anubis-speak 0.62s ease-in-out infinite alternate;
 }
 .anubis-presence--connecting .anubis-presence__face {
   opacity: 0.55;
@@ -1678,27 +1685,17 @@
   font-size: 0.56rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgb(243 210 122 / 62%);
+  color: #f3d27a;
 }
-.anubis-lid {
-  transform: scaleY(0);
-  transform-box: fill-box;
-  transform-origin: 50% 0%;
-  animation: anubis-blink 5.4s ease-in-out infinite;
-}
-.anubis-ear {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  transition: transform 0.45s ease;
-}
-.anubis-presence--listening .anubis-ear--left {
-  transform: rotate(-3.5deg);
-}
-.anubis-presence--listening .anubis-ear--right {
-  transform: rotate(3.5deg);
-}
-.anubis-presence--speaking .anubis-jaw {
-  animation: anubis-talk 0.3s ease-in-out infinite alternate;
+@keyframes anubis-speak {
+  from {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  to {
+    transform: scale(1.025);
+    filter: brightness(1.1);
+  }
 }
 @keyframes anubis-bob {
   0%,
@@ -1721,27 +1718,6 @@
       0 10px 28px rgb(10 20 40 / 28%),
       0 0 0 2px rgb(212 175 55 / 60%),
       0 0 18px rgb(212 175 55 / 30%);
-  }
-}
-@keyframes anubis-blink {
-  0%,
-  91%,
-  100% {
-    transform: scaleY(0);
-  }
-  94.5% {
-    transform: scaleY(1);
-  }
-  97.5% {
-    transform: scaleY(0);
-  }
-}
-@keyframes anubis-talk {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(1.6px);
   }
 }
 /* THE LIGHT STAGE (owner order 2026-11-22): while the white Room is
@@ -2116,6 +2092,295 @@
   margin-left: auto;
   color: oklch(0.65 0.05 205 / 70%);
   font-size: 0.54rem;
+}
+
+/* COMMAND BOX READABILITY PASS (owner correction 2026-11-22): he
+   wears bifocals and could not read the box or find its controls.
+   These rules deliberately override the dimmer stage-theme styling
+   above in every box state: a solid near-black surface, a clear gold
+   frame, near-white words, larger thread/input type, and bright
+   controls on visible button faces. No dim gray-teal text remains in
+   the Command box. */
+.avatar-command-box {
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: min(76vh, 36rem);
+  padding: 0.7rem;
+  border: 2px solid #d4af37;
+  background: #08111f;
+  box-shadow: 0 16px 44px rgb(0 0 0 / 42%);
+  backdrop-filter: none;
+  color: #f8fbff;
+}
+.avatar-command-box--minimized {
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 0.5rem 0.65rem;
+}
+.avatar-command-box__grip {
+  min-height: 2.75rem;
+  gap: 0.55rem;
+  color: #ffd75e;
+}
+.avatar-command-box__grip > svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.avatar-command-box .augie-presence {
+  border: 2px solid #d4af37;
+}
+.avatar-command-box__title {
+  color: #ffd75e;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+.avatar-command-box__window-button,
+.avatar-command-box__menu-button {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border: 1px solid #8fb2e8;
+  border-radius: 0.45rem;
+  background: #20365f;
+  color: #ffffff;
+}
+.avatar-command-box__window-button {
+  padding: 0.5rem;
+}
+.avatar-command-box__window-button svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  stroke-width: 2.4;
+}
+.avatar-command-box__menu-button {
+  gap: 0.45rem;
+  padding: 0.5rem 0.7rem;
+  color: #ffffff;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.avatar-command-box__menu-button svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.4;
+}
+.avatar-command-box__window-button:hover,
+.avatar-command-box__menu-button:hover {
+  border-color: #ffd75e;
+  background: #2b4a7d;
+  color: #ffd75e;
+}
+.avatar-command-box__response {
+  padding: 0.6rem 0.7rem;
+  border-color: #5f7fae;
+  background: #101d33;
+  color: #ffffff;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  max-height: 7rem;
+}
+.avatar-command-box__response-source,
+.avatar-command-box__user-label,
+.avatar-command-box__thread-who {
+  color: #ffd75e;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.avatar-command-box__user-line {
+  border-bottom-color: #5f7fae;
+  color: #ffffff;
+}
+.avatar-command-box__tabs {
+  gap: 0.4rem;
+  border-bottom-color: #5f7fae;
+}
+.avatar-command-box__tab {
+  min-height: 2.3rem;
+  padding: 0.45rem 0.65rem;
+  border-color: #718db8;
+  background: #14243f;
+  color: #eef4ff;
+  font-size: 0.73rem;
+  font-weight: 600;
+}
+.avatar-command-box__tab svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: #ffd75e;
+  stroke-width: 2.3;
+}
+.avatar-command-box__tab[aria-selected="true"] {
+  border-color: #ffd75e;
+  background: #2b4a7d;
+  color: #ffd75e;
+}
+.avatar-command-box__panel {
+  color: #f8fbff;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.avatar-command-box__thread-toggle {
+  min-height: 2.75rem;
+  padding: 0.6rem 0.7rem;
+  border-color: #8fb2e8;
+  background: #20365f;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.avatar-command-box__thread-toggle svg,
+.avatar-command-box__machinery-toggle svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  stroke-width: 2.3;
+}
+.avatar-command-box__thread {
+  padding: 0.6rem 0.7rem;
+  border-color: #5f7fae;
+  background: #0c1729;
+  color: #ffffff;
+  font-size: 0.94rem;
+  line-height: 1.58;
+}
+.avatar-command-box__thread-entry {
+  border-bottom-color: #3d5a85;
+}
+.avatar-command-box__thread-q {
+  color: #cfe1ff;
+}
+.avatar-command-box__thread-a {
+  color: #ffffff;
+}
+.avatar-command-box__thread-empty {
+  color: #dbe7fa;
+}
+.avatar-command-box__group h3 {
+  color: #ffd75e;
+  font-size: 0.7rem;
+}
+.avatar-command-box__action {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.6rem;
+  border-color: #718db8;
+  background: #14243f;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.avatar-command-box__action svg {
+  width: 1rem;
+  height: 1rem;
+  color: #ffd75e;
+  stroke-width: 2.3;
+}
+.avatar-command-box__action:hover:not(:disabled) {
+  border-color: #ffd75e;
+  background: #2b4a7d;
+}
+.avatar-command-box__form {
+  gap: 0.5rem;
+}
+.avatar-command-box__input {
+  min-height: 2.9rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #8fb2e8;
+  background: #0c1729;
+  color: #ffffff;
+  caret-color: #ffd75e;
+  font-size: 0.9rem;
+}
+.avatar-command-box__input::placeholder {
+  color: #b9cdea;
+  opacity: 1;
+}
+.avatar-command-box__input:focus {
+  border-color: #ffd75e;
+  outline: 2px solid rgb(255 215 94 / 55%);
+  outline-offset: 1px;
+}
+.avatar-command-box__icon-button,
+.avatar-command-box__send {
+  width: 2.9rem;
+  height: 2.9rem;
+  flex: none;
+  padding: 0.65rem;
+  border-color: #8fb2e8;
+  background: #20365f;
+  color: #ffffff;
+}
+.avatar-command-box__icon-button svg,
+.avatar-command-box__send svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  stroke-width: 2.4;
+}
+.avatar-command-box__send:hover:not(:disabled),
+.avatar-command-box__icon-button:hover:not(:disabled) {
+  border-color: #ffd75e;
+  background: #2b4a7d;
+  color: #ffd75e;
+}
+.avatar-command-box__icon-button[aria-label="Stop voice input"] {
+  border-color: #ffd75e;
+  background: #6d5200;
+  color: #ffd75e;
+}
+.avatar-command-box__send:disabled,
+.avatar-command-box__action:disabled {
+  opacity: 0.58;
+}
+.avatar-command-box__menu {
+  border: 2px solid #d4af37;
+  background: #08111f;
+  box-shadow: 0 16px 44px rgb(0 0 0 / 48%);
+}
+.avatar-command-box__menu-item {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.6rem;
+  color: #ffffff;
+}
+.avatar-command-box__menu-item[aria-selected="true"] {
+  background: #2b4a7d;
+}
+.avatar-command-box__menu-item code {
+  color: #ffd75e;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.avatar-command-box__menu-item span {
+  color: #e6efff;
+  font-size: 0.74rem;
+}
+.avatar-command-doc__intro {
+  color: #e6efff;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+.avatar-command-doc__section h3 {
+  color: #ffd75e;
+  font-size: 0.7rem;
+}
+.avatar-command-doc__row {
+  border-bottom-color: #3d5a85;
+}
+.avatar-command-doc__row dt code {
+  color: #ffd75e;
+  font-size: 0.74rem;
+}
+.avatar-command-doc__row dd {
+  color: #f8fbff;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+.avatar-command-doc__example {
+  color: #cfe1ff;
+}
+.avatar-command-doc__limits {
+  color: #ffb59f;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+.avatar-command-box__hotkey {
+  color: #cfe1ff;
+  font-size: 0.68rem;
 }
 
 /* ==========================================================================

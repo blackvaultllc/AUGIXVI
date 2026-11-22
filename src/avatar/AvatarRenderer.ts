@@ -114,8 +114,12 @@ void main(){
   // the body renders with NORMAL blending in deep blue and gold, so
   // the color must arrive un-premultiplied — additive's col*a over a
   // near-white ground washes him to a ghost. uLight swaps the output;
-  // the dark stages keep the additive form untouched.
-  gl_FragColor = vec4(col * mix(a, 1.0, uLight), a);
+  // the dark stages keep the additive form untouched. The alpha is
+  // fattened in light mode too (his correction, same day: the figure
+  // read pale) — soft disc edges pull in toward solid so the
+  // silhouette carries real density against the white.
+  float alphaOut = mix(a, clamp(a * 1.8, 0.0, 1.0), uLight);
+  gl_FragColor = vec4(col * mix(a, 1.0, uLight), alphaOut);
 }`;
 
 const postShader = {
@@ -176,23 +180,25 @@ void main(){
   // rest; the speech pulse itself is smoothed in eyes.ts — never a strobe.
   float shimmer = 0.92 + 0.08 * sin(uTime * 2.3 + vRand * 6.28);
   vec3 col = uColor * uGlow * shimmer;
-  gl_FragColor = vec4(col * mix(a, 1.0, uLight), a);
+  float alphaOut = mix(a, clamp(a * 1.8, 0.0, 1.0), uLight);
+  gl_FragColor = vec4(col * mix(a, 1.0, uLight), alphaOut);
 }`;
 
 type V<T> = { value: T };
 
 /**
- * THE ROOM'S PALETTE (owner order 2026-11-22): on the white room
- * Osiris renders in deep royal blue and gold — the house colors,
- * dark enough to read on warm white the way the cyan glow read on
- * the dark stages. The operator's theme still rules every dark
- * stage; the Room's light is fixed, like the room itself.
+ * THE ROOM'S PALETTE (owner order 2026-11-22, deepened same day on
+ * his correction — "I need his coloration to come out more"): on
+ * the white room Osiris renders in deep, saturated royal blue and
+ * strong gold — dark enough to read on warm white the way the cyan
+ * glow read on the dark stages. The operator's theme still rules
+ * every dark stage; the Room's light is fixed, like the room itself.
  */
 const ROOM_PALETTE: ThemePalette = {
-  a: [0.08, 0.25, 0.78],
-  b: [0.78, 0.55, 0.1],
-  core: [0.92, 0.68, 0.16],
-  vein: [0.16, 0.38, 0.95],
+  a: [0.04, 0.16, 0.88],
+  b: [0.88, 0.6, 0.04],
+  core: [1.0, 0.74, 0.1],
+  vein: [0.05, 0.32, 1.0],
 };
 type Uniforms = Record<
   | "uTime"
