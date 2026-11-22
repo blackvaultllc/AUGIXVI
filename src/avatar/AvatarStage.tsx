@@ -84,6 +84,7 @@ import { GateLogWindow } from "./GateLogWindow";
 import { LogsWindow } from "./LogsWindow";
 import { TestAreaWindow } from "./TestAreaWindow";
 import { AnatomyWindow } from "./AnatomyWindow";
+import { DepartmentsWindow } from "./DepartmentsWindow";
 import { SandboxWindow } from "./SandboxWindow";
 import { LibraryWindow } from "./LibraryWindow";
 import { DevicesWindow } from "./DevicesWindow";
@@ -344,6 +345,7 @@ export function AvatarStage({
   const [logsOpen, setLogsOpen] = useState(false);
   const [testAreaOpen, setTestAreaOpen] = useState(false);
   const [anatomyOpen, setAnatomyOpen] = useState(false);
+  const [departmentsOpen, setDepartmentsOpen] = useState(false);
   // SANDBOX WINDOW: the attack-simulation + antivirus-design bench —
   // modeled attacks stepped stage by stage, each stage naming the
   // countermeasure that hooks it (operator order 2026-11-21).
@@ -734,6 +736,11 @@ export function AvatarStage({
       if (room === "gate-log") {
         setGateLogOpen(true);
         say("Gate log is open — every recorded knock on the gate, newest first.");
+        return;
+      }
+      if (room === "departments") {
+        setDepartmentsOpen(true);
+        say("Departments are open — real status where a feed exists, and an honest unavailable where none is connected.");
         return;
       }
       if (room === "anatomy") {
@@ -1598,6 +1605,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setAnatomyOpen(true)}
                   />
                   <CommandAction
+                    icon={Building2}
+                    label="Departments"
+                    onClick={() => setDepartmentsOpen(true)}
+                  />
+                  <CommandAction
                     icon={BookOpen}
                     label="Library"
                     onClick={() => setLibraryOpen(true)}
@@ -1811,6 +1823,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {logsOpen && <LogsWindow onClose={() => setLogsOpen(false)} />}
       {testAreaOpen && <TestAreaWindow onClose={() => setTestAreaOpen(false)} />}
       {anatomyOpen && <AnatomyWindow onClose={() => setAnatomyOpen(false)} />}
+      {departmentsOpen && <DepartmentsWindow onClose={() => setDepartmentsOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
       {devicesOpen && (
