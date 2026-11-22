@@ -4401,17 +4401,47 @@
   font-weight: 800;
   cursor: pointer;
 }
-.racing-sprint-start {
-  min-height: 4rem;
-  padding: 0.7rem 1.4rem;
+/* Part 16 remainder — THE CIRCUIT (one closed loop with turns,
+   replacing the straight lanes). Karts are placed by the circuit
+   path's own geometry and rotated to its tangent. */
+.racing-circuit {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0.2rem 0;
+}
+.racing-circuit__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.racing-car--circuit {
+  position: absolute;
+  width: 4.6rem;
+  top: auto;
+  transition:
+    left 0.12s linear,
+    top 0.12s linear,
+    transform 0.12s linear;
+}
+.racing-car--circuit svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.racing-car__name {
+  position: absolute;
+  left: 50%;
+  bottom: -0.9rem;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #3c2a4d;
+  background: rgba(255, 255, 255, 0.75);
   border-radius: 999px;
-  border: 3px solid #4361ee;
-  background: #fff;
-  color: #3a2b20;
-  font: inherit;
-  font-size: 1.15rem;
-  font-weight: 800;
-  cursor: pointer;
+  padding: 0 0.3rem;
 }
 .racing-hud {
   display: flex;
