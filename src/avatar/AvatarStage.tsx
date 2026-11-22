@@ -51,6 +51,7 @@ import {
 import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
 import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
+import { AugiePresence } from "./AugiePresence";
 import { NotepadWindow, ChalkboardWindow, PlayerWindow } from "./windows/windows";
 import { BattleBox } from "./windows/BattleBox";
 import {
@@ -1603,6 +1604,14 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           responseSource={responseSource}
           userLine={lastUserMessage}
           history={transcript}
+          presence={
+            <AugiePresence
+              ready={ready}
+              avatarState={state}
+              voiceListening={voiceListening}
+              actingLocally={responseSource === "local command"}
+            />
+          }
         >
           {commandTab === "scene" && (
             <CommandGroup label="Avatar scale">

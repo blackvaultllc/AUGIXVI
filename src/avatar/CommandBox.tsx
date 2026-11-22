@@ -124,6 +124,7 @@ export function CommandBox({
   userLine,
   history,
   onMinimizeShortcut,
+  presence,
 }: {
   accent: string;
   tabs: Array<{ id: CommandTab; label: string; icon: LucideIcon }>;
@@ -155,6 +156,12 @@ export function CommandBox({
   onMinimizeShortcut?: (controls: { minimize: () => void; restore: () => void }) => void;
   /** Slash-driven minimization from inside the box's own commands. */
   externalMinimize?: number;
+  /**
+   * Augie's living presence (owner order 2026-11-22): the circular
+   * animated face rendered at the head of the grip, beside the title.
+   * Supplied by AvatarStage; the box itself stays a dumb container.
+   */
+  presence?: ReactNode;
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
   const [minimized, setMinimized] = useState(loadBoxMinimized);
@@ -303,6 +310,7 @@ export function CommandBox({
         title="Drag to move"
       >
         <GripVertical aria-hidden="true" />
+        {presence}
         <span className="avatar-command-box__title">Command</span>
         <button
           type="button"

@@ -1589,6 +1589,24 @@
   width: 0.8rem;
   height: 0.8rem;
 }
+/* AUGIE'S LIVING PRESENCE (owner order 2026-11-22): the circular
+   animated face in the Command box grip — small and contained, a
+   fixed-size round clip ringed with the HUD line color. */
+.augie-presence {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid var(--avatar-hud-line);
+  background: #0b0e14;
+}
+.augie-presence__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .avatar-command-box__title {
   flex: 1;
   font-size: 0.62rem;
