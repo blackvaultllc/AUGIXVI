@@ -126,7 +126,6 @@ import {
   defaultMedallionGeometry,
   loadMedallionGeometry,
 } from "./medallionAnchor";
-import { StageToolbar } from "./StageToolbar";
 import { loadSpeechVolume, saveSpeechVolume } from "./speechVoice";
 import {
   STAGE_BACKDROPS,
