@@ -1878,16 +1878,20 @@
 }
 .avatar-command-box__thread {
   /* Part 28: the thread is the box's main face now — a normal chat
-     gets real height and readable type, not a collapsed peephole. */
-  max-height: min(38vh, 320px);
+     gets real height and readable type, not a collapsed peephole.
+     READABILITY (owner order 2026-11-22): the old panel was a
+     near-transparent black wash — "super dark, I can't read
+     anything." The panel is now a solid, lighter deep-blue slate
+     with bright bifocal-readable type on it. */
+  max-height: min(44vh, 400px);
   min-height: 5.5rem;
   overflow-y: auto;
-  padding: 0.45rem 0.55rem;
+  padding: 0.6rem 0.7rem;
   border: 1px solid var(--avatar-hud-line);
   border-radius: 0.4rem;
-  background: oklch(0.08 0.02 255 / 55%);
-  font-size: 0.8rem;
-  line-height: 1.5;
+  background: oklch(0.19 0.03 255 / 96%);
+  font-size: 0.94rem;
+  line-height: 1.55;
 }
 .avatar-command-box__thread-entry {
   padding: 0.3rem 0;
@@ -1901,20 +1905,21 @@
   overflow-wrap: anywhere;
 }
 .avatar-command-box__thread-q {
-  color: oklch(0.88 0.05 205 / 92%);
+  color: oklch(0.97 0.015 210 / 99%);
 }
 .avatar-command-box__thread-a {
-  color: oklch(0.8 0.04 150 / 88%);
+  color: oklch(0.94 0.05 100 / 98%);
 }
 .avatar-command-box__thread-who {
   color: var(--avatar-hud-accent);
-  font-size: 0.54rem;
+  font-size: 0.66rem;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 .avatar-command-box__thread-empty {
   margin: 0;
-  color: oklch(0.75 0.04 205 / 75%);
+  color: oklch(0.88 0.03 205 / 90%);
 }
 .avatar-command-box__group h3 {
   margin: 0.35rem 0;
@@ -6047,3 +6052,134 @@
 .phone-bridge { max-width: 44rem; margin: 0 auto; padding: 1rem; line-height: 1.55; }
 .phone-bridge section { border: 1px solid var(--border, #d8cdb4); border-radius: 0.7rem; padding: 0.7rem 0.9rem; margin: 0.7rem 0; }
 .phone-bridge__bpm { font-size: 1.05rem; }
+
+/* CENTER STAGE — THE BLACK HATTER (owner orders 2026-11-22): the
+   default presence of the stage is the owner himself. His medallion
+   stands in the middle of the screen over the stage's own ground;
+   the sand construct no longer holds center. The medallion breathes
+   like the other presences; while a station he opened holds the
+   perspective he steps back a shade, and tapping him returns the
+   stage to its default — him. */
+.avatar-stage .black-hatter-presence {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  transition:
+    opacity 0.45s ease,
+    filter 0.45s ease;
+}
+.black-hatter-presence__face {
+  width: clamp(190px, 32vmin, 320px);
+  height: clamp(190px, 32vmin, 320px);
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #000;
+  box-shadow:
+    0 18px 48px rgb(10 20 40 / 35%),
+    0 0 0 2px rgb(212 175 55 / 55%),
+    0 0 44px rgb(212 175 55 / 22%);
+  animation: anubis-bob 7s ease-in-out infinite;
+  transition: transform 0.45s ease;
+}
+.black-hatter-presence__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
+  user-select: none;
+}
+.black-hatter-presence--stepped-back {
+  opacity: 0.82;
+  filter: saturate(0.88);
+}
+.black-hatter-presence--stepped-back .black-hatter-presence__face {
+  transform: scale(0.94);
+}
+.black-hatter-presence--selectable {
+  cursor: pointer;
+}
+.black-hatter-presence__plate {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 9999px;
+  background: rgb(8 12 22 / 78%);
+  border: 1px solid rgb(212 175 55 / 55%);
+  line-height: 1;
+}
+.black-hatter-presence__name {
+  font-size: 0.78rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #f3d27a;
+}
+.black-hatter-presence__role {
+  font-size: 0.64rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #f3d27a;
+}
+
+/* PERSPECTIVE (owner order 2026-11-22): a station in perspective
+   carries the focus ring and stands a touch larger — it speaks from
+   its own place; its station never moves. */
+.anubis-presence--selectable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.anubis-presence--in-perspective .anubis-presence__face {
+  box-shadow:
+    0 10px 28px rgb(10 20 40 / 28%),
+    0 0 0 3px rgb(212 175 55 / 85%),
+    0 0 34px rgb(212 175 55 / 55%);
+  transform: scale(1.07);
+}
+/* The gold must read across the room (owner order 2026-11-22): the
+   command medallion is a shade larger than its first sizing. */
+.anubis-presence__face {
+  width: 118px;
+  height: 118px;
+}
+
+/* THE CONSTRUCT'S DOCK (owner order 2026-11-22): the renderer's
+   host lives in the stage dock by default and is moved — element
+   and canvas together — into the construct window's dock when the
+   Captain opens the AUGI avatar box. Both docks give it their full
+   area; the renderer's ResizeObserver refits it on the move. */
+.avatar-stage-dock {
+  position: absolute;
+  inset: 0;
+}
+.avatar-construct-host {
+  width: 100%;
+  height: 100%;
+}
+.avatar-construct-host canvas {
+  display: block;
+}
+.avatar-construct-dock {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 12rem;
+  background: #05070c;
+}
+
+/* ANCHORED COMMAND BOX (owner order 2026-11-22): while anchored the
+   rail no longer offers a drag cursor, and the anchor button shows
+   its locked state in gold. */
+.avatar-command-box--anchored .avatar-command-box__rail {
+  cursor: default;
+}
+.avatar-command-box__anchor-button[aria-pressed="true"] {
+  color: #f3d27a;
+  border-color: rgb(212 175 55 / 65%);
+}

@@ -74,10 +74,28 @@ describe("command box grip controls", () => {
     expect(screen.getByText("panel body")).toBeInTheDocument();
   });
 
-  it("dragging still starts from the rail itself", () => {
+  it("dragging still starts from the rail itself — once unanchored", () => {
     renderBox();
+    // The box opens ANCHORED (owner order 2026-11-22): locked at the
+    // middle of the screen, the rail does not drag. Unanchor first —
+    // then the rail drags exactly as it always did.
+    fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
     pointerDown(screen.getByText("Chat"));
     expect(captureSpy).toHaveBeenCalled();
+  });
+
+  it("opens anchored at the middle — locked, and the state persists", () => {
+    const { container } = renderBox();
+    const box = container.querySelector(".avatar-command-box") as HTMLElement;
+    expect(box.dataset["anchored"]).toBe("true");
+    pointerDown(screen.getByText("Chat"));
+    expect(captureSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
+    expect(box.dataset["anchored"]).toBe("false");
+    expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("unanchored");
+    fireEvent.click(screen.getByRole("button", { name: "Anchor the chat window at the center" }));
+    expect(box.dataset["anchored"]).toBe("true");
+    expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("anchored");
   });
 });
 
@@ -247,18 +265,22 @@ describe("command box resize", () => {
       </CommandBox>,
     );
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
-    expect(box.style.width).toBe("500px");
-    expect(box.style.height).toBe("430px");
+    // The enlarged default (owner order 2026-11-22 — the old 500×430
+    // box was "too darn small").
+    expect(box.style.width).toBe("660px");
+    expect(box.style.height).toBe("540px");
+    // Anchored boxes do not stretch — unanchor first.
+    fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
     const corner = screen.getByRole("separator", { name: "Resize the chat window" });
     pointer(corner, "pointerdown", 100, 100);
     expect(captureSpy).toHaveBeenCalled();
     pointer(corner, "pointermove", 200, 150);
     pointer(corner, "pointerup", 200, 150);
-    expect(box.style.width).toBe("600px");
-    expect(box.style.height).toBe("480px");
+    expect(box.style.width).toBe("760px");
+    expect(box.style.height).toBe("590px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v1")!)).toEqual({
-      w: 600,
-      h: 480,
+      w: 760,
+      h: 590,
     });
   });
 

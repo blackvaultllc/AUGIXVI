@@ -17,6 +17,17 @@
  * It is NOT the pharaoh emblem: that picture is IEM, a different
  * being, and it is never used or altered here.
  *
+ * THE GOLD VERSION (owner order 2026-11-22, restated from his desk):
+ * the face IS the gold Anubis — gold head, gold face and accents
+ * dominant, matching his black-and-gold desk statue (black carried
+ * by the medallion's ground and the collar's deep blue, never a dark
+ * face). The medallion is sized to read gold across the room.
+ *
+ * PERSPECTIVE (owner order 2026-11-22): Anubis stays at his station —
+ * top center — and speaks from his place. Tapping his medallion
+ * brings him into perspective (the focus ring); the stage's default
+ * perspective is the Black Hatter, and Anubis's station never moves.
+ *
  * REPLACEABLE ASSET: the medallion reads exactly one file,
  * public/anubis-presence/face.webp. Replacing that file changes the
  * face with no code change. Because the chosen portrait is a finished
@@ -40,6 +51,8 @@ export function AnubisPresence({
   speaking,
   listening,
   acting,
+  inPerspective = false,
+  onSelect,
 }: {
   /** False until the renderer's first frame — the stage is loading. */
   ready: boolean;
@@ -49,6 +62,10 @@ export function AnubisPresence({
   listening: boolean;
   /** Augie is visibly carrying out work (thinking / presenting). */
   acting: boolean;
+  /** The stage's focus is on Anubis's station right now. */
+  inPerspective?: boolean;
+  /** Tapping the medallion brings Anubis into perspective. */
+  onSelect?: () => void;
 }) {
   const classes = [
     "anubis-presence",
@@ -56,6 +73,8 @@ export function AnubisPresence({
     listening ? "anubis-presence--listening" : "",
     acting ? "anubis-presence--acting" : "",
     !ready ? "anubis-presence--connecting" : "",
+    inPerspective ? "anubis-presence--in-perspective" : "",
+    onSelect ? "anubis-presence--selectable" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -69,7 +88,24 @@ export function AnubisPresence({
           ? "at command"
           : "connecting";
   return (
-    <div className={classes} role="img" aria-label={`Anubis — ${state}`} title={`Anubis — ${state}`}>
+    <div
+      className={classes}
+      role={onSelect ? "button" : "img"}
+      tabIndex={onSelect ? 0 : undefined}
+      aria-label={`Anubis — ${state}`}
+      title={onSelect ? `Anubis — ${state} — tap to bring Anubis into perspective` : `Anubis — ${state}`}
+      onClick={onSelect}
+      onKeyDown={
+        onSelect
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelect();
+              }
+            }
+          : undefined
+      }
+    >
       <div className="anubis-presence__face">
         <img
           className="anubis-presence__img"

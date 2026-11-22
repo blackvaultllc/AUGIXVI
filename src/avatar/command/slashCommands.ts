@@ -205,6 +205,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 
   // WINDOWS — movable windows he can open himself or on order
   {
+    command: "/avatar",
+    description:
+      "Open AUGI's avatar — the sand construct in his own container box (he no longer holds center stage; the Black Hatter does).",
+    category: "interface",
+    voice: true,
+    example: "open AUGI avatar",
+  },
+  {
     command: "/notepad",
     description: "Open the Notepad window — private notes, only you see them.",
     category: "interface",

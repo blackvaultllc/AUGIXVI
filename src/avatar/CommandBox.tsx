@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   Activity,
+  Anchor,
   BookOpen,
   ChevronDown,
   Eye,
@@ -39,9 +40,39 @@ export type CommandTab = "scene" | "motion" | "tools" | "settings" | "commands";
 const BOX_POSITION_KEY = "augi.avatar.command-box.position.v1";
 const BOX_MINIMIZED_KEY = "augi.avatar.command-box.minimized.v1";
 const BOX_SIZE_KEY = "augi.avatar.command-box.size.v1";
+const BOX_ANCHOR_KEY = "augi.avatar.command-box.anchored.v1";
 
-/** The chat window's opening size; his stretched size replaces it. */
-export const COMMAND_BOX_DEFAULT_SIZE = { w: 500, h: 430 } as const;
+/**
+ * The chat window's opening size; his stretched size replaces it.
+ * Enlarged 2026-11-22 on his order — the old 500×430 box was "too
+ * darn small" and the conversation unreadable inside it.
+ */
+export const COMMAND_BOX_DEFAULT_SIZE = { w: 660, h: 540 } as const;
+
+/**
+ * THE ANCHOR (owner order 2026-11-22): the command box is ANCHORED
+ * at the middle of the screen by default — locked in place, per his
+ * anchor law (anchored = locked until unanchored). Unanchoring frees
+ * it to be dragged and stretched; the anchor state persists like the
+ * size and position do. Anything but the explicit "unanchored"
+ * record reads as anchored, so the box opens centered for everyone
+ * who has never touched the control.
+ */
+export function loadBoxAnchored(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(BOX_ANCHOR_KEY) !== "unanchored";
+  } catch {
+    return true;
+  }
+}
+
+export function saveBoxAnchored(anchored: boolean) {
+  try {
+    globalThis.localStorage?.setItem(BOX_ANCHOR_KEY, anchored ? "anchored" : "unanchored");
+  } catch {
+    // best effort only
+  }
+}
 
 function loadBoxSize(): { w: number; h: number } {
   let parsed: { w: number; h: number } = { ...COMMAND_BOX_DEFAULT_SIZE };
@@ -184,6 +215,12 @@ export function CommandBox({
   const [position, setPosition] = useState(loadBoxPosition);
   const [minimized, setMinimized] = useState(loadBoxMinimized);
   const [boxSize, setBoxSize] = useState(loadBoxSize);
+  const [anchored, setAnchored] = useState(loadBoxAnchored);
+  const [viewport, setViewport] = useState(() =>
+    typeof window === "undefined"
+      ? { w: 0, h: 0 }
+      : { w: window.innerWidth, h: window.innerHeight },
+  );
   const sizeRef = useRef(boxSize);
   sizeRef.current = boxSize;
   // Part 28: the tab machinery (Scene / Motion / Tools / Settings /
@@ -226,8 +263,12 @@ export function CommandBox({
     saveBoxMinimized(false);
   }, []);
 
-  const startDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if ("button" in event && event.button !== 0) return;
+  const startDrag = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      // Anchored means locked in place (his anchor law) — no drag
+      // until he unanchors the box from the rail's anchor button.
+      if (anchored) return;
+      if ("button" in event && event.button !== 0) return;
     // The grip's own minimize/expand button keeps its click: starting a
     // drag here captures the pointer to the grip, and a captured pointer
     // retargets the click to the grip — the button never receives it, so
@@ -240,7 +281,9 @@ export function CommandBox({
     dragging.current = true;
     dragOffset.current = { x: event.clientX - rect.left, y: event.clientY - rect.top };
     event.currentTarget.setPointerCapture(event.pointerId);
-  }, []);
+    },
+    [anchored],
+  );
 
   const moveDrag = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -277,6 +320,8 @@ export function CommandBox({
   // windows (windowGeometry clamps it inside the viewport).
   const startResize =
     (mode: "corner" | "right" | "bottom") => (event: ReactPointerEvent<HTMLDivElement>) => {
+      // Anchored = locked: no stretching until he unanchors.
+      if (anchored) return;
       if ("button" in event && event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
@@ -303,6 +348,58 @@ export function CommandBox({
     event.currentTarget.releasePointerCapture(event.pointerId);
     saveBoxSize(sizeRef.current);
   }, []);
+
+  // THE ANCHOR TOGGLE: anchored, the box sits locked at the middle
+  // of the screen. Unanchoring keeps it exactly where it sits and
+  // hands him the drag and the stretch; anchoring again returns it
+  // to the middle. The state persists (loadBoxAnchored).
+  const [anchorPos, setAnchorPos] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    if (!anchored) {
+      setAnchorPos(null);
+      return;
+    }
+    const width = boxRef.current?.offsetWidth || boxSize.w;
+    const height = boxRef.current?.offsetHeight || boxSize.h;
+    // Anchored to the middle of the screen: centered on the middle
+    // column, its own center on the lower-middle line (0.73) — the
+    // one spot that leaves the Black Hatter's medallion, the stage's
+    // default center presence, uncovered above it. Locked there
+    // until he unanchors.
+    setAnchorPos({
+      x: Math.max(8, Math.round((viewport.w - width) / 2)),
+      y: Math.min(
+        Math.max(8, Math.round(viewport.h * 0.73 - height / 2)),
+        Math.max(8, viewport.h - height - 8),
+      ),
+    });
+  }, [anchored, boxSize, minimized, viewport]);
+
+  const toggleAnchored = useCallback(() => {
+    if (anchored) {
+      // Unanchor in place: the centered spot becomes the free
+      // position, so the box does not jump when the lock comes off.
+      const rect = boxRef.current?.getBoundingClientRect();
+      const free = {
+        x: rect ? Math.round(rect.left) : (anchorPos?.x ?? 0),
+        y: rect ? Math.round(rect.top) : (anchorPos?.y ?? 0),
+      };
+      setPosition(free);
+      saveBoxPosition(free);
+      setAnchored(false);
+      saveBoxAnchored(false);
+    } else {
+      setAnchored(true);
+      saveBoxAnchored(true);
+    }
+  }, [anchored, anchorPos]);
 
   // Keep the newest line in view as the conversation flows.
   useEffect(() => {
@@ -337,9 +434,13 @@ export function CommandBox({
   };
 
   const boxStyle = {
-    ...(position
-      ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
-      : {}),
+    ...(anchored
+      ? anchorPos
+        ? { left: anchorPos.x, top: anchorPos.y, right: "auto", bottom: "auto", transform: "none" }
+        : { left: "50%", top: "50%", right: "auto", bottom: "auto", transform: "translate(-50%, -50%)" }
+      : position
+        ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
+        : {}),
     width: boxSize.w,
     height: minimized ? undefined : boxSize.h,
   } as const;
@@ -365,8 +466,9 @@ export function CommandBox({
   return (
     <section
       ref={boxRef}
-      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}`}
+      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}`}
       style={boxStyle}
+      data-anchored={anchored ? "true" : "false"}
       aria-label="Chat with Anubis"
     >
       <div
@@ -376,12 +478,27 @@ export function CommandBox({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         role="separator"
-        aria-label="Drag to move the chat window"
-        title="Drag to move"
+        aria-label={anchored ? "Chat window anchored at the center" : "Drag to move the chat window"}
+        title={anchored ? "Anchored at the center — unanchor to move" : "Drag to move"}
       >
         <GripVertical aria-hidden="true" />
         {presence}
         <span className="avatar-command-box__title">Chat</span>
+        <button
+          type="button"
+          className="avatar-command-box__window-button avatar-command-box__anchor-button"
+          onClick={toggleAnchored}
+          aria-pressed={anchored}
+          aria-label={anchored ? "Unanchor the chat window" : "Anchor the chat window at the center"}
+          title={
+            anchored
+              ? "Anchored at the center of the screen — tap to unanchor, then drag and stretch it"
+              : "Unanchored — tap to anchor it back at the center of the screen"
+          }
+        >
+          <Anchor aria-hidden="true" />
+          <span className="sr-only">{anchored ? "Unanchor" : "Anchor"}</span>
+        </button>
         <button
           type="button"
           className="avatar-command-box__window-button avatar-command-box__menu-button"

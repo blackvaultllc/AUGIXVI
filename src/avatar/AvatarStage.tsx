@@ -56,6 +56,13 @@ import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
 import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
 import { AugiePresence } from "./AugiePresence";
 import { AnubisPresence } from "./AnubisPresence";
+import { BlackHatterPresence } from "./BlackHatterPresence";
+import {
+  DEFAULT_STAGE_PERSPECTIVE,
+  perspectiveAfterClose,
+  type StagePerspective,
+} from "./stagePerspective";
+import { FloatingWindow } from "./windows/FloatingWindow";
 import {
   clearFigureOffset,
   loadConstructAnchored,
@@ -386,6 +393,32 @@ export function AvatarStage({
   // standing UI rule — tools in contained boxes, not full-screen takeovers).
   // The full room at /avatar/cube stays for the spoken "open the cube".
   const [arCubeOpen, setArCubeOpen] = useState(false);
+  // THE CONSTRUCT IN HIS OWN BOX (owner order 2026-11-22): the sand
+  // construct no longer holds center stage — he stands in a floating
+  // container window when the Captain opens him ("open AUGI avatar"),
+  // and the renderer's canvas docks into that window's body. Off
+  // stage entirely while the window is closed.
+  const [constructOpen, setConstructOpen] = useState(false);
+  const [constructDock, setConstructDock] = useState<HTMLElement | null>(null);
+  const stageDockRef = useRef<HTMLDivElement>(null);
+  // DOCKING: the renderer's host element is moved — not recreated —
+  // between its home slot on the stage and the construct window's
+  // body. The WebGL canvas is a child of the host, so it travels
+  // with its context intact; the renderer's ResizeObserver watches
+  // the host and refits it to whichever home it is in. When the
+  // window minimizes or closes, its body unmounts, the dock ref
+  // clears, and the host comes home to the stage.
+  useEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    const target = constructDock ?? stageDockRef.current;
+    if (target && el.parentElement !== target) target.appendChild(el);
+  }, [constructDock]);
+  // STAGE PERSPECTIVE (owner order 2026-11-22): whose presence holds
+  // the stage's focus. The default is the Black Hatter — the owner
+  // himself; a station takes the focus when he turns to it, and the
+  // perspective returns to him when it closes.
+  const [perspective, setPerspective] = useState<StagePerspective>(DEFAULT_STAGE_PERSPECTIVE);
   // PULSE WINDOW: presence + motion, the rPPG heart-rate estimate and
   // the room-frequency readout in a small floating box (operator order
   // 2026-11-21). Opens from Tools → Rooms and from "open pulse".
@@ -511,6 +544,30 @@ export function AvatarStage({
       return next;
     });
   }, []);
+
+  // THE CONSTRUCT'S BOX (owner order 2026-11-22): opening him puts
+  // the sand construct in his own container and brings him into
+  // perspective; closing the box takes him off the stage and returns
+  // the perspective to the Black Hatter — the default.
+  const openConstruct = useCallback(() => {
+    setConstructOpen(true);
+    setPerspective("construct");
+  }, []);
+  const closeConstruct = useCallback(() => {
+    setConstructOpen(false);
+    setConstructDock(null);
+    setPerspective(perspectiveAfterClose());
+  }, []);
+
+  // He stands on the stage only outside the live Room (the space
+  // view keeps him) or inside his box while it is open and docked.
+  // In the live Room with his box closed, center stage belongs to
+  // the Black Hatter and the construct is off stage.
+  useEffect(() => {
+    rendRef.current?.setConstructVisible(
+      worldScreen !== "live" || (constructOpen && constructDock !== null),
+    );
+  }, [worldScreen, constructOpen, constructDock]);
 
   /**
    * ONE WORLD, ONE FLIGHT: "entering"/"returning" are no longer screen
@@ -1017,6 +1074,26 @@ export function AvatarStage({
         say(`${TOTAL_WORKERS} workers on staff, across the departments. All learning and working.`);
         return;
       }
+      // THE CONSTRUCT'S OWN BOX (owner order 2026-11-22): "open AUGI
+      // avatar" stands the sand construct in his own container —
+      // bloodshot red eyes, so the Captain can see him — and brings
+      // him into perspective. Closing the box takes him off stage.
+      const avatarRequest = commandText.toLowerCase().replace(/\s+/g, " ").trim();
+      if (
+        /^(?:open\s+)?(?:the\s+)?(?:augi\s+)?avatar$/i.test(avatarRequest) ||
+        avatarRequest === "/avatar"
+      ) {
+        openConstruct();
+        say(
+          "AUGI is up — the sand construct in his own box, red eyes on him so you can see him. The stage stays yours, Captain.",
+        );
+        return;
+      }
+      if (/^close\s+(?:the\s+)?(?:augi\s+)?avatar$/i.test(avatarRequest)) {
+        closeConstruct();
+        say("His box is closed. The stage is back to you, Captain.");
+        return;
+      }
       // Movable windows: notepad, chalkboard, player.
       const windowRequest = commandText.toLowerCase().replace(/\s+/g, " ").trim();
       if (/^(?:open\s+)?(?:the\s+)?notepad$/i.test(windowRequest) || windowRequest === "/notepad") {
@@ -1149,6 +1226,12 @@ export function AvatarStage({
     // FULL-BODY HOLD (owner order 2026-11-22): if the Captain left
     // the hold thrown, AUGI opens at full body and stays there.
     r.setFullBodyHold(loadFullBodyHold());
+    // CENTER STAGE (owner order 2026-11-22): in the live Room the
+    // construct starts OFF stage — the Black Hatter holds center —
+    // until the Captain opens the AUGI avatar box. (The space view
+    // keeps him; the visibility effect below owns the rule from
+    // here on.)
+    r.setConstructVisible(worldScreenRef.current !== "live");
     r.onFrame = (p) => {
       setPerf(p);
       setReady(true);
@@ -1782,16 +1865,26 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       data-stage-look={worldScreen === "live" && worldScene === "room" ? "light" : "dark"}
       style={stageStyle}
     >
-      <div ref={host} className="absolute inset-0" />
+      <div ref={stageDockRef} className="avatar-stage-dock">
+        <div ref={host} className="avatar-construct-host" />
+      </div>
+      {!clearScreen && worldScreen === "live" && (
+        <BlackHatterPresence
+          inPerspective={perspective === "black-hatter"}
+          onSelect={() => setPerspective(DEFAULT_STAGE_PERSPECTIVE)}
+        />
+      )}
       {!clearScreen && worldScreen === "live" && (
         <AnubisPresence
           ready={ready}
           speaking={state === "SPEAKING"}
           listening={voiceListening}
           acting={presenting || state === "THINKING"}
+          inPerspective={perspective === "anubis"}
+          onSelect={() => setPerspective("anubis")}
         />
       )}
-      {!clearScreen && worldScreen === "live" && (
+      {!clearScreen && worldScreen === "live" && constructOpen && (
         <ConstructControls
           anchored={constructAnchored}
           captainDriving={captainDriving}
@@ -1898,6 +1991,21 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           {commandTab === "scene" && (
             <CommandGroup label="Avatar scale">
               <div className="avatar-command-box__grid">
+                <CommandAction
+                  icon={Sparkles}
+                  label={constructOpen ? "AUGI avatar · in his box" : "AUGI avatar · open his box"}
+                  onClick={() => {
+                    if (constructOpen) {
+                      closeConstruct();
+                      say("His box is closed. The stage is back to you, Captain.");
+                    } else {
+                      openConstruct();
+                      say(
+                        "AUGI is up — the sand construct in his own box, red eyes on him so you can see him.",
+                      );
+                    }
+                  }}
+                />
                 <CommandAction icon={Globe} label="Space view" onClick={returnToSpace} />
                 <CommandAction
                   icon={Shrink}
@@ -2337,6 +2445,17 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
       {openWindows.has("player") && (
         <PlayerWindow onClose={() => closeWindow("player")} seedInput={playerSeed} />
+      )}
+      {constructOpen && (
+        <FloatingWindow
+          id="augie-construct"
+          title="AUGI — the construct"
+          onClose={closeConstruct}
+          initialWidth={560}
+          initialHeight={520}
+        >
+          <div ref={setConstructDock} className="avatar-construct-dock" />
+        </FloatingWindow>
       )}
       {worldScreen !== "live" && (
         <SpaceView
