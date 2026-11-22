@@ -19,15 +19,22 @@ import { buildPersonPoints, PeopleSim } from "./people";
 
 /** Same ground line the SceneManager builds on. */
 const GROUND_Y = -3.2;
-/** Citizen point size — smaller on the owner's order (2026-11-21). */
-const CITIZEN_POINT_SIZE = 0.04;
+/** Citizen point size. Raised again for Part 18 (2026-11-21): at
+ * 0.04 with soft-edged sprites the figures read as ghosts on his
+ * screen; bigger, denser, depth-writing points read as people. */
+const CITIZEN_POINT_SIZE = 0.052;
 /** The office's set renders finer than the outdoor scenes (same order). */
 const OFFICE_STATIC_POINT_SIZE = 0.046;
 const STATIC_POINT_SIZE = 0.055;
 /** Seconds after a portal trip before another portal can take him. */
 const PORTAL_COOLDOWN_S = 1.2;
 
-function makePoints(positions: Float32Array, colors: Float32Array, size: number): THREE.Points {
+function makePoints(
+  positions: Float32Array,
+  colors: Float32Array,
+  size: number,
+  options?: { solid?: boolean },
+): THREE.Points {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
@@ -36,15 +43,69 @@ function makePoints(positions: Float32Array, colors: Float32Array, size: number)
     new THREE.PointsMaterial({
       size,
       vertexColors: true,
-      transparent: true,
-      opacity: 0.95,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      // SOLID (Part 18): the office set renders with normal blending
+      // and depth writes, so desks and walls occlude like furniture
+      // instead of glowing through each other additively. The outdoor
+      // sets and the water keep the additive glow they were tuned with.
+      ...(options?.solid
+        ? { transparent: false, opacity: 1, depthWrite: true, blending: THREE.NormalBlending }
+        : {
+            transparent: true,
+            opacity: 0.95,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+          }),
       sizeAttenuation: true,
     }),
   );
   points.frustumCulled = false;
   return points;
+}
+
+/** A department label as a text sprite (Part 9): gold letters on a
+ * dark plaque, drawn once to a canvas — no font loading, no assets.
+ * Where a 2D canvas is unavailable (test DOMs, odd browsers) the
+ * sprite falls back to a plain gold plaque instead of throwing. */
+function makeLabelSprite(text: string): THREE.Sprite {
+  let texture: THREE.Texture | null = null;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 176;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "rgba(10, 14, 24, 0.82)";
+      ctx.strokeStyle = "rgba(212, 175, 55, 0.9)";
+      ctx.lineWidth = 6;
+      if (typeof ctx.roundRect === "function") {
+        ctx.beginPath();
+        ctx.roundRect(8, 8, canvas.width - 16, canvas.height - 16, 28);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.fillRect(8, 8, canvas.width - 16, canvas.height - 16);
+        ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+      }
+      ctx.font = "700 92px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#ffd98a";
+      ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 4);
+      texture = new THREE.CanvasTexture(canvas);
+    }
+  } catch {
+    texture = null;
+  }
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      transparent: true,
+      depthWrite: false,
+      ...(texture ? { map: texture } : { color: 0xd4af37 }),
+    }),
+  );
+  sprite.scale.set(4.4, 0.76, 1);
+  sprite.name = `living-world-label-${text}`;
+  return sprite;
 }
 
 function disposePoints(points: THREE.Points) {
@@ -122,9 +183,15 @@ function makeCitizenPoints(
     new THREE.PointsMaterial({
       size,
       vertexColors: true,
+      // SOLID CITIZENS (Part 18): the soft disc's faint rim is cut by
+      // alphaTest and the points write depth, so a body occludes
+      // itself and its neighbors — a person, not a hologram. Without
+      // a texture (canvas unavailable) the points fall back to plain
+      // opaque squares, still solid.
       transparent: true,
-      opacity: 0.92,
-      depthWrite: false,
+      opacity: 1,
+      depthWrite: true,
+      alphaTest: texture ? 0.38 : 0,
       blending: THREE.NormalBlending,
       sizeAttenuation: true,
       ...(texture ? { map: texture } : {}),
@@ -142,6 +209,7 @@ export class WorldSceneManager {
   private waterPoints: THREE.Points | null = null;
   private sim: PeopleSim | null = null;
   private citizens: THREE.Points[] = [];
+  private labelSprites: THREE.Sprite[] = [];
   private current: WorldSceneId | null = null;
   /** Multi-floor state (the Office): the floors + which one is on stage. */
   private floors: readonly BuiltFloor[] | null = null;
@@ -215,13 +283,17 @@ export class WorldSceneManager {
     if (!floor) return;
     this.floorIndex = index;
     this.clearFloorPoints();
-    this.staticPoints = makePoints(
-      floor.staticPositions,
-      floor.staticColors,
-      OFFICE_STATIC_POINT_SIZE,
-    );
+    this.staticPoints = makePoints(floor.staticPositions, floor.staticColors, OFFICE_STATIC_POINT_SIZE, {
+      solid: true,
+    });
     this.staticPoints.name = `living-world-office-floor-${floor.floor}`;
     this.group.add(this.staticPoints);
+    for (const label of floor.labels) {
+      const sprite = makeLabelSprite(label.text);
+      sprite.position.set(label.x, label.y, label.z);
+      this.labelSprites.push(sprite);
+      this.group.add(sprite);
+    }
     this.spawnCitizens(floor.people);
   }
 
@@ -316,6 +388,12 @@ export class WorldSceneManager {
       disposePoints(citizen);
     }
     this.citizens = [];
+    for (const sprite of this.labelSprites) {
+      this.group.remove(sprite);
+      sprite.material.map?.dispose();
+      sprite.material.dispose();
+    }
+    this.labelSprites = [];
     this.sim = null;
   }
 

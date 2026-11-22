@@ -43,7 +43,7 @@ describe("living world scenes — registry", () => {
 
 describe("living world scenes — builds stay inside the particle budget", () => {
   const expectedPeople: Record<WorldSceneId, number> = {
-    office: 8,
+    office: 10,
     beach: 3,
     desert: 3,
     park: 4,
@@ -121,8 +121,10 @@ describe("beach water — the waves actually move", () => {
 describe("citizens — figures from the same particle language", () => {
   it("builds a full person: stable count, colors matched, feet on the ground", () => {
     const figure = buildPersonPoints(makeAppearance(0), { mode: "stand", gaitTime: 0, time: 0 });
-    expect(figure.count).toBeGreaterThanOrEqual(400);
-    expect(figure.count).toBeLessThanOrEqual(480);
+    // Part 18 density: solid people, not ghosts — the count moved
+    // from ~470 to 742 and is pinned at both ends so it can't drift.
+    expect(figure.count).toBeGreaterThanOrEqual(700);
+    expect(figure.count).toBeLessThanOrEqual(800);
     expect(figure.positions.length).toBe(figure.count * 3);
     expect(figure.colors.length).toBe(figure.count * 3);
     expectFinite(figure.positions);
@@ -209,13 +211,36 @@ describe("citizens — the daily round (PeopleSim)", () => {
   it("keeps the office crew at their desks while they work", () => {
     const office = buildScene("office");
     const sim = new PeopleSim(office.people);
-    expect(sim.people.length).toBe(8);
+    expect(sim.people.length).toBe(10);
     const worker = sim.people[0]!;
     const seat = office.people[0]!.waypoints[0]!;
     for (let i = 0; i < 40; i += 1) sim.tick(0.05); // 2 seconds in
     expect(worker.mode).toBe("work");
     expect(worker.x).toBe(seat.x);
     expect(worker.z).toBe(seat.z);
+  });
+
+  it("labels every department the owner named (Part 9)", () => {
+    const office = buildScene("office");
+    const labels = (office.floors ?? []).flatMap((floor) => floor.labels.map((l) => l.text));
+    for (const name of ["FINANCE", "MAIN FLOOR", "MARKETING", "SOCIAL MEDIA", "SECURITY OPERATIONS"]) {
+      expect(labels).toContain(name);
+    }
+    // And the boss's own office is labeled on his floor.
+    expect(labels.some((text) => text.includes("OSIRIS"))).toBe(true);
+  });
+
+  it("floor 1's crew starts seated at work — nobody opens on a patrol loop (Part 9)", () => {
+    const office = buildScene("office");
+    for (const person of office.people) {
+      expect(person.waypoints[0]!.mode).toBe("work");
+    }
+  });
+
+  it("citizens are dense enough to read as solid people, not ghosts (Part 18)", () => {
+    const figure = buildPersonPoints(makeAppearance(0, 21), { mode: "stand", gaitTime: 0, time: 0 });
+    // Pre-Part-18 figures were ~470 points; the solid build is 700+.
+    expect(figure.count).toBeGreaterThanOrEqual(700);
   });
 });
 
@@ -256,7 +281,7 @@ describe("WorldSceneManager — the stage side", () => {
     const manager = new WorldSceneManager(scene);
     manager.setScene("office");
     expect(manager.currentScene).toBe("office");
-    expect(manager.citizenCount).toBe(8);
+    expect(manager.citizenCount).toBe(10);
     expect(manager.particleCount).toBeGreaterThan(0);
     expect(manager.particleCount).toBeLessThanOrEqual(SCENE_PARTICLE_BUDGET);
     expect(scene.getObjectByName("living-world-office-floor-1")).toBeDefined();
@@ -386,7 +411,7 @@ describe("the big office — floors and portals (owner order 2026-11-21)", () =>
     }
     // The scene-level roster is floor 1's crew.
     expect(office.people).toBe(office.floors![0]!.people);
-    expect(office.people.length).toBe(8);
+    expect(office.people.length).toBe(10);
   });
 
   it("wires the portals: up from 1 and 2, down from 2 and 3, safe arrivals", () => {
@@ -428,7 +453,7 @@ describe("the big office — floors and portals (owner order 2026-11-21)", () =>
     const manager = new WorldSceneManager(scene);
     manager.setScene("office");
     expect(manager.currentFloor).toBe(1);
-    expect(manager.citizenCount).toBe(8);
+    expect(manager.citizenCount).toBe(10);
     expect(manager.portalOfKind("up")).not.toBeNull();
     expect(manager.portalOfKind("down")).toBeNull();
 
@@ -471,7 +496,7 @@ describe("citizens — Augie's own material family (owner refinement 2026-11-21)
     }
   });
 
-  it("renders citizens as soft normal-blended points — not additive glare", () => {
+  it("renders citizens as SOLID normal-blended points — depth-writing, no ghost fade (Part 18)", () => {
     const scene = new THREE.Scene();
     const manager = new WorldSceneManager(scene);
     manager.setScene("park");
@@ -483,7 +508,12 @@ describe("citizens — Augie's own material family (owner refinement 2026-11-21)
     for (const citizen of citizens) {
       const material = citizen.material as THREE.PointsMaterial;
       expect(material.blending).toBe(THREE.NormalBlending);
-      expect(material.opacity).toBeLessThanOrEqual(0.95);
+      expect(material.opacity).toBe(1);
+      expect(material.depthWrite).toBe(true);
+      // The soft-disc rim is alpha-cut wherever a canvas texture
+      // exists; in the test DOM there is no 2D canvas, so the points
+      // fall back to plain opaque squares — solid either way.
+      if (material.map) expect(material.alphaTest).toBeGreaterThan(0);
     }
     manager.dispose();
   });

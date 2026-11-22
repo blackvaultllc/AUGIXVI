@@ -63,6 +63,14 @@ describe("Osiris's idle life — Ankh means life, not standing at attention", ()
     expect(idleReportLine("walk", true)).toBeNull();
   });
 
+  it("never sets him walking or flying on his own — idle, he holds his post (Part 9 amendment 2)", () => {
+    for (let i = 0; i < 2000; i += 1) {
+      const action = pickIdleActivity(() => ((i * 31) % 2000) / 2000);
+      expect(action.activity).not.toBe("walk");
+      expect(action.activity).not.toBe("fly");
+    }
+  });
+
   it("idles on a slow heartbeat, not a rapid loop", () => {
     expect(IDLE_INTERVAL_MS).toBeGreaterThanOrEqual(30_000);
   });

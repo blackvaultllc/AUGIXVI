@@ -143,6 +143,20 @@ describe("avatar locomotion", () => {
     expect(root.position.y + root.scale.y * -3.2).toBeCloseTo(-3.2, 6); // feet on the ground
   });
 
+  it("walks ONE round and stops at his mark — no circling (Part 9 amendment 2)", () => {
+    const root = new THREE.Group();
+    const walker = new AvatarLocomotion(root);
+    walker.walk();
+    for (let frame = 0; frame < 1200; frame++) walker.tick(0.05);
+    expect(walker.currentMode).toBe("idle");
+    expect(root.position.x).toBeCloseTo(MARK.x, 5);
+    expect(root.position.z).toBeCloseTo(MARK.z, 5);
+    // And he STAYS there — a second circuit never begins.
+    for (let frame = 0; frame < 200; frame++) walker.tick(0.05);
+    expect(walker.currentMode).toBe("idle");
+    expect(Math.hypot(root.position.x - MARK.x, root.position.z - MARK.z)).toBeLessThan(0.01);
+  });
+
   it("follows a finite custom path through an object before stopping", () => {
     const root = new THREE.Group();
     const walker = new AvatarLocomotion(root);

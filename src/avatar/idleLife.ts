@@ -12,6 +12,14 @@
  * actions carry no window at all — he thinks, notes and hums in his head,
  * and says so. Windows are the operator's to open.
  *
+ * PART 9 AMENDMENT 2 (owner order 2026-11-21 ~22:33 EST): idle life
+ * NEVER sets him walking or flying either. He was seen "walking in
+ * circles like a crazy man" — the idle rotation picked walk/fly and
+ * the locomotion looped its route forever. Osiris is the boss: idle,
+ * he HOLDS HIS POST (his office, his mark) — presence, study, checks.
+ * Walking and flying happen only on the operator's explicit command,
+ * and then as one purposeful round that ends (see locomotion.ts).
+ *
  * Pure data + decisions, no DOM — unit-testable like the avatar rules.
  */
 
@@ -49,8 +57,6 @@ const ROTATION: Array<{ activity: IdleActivity; weight: number }> = [
   { activity: "breathe", weight: 2 },
   { activity: "shift-weight", weight: 2 },
   { activity: "look-around", weight: 2 },
-  { activity: "walk", weight: 3 },
-  { activity: "fly", weight: 2 },
   { activity: "check-earth", weight: 2 },
   { activity: "check-wolves", weight: 2 },
   { activity: "check-cube", weight: 1 },

@@ -433,9 +433,24 @@ export type PortalDef = {
   arriveZ: number;
 };
 
+/**
+ * A department label floating over a desk cluster (Part 9 amendment,
+ * owner order 2026-11-21: "I don't even know what office they're in").
+ * The renderer draws these as text sprites; the data lives here so
+ * tests can assert every named department is actually on a floor.
+ */
+export type FloorLabel = {
+  text: string;
+  x: number;
+  y: number;
+  z: number;
+};
+
 export type BuiltFloor = {
   floor: number;
   name: string;
+  /** Department labels for this floor (empty outside the Office). */
+  labels: readonly FloorLabel[];
   /** What Augie says when a portal delivers him to this floor. */
   line: string;
   staticPositions: Float32Array;
@@ -602,10 +617,12 @@ function finishFloor(
   cloud: Cloud,
   people: readonly PersonDef[],
   portals: readonly PortalDef[],
+  labels: readonly FloorLabel[] = [],
 ): BuiltFloor {
   return {
     floor,
     name,
+    labels,
     line,
     staticPositions: new Float32Array(cloud.positions),
     staticColors: new Float32Array(cloud.colors),
@@ -670,52 +687,44 @@ function buildOfficeFloor1(): BuiltFloor {
     [-9.8, -4.9],
     [0.2, -8.3],
   ];
+  // PART 9 (owner order 2026-11-21): the DEFAULT state of this floor
+  // is citizens SEATED AT DESKS, WORKING — long desk dwells, short
+  // purposeful trips (water cooler, a word at the lobby desk) and back.
+  // The old build added three rectangle-patrol wanderers on 1-second
+  // dwells; on his screen that read as "ghosts walking around doing
+  // nothing." They are seated workers now. Departments own desk
+  // clusters, west to east: Finance, Main Floor, Marketing, Social
+  // Media — labeled above the desks (labels below).
   const seats: [number, number][] = [
     [-8.75, -3.0],
     [-5.25, -3.0],
+    [-1.75, -3.0],
     [1.75, -3.0],
-    [-5.25, -5.6],
+    [5.25, -3.0],
+    [-8.75, -5.6],
+    [-1.75, -5.6],
     [5.25, -5.6],
+    [8.75, -5.6],
   ];
   const people: PersonDef[] = seats.map(([dx, dz], i) => {
     const b = breaks[i % breaks.length]!;
     return {
       appearance: makeAppearance(i, 21),
       waypoints: [
-        wp(dx, dz + seatOffset, "work", [7, 14], Math.PI),
-        wp(b[0], b[1], "stand", [2.5, 4.5]),
+        wp(dx, dz + seatOffset, "work", [26, 48], Math.PI),
+        wp(b[0], b[1], "stand", [4, 8]),
       ],
     };
   });
-  people.push(
-    {
-      appearance: makeAppearance(5, 21),
-      waypoints: [
-        wp(-9.6, 0.9, "stand", [0.6, 1.6]),
-        wp(9.6, 0.9, "stand", [0.6, 1.6]),
-        wp(9.6, -4.4, "stand", [0.6, 1.6]),
-        wp(-9.6, -4.4, "stand", [0.6, 1.6]),
-      ],
-    },
-    {
-      appearance: makeAppearance(6, 21),
-      waypoints: [
-        wp(-9.8, -1.1, "stand", [1, 2]),
-        wp(1.75, -1.55, "stand", [3, 5], Math.PI),
-        wp(9.9, -1.1, "stand", [1, 2]),
-        wp(-1.75, -1.55, "stand", [3, 5], Math.PI),
-      ],
-    },
-    {
-      appearance: makeAppearance(7, 21),
-      waypoints: [
-        wp(-3.5, 1.6, "stand", [0.8, 2]),
-        wp(3.5, 1.6, "stand", [0.8, 2]),
-        wp(3.5, -0.6, "stand", [0.8, 2]),
-        wp(-3.5, -0.6, "stand", [0.8, 2]),
-      ],
-    },
-  );
+  people.push({
+    // The runner: mostly at her Social Media desk, with a real errand
+    // — across the floor to the water cooler and straight back.
+    appearance: makeAppearance(9, 21),
+    waypoints: [
+      wp(8.75, -3.0 + seatOffset, "work", [20, 36], Math.PI),
+      wp(9.3, -7.3, "stand", [3, 6]),
+    ],
+  });
   return finishFloor(
     1,
     "Floor 1 — Front Lobby & Desks",
@@ -732,6 +741,12 @@ function buildOfficeFloor1(): BuiltFloor {
         arriveX: DOWN_SPOT.x,
         arriveZ: DOWN_SPOT.z + 1.4,
       },
+    ],
+    [
+      { text: "FINANCE", x: -7.0, y: 3.15, z: -4.3 },
+      { text: "MAIN FLOOR", x: 0, y: 3.15, z: -4.3 },
+      { text: "MARKETING", x: 5.25, y: 2.95, z: -4.3 },
+      { text: "SOCIAL MEDIA", x: 8.75, y: 3.45, z: -4.3 },
     ],
   );
 }
@@ -793,54 +808,40 @@ function buildOfficeFloor2(): BuiltFloor {
   portalArch(cloud, random, UP_SPOT, PORTAL_UP_COLOR);
   portalArch(cloud, random, DOWN_SPOT, PORTAL_DOWN_COLOR);
 
+  // Part 9, same law as floor 1: bench crew SEATED AND WORKING with
+  // long dwells; the radar watcher works the table with real pauses;
+  // the rectangle patrols and the pacer are gone.
   const people: PersonDef[] = [
     {
       appearance: makeAppearance(0, 31),
       waypoints: [
-        wp(-8.75, -3.0 + seatOffset, "work", [8, 15], Math.PI),
-        wp(-9.7, -7.3, "stand", [2, 4]),
+        wp(-8.75, -3.0 + seatOffset, "work", [24, 44], Math.PI),
+        wp(-9.7, -7.3, "stand", [4, 7]),
       ],
     },
     {
       appearance: makeAppearance(1, 31),
       waypoints: [
-        wp(8.75, -5.6 + seatOffset, "work", [8, 15], Math.PI),
-        wp(9.7, -1.4, "stand", [2, 4]),
-      ],
-    },
-    {
-      // The radar watcher — stands at the table, crosses to the far side.
-      appearance: makeAppearance(2, 31),
-      speed: 0.6,
-      waypoints: [
-        wp(2.05, -3.2, "stand", [5, 8], -Math.PI / 2),
-        wp(-2.05, -3.2, "stand", [5, 8], Math.PI / 2),
+        wp(8.75, -5.6 + seatOffset, "work", [24, 44], Math.PI),
+        wp(9.7, -1.4, "stand", [4, 7]),
       ],
     },
     {
       appearance: makeAppearance(3, 31),
       waypoints: [
-        wp(-9.6, 0.9, "stand", [0.8, 1.8]),
-        wp(9.6, 0.9, "stand", [0.8, 1.8]),
-        wp(9.6, -4.4, "stand", [0.8, 1.8]),
-        wp(-9.6, -4.4, "stand", [0.8, 1.8]),
+        wp(-8.75, -5.6 + seatOffset, "work", [28, 50], Math.PI),
+        wp(8.75, -3.0 + seatOffset, "work", [6, 10], Math.PI),
       ],
     },
     {
-      // The aisle walker — his round IS the portal route's aisles.
-      appearance: makeAppearance(4, 31),
-      speed: 0.9,
+      // The radar watcher — works the table, crosses to the far side
+      // to read the other board, and stays a while each time.
+      appearance: makeAppearance(2, 31),
+      speed: 0.6,
       waypoints: [
-        wp(-7.0, 1.4, "stand", [0.6, 1.4]),
-        wp(7.0, 1.4, "stand", [0.6, 1.4]),
-        wp(7.0, -6.6, "stand", [0.6, 1.4]),
-        wp(-7.0, -6.6, "stand", [0.6, 1.4]),
+        wp(2.05, -3.2, "stand", [10, 16], -Math.PI / 2),
+        wp(-2.05, -3.2, "stand", [10, 16], Math.PI / 2),
       ],
-    },
-    {
-      appearance: makeAppearance(5, 31),
-      speed: 0.7,
-      waypoints: [wp(-4, 0.2, "stand", [2, 4]), wp(4, 0.2, "stand", [2, 4])],
     },
   ];
   return finishFloor(
@@ -869,6 +870,7 @@ function buildOfficeFloor2(): BuiltFloor {
         arriveZ: UP_SPOT.z + 1.4,
       },
     ],
+    [{ text: "SECURITY OPERATIONS", x: 0, y: 3.3, z: -3.2 }],
   );
 }
 
@@ -946,25 +948,15 @@ function buildOfficeFloor3(): BuiltFloor {
       appearance: makeAppearance(0, 41),
       speed: 0.55,
       waypoints: [
-        wp(-9.8, -5.0, "stand", [6, 10], -Math.PI / 2),
-        wp(9.8, -5.0, "stand", [6, 10], Math.PI / 2),
-        wp(9.8, -2.6, "stand", [4, 7], Math.PI / 2),
-        wp(-9.8, -2.6, "stand", [4, 7], -Math.PI / 2),
+        wp(-9.8, -5.0, "stand", [12, 20], -Math.PI / 2),
+        wp(9.8, -5.0, "stand", [12, 20], Math.PI / 2),
+        wp(9.8, -2.6, "stand", [8, 14], Math.PI / 2),
+        wp(-9.8, -2.6, "stand", [8, 14], -Math.PI / 2),
       ],
     },
     {
       appearance: makeAppearance(1, 41),
       waypoints: [wp(4.6, -6.05, "sit", [30, 45], Math.PI)],
-    },
-    {
-      appearance: makeAppearance(2, 41),
-      speed: 0.6,
-      waypoints: [
-        wp(-3.4, 0.8, "stand", [1.5, 3]),
-        wp(3.4, 0.8, "stand", [1.5, 3]),
-        wp(3.4, -1.2, "stand", [1.5, 3]),
-        wp(-3.4, -1.2, "stand", [1.5, 3]),
-      ],
     },
   ];
   return finishFloor(
@@ -984,6 +976,7 @@ function buildOfficeFloor3(): BuiltFloor {
         arriveZ: UP_SPOT.z + 1.4,
       },
     ],
+    [{ text: "OSIRIS — THE BOSS", x: 0, y: 3.2, z: -6.4 }],
   );
 }
 

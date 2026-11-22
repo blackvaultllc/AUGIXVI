@@ -7,6 +7,13 @@
  *
  * Pure data + math, no three.js — unit-testable like the avatar rules.
  * The renderer (worldSceneRenderer.ts) turns these points into Points.
+ *
+ * DENSITY (Part 18, owner order 2026-11-21): the first builds read as
+ * GHOSTS on his screen — too few points per figure, so bodies looked
+ * see-through. Every part's point count is raised ~60% (torso rings
+ * 7x16 -> 9x24, head 80 -> 150, limbs up by a third) and the renderer
+ * draws citizens solid. Per-citizen count is asserted in tests so the
+ * density cannot silently drift back down.
  */
 import { getArmSwingAngle } from "./particleLegs";
 
@@ -209,14 +216,14 @@ export function buildPersonPoints(
   const sway = pose.mode === "stand" ? Math.sin(pose.time * 1.1) * 0.008 : 0;
 
   // TORSO — stacked rings, waist pinch, like a soft turned column.
-  const rings = 7;
+  const rings = 9;
   for (let ring = 0; ring < rings; ring += 1) {
     const t = ring / (rings - 1);
     const y = hipY + t * torsoLen;
     const rx =
       (appearance.hip + (appearance.shoulder - appearance.hip) * t) *
       (1 - 0.13 * Math.sin(Math.PI * t));
-    const per = 16;
+    const per = 24;
     for (let i = 0; i < per; i += 1) {
       const angle = (i / per) * Math.PI * 2 + ring * 0.35;
       cloud.point(
@@ -232,7 +239,7 @@ export function buildPersonPoints(
   cloud.segment(
     [sway, shoulderY, 0],
     [sway, headCenter[1] - headR * 0.7, 0],
-    8,
+    12,
     0.045,
     appearance.skin,
   );
@@ -241,7 +248,7 @@ export function buildPersonPoints(
     headR * 0.88,
     headR,
     headR * 0.94,
-    80,
+    150,
     appearance.skin,
   );
   // HAIR — cap, plus the style: long falls down the back, a bun sits high.
@@ -251,14 +258,14 @@ export function buildPersonPoints(
       headCenter[1] + headR * 0.22,
       headCenter[2] - headR * 0.12,
     ];
-    cloud.ellipsoid(capCenter, headR * 0.95, headR * 0.82, headR * 1.0, 26, appearance.hairColor);
+    cloud.ellipsoid(capCenter, headR * 0.95, headR * 0.82, headR * 1.0, 44, appearance.hairColor);
     if (appearance.hair === "long") {
       for (let strand = 0; strand < 4; strand += 1) {
         const x = (strand - 1.5) * headR * 0.32;
         cloud.segment(
           [x + sway, headCenter[1] + headR * 0.5, -headR * 0.78],
           [x + sway, shoulderY + 0.02 * H, -headR * 0.95],
-          6,
+          9,
           0.02,
           appearance.hairColor,
         );
@@ -269,7 +276,7 @@ export function buildPersonPoints(
         headR * 0.42,
         headR * 0.42,
         headR * 0.42,
-        12,
+        18,
         appearance.hairColor,
       );
     }
@@ -300,9 +307,9 @@ export function buildPersonPoints(
       elbow = addScaled(shoulder, [side * 0.13, -0.98, 0.06], upperArmLen);
       hand = addScaled(elbow, [side * 0.05, -0.97, 0.2], forearmLen);
     }
-    cloud.segment(shoulder, elbow, 24, 0.062, appearance.shirt);
-    cloud.segment(elbow, hand, 20, 0.05, appearance.shirt);
-    cloud.ellipsoid(hand, 0.045, 0.05, 0.045, 6, appearance.skin);
+    cloud.segment(shoulder, elbow, 34, 0.062, appearance.shirt);
+    cloud.segment(elbow, hand, 28, 0.05, appearance.shirt);
+    cloud.ellipsoid(hand, 0.045, 0.05, 0.045, 10, appearance.skin);
   }
 
   // LEGS — hip → knee → ankle. The walk uses particleLegs' own numbers:
@@ -325,13 +332,13 @@ export function buildPersonPoints(
       knee = addScaled(hip, [0, -1, 0.01], thighLen);
       ankle = addScaled(knee, [0, -1, 0.01], shinLen);
     }
-    cloud.segment(hip, knee, 28, 0.075, appearance.pants);
-    cloud.segment(knee, ankle, 24, 0.06, appearance.pants);
+    cloud.segment(hip, knee, 38, 0.075, appearance.pants);
+    cloud.segment(knee, ankle, 32, 0.06, appearance.pants);
     // shoe — a short forward line at the ankle.
     cloud.segment(
       ankle,
       [ankle[0], Math.max(0.01, ankle[1] - 0.02), ankle[2] + 0.16],
-      6,
+      9,
       0.035,
       appearance.shoes,
     );

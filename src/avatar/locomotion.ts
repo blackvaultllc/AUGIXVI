@@ -133,8 +133,13 @@ export class AvatarLocomotion {
       if (!this.loopRoute) {
         this.waypoints = DEFAULT_WALK_ROUTE.map((point) => new THREE.Vector3(point.x, 0, point.z));
         this.waypointIndex = 0;
-        this.loopRoute = true;
       }
+      // BOSS'S ROUNDS (Part 9 amendment 2, owner order 2026-11-21):
+      // the default route is walked ONCE — out around the floor and
+      // back to his mark, where he stops. Looping it forever was the
+      // "walking in circles like a crazy man" defect. A round has a
+      // start and an end; circling is not a behavior he has anymore.
+      this.loopRoute = false;
     }
     if (mode === "jump") this.jumpElapsed = 0;
   }
