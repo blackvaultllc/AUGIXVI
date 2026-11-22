@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { RoomGate } from "@/avatar/RoomGate";
 import { getOperatorAccessToken } from "@/avatar/trustedDevice";
 import {
@@ -18,6 +18,11 @@ import { listWatchReadings, saveWatchReading } from "@/avatar/watchVitals.server
  * the phone's software allows and what needs the native companion.
  * Local-first: readings go to HIS Augie core (this server), never to
  * third parties.
+ *
+ * The header carries the standing "← Augie" exit back to the stage,
+ * the same control every full-page room has — a full page in Augie is
+ * never a trap (operator defect report 2026-11-22: this page shipped
+ * with no way back).
  */
 export const Route = createFileRoute("/phone-bridge")({
   component: PhoneBridgePage,
@@ -108,8 +113,43 @@ function PhoneBridgePage() {
 
   return (
     <RoomGate roomName="Ghost Protocol One — Phone Bridge">
-      <main className="phone-bridge">
-        <h1>Ghost Protocol One — Phone Bridge</h1>
+      <div
+        style={{
+          minHeight: "100dvh",
+          background: "#0b0e14",
+          color: "#eef2f7",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+            padding: "0.6rem 1rem",
+            borderBottom: "2px solid #d4af37",
+            background: "#101623",
+            flex: "0 0 auto",
+          }}
+        >
+          <Link
+            to="/avatar"
+            style={{
+              color: "#9fb0c9",
+              textDecoration: "none",
+              border: "1px solid #3a4763",
+              padding: "6px 10px",
+              borderRadius: "999px",
+              fontSize: "14px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ← Augie
+          </Link>
+          <h1 style={{ fontSize: "19px", margin: 0 }}>Ghost Protocol One — Phone Bridge</h1>
+        </header>
+        <main className="phone-bridge" style={{ flex: 1, overflowY: "auto", width: "100%" }}>
         <p>
           The watch stays paired to this phone. Augie, opened on the phone, takes its sensing
           from here — with your authorization — and sends it to your Augie core over your own
@@ -202,7 +242,8 @@ function PhoneBridgePage() {
             version the web platform allows today.
           </p>
         </section>
-      </main>
+        </main>
+      </div>
     </RoomGate>
   );
 }
