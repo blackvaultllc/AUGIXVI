@@ -90,10 +90,21 @@ class Cloud {
     );
     this.colors.push(color[0], color[1], color[2]);
   }
-  line(a: readonly [number, number, number], b: readonly [number, number, number], n: number, color: Rgb) {
+  line(
+    a: readonly [number, number, number],
+    b: readonly [number, number, number],
+    n: number,
+    color: Rgb,
+  ) {
     for (let i = 0; i < n; i += 1) {
       const t = n === 1 ? 0 : i / (n - 1);
-      this.point(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, color, 0.01);
+      this.point(
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t,
+        color,
+        0.01,
+      );
     }
   }
   /** Flat grid of points over a rectangle at height y(x,z). */
@@ -128,25 +139,81 @@ class Cloud {
       }
     }
   }
-  boxEdges(cx: number, cy: number, cz: number, w: number, h: number, d: number, n: number, color: Rgb) {
-    const x0 = cx - w / 2, x1 = cx + w / 2, y0 = cy - h / 2, y1 = cy + h / 2, z0 = cz - d / 2, z1 = cz + d / 2;
+  boxEdges(
+    cx: number,
+    cy: number,
+    cz: number,
+    w: number,
+    h: number,
+    d: number,
+    n: number,
+    color: Rgb,
+  ) {
+    const x0 = cx - w / 2,
+      x1 = cx + w / 2,
+      y0 = cy - h / 2,
+      y1 = cy + h / 2,
+      z0 = cz - d / 2,
+      z1 = cz + d / 2;
     const corners: [number, number, number][] = [
-      [x0, y0, z0], [x1, y0, z0], [x0, y1, z0], [x1, y1, z0],
-      [x0, y0, z1], [x1, y0, z1], [x0, y1, z1], [x1, y1, z1],
+      [x0, y0, z0],
+      [x1, y0, z0],
+      [x0, y1, z0],
+      [x1, y1, z0],
+      [x0, y0, z1],
+      [x1, y0, z1],
+      [x0, y1, z1],
+      [x1, y1, z1],
     ];
-    const edges = [[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]] as const;
+    const edges = [
+      [0, 1],
+      [0, 2],
+      [0, 4],
+      [1, 3],
+      [1, 5],
+      [2, 3],
+      [2, 6],
+      [3, 7],
+      [4, 5],
+      [4, 6],
+      [5, 7],
+      [6, 7],
+    ] as const;
     for (const [a, b] of edges) this.line(corners[a]!, corners[b]!, n, color);
   }
-  ellipsoid(cx: number, cy: number, cz: number, rx: number, ry: number, rz: number, n: number, color: Rgb) {
+  ellipsoid(
+    cx: number,
+    cy: number,
+    cz: number,
+    rx: number,
+    ry: number,
+    rz: number,
+    n: number,
+    color: Rgb,
+  ) {
     for (let i = 0; i < n; i += 1) {
       const y = this.random() * 2 - 1;
       const angle = this.random() * Math.PI * 2;
       const ring = Math.sqrt(Math.max(0, 1 - y * y));
       const s = 0.8 + this.random() * 0.2;
-      this.point(cx + Math.cos(angle) * ring * rx * s, cy + y * ry * s, cz + Math.sin(angle) * ring * rz * s, color, 0.008);
+      this.point(
+        cx + Math.cos(angle) * ring * rx * s,
+        cy + y * ry * s,
+        cz + Math.sin(angle) * ring * rz * s,
+        color,
+        0.008,
+      );
     }
   }
-  cone(cx: number, baseY: number, cz: number, radius: number, height: number, n: number, color: Rgb) {
+  cone(
+    cx: number,
+    baseY: number,
+    cz: number,
+    radius: number,
+    height: number,
+    n: number,
+    color: Rgb,
+  ) {
     for (let i = 0; i < n; i += 1) {
       const y = this.random() * height;
       const angle = this.random() * Math.PI * 2;
@@ -181,7 +248,9 @@ class Cloud {
     const scale = opts.scale ?? 1;
     const sy = opts.sy ?? scale;
     for (let i = 0; i < points.length; i += 3) {
-      const px = points[i]!, py = points[i + 1]!, pz = points[i + 2]!;
+      const px = points[i]!,
+        py = points[i + 1]!,
+        pz = points[i + 2]!;
       this.point(
         (opts.x ?? 0) + px * scale,
         (opts.y ?? 0) + py * sy,
@@ -205,8 +274,7 @@ const PINE_GREEN: Rgb = [0.3, 0.78, 0.42];
 const PALM_GREEN: Rgb = [0.35, 0.85, 0.45];
 
 /** Trunk points in the tree builder are the low, narrow ones (y<1, r<0.21). */
-const isTrunkPoint = (x: number, y: number, z: number) =>
-  y < 1.0 && Math.hypot(x, z) < 0.21;
+const isTrunkPoint = (x: number, y: number, z: number) => y < 1.0 && Math.hypot(x, z) < 0.21;
 
 function stampTree(
   cloud: Cloud,
@@ -233,7 +301,9 @@ function stampTree(
 export function reshapeToPalm(points: Float32Array): Float32Array {
   const out = new Float32Array(points.length);
   for (let i = 0; i < points.length; i += 3) {
-    const px = points[i]!, py = points[i + 1]!, pz = points[i + 2]!;
+    const px = points[i]!,
+      py = points[i + 1]!,
+      pz = points[i + 2]!;
     if (py < 1.0) {
       const y = py * 2.1;
       out[i] = px * 0.55 + y * 0.16; // lean as it climbs
@@ -249,7 +319,14 @@ export function reshapeToPalm(points: Float32Array): Float32Array {
   return out;
 }
 
-function stampPalm(cloud: Cloud, x: number, z: number, scale: number, density: number, random: () => number) {
+function stampPalm(
+  cloud: Cloud,
+  x: number,
+  z: number,
+  scale: number,
+  density: number,
+  random: () => number,
+) {
   cloud.stamp(reshapeToPalm(makeObjectPoints("tree", density)), {
     x,
     z,
@@ -331,7 +408,60 @@ export type BuiltScene = {
   people: readonly PersonDef[];
   /** Static + water + every citizen's cloud — the number the budget caps. */
   totalParticles: number;
+  /**
+   * Multi-floor scenes (the Office, owner order 2026-11-21): distinct
+   * floors joined by portals. When present, the scene-level fields
+   * above mirror floor 1 and the renderer swaps floors as Augie walks
+   * through a portal. totalParticles is the largest single floor —
+   * only one floor is ever on stage at a time.
+   */
+  floors?: readonly BuiltFloor[];
 };
+
+export type PortalKind = "up" | "down";
+
+export type PortalDef = {
+  kind: PortalKind;
+  x: number;
+  z: number;
+  /** How close Augie must walk to be carried through. */
+  radius: number;
+  /** Floor number this portal leads to. */
+  toFloor: number;
+  /** Where he materializes on the destination floor. */
+  arriveX: number;
+  arriveZ: number;
+};
+
+export type BuiltFloor = {
+  floor: number;
+  name: string;
+  /** What Augie says when a portal delivers him to this floor. */
+  line: string;
+  staticPositions: Float32Array;
+  staticColors: Float32Array;
+  staticCount: number;
+  people: readonly PersonDef[];
+  portals: readonly PortalDef[];
+  totalParticles: number;
+};
+
+/** A completed portal trip, handed to the stage so Augie lands + speaks. */
+export type PortalTransition = {
+  toFloor: number;
+  floorName: string;
+  line: string;
+  arriveX: number;
+  arriveZ: number;
+};
+
+function peoplePointCount(people: readonly PersonDef[]): number {
+  return people.reduce(
+    (sum, def) =>
+      sum + buildPersonPoints(def.appearance, { mode: "stand", gaitTime: 0, time: 0 }).count,
+    0,
+  );
+}
 
 function finish(
   id: WorldSceneId,
@@ -339,11 +469,7 @@ function finish(
   people: readonly PersonDef[],
   water: BuiltScene["water"],
 ): BuiltScene {
-  const peoplePoints = people.reduce(
-    (sum, def) =>
-      sum + buildPersonPoints(def.appearance, { mode: "stand", gaitTime: 0, time: 0 }).count,
-    0,
-  );
+  const peoplePoints = peoplePointCount(people);
   return {
     id,
     staticPositions: new Float32Array(cloud.positions),
@@ -365,74 +491,198 @@ const wp = (
 
 /* ------------------------------- THE OFFICE ------------------------------- */
 
-function buildOffice(): BuiltScene {
+/**
+ * THE BIG OFFICE (owner order 2026-11-21): "make it a big office, make
+ * it have different floors — if he wants to walk up to another floor he
+ * can walk through a portal and go to the next floor, just like we had
+ * the other office." One tower, three floors on the same enlarged
+ * plate, joined by two portal doorways against the back wall: GOLD
+ * carries him up, BLUE carries him down. He arrives in front of the
+ * far floor's return door, facing into the room. The furniture is
+ * scaled to the citizens' new height (see people.ts) so desks, chairs
+ * and screens sit at honest proportions around them.
+ *
+ * Every floor keeps the same walking aisles clear — the front band
+ * (z ≈ −1), the side aisles (|x| ≈ 7) and the back band (z ≈ −6.6) —
+ * so the portal route the renderer walks him on never crosses a desk.
+ */
+const OFFICE_PLATE = { x0: -11, x1: 11, z0: -9, z1: 3 } as const;
+/**
+ * Desk/furniture scale against the ORIGINAL office build. The people
+ * shrank (see people.ts), the desks matched them — then the owner
+ * asked for the desks smaller still, in his words "that's how we can
+ * conserve space on the screen" (2026-11-21). 0.62 it is: desk tops
+ * sit at 0.88, right for a seated citizen, and the rows take
+ * noticeably less of the frame.
+ */
+const FURNITURE_SCALE = 0.62;
+
+const UP_SPOT = { x: -8.6, z: -7.7 } as const;
+const DOWN_SPOT = { x: 8.6, z: -7.7 } as const;
+const PORTAL_RADIUS = 0.85;
+const PORTAL_UP_COLOR: Rgb = [1.0, 0.8, 0.35];
+const PORTAL_DOWN_COLOR: Rgb = [0.4, 0.75, 1.0];
+
+function portalArch(
+  cloud: Cloud,
+  random: () => number,
+  spot: { x: number; z: number },
+  color: Rgb,
+) {
+  const { x, z } = spot;
+  for (const side of [-1, 1] as const) {
+    cloud.line([x + side * 0.62, 0, z], [x + side * 0.62, 2.5, z], 16, color);
+  }
+  cloud.line([x - 0.62, 2.5, z], [x + 0.62, 2.5, z], 10, color);
+  // Threshold ring on the floor — step inside it and the portal takes you.
+  for (let i = 0; i < 26; i += 1) {
+    const a = (i / 26) * Math.PI * 2;
+    cloud.point(
+      x + Math.cos(a) * PORTAL_RADIUS,
+      0.06,
+      z + Math.sin(a) * PORTAL_RADIUS,
+      color,
+      0.008,
+    );
+  }
+  // Light rising inside the arch.
+  for (let i = 0; i < 16; i += 1) {
+    cloud.point(
+      x + (random() - 0.5) * 0.9,
+      0.25 + (i / 16) * 2.1,
+      z + (random() - 0.5) * 0.16,
+      color,
+      0.02,
+    );
+  }
+}
+
+type DeskPalette = { top: Rgb; edge: Rgb; screen: Rgb };
+
+/** A desk + monitor + chair, built at the citizens' scale. */
+function officeDesk(
+  cloud: Cloud,
+  random: () => number,
+  cx: number,
+  cz: number,
+  s: number,
+  palette: DeskPalette,
+) {
+  cloud.slab(cx, 1.42 * s, cz, 1.9 * s, 0.95 * s, 0.19, vary(palette.top, 0.08, random));
+  cloud.boxEdges(cx, 1.38 * s, cz, 1.9 * s, 0.08, 0.95 * s, 7, palette.edge);
+  for (const lx of [-0.85 * s, 0.85 * s]) {
+    for (const lz of [-0.38 * s, 0.38 * s]) {
+      cloud.line([cx + lx, 0, cz + lz], [cx + lx, 1.4 * s, cz + lz], 9, palette.edge);
+    }
+  }
+  // Monitor + screen glow at the back of the desk.
+  cloud.boxEdges(cx, 1.85 * s, cz - 0.28 * s, 0.95 * s, 0.58 * s, 0.06, 8, [0.4, 0.45, 0.5]);
+  cloud.panel(cx, 1.85 * s, cz - 0.24 * s, 0.85 * s, 0.48 * s, 0.16, palette.screen);
+  cloud.line([cx, 1.42 * s, cz - 0.28 * s], [cx, 1.58 * s, cz - 0.28 * s], 4, [0.4, 0.45, 0.5]);
+  // Chair on the camera side.
+  cloud.slab(cx, 0.8 * s, cz + 0.78 * s, 0.62 * s, 0.55 * s, 0.15, [0.3, 0.3, 0.38]);
+  cloud.panel(cx, 1.25 * s, cz + 1.02 * s, 0.62 * s, 0.85 * s, 0.15, [0.3, 0.3, 0.38]);
+  for (const lx of [-0.26 * s, 0.26 * s]) {
+    cloud.line(
+      [cx + lx, 0, cz + 0.62 * s],
+      [cx + lx, 0.8 * s, cz + 0.62 * s],
+      6,
+      [0.35, 0.35, 0.42],
+    );
+  }
+}
+
+/** Where a seated citizen sits relative to their desk. */
+const seatOffset = FURNITURE_SCALE * 0.78;
+
+function finishFloor(
+  floor: number,
+  name: string,
+  line: string,
+  cloud: Cloud,
+  people: readonly PersonDef[],
+  portals: readonly PortalDef[],
+): BuiltFloor {
+  return {
+    floor,
+    name,
+    line,
+    staticPositions: new Float32Array(cloud.positions),
+    staticColors: new Float32Array(cloud.colors),
+    staticCount: cloud.positions.length / 3,
+    people,
+    portals,
+    totalParticles: cloud.positions.length / 3 + peoplePointCount(people),
+  };
+}
+
+function officeGround(cloud: Cloud, random: () => number, base: Rgb, edge: Rgb) {
+  cloud.ground(
+    OFFICE_PLATE.x0,
+    OFFICE_PLATE.x1,
+    OFFICE_PLATE.z0,
+    OFFICE_PLATE.z1,
+    0.62,
+    (x, z) => ({
+      y: 0,
+      color:
+        Math.abs(x) > 10.4 || Math.abs(z + 3) > 5.5
+          ? vary(edge, 0.1, random)
+          : vary(base, 0.16, random),
+    }),
+  );
+}
+
+function buildOfficeFloor1(): BuiltFloor {
   const random = createSeededRandom(101);
   const cloud = new Cloud(random);
-  const FLOOR: Rgb = [0.13, 0.21, 0.34];
-  const FLOOR_EDGE: Rgb = [0.2, 0.6, 0.75];
-  cloud.ground(-7, 7, -6, 2, 0.58, (x, z) => ({
-    y: 0,
-    color:
-      Math.abs(x) > 6.6 || Math.abs(z + 2) > 3.8 ? vary(FLOOR_EDGE, 0.1, random) : vary(FLOOR, 0.16, random),
-  }));
+  officeGround(cloud, random, [0.13, 0.21, 0.34], [0.2, 0.6, 0.75]);
   // Back wall: window frames glowing faint steel blue.
-  for (const wx of [-4.4, 0, 4.4]) {
-    cloud.boxEdges(wx, 2.6, -6, 3.4, 2.6, 0.1, 10, [0.3, 0.55, 0.75]);
+  for (const wx of [-6, 0, 6]) {
+    cloud.boxEdges(wx, 2.6, OFFICE_PLATE.z0, 3.4, 2.6, 0.1, 10, [0.3, 0.55, 0.75]);
   }
   // Ceiling light strips.
-  for (const lz of [-1.6, -4.2]) cloud.line([-5.4, 4.3, lz], [5.4, 4.3, lz], 40, [0.8, 0.92, 1.0]);
+  for (const lz of [-2.2, -5.4]) cloud.line([-9, 4.3, lz], [9, 4.3, lz], 44, [0.8, 0.92, 1.0]);
 
-  const DESK_TOP: Rgb = [0.5, 0.38, 0.24];
-  const DESK_EDGE: Rgb = [0.62, 0.48, 0.3];
-  const SCREEN: Rgb = [0.35, 0.8, 0.95];
-  const desk = (cx: number, cz: number) => {
-    cloud.slab(cx, 1.42, cz, 1.9, 0.95, 0.19, vary(DESK_TOP, 0.08, random));
-    cloud.boxEdges(cx, 1.38, cz, 1.9, 0.08, 0.95, 7, DESK_EDGE);
-    for (const lx of [-0.85, 0.85]) {
-      for (const lz of [-0.38, 0.38]) cloud.line([cx + lx, 0, cz + lz], [cx + lx, 1.4, cz + lz], 9, DESK_EDGE);
-    }
-    // Monitor + screen glow at the back of the desk.
-    cloud.boxEdges(cx, 1.85, cz - 0.28, 0.95, 0.58, 0.06, 8, [0.4, 0.45, 0.5]);
-    cloud.panel(cx, 1.85, cz - 0.24, 0.85, 0.48, 0.16, SCREEN);
-    cloud.line([cx, 1.42, cz - 0.28], [cx, 1.58, cz - 0.28], 4, [0.4, 0.45, 0.5]);
-    // Chair on the camera side.
-    cloud.slab(cx, 0.8, cz + 0.78, 0.62, 0.55, 0.15, [0.3, 0.3, 0.38]);
-    cloud.panel(cx, 1.25, cz + 1.02, 0.62, 0.85, 0.15, [0.3, 0.3, 0.38]);
-    for (const lx of [-0.26, 0.26]) cloud.line([cx + lx, 0, cz + 0.62], [cx + lx, 0.8, cz + 0.62], 6, [0.35, 0.35, 0.42]);
+  const palette: DeskPalette = {
+    top: [0.5, 0.38, 0.24],
+    edge: [0.62, 0.48, 0.3],
+    screen: [0.35, 0.8, 0.95],
   };
-  const deskXs = [-4.8, -1.7, 1.7, 4.8];
-  const deskZs = [-2.3, -4.5];
-  for (const dz of deskZs) for (const dx of deskXs) desk(dx, dz);
+  const deskXs = [-8.75, -5.25, -1.75, 1.75, 5.25, 8.75];
+  const deskZs = [-3.0, -5.6];
+  for (const dz of deskZs)
+    for (const dx of deskXs) officeDesk(cloud, random, dx, dz, FURNITURE_SCALE, palette);
 
   // Water cooler in the back corner.
-  cloud.ellipsoid(6.3, 0.55, -5.3, 0.26, 0.55, 0.26, 90, [0.75, 0.8, 0.85]);
-  cloud.ellipsoid(6.3, 1.45, -5.3, 0.2, 0.35, 0.2, 60, [0.45, 0.75, 0.95]);
+  cloud.ellipsoid(9.9, 0.44, -8.2, 0.21, 0.44, 0.21, 70, [0.75, 0.8, 0.85]);
+  cloud.ellipsoid(9.9, 1.16, -8.2, 0.16, 0.28, 0.16, 48, [0.45, 0.75, 0.95]);
   // Office plants — the tree code again, desk-sized.
-  stampTree(cloud, -6.4, -5.4, 0.34, 0.3, PINE_GREEN, random);
-  stampTree(cloud, 6.5, -0.7, 0.3, 0.3, PINE_GREEN, random);
+  stampTree(cloud, -10.2, -8.3, 0.34, 0.3, PINE_GREEN, random);
+  stampTree(cloud, 10.3, -1.0, 0.3, 0.3, PINE_GREEN, random);
 
-  const seat = (dx: number, dz: number) => ({ x: dx, z: dz + 0.78 });
+  portalArch(cloud, random, UP_SPOT, PORTAL_UP_COLOR);
+
   const breaks: [number, number][] = [
-    [6.0, -4.8],
-    [-3.0, -5.4],
-    [6.1, -1.2],
-    [-6.0, -4.6],
-    [0.2, -5.5],
+    [9.3, -7.3],
+    [-3.0, -8.2],
+    [9.8, -1.6],
+    [-9.8, -4.9],
+    [0.2, -8.3],
   ];
   const seats: [number, number][] = [
-    [-4.8, -2.3],
-    [-1.7, -2.3],
-    [1.7, -2.3],
-    [-4.8, -4.5],
-    [4.8, -4.5],
+    [-8.75, -3.0],
+    [-5.25, -3.0],
+    [1.75, -3.0],
+    [-5.25, -5.6],
+    [5.25, -5.6],
   ];
   const people: PersonDef[] = seats.map(([dx, dz], i) => {
-    const s = seat(dx, dz);
     const b = breaks[i % breaks.length]!;
     return {
       appearance: makeAppearance(i, 21),
       waypoints: [
-        wp(s.x, s.z, "work", [7, 14], Math.PI),
+        wp(dx, dz + seatOffset, "work", [7, 14], Math.PI),
         wp(b[0], b[1], "stand", [2.5, 4.5]),
       ],
     };
@@ -441,32 +691,343 @@ function buildOffice(): BuiltScene {
     {
       appearance: makeAppearance(5, 21),
       waypoints: [
-        wp(-5.6, 0.9, "stand", [0.6, 1.6]),
-        wp(5.6, 0.9, "stand", [0.6, 1.6]),
-        wp(5.6, -3.3, "stand", [0.6, 1.6]),
-        wp(-5.6, -3.3, "stand", [0.6, 1.6]),
+        wp(-9.6, 0.9, "stand", [0.6, 1.6]),
+        wp(9.6, 0.9, "stand", [0.6, 1.6]),
+        wp(9.6, -4.4, "stand", [0.6, 1.6]),
+        wp(-9.6, -4.4, "stand", [0.6, 1.6]),
       ],
     },
     {
       appearance: makeAppearance(6, 21),
       waypoints: [
-        wp(-5.8, -1.1, "stand", [1, 2]),
-        wp(1.7, -1.35, "stand", [3, 5], Math.PI),
-        wp(5.9, -1.1, "stand", [1, 2]),
-        wp(-1.7, -1.35, "stand", [3, 5], Math.PI),
+        wp(-9.8, -1.1, "stand", [1, 2]),
+        wp(1.75, -1.55, "stand", [3, 5], Math.PI),
+        wp(9.9, -1.1, "stand", [1, 2]),
+        wp(-1.75, -1.55, "stand", [3, 5], Math.PI),
       ],
     },
     {
       appearance: makeAppearance(7, 21),
       waypoints: [
-        wp(-2.5, 1.5, "stand", [0.8, 2]),
-        wp(2.5, 1.5, "stand", [0.8, 2]),
-        wp(2.5, -0.5, "stand", [0.8, 2]),
-        wp(-2.5, -0.5, "stand", [0.8, 2]),
+        wp(-3.5, 1.6, "stand", [0.8, 2]),
+        wp(3.5, 1.6, "stand", [0.8, 2]),
+        wp(3.5, -0.6, "stand", [0.8, 2]),
+        wp(-3.5, -0.6, "stand", [0.8, 2]),
       ],
     },
   );
-  return finish("office", cloud, people, null);
+  return finishFloor(
+    1,
+    "Floor 1 — Front Lobby & Desks",
+    "Floor one — the lobby. The crew is at their desks.",
+    cloud,
+    people,
+    [
+      {
+        kind: "up",
+        x: UP_SPOT.x,
+        z: UP_SPOT.z,
+        radius: PORTAL_RADIUS,
+        toFloor: 2,
+        arriveX: DOWN_SPOT.x,
+        arriveZ: DOWN_SPOT.z + 1.4,
+      },
+    ],
+  );
+}
+
+function buildOfficeFloor2(): BuiltFloor {
+  const random = createSeededRandom(102);
+  const cloud = new Cloud(random);
+  officeGround(cloud, random, [0.09, 0.15, 0.12], [0.15, 0.55, 0.35]);
+  // Screen wall across the back: radar feeds and watch boards.
+  for (const [wx, glow] of [
+    [-6, [0.25, 0.8, 0.45]],
+    [0, [0.3, 0.85, 0.9]],
+    [6, [0.25, 0.8, 0.45]],
+  ] as const) {
+    cloud.boxEdges(wx, 2.3, OFFICE_PLATE.z0 + 0.05, 3.4, 1.9, 0.06, 9, [0.35, 0.4, 0.42]);
+    cloud.panel(wx, 2.3, OFFICE_PLATE.z0 + 0.1, 3.1, 1.6, 0.28, glow as Rgb);
+  }
+  // Alert globes in the back corners.
+  cloud.ellipsoid(-10.4, 3.4, -8.7, 0.17, 0.19, 0.17, 40, [0.95, 0.3, 0.25]);
+  cloud.ellipsoid(10.4, 3.4, -8.7, 0.17, 0.19, 0.17, 40, [0.95, 0.3, 0.25]);
+  // Ceiling strips, cooler light.
+  for (const lz of [-2.2, -5.4]) cloud.line([-9, 4.3, lz], [9, 4.3, lz], 44, [0.75, 0.9, 0.8]);
+
+  // The radar table — concentric rings and a sweep, mid-floor,
+  // shrunk with the rest of the furniture (owner order 2026-11-21).
+  const RADAR: Rgb = [0.3, 0.95, 0.55];
+  cloud.line([0, 0, -3.2], [0, 0.6, -3.2], 6, [0.35, 0.4, 0.42]);
+  for (const [ringR, n] of [
+    [0.5, 22],
+    [0.9, 36],
+    [1.3, 50],
+  ] as const) {
+    for (let i = 0; i < n; i += 1) {
+      const a = (i / n) * Math.PI * 2;
+      cloud.point(Math.cos(a) * ringR, 0.62, -3.2 + Math.sin(a) * ringR, RADAR, 0.008);
+    }
+  }
+  cloud.line([0, 0.64, -3.2], [1.1, 0.64, -3.95], 12, RADAR);
+  for (let i = 0; i < 46; i += 1) {
+    const a = (i / 46) * Math.PI * 2;
+    cloud.point(Math.cos(a) * 1.45, 0.05, -3.2 + Math.sin(a) * 1.45, [0.2, 0.5, 0.3], 0.008);
+  }
+
+  // Build benches along the side walls — the desk builder, watch colors.
+  const benchPalette: DeskPalette = {
+    top: [0.3, 0.34, 0.38],
+    edge: [0.42, 0.46, 0.5],
+    screen: [0.95, 0.7, 0.3],
+  };
+  for (const [bx, bz] of [
+    [-8.75, -3.0],
+    [-8.75, -5.6],
+    [8.75, -3.0],
+    [8.75, -5.6],
+  ] as const) {
+    officeDesk(cloud, random, bx, bz, FURNITURE_SCALE, benchPalette);
+  }
+
+  portalArch(cloud, random, UP_SPOT, PORTAL_UP_COLOR);
+  portalArch(cloud, random, DOWN_SPOT, PORTAL_DOWN_COLOR);
+
+  const people: PersonDef[] = [
+    {
+      appearance: makeAppearance(0, 31),
+      waypoints: [
+        wp(-8.75, -3.0 + seatOffset, "work", [8, 15], Math.PI),
+        wp(-9.7, -7.3, "stand", [2, 4]),
+      ],
+    },
+    {
+      appearance: makeAppearance(1, 31),
+      waypoints: [
+        wp(8.75, -5.6 + seatOffset, "work", [8, 15], Math.PI),
+        wp(9.7, -1.4, "stand", [2, 4]),
+      ],
+    },
+    {
+      // The radar watcher — stands at the table, crosses to the far side.
+      appearance: makeAppearance(2, 31),
+      speed: 0.6,
+      waypoints: [
+        wp(2.05, -3.2, "stand", [5, 8], -Math.PI / 2),
+        wp(-2.05, -3.2, "stand", [5, 8], Math.PI / 2),
+      ],
+    },
+    {
+      appearance: makeAppearance(3, 31),
+      waypoints: [
+        wp(-9.6, 0.9, "stand", [0.8, 1.8]),
+        wp(9.6, 0.9, "stand", [0.8, 1.8]),
+        wp(9.6, -4.4, "stand", [0.8, 1.8]),
+        wp(-9.6, -4.4, "stand", [0.8, 1.8]),
+      ],
+    },
+    {
+      // The aisle walker — his round IS the portal route's aisles.
+      appearance: makeAppearance(4, 31),
+      speed: 0.9,
+      waypoints: [
+        wp(-7.0, 1.4, "stand", [0.6, 1.4]),
+        wp(7.0, 1.4, "stand", [0.6, 1.4]),
+        wp(7.0, -6.6, "stand", [0.6, 1.4]),
+        wp(-7.0, -6.6, "stand", [0.6, 1.4]),
+      ],
+    },
+    {
+      appearance: makeAppearance(5, 31),
+      speed: 0.7,
+      waypoints: [wp(-4, 0.2, "stand", [2, 4]), wp(4, 0.2, "stand", [2, 4])],
+    },
+  ];
+  return finishFloor(
+    2,
+    "Floor 2 — War Room & Build Hall",
+    "Floor two — the War Room. Radar's up, benches are hot.",
+    cloud,
+    people,
+    [
+      {
+        kind: "up",
+        x: UP_SPOT.x,
+        z: UP_SPOT.z,
+        radius: PORTAL_RADIUS,
+        toFloor: 3,
+        arriveX: DOWN_SPOT.x,
+        arriveZ: DOWN_SPOT.z + 1.4,
+      },
+      {
+        kind: "down",
+        x: DOWN_SPOT.x,
+        z: DOWN_SPOT.z,
+        radius: PORTAL_RADIUS,
+        toFloor: 1,
+        arriveX: UP_SPOT.x,
+        arriveZ: UP_SPOT.z + 1.4,
+      },
+    ],
+  );
+}
+
+function buildOfficeFloor3(): BuiltFloor {
+  const random = createSeededRandom(103);
+  const cloud = new Cloud(random);
+  officeGround(cloud, random, [0.15, 0.12, 0.09], [0.6, 0.45, 0.2]);
+  // Window frames in gold on the back wall.
+  for (const wx of [-6, 0, 6]) {
+    cloud.boxEdges(wx, 2.6, OFFICE_PLATE.z0, 3.4, 2.6, 0.1, 10, [0.75, 0.58, 0.3]);
+  }
+  for (const lz of [-2.2, -5.4]) cloud.line([-9, 4.3, lz], [9, 4.3, lz], 44, [1.0, 0.85, 0.55]);
+
+  // The rug — a deep red circle of points under the middle of the room.
+  const RUG: Rgb = [0.45, 0.16, 0.14];
+  for (const [ringR, n] of [
+    [0.7, 20],
+    [1.3, 34],
+    [1.9, 48],
+    [2.3, 56],
+  ] as const) {
+    for (let i = 0; i < n; i += 1) {
+      const a = (i / n) * Math.PI * 2;
+      cloud.point(
+        Math.cos(a) * ringR,
+        0.05,
+        -2.6 + Math.sin(a) * ringR,
+        vary(RUG, 0.12, random),
+        0.01,
+      );
+    }
+  }
+
+  // His desk at the back — grander than the staff desks, still
+  // shrunk with the room (owner order 2026-11-21), the cube above it.
+  officeDesk(cloud, random, 0, -6.4, 0.85, {
+    top: [0.42, 0.3, 0.16],
+    edge: [0.75, 0.58, 0.3],
+    screen: [0.95, 0.8, 0.4],
+  });
+  cloud.boxEdges(0, 2.45, -6.4, 0.55, 0.55, 0.55, 7, [1.0, 0.8, 0.35]);
+
+  // Bookshelves along both side walls — rows of spines in shelf colors.
+  const BOOK_COLORS: Rgb[] = [
+    [0.6, 0.25, 0.2],
+    [0.25, 0.4, 0.6],
+    [0.7, 0.55, 0.25],
+    [0.35, 0.55, 0.35],
+    [0.55, 0.35, 0.6],
+  ];
+  for (const sideX of [-10.6, 10.6]) {
+    for (const shelfY of [0.6, 1.25, 1.9, 2.55]) {
+      cloud.line([sideX, shelfY - 0.08, -8.2], [sideX, shelfY - 0.08, -1.8], 20, [0.4, 0.3, 0.18]);
+      for (let seg = 0; seg < 7; seg += 1) {
+        const z0 = -8.1 + seg * 0.9;
+        cloud.line(
+          [sideX, shelfY, z0],
+          [sideX, shelfY + 0.42, z0],
+          5,
+          BOOK_COLORS[Math.floor(random() * BOOK_COLORS.length)]!,
+        );
+      }
+    }
+  }
+  // A reading chair + side table on the right.
+  cloud.slab(4.6, 0.42, -6.2, 0.7, 0.62, 0.15, [0.4, 0.24, 0.18]);
+  cloud.panel(4.6, 0.85, -5.9, 0.7, 0.8, 0.15, [0.4, 0.24, 0.18]);
+  cloud.slab(5.6, 0.62, -6.2, 0.5, 0.5, 0.14, [0.5, 0.38, 0.24]);
+
+  portalArch(cloud, random, DOWN_SPOT, PORTAL_DOWN_COLOR);
+
+  const people: PersonDef[] = [
+    {
+      // The lore scholar — shelf to shelf, long dwells with the books.
+      appearance: makeAppearance(0, 41),
+      speed: 0.55,
+      waypoints: [
+        wp(-9.8, -5.0, "stand", [6, 10], -Math.PI / 2),
+        wp(9.8, -5.0, "stand", [6, 10], Math.PI / 2),
+        wp(9.8, -2.6, "stand", [4, 7], Math.PI / 2),
+        wp(-9.8, -2.6, "stand", [4, 7], -Math.PI / 2),
+      ],
+    },
+    {
+      appearance: makeAppearance(1, 41),
+      waypoints: [wp(4.6, -6.05, "sit", [30, 45], Math.PI)],
+    },
+    {
+      appearance: makeAppearance(2, 41),
+      speed: 0.6,
+      waypoints: [
+        wp(-3.4, 0.8, "stand", [1.5, 3]),
+        wp(3.4, 0.8, "stand", [1.5, 3]),
+        wp(3.4, -1.2, "stand", [1.5, 3]),
+        wp(-3.4, -1.2, "stand", [1.5, 3]),
+      ],
+    },
+  ];
+  return finishFloor(
+    3,
+    "Floor 3 — Osiris's Office & Lore Hall",
+    "Floor three — my office. Mind the cube over the desk.",
+    cloud,
+    people,
+    [
+      {
+        kind: "down",
+        x: DOWN_SPOT.x,
+        z: DOWN_SPOT.z,
+        radius: PORTAL_RADIUS,
+        toFloor: 2,
+        arriveX: UP_SPOT.x,
+        arriveZ: UP_SPOT.z + 1.4,
+      },
+    ],
+  );
+}
+
+function buildOffice(): BuiltScene {
+  const floors = [buildOfficeFloor1(), buildOfficeFloor2(), buildOfficeFloor3()];
+  const first = floors[0]!;
+  return {
+    id: "office",
+    staticPositions: first.staticPositions,
+    staticColors: first.staticColors,
+    staticCount: first.staticCount,
+    water: null,
+    people: first.people,
+    totalParticles: Math.max(...floors.map((floor) => floor.totalParticles)),
+    floors,
+  };
+}
+
+/**
+ * Floor phrases — typed or spoken, full-string like the scene commands.
+ * "Next floor", "go through the portal", "floor down". Returns which
+ * portal to walk to; the stage only honors it inside the office scene.
+ */
+export function parseFloorCommand(text: string): PortalKind | null {
+  const phrase = text
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.!?…]+$/, "")
+    .trim();
+  if (!phrase) return null;
+  if (
+    /^(?:next floor|floor up|go up(?: a floor)?|up a floor|go through the portal|through the portal|enter the portal|take the portal|portal)$/.test(
+      phrase,
+    )
+  ) {
+    return "up";
+  }
+  if (
+    /^(?:previous floor|floor down|go down(?: a floor)?|down a floor|back a floor)$/.test(phrase)
+  ) {
+    return "down";
+  }
+  return null;
 }
 
 /* ------------------------------- THE BEACH -------------------------------- */
@@ -497,7 +1058,10 @@ function buildBeach(): BuiltScene {
     {
       appearance: makeAppearance(1, 33),
       speed: 0.7,
-      waypoints: [wp(-6.5, -0.9, "stand", [1.5, 3], Math.PI), wp(6.5, -0.9, "stand", [1.5, 3], Math.PI)],
+      waypoints: [
+        wp(-6.5, -0.9, "stand", [1.5, 3], Math.PI),
+        wp(6.5, -0.9, "stand", [1.5, 3], Math.PI),
+      ],
     },
     {
       appearance: makeAppearance(2, 33),
@@ -554,7 +1118,13 @@ function buildDesert(): BuiltScene {
         const y = y0 + ring * 0.22;
         for (let i = 0; i < 9; i += 1) {
           const a = (i / 9) * Math.PI * 2 + ring * 0.4;
-          cloud.point(x + Math.cos(a) * r, y, z + Math.sin(a) * r, vary(CACTUS, 0.12, random), 0.01);
+          cloud.point(
+            x + Math.cos(a) * r,
+            y,
+            z + Math.sin(a) * r,
+            vary(CACTUS, 0.12, random),
+            0.01,
+          );
         }
       }
     };
@@ -562,7 +1132,12 @@ function buildDesert(): BuiltScene {
     // Arms: out, then up.
     for (const side of [-1, 1] as const) {
       const ax = cx + side * 0.34 * s;
-      cloud.line([cx + side * 0.14 * s, baseY + 1.15 * s, cz], [ax, baseY + 1.15 * s, cz], 6, CACTUS);
+      cloud.line(
+        [cx + side * 0.14 * s, baseY + 1.15 * s, cz],
+        [ax, baseY + 1.15 * s, cz],
+        6,
+        CACTUS,
+      );
       trunk(ax, baseY + 1.15 * s, cz, 0.75 * s, 0.11 * s);
     }
   };
@@ -633,8 +1208,18 @@ function buildPark(): BuiltScene {
   // Benches — planks and legs, a place to sit.
   const WOOD: Rgb = [0.5, 0.36, 0.2];
   const bench = (cx: number, cz: number) => {
-    for (const off of [-0.18, 0.02, 0.22]) cloud.slab(cx, 0.8, cz + off, 1.9, 0.15, 0.16, vary(WOOD, 0.08, random));
-    for (const off of [0, 0.22]) cloud.slab(cx, 1.22 + off * 0.9, cz + 0.42 + off * 0.18, 1.9, 0.13, 0.16, vary(WOOD, 0.08, random));
+    for (const off of [-0.18, 0.02, 0.22])
+      cloud.slab(cx, 0.8, cz + off, 1.9, 0.15, 0.16, vary(WOOD, 0.08, random));
+    for (const off of [0, 0.22])
+      cloud.slab(
+        cx,
+        1.22 + off * 0.9,
+        cz + 0.42 + off * 0.18,
+        1.9,
+        0.13,
+        0.16,
+        vary(WOOD, 0.08, random),
+      );
     for (const lx of [-0.8, 0.8]) {
       cloud.line([cx + lx, 0, cz - 0.15], [cx + lx, 0.8, cz - 0.15], 6, [0.3, 0.3, 0.32]);
       cloud.line([cx + lx, 0, cz + 0.3], [cx + lx, 1.35, cz + 0.48], 8, [0.3, 0.3, 0.32]);
@@ -701,7 +1286,10 @@ function buildPark(): BuiltScene {
     {
       appearance: makeAppearance(11, 55),
       speed: 0.6,
-      waypoints: [wp(2.2, 1.6, "stand", [4, 7], Math.PI * 1.2), wp(-1.9, -2.3, "stand", [3, 6], Math.PI * 0.8)],
+      waypoints: [
+        wp(2.2, 1.6, "stand", [4, 7], Math.PI * 1.2),
+        wp(-1.9, -2.3, "stand", [3, 6], Math.PI * 0.8),
+      ],
     },
   ];
   return finish("park", cloud, people, null);
@@ -721,7 +1309,12 @@ function buildCoffee(): BuiltScene {
   cloud.panel(-1.2, 3.0, -5.5, 3.6, 1.5, 0.3, [0.16, 0.15, 0.14]);
   cloud.boxEdges(-1.2, 3.0, -5.48, 3.6, 1.5, 0.05, 9, [0.7, 0.6, 0.4]);
   for (let row = 0; row < 4; row += 1) {
-    cloud.line([-2.7, 3.5 - row * 0.32, -5.44], [-0.4 + (row % 2) * 0.5, 3.5 - row * 0.32, -5.44], 12, [0.92, 0.9, 0.78]);
+    cloud.line(
+      [-2.7, 3.5 - row * 0.32, -5.44],
+      [-0.4 + (row % 2) * 0.5, 3.5 - row * 0.32, -5.44],
+      12,
+      [0.92, 0.9, 0.78],
+    );
   }
   // The counter.
   const COUNTER: Rgb = [0.55, 0.4, 0.26];
@@ -743,7 +1336,8 @@ function buildCoffee(): BuiltScene {
   const chair = (cx: number, cz: number, backDz: number) => {
     cloud.slab(cx, 0.78, cz, 0.55, 0.5, 0.14, [0.42, 0.32, 0.22]);
     cloud.panel(cx, 1.2, cz + backDz, 0.55, 0.8, 0.14, [0.42, 0.32, 0.22]);
-    for (const lx of [-0.22, 0.22]) cloud.line([cx + lx, 0, cz], [cx + lx, 0.78, cz], 6, [0.35, 0.3, 0.24]);
+    for (const lx of [-0.22, 0.22])
+      cloud.line([cx + lx, 0, cz], [cx + lx, 0.78, cz], 6, [0.35, 0.3, 0.24]);
   };
   table(-3.6, -1.4);
   chair(-3.6, -0.68, 0.3);

@@ -14,7 +14,12 @@ import { eyeBrightnessFor, eyeColorFor, smoothEyePulse } from "./eyes";
 import { breathCycleAt } from "./heartbeat";
 import { SceneManager } from "./sceneManager";
 import { WorldSceneManager } from "./worldSceneRenderer";
-import { DEFAULT_WORLD_SCENE, type WorldSceneId } from "./worldScenes";
+import {
+  DEFAULT_WORLD_SCENE,
+  type PortalKind,
+  type PortalTransition,
+  type WorldSceneId,
+} from "./worldScenes";
 import type { MaterialKind } from "./worldCommands";
 import { AvatarLocomotion, type LocomotionMode } from "./locomotion";
 import {
@@ -261,6 +266,11 @@ export class AvatarRenderer {
   onHeartbeat?: (beat: number) => void;
   private heartbeatBeat = 0;
   private lastBreathCycle = 0;
+  /**
+   * Fired when a portal carries Augie to another office floor — the
+   * stage announces the floor he landed on.
+   */
+  onFloorChange?: (transition: PortalTransition) => void;
   inputs: Inputs = {
     attract: new THREE.Vector3(0, 0.5, 2),
     attractK: 0,
@@ -583,6 +593,21 @@ export class AvatarRenderer {
     this.updateMorph(dt);
     this.sceneManager.tick(dt);
     this.worldScenes.tick(dt);
+    // PORTALS (owner order 2026-11-21): if he has walked into an office
+    // portal ring, the floor has already swapped under him — land him
+    // whole and full-size at the far floor's return door, facing into
+    // the room, and let the stage announce where he arrived.
+    const transition = this.worldScenes.checkPortals(
+      this.avatarRoot.position.x,
+      this.avatarRoot.position.z,
+    );
+    if (transition) {
+      this.avatarRoot.position.x = transition.arriveX;
+      this.avatarRoot.position.z = transition.arriveZ;
+      this.avatarRoot.rotation.y = 0;
+      this.locomotion.grow();
+      this.onFloorChange?.(transition);
+    }
     this.bridge.sampleAudio();
     // INTENSITY: alert boost fades out over ~4s after the operator calls him.
     this.alertBoost = Math.max(0, this.alertBoost - dt * 0.25);
@@ -814,6 +839,29 @@ export class AvatarRenderer {
   }
   get worldScene(): WorldSceneId | null {
     return this.worldScenes.currentScene;
+  }
+  /** The office floor he stands on (1-based), or null outside the office. */
+  get worldFloor(): number | null {
+    return this.worldScenes.currentFloor;
+  }
+  /**
+   * Walk him to the active floor's portal of the given kind and
+   * through it — down the front band, along the side aisle, across
+   * the back (the aisles every office floor keeps clear). False when
+   * this floor has no such portal (up from the top, down from the
+   * ground floor, or he is not in the office at all).
+   */
+  goThroughPortal(kind: PortalKind): boolean {
+    const portal = this.worldScenes.portalOfKind(kind);
+    if (!portal) return false;
+    const here = this.avatarRoot.position;
+    const sideX = Math.sign(portal.x) * 7.0;
+    return this.locomotion.followPath([
+      { x: here.x, z: here.z },
+      { x: sideX, z: -1.0 },
+      { x: sideX, z: -6.6 },
+      { x: portal.x, z: portal.z },
+    ]);
   }
   /** Reform the particles into a real shape — Enterprise, wolf or orb. */
   transform(shape: TransformShape) {

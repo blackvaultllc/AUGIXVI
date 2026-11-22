@@ -27,7 +27,12 @@ export type HairStyle = "short" | "long" | "bun" | "none";
 export type PersonAppearance = {
   /** "woman" | "man" — carried by build + hair, for scene rosters. */
   kind: "woman" | "man";
-  /** Total standing height in world units (Augie is ~3.1). */
+  /**
+   * Total standing height in world units (Augie is ~3.1). Citizens
+   * stand well under him — owner order 2026-11-21: "the people around
+   * him… they're very tall, they shouldn't be that tall. Make them
+   * smaller." (They were 2.78–3.08, nearly his height.)
+   */
   height: number;
   shoulder: number; // half-width at the shoulders
   hip: number; // half-width at the hips
@@ -77,9 +82,9 @@ export function makeAppearance(index: number, seed = 11): PersonAppearance {
   const woman = index % 2 === 0;
   return {
     kind: woman ? "woman" : "man",
-    height: 2.78 + random() * 0.3,
-    shoulder: woman ? 0.2 + random() * 0.04 : 0.24 + random() * 0.05,
-    hip: woman ? 0.19 + random() * 0.04 : 0.16 + random() * 0.03,
+    height: 2.02 + random() * 0.24,
+    shoulder: woman ? 0.19 + random() * 0.04 : 0.225 + random() * 0.05,
+    hip: woman ? 0.18 + random() * 0.04 : 0.155 + random() * 0.03,
     hair: woman ? (index % 4 === 0 ? "bun" : "long") : index % 5 === 3 ? "none" : "short",
     skin: SKIN_TONES[Math.floor(random() * SKIN_TONES.length)]!,
     hairColor: HAIR_COLORS[Math.floor(random() * HAIR_COLORS.length)]!,
@@ -140,6 +145,31 @@ class FigureCloud {
 }
 
 const dirFromAngle = (angle: number): Vec3 => [0, -Math.cos(angle), Math.sin(angle)];
+
+/** Thigh swing amplitude (rad) of the walk cycle — the avatar's own number. */
+export const GAIT_SWING = 0.42;
+/** Thigh + shin length as a fraction of standing height (see the pose builder). */
+const LEG_FRACTION = 0.52;
+
+/**
+ * Ground distance one full gait cycle (both steps) covers at this
+ * height: each step carries the foot from full back-swing to full
+ * front-swing, 2 · sin(swing) · leg length.
+ */
+export function strideCycleLength(height: number): number {
+  return 4 * Math.sin(GAIT_SWING) * LEG_FRACTION * height;
+}
+
+/**
+ * How far gaitTime advances when a citizen actually covers `distance`
+ * of ground. The gait clock (cycle = gaitTime · 7 in the pose builder)
+ * is driven by DISTANCE, not wall time — owner defect 2026-11-21: the
+ * old time-based advance cycled the legs ~4× faster than the ground
+ * passing under them, so feet slid and strides read wrong.
+ */
+export function gaitAdvance(distance: number, height: number): number {
+  return ((Math.PI * 2) / 7) * (distance / strideCycleLength(height));
+}
 const addScaled = (a: Vec3, dir: Vec3, len: number): Vec3 => [
   a[0] + dir[0] * len,
   a[1] + dir[1] * len,
@@ -199,7 +229,13 @@ export function buildPersonPoints(
     }
   }
   // NECK + HEAD
-  cloud.segment([sway, shoulderY, 0], [sway, headCenter[1] - headR * 0.7, 0], 8, 0.045, appearance.skin);
+  cloud.segment(
+    [sway, shoulderY, 0],
+    [sway, headCenter[1] - headR * 0.7, 0],
+    8,
+    0.045,
+    appearance.skin,
+  );
   cloud.ellipsoid(
     [headCenter[0] + sway, headCenter[1], headCenter[2]],
     headR * 0.88,
@@ -210,7 +246,11 @@ export function buildPersonPoints(
   );
   // HAIR — cap, plus the style: long falls down the back, a bun sits high.
   if (appearance.hair !== "none") {
-    const capCenter: Vec3 = [headCenter[0] + sway, headCenter[1] + headR * 0.22, headCenter[2] - headR * 0.12];
+    const capCenter: Vec3 = [
+      headCenter[0] + sway,
+      headCenter[1] + headR * 0.22,
+      headCenter[2] - headR * 0.12,
+    ];
     cloud.ellipsoid(capCenter, headR * 0.95, headR * 0.82, headR * 1.0, 26, appearance.hairColor);
     if (appearance.hair === "long") {
       for (let strand = 0; strand < 4; strand += 1) {
@@ -274,7 +314,7 @@ export function buildPersonPoints(
     let ankle: Vec3;
     if (pose.mode === "walk") {
       const cycle = pose.gaitTime * 7 + (sideIndex === 0 ? 0 : Math.PI);
-      const thighAngle = Math.sin(cycle) * 0.42;
+      const thighAngle = Math.sin(cycle) * GAIT_SWING;
       const kneeFlex = Math.max(0, -Math.sin(cycle - 0.6)) * 0.55;
       knee = addScaled(hip, dirFromAngle(thighAngle), thighLen);
       ankle = addScaled(knee, dirFromAngle(thighAngle - kneeFlex), shinLen);
@@ -288,7 +328,13 @@ export function buildPersonPoints(
     cloud.segment(hip, knee, 28, 0.075, appearance.pants);
     cloud.segment(knee, ankle, 24, 0.06, appearance.pants);
     // shoe — a short forward line at the ankle.
-    cloud.segment(ankle, [ankle[0], Math.max(0.01, ankle[1] - 0.02), ankle[2] + 0.16], 6, 0.035, appearance.shoes);
+    cloud.segment(
+      ankle,
+      [ankle[0], Math.max(0.01, ankle[1] - 0.02), ankle[2] + 0.16],
+      6,
+      0.035,
+      appearance.shoes,
+    );
   }
 
   return {
@@ -331,6 +377,10 @@ export type PersonState = {
 };
 
 const DEFAULT_SPEED = 0.85;
+/** How fast a walking citizen turns toward where they're headed (rad/s). */
+const TURN_RATE = 7;
+/** How fast a dwelling citizen turns in place to their waypoint's facing. */
+const FACE_TURN_RATE = 4;
 
 function angleLerp(current: number, target: number, maxStep: number): number {
   let delta = (target - current) % (Math.PI * 2);
@@ -343,6 +393,18 @@ function angleLerp(current: number, target: number, maxStep: number): number {
  * The citizens' daily round: dwell at a waypoint (work, sit, stand),
  * then walk the floor to the next one, forever. Deterministic under a
  * fixed seed + fixed dt — tests walk the same rounds the stage shows.
+ *
+ * FACING LAW (owner defect 2026-11-21 — "the people around him look
+ * like they're walking backwards sometimes"): a citizen only covers
+ * ground in the direction they actually face. The old sim translated
+ * at full speed toward the target while the heading was still turning
+ * from the previous waypoint's facing (and SNAPPED the heading to a
+ * waypoint's `face` on arrival), so every departure from a faced
+ * waypoint began with strides taken facing the wrong way — measured
+ * at dot(facing, velocity) = −1.0, dead backwards, in every scene.
+ * Now: translation scales with cos(heading error) — facing away means
+ * turning in place, never backpedalling — arrival never snaps, and a
+ * dwelling citizen turns in place toward their facing.
  */
 export class PeopleSim {
   readonly people: PersonState[] = [];
@@ -382,22 +444,38 @@ export class PeopleSim {
         const distance = Math.hypot(dx, dz);
         const speed = person.def.speed ?? DEFAULT_SPEED;
         const desired = Math.atan2(dx, dz);
-        person.heading = angleLerp(person.heading, desired, dt * 6);
+        person.heading = angleLerp(person.heading, desired, dt * TURN_RATE);
         if (distance < 0.06) {
           person.x = target.x;
           person.z = target.z;
           person.walking = false;
           person.mode = target.mode;
           person.dwellLeft = this.rollDwell(target);
-          if (target.face !== undefined) person.heading = target.face;
+          // No heading snap: the dwell below turns him to `face`.
         } else {
-          const step = Math.min(distance, speed * dt);
-          person.x += (dx / distance) * step;
-          person.z += (dz / distance) * step;
-          person.gaitTime += dt * 1.35 * (speed / DEFAULT_SPEED);
+          // FACING GATE: ground covered only in the direction faced.
+          // cos(error) is the gate — at 90° off he turns in place, at
+          // 180° he never backpedals, aligned he walks at full speed.
+          let error = (desired - person.heading) % (Math.PI * 2);
+          if (error > Math.PI) error -= Math.PI * 2;
+          if (error < -Math.PI) error += Math.PI * 2;
+          const alignment = Math.max(0, Math.cos(error));
+          const step = Math.min(distance, speed * dt * alignment);
+          if (step > 0) {
+            person.x += (dx / distance) * step;
+            person.z += (dz / distance) * step;
+            // The gait clock runs on ground actually covered, so the
+            // feet keep time with the floor — no sliding, no scurry.
+            person.gaitTime += gaitAdvance(step, person.def.appearance.height);
+          }
           person.mode = "walk";
         }
       } else {
+        // Dwelling: turn in place toward this waypoint's facing.
+        const current = waypoints[person.waypointIndex]!;
+        if (current.face !== undefined) {
+          person.heading = angleLerp(person.heading, current.face, dt * FACE_TURN_RATE);
+        }
         person.dwellLeft -= dt;
         if (person.dwellLeft <= 0 && waypoints.length > 1) {
           person.waypointIndex = (person.waypointIndex + 1) % waypoints.length;

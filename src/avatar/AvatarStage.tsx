@@ -102,6 +102,7 @@ import { isCameraVisionRequest, parseWorldCommand, type MaterialKind } from "./w
 import {
   DEFAULT_WORLD_SCENE,
   WORLD_SCENES,
+  parseFloorCommand,
   parseSceneCommand,
   sceneLine,
   type WorldSceneId,
@@ -783,6 +784,28 @@ export function AvatarStage({
         say(sceneLine(sceneTarget));
         return;
       }
+      // OFFICE FLOORS (owner order 2026-11-21): "next floor", "go
+      // through the portal", "floor down" — he walks the aisles to the
+      // portal and steps through; the landing announces itself via
+      // onFloorChange. Only inside the living office — elsewhere the
+      // words fall through to the rest of the command chain untouched.
+      const floorMove = parseFloorCommand(commandText);
+      if (floorMove && worldScene === "office") {
+        if (rendRef.current?.goThroughPortal(floorMove)) {
+          say(
+            floorMove === "up"
+              ? "Walking to the gold portal — next floor up."
+              : "Walking to the blue portal — one floor down.",
+          );
+        } else {
+          say(
+            floorMove === "up"
+              ? "No portal up from this floor — this is the top."
+              : "No portal down from this floor — this is the ground floor.",
+          );
+        }
+        return;
+      }
       // Role-play battle: the blue attack box.
       if (
         /role[- ]?play(?:ing)?(?:\s+game)?s?/i.test(commandText) ||
@@ -941,6 +964,11 @@ export function AvatarStage({
     // window's button: an unavailable scan records nothing and is
     // noted once per state change; a real sighting flips the wand in
     // the registry and Augie speaks the greeting himself.
+    // OFFICE PORTALS (owner order 2026-11-21): when a portal carries
+    // him to another floor, he announces the floor he landed on.
+    r.onFloorChange = (transition) => {
+      say(transition.line);
+    };
     const heartbeatPacer = createHeartbeatCheckPacer();
     r.onHeartbeat = () => {
       if (!heartbeatPacer.beat(Date.now())) return;

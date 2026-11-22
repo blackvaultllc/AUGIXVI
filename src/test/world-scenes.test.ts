@@ -6,6 +6,7 @@ import {
   SCENE_PARTICLE_BUDGET,
   WORLD_SCENES,
   buildScene,
+  parseFloorCommand,
   parseSceneCommand,
   reshapeToPalm,
   writeWaterPoints,
@@ -14,11 +15,13 @@ import {
 import {
   PeopleSim,
   buildPersonPoints,
+  gaitAdvance,
   makeAppearance,
+  strideCycleLength,
   type PersonDef,
 } from "@/avatar/people";
 import { makeObjectPoints, SceneManager } from "@/avatar/sceneManager";
-import { WorldSceneManager } from "@/avatar/worldSceneRenderer";
+import { WorldSceneManager, softenCitizenColors } from "@/avatar/worldSceneRenderer";
 
 const SCENE_IDS = WORLD_SCENES.map((scene) => scene.id);
 
@@ -130,7 +133,11 @@ describe("citizens — figures from the same particle language", () => {
       maxY = Math.max(maxY, figure.positions[i]!);
     }
     expect(minY).toBeGreaterThanOrEqual(-0.05);
-    expect(maxY).toBeGreaterThan(2.7); // a head up near Augie's height
+    // Owner order 2026-11-21: citizens stand well under Augie (~3.1) —
+    // "they're very tall, they shouldn't be that tall. Make them smaller."
+    // (Top of the bun included; heights run 2.02–2.26.)
+    expect(maxY).toBeGreaterThan(2.0);
+    expect(maxY).toBeLessThan(2.55);
   });
 
   it("keeps point order stable across poses, so colors stream once", () => {
@@ -188,7 +195,9 @@ describe("citizens — the daily round (PeopleSim)", () => {
     const startX = person.x;
     for (let i = 0; i < 10; i += 1) sim.tick(0.05);
     expect(person.x).toBeGreaterThan(startX);
-    expect(person.gaitTime).toBeGreaterThan(0.3); // the walk cycle is turning
+    // The gait clock runs on ground covered (owner fix 2026-11-21),
+    // so it advances slower than the old wall-time scurry did.
+    expect(person.gaitTime).toBeGreaterThan(0.15); // the walk cycle is turning
     expect(person.mode).toBe("walk");
     // Tick to the moment of arrival (the round loops, so catch it there).
     for (let i = 0; i < 200 && person.walking; i += 1) sim.tick(0.05);
@@ -250,13 +259,13 @@ describe("WorldSceneManager — the stage side", () => {
     expect(manager.citizenCount).toBe(8);
     expect(manager.particleCount).toBeGreaterThan(0);
     expect(manager.particleCount).toBeLessThanOrEqual(SCENE_PARTICLE_BUDGET);
-    expect(scene.getObjectByName("living-world-office")).toBeDefined();
+    expect(scene.getObjectByName("living-world-office-floor-1")).toBeDefined();
 
     manager.setScene("beach");
     expect(manager.currentScene).toBe("beach");
     expect(manager.citizenCount).toBe(3);
     expect(scene.getObjectByName("living-world-water")).toBeDefined();
-    expect(scene.getObjectByName("living-world-office")).toBeUndefined();
+    expect(scene.getObjectByName("living-world-office-floor-1")).toBeUndefined();
     manager.tick(0.05); // waves + citizens advance without error
 
     manager.dispose();
@@ -273,6 +282,209 @@ describe("WorldSceneManager — the stage side", () => {
     expect(environment!.visible).toBe(false);
     manager.setEnvironmentVisible(true);
     expect(environment!.visible).toBe(true);
+    manager.dispose();
+  });
+});
+
+describe("citizens — the facing law (owner defect 2026-11-21)", () => {
+  // "The people around him look like they're walking backwards
+  // sometimes." Measured before the fix: dot(facing, velocity) hit
+  // −1.0 (dead backwards) in every scene. The law now: a citizen only
+  // ever covers ground in the direction they face.
+  for (const id of SCENE_IDS) {
+    it(`${id}: no citizen ever translates against their facing`, () => {
+      const sim = new PeopleSim(buildScene(id).people);
+      let worst = 0;
+      let travel = 0;
+      for (let t = 0; t < 2400; t += 1) {
+        const before = sim.people.map((p) => ({ x: p.x, z: p.z }));
+        sim.tick(0.05);
+        sim.people.forEach((person, i) => {
+          const dx = person.x - before[i]!.x;
+          const dz = person.z - before[i]!.z;
+          const dist = Math.hypot(dx, dz);
+          travel += dist;
+          if (dist > 1e-6) {
+            const dot = (Math.sin(person.heading) * dx + Math.cos(person.heading) * dz) / dist;
+            if (dot < worst) worst = dot;
+          }
+        });
+      }
+      expect(worst).toBeGreaterThanOrEqual(-0.001);
+      // …and the fix is not a freeze: the rounds still get walked.
+      expect(travel).toBeGreaterThan(50);
+    });
+  }
+
+  it("never snaps the heading on arrival — he turns to his facing while dwelling", () => {
+    const defs: PersonDef[] = [
+      {
+        appearance: makeAppearance(0),
+        speed: 1,
+        waypoints: [
+          { x: 0, z: 0, mode: "stand", dwell: [0.05, 0.05], face: 0 },
+          { x: 3, z: 0, mode: "stand", dwell: [30, 30], face: Math.PI },
+        ],
+      },
+    ];
+    const sim = new PeopleSim(defs);
+    const person = sim.people[0]!;
+    let previousHeading = person.heading;
+    let arrivalJump = 0;
+    for (let t = 0; t < 200 && person.walking === false && t < 2; t += 1) sim.tick(0.05);
+    expect(person.walking).toBe(true);
+    previousHeading = person.heading;
+    for (let t = 0; t < 400 && person.walking; t += 1) {
+      sim.tick(0.05);
+      if (person.walking) {
+        previousHeading = person.heading;
+      } else {
+        arrivalJump = Math.abs(person.heading - previousHeading);
+      }
+    }
+    expect(person.walking).toBe(false);
+    // The arrival tick turns no faster than a walking turn allows —
+    // the old snap jumped the full ~1.57 rad to the facing at once.
+    expect(arrivalJump).toBeLessThanOrEqual(0.36);
+    // Dwelling, he completes the turn to the waypoint's facing.
+    for (let t = 0; t < 40; t += 1) sim.tick(0.05);
+    expect(Math.abs(person.heading - Math.PI)).toBeLessThan(0.05);
+  });
+
+  it("runs the gait clock on ground covered, not wall time", () => {
+    const height = 2.1;
+    expect(gaitAdvance(strideCycleLength(height), height)).toBeCloseTo((Math.PI * 2) / 7, 5);
+    const def: PersonDef = {
+      appearance: makeAppearance(0),
+      speed: 1,
+      waypoints: [
+        { x: 0, z: 0, mode: "stand", dwell: [0.05, 0.05] },
+        { x: 4, z: 0, mode: "stand", dwell: [30, 30] },
+      ],
+    };
+    const sim = new PeopleSim([def]);
+    const person = sim.people[0]!;
+    for (let t = 0; t < 400 && !person.walking; t += 1) sim.tick(0.05);
+    for (let t = 0; t < 400 && person.walking; t += 1) sim.tick(0.05);
+    const expected = gaitAdvance(4, def.appearance.height);
+    expect(person.gaitTime).toBeGreaterThan(expected * 0.8);
+    expect(person.gaitTime).toBeLessThan(expected * 1.2);
+  });
+});
+
+describe("the big office — floors and portals (owner order 2026-11-21)", () => {
+  it("builds three distinct floors, each inside the particle budget", () => {
+    const office = buildScene("office");
+    expect(office.floors).toBeDefined();
+    expect(office.floors!.length).toBe(3);
+    expect(office.floors!.map((floor) => floor.floor)).toEqual([1, 2, 3]);
+    expect(new Set(office.floors!.map((floor) => floor.name)).size).toBe(3);
+    for (const floor of office.floors!) {
+      expect(floor.staticCount).toBeGreaterThan(500);
+      expect(floor.totalParticles).toBeLessThanOrEqual(SCENE_PARTICLE_BUDGET);
+      expect(floor.line.length).toBeGreaterThan(0);
+    }
+    // The scene-level roster is floor 1's crew.
+    expect(office.people).toBe(office.floors![0]!.people);
+    expect(office.people.length).toBe(8);
+  });
+
+  it("wires the portals: up from 1 and 2, down from 2 and 3, safe arrivals", () => {
+    const office = buildScene("office");
+    const kinds = (floorNumber: number) =>
+      office
+        .floors!.find((floor) => floor.floor === floorNumber)!
+        .portals.map((p) => p.kind)
+        .sort();
+    expect(kinds(1)).toEqual(["up"]);
+    expect(kinds(2)).toEqual(["down", "up"]);
+    expect(kinds(3)).toEqual(["down"]);
+    for (const floor of office.floors!) {
+      for (const portal of floor.portals) {
+        const destination = office.floors!.find((f) => f.floor === portal.toFloor)!;
+        // He materializes outside every return ring — no instant bounce.
+        for (const back of destination.portals) {
+          expect(Math.hypot(portal.arriveX - back.x, portal.arriveZ - back.z)).toBeGreaterThan(
+            back.radius,
+          );
+        }
+      }
+    }
+  });
+
+  it("routes the floor phrases — and leaves the scene phrases alone", () => {
+    expect(parseFloorCommand("next floor")).toBe("up");
+    expect(parseFloorCommand("go through the portal")).toBe("up");
+    expect(parseFloorCommand("portal")).toBe("up");
+    expect(parseFloorCommand("floor down")).toBe("down");
+    expect(parseFloorCommand("previous floor")).toBe("down");
+    expect(parseFloorCommand("take me to the beach")).toBeNull();
+    expect(parseFloorCommand("beach")).toBeNull();
+    expect(parseFloorCommand("")).toBeNull();
+  });
+
+  it("carries him through portals floor to floor in the stage manager", () => {
+    const scene = new THREE.Scene();
+    const manager = new WorldSceneManager(scene);
+    manager.setScene("office");
+    expect(manager.currentFloor).toBe(1);
+    expect(manager.citizenCount).toBe(8);
+    expect(manager.portalOfKind("up")).not.toBeNull();
+    expect(manager.portalOfKind("down")).toBeNull();
+
+    const up = manager.portalOfKind("up")!;
+    const transition = manager.checkPortals(up.x, up.z);
+    expect(transition?.toFloor).toBe(2);
+    expect(transition?.floorName).toContain("Floor 2");
+    expect(manager.currentFloor).toBe(2);
+    // Standing at the arrival point does not bounce him straight back.
+    expect(manager.checkPortals(transition!.arriveX, transition!.arriveZ)).toBeNull();
+
+    // Ride out the cooldown, then take the blue portal back down.
+    for (let i = 0; i < 40; i += 1) manager.tick(0.05);
+    const down = manager.portalOfKind("down")!;
+    const back = manager.checkPortals(down.x, down.z);
+    expect(back?.toFloor).toBe(1);
+    expect(manager.currentFloor).toBe(1);
+
+    // The other scenes have no floors and no portals.
+    manager.setScene("park");
+    expect(manager.currentFloor).toBeNull();
+    expect(manager.portalOfKind("up")).toBeNull();
+    expect(manager.checkPortals(up.x, up.z)).toBeNull();
+    manager.dispose();
+  });
+});
+
+describe("citizens — Augie's own material family (owner refinement 2026-11-21)", () => {
+  it("softens citizen colors: dimmer peak, gentler saturation, never brighter", () => {
+    const raw = new Float32Array([1, 0.2, 0.1, 0.3, 0.9, 0.4]);
+    const soft = softenCitizenColors(raw);
+    expect(soft.length).toBe(raw.length);
+    for (let i = 0; i < raw.length; i += 3) {
+      const rawMax = Math.max(raw[i]!, raw[i + 1]!, raw[i + 2]!);
+      const softMax = Math.max(soft[i]!, soft[i + 1]!, soft[i + 2]!);
+      expect(softMax).toBeLessThan(rawMax);
+      const rawSpread = rawMax - Math.min(raw[i]!, raw[i + 1]!, raw[i + 2]!);
+      const softSpread = softMax - Math.min(soft[i]!, soft[i + 1]!, soft[i + 2]!);
+      expect(softSpread).toBeLessThan(rawSpread);
+    }
+  });
+
+  it("renders citizens as soft normal-blended points — not additive glare", () => {
+    const scene = new THREE.Scene();
+    const manager = new WorldSceneManager(scene);
+    manager.setScene("park");
+    const citizens: THREE.Points[] = [];
+    scene.traverse((obj) => {
+      if (obj.name === "living-world-citizen") citizens.push(obj as THREE.Points);
+    });
+    expect(citizens.length).toBe(4);
+    for (const citizen of citizens) {
+      const material = citizen.material as THREE.PointsMaterial;
+      expect(material.blending).toBe(THREE.NormalBlending);
+      expect(material.opacity).toBeLessThanOrEqual(0.95);
+    }
     manager.dispose();
   });
 });
