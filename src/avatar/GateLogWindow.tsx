@@ -72,8 +72,8 @@ export function GateLogWindow({ onClose }: { onClose: () => void }) {
       id="gate-log"
       title="Gate Log"
       onClose={onClose}
-      initialWidth={560}
-      initialHeight={480}
+      initialWidth={460}
+      initialHeight={380}
     >
       <div className="window-gate-log">
         {state.kind === "loading" && <p className="window-gate-log__note">Reading the gate log…</p>}

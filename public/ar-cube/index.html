@@ -10,13 +10,13 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; background: #0b0e14; color: #eef2f7;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  #app { display: flex; flex-direction: column; height: 100dvh; }
-  header { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  #app { display: flex; flex-direction: column; height: 100dvh; position: relative; }
+  header { display: flex; align-items: center; gap: 8px; padding: 8px 10px;
     background: #101623; border-bottom: 2px solid #d4af37; flex: 0 0 auto; }
-  header h1 { font-size: 19px; margin: 0; letter-spacing: .4px; }
+  header h1 { font-size: 17px; margin: 0; letter-spacing: .4px; white-space: nowrap; }
   header h1 .gold { color: #d4af37; }
-  #status { margin-left: auto; font-size: 14px; font-weight: 600; padding: 6px 12px;
-    border-radius: 999px; background: #232c40; border: 1px solid #3a4763; white-space: nowrap; }
+  #status { margin-left: auto; font-size: 12.5px; font-weight: 600; padding: 5px 9px;
+    border-radius: 999px; background: #232c40; border: 1px solid #3a4763; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   #status.locked { background: #14532d; border-color: #22c55e; }
   #status.scanning { background: #3a2f10; border-color: #d4af37; }
   #status.error { background: #5b1a1a; border-color: #ef4444; }
@@ -29,9 +29,9 @@
   #ar-container { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: transparent; }
   #ar-container video { max-width: none; z-index: 0 !important; }
   #ar-container canvas { max-width: none; z-index: 1 !important; pointer-events: none; }
-  #controls { flex: 0 0 auto; padding: 10px 12px; background: #101623; border-top: 1px solid #26314a;
-    display: flex; flex-direction: column; gap: 10px; }
-  #startBtn { font-size: 18px; font-weight: 700; padding: 13px; border: 0; border-radius: 10px;
+  #controls { flex: 0 0 auto; padding: 8px 10px; background: #101623; border-top: 1px solid #26314a;
+    display: flex; flex-direction: column; gap: 7px; }
+  #startBtn { font-size: 17px; font-weight: 700; padding: 11px; border: 0; border-radius: 10px;
     background: #d4af37; color: #141414; cursor: pointer; }
   #startBtn:disabled { background: #4b5563; color: #d1d5db; cursor: default; }
   .filterRow { display: flex; gap: 8px; align-items: center; }
@@ -47,14 +47,23 @@
   .modelRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .modelRow .lbl { font-size: 14px; color: #9fb0c9; margin-right: 2px; }
   .btnWrap { display: flex; gap: 8px; flex-wrap: wrap; flex: 1 1 auto; }
-  .modelBtn { flex: 1 1 0; min-width: 70px; font-size: 15px; font-weight: 600; padding: 10px 4px;
+  .modelBtn { flex: 1 1 0; min-width: 64px; font-size: 14px; font-weight: 600; padding: 8px 4px;
     border-radius: 9px; border: 1px solid #3a4763; background: #1a2336; color: #eef2f7; cursor: pointer; }
   .modelBtn small { display: block; font-weight: 400; font-size: 11px; color: #8fa1bd; }
   .modelBtn.active { border-color: #d4af37; background: #2a2410; color: #ffd95e; }
   #loadNote { font-size: 13.5px; min-height: 1.2em; color: #9fb0c9; }
   #loadNote:empty { display: none; }
   #loadNote.error { color: #f0a3a3; }
-  #howto { font-size: 13.5px; line-height: 1.45; color: #b9c6da; }
+  /* Part 33: instructions live behind the Help (?) button — never on
+     the default face. The panel floats over the camera area and
+     closes with the same button. */
+  #helpBtn { font-size: 15px; font-weight: 700; width: 32px; height: 32px; border-radius: 999px;
+    border: 1px solid #3a4763; background: #232c40; color: #eef2f7; cursor: pointer; flex: 0 0 auto; }
+  #howto { display: none; position: absolute; top: 64px; left: 10px; right: 10px; z-index: 5;
+    max-height: 62%; overflow: auto; padding: 12px 14px; border-radius: 12px;
+    background: rgba(13, 18, 30, 0.97); border: 1px solid #d4af37;
+    font-size: 13.5px; line-height: 1.45; color: #b9c6da; }
+  #howto.open { display: block; }
   #howto b { color: #eef2f7; }
   #howto ol { margin: 4px 0 0 18px; padding: 0; }
 </style>
@@ -65,6 +74,7 @@
     <a href="/avatar" style="color:#9fb0c9;text-decoration:none;font-size:14px;border:1px solid #3a4763;padding:6px 10px;border-radius:999px;white-space:nowrap;">&#8592; Augie</a>
     <h1><span class="gold">Augie</span> AR Cube</h1>
     <div id="status">Ready — tap Start Camera</div>
+    <button id="helpBtn" type="button" aria-label="Help" aria-expanded="false" title="How to use it">?</button>
   </header>
 
   <div id="ar-container"></div>
@@ -106,6 +116,14 @@
     "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
   }
 }
+</script>
+<script>
+  // Help (?) toggle — the how-to panel stays hidden until asked for.
+  document.getElementById("helpBtn").addEventListener("click", function () {
+    var panel = document.getElementById("howto");
+    var open = panel.classList.toggle("open");
+    this.setAttribute("aria-expanded", open ? "true" : "false");
+  });
 </script>
 <script type="module" src="./js/app.js"></script>
 </body>

@@ -142,8 +142,8 @@ export function LibraryWindow({ onClose }: { onClose: () => void }) {
       id="library"
       title="Library"
       onClose={onClose}
-      initialWidth={660}
-      initialHeight={560}
+      initialWidth={500}
+      initialHeight={440}
     >
       <div className="window-library">
         {trail.length > 0 && (

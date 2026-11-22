@@ -331,8 +331,8 @@ export function SandboxWindow({ onClose }: { onClose: () => void }) {
       id="sandbox"
       title="Sandbox"
       onClose={onClose}
-      initialWidth={700}
-      initialHeight={720}
+      initialWidth={520}
+      initialHeight={540}
       accent="#f59e0b"
     >
       <SandboxPanel />

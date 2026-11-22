@@ -397,8 +397,8 @@ export function DevicesWindow({
       id="devices"
       title="Devices — what Augie understands"
       onClose={onClose}
-      initialWidth={640}
-      initialHeight={540}
+      initialWidth={480}
+      initialHeight={440}
     >
       <div className="window-devices">
         <p className="window-devices__intro">

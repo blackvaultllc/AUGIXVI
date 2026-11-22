@@ -602,8 +602,8 @@ export function PulseWindow({ onClose }: { onClose: () => void }) {
       id="pulse"
       title="Pulse"
       onClose={onClose}
-      initialWidth={560}
-      initialHeight={620}
+      initialWidth={440}
+      initialHeight={500}
       accent="#f87171"
     >
       <PulsePanel />

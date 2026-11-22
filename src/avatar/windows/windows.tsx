@@ -66,7 +66,7 @@ export function NotepadWindow({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <FloatingWindow id="notepad" title="Notepad — private" onClose={onClose} initialWidth={520}>
+    <FloatingWindow id="notepad" title="Notepad — private" onClose={onClose} initialWidth={440}>
       <div className="window-notepad">
         <div className="window-notepad__sidebar">
           <button type="button" className="window-btn" onClick={createNote}>
@@ -162,8 +162,8 @@ export function ChalkboardWindow({
       id="chalkboard"
       title="Chalkboard"
       onClose={onClose}
-      initialWidth={560}
-      initialHeight={400}
+      initialWidth={480}
+      initialHeight={380}
     >
       <div className="window-chalkboard">
         <div className="window-chalkboard__tools">
@@ -353,8 +353,8 @@ export function PlayerWindow({
       id="player"
       title="Player — YouTube"
       onClose={onClose}
-      initialWidth={620}
-      initialHeight={480}
+      initialWidth={500}
+      initialHeight={400}
     >
       <div className="window-player">
         {current ? (

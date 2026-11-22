@@ -22,8 +22,8 @@ export function ReplyHistoryWindow({
       id="reply-history"
       title="Reply history"
       onClose={onClose}
-      initialWidth={540}
-      initialHeight={500}
+      initialWidth={440}
+      initialHeight={400}
     >
       <div className="window-reply-history">
         {newestFirst.length === 0 ? (

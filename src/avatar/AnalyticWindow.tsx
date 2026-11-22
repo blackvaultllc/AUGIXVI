@@ -14,8 +14,8 @@ export function AnalyticWindow({ onClose }: { onClose: () => void }) {
       id="analytic-window"
       title="Picture Analysis"
       onClose={onClose}
-      initialWidth={560}
-      initialHeight={660}
+      initialWidth={440}
+      initialHeight={520}
       accent="#7dd3fc"
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>

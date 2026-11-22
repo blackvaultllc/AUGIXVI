@@ -15,8 +15,8 @@ export function ArCubeWindow({ onClose }: { onClose: () => void }) {
       id="ar-cube"
       title="AR Cube"
       onClose={onClose}
-      initialWidth={520}
-      initialHeight={600}
+      initialWidth={400}
+      initialHeight={480}
     >
       <div className="window-ar-cube">
         <iframe src="/ar-cube/index.html" title="Augie AR Cube" allow="camera; microphone" />
