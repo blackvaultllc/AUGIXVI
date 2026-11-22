@@ -1,3 +1,5 @@
+import { resolveVisionModel } from "./visionModel";
+
 const VISION_PROMPT =
   "Describe only the visible scene in one or two brief sentences. Refer to people only as people; never name or identify anyone, infer private traits, or guess beyond visible evidence. If something is unclear, say so plainly. Do not add greetings.";
 
@@ -20,7 +22,7 @@ export async function describeCameraFrame(video: HTMLVideoElement | null): Promi
     /\/+$/,
     "",
   );
-  const model = import.meta.env["VITE_OLLAMA_VISION_MODEL"] || "llama3.2-vision";
+  const model = resolveVisionModel();
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 20_000);
   try {

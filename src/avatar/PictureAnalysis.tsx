@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadBrainAddress } from "./brain";
+import { CANONICAL_VISION_MODEL } from "./visionModel";
 
 const ANALYZE_PROMPT = [
   "You are the analytic window of Augie, a local AI assistant.",
@@ -18,9 +19,10 @@ const ANALYZE_PROMPT = [
   "If the image is dark, blurry or unclear, say so plainly. Never invent details.",
 ].join(" ");
 
-/** Installed-model names the room prefers, best first. */
+/** Installed-model names the room prefers, best first — the canonical
+ * model (Part 26 unification) always wins when it is installed. */
 const VISION_MODEL_PREFERENCE = [
-  "llava:7b",
+  CANONICAL_VISION_MODEL,
   "llama3.2-vision",
   "llama3.2-vision:latest",
   "qwen2.5vl:7b",
@@ -104,7 +106,7 @@ export function PictureAnalysis() {
           status: "unavailable",
           reason: `Ollama is running, but no vision model is installed yet (installed: ${
             installed.join(", ") || "none"
-          }). Picture analysis needs a vision model — this room uses llava:7b.`,
+          }). Picture analysis needs a vision model — this room uses ${CANONICAL_VISION_MODEL}.`,
         });
       }
     } catch {
