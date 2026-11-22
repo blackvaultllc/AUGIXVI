@@ -24,7 +24,11 @@ import {
   Terminal,
   type LucideIcon,
 } from "lucide-react";
-import { clampWindowSize } from "./windows/windowGeometry";
+import {
+  WINDOW_MARGIN,
+  clampWindowPosition,
+  clampWindowSize,
+} from "./windows/windowGeometry";
 import type { ReplyHistoryEntry } from "./replyHistory";
 import {
   CATEGORY_LABELS,
@@ -41,6 +45,8 @@ export type CommandTab = "scene" | "motion" | "tools" | "settings" | "commands";
 const BOX_POSITION_KEY = "augi.avatar.command-box.position.v1";
 const BOX_SIZE_KEY = "augi.avatar.command-box.size.v2";
 const BOX_ANCHOR_KEY = "augi.avatar.command-box.anchored.v1";
+const BOX_ENLARGED_KEY = "augi.avatar.command-box.enlarged.v1";
+const BOX_ENLARGED_SIZE_KEY = "augi.avatar.command-box.enlarged-size.v1";
 
 /**
  * The chat window's HOME form (owner order 2026-11-22, the defect
@@ -57,13 +63,22 @@ export const COMMAND_BOX_DEFAULT_SIZE = { w: 500, h: 430 } as const;
 export const COMMAND_BOX_HOME_MARGIN = 16;
 
 /**
- * THE ANCHOR (owner order 2026-11-22): the command box is ANCHORED
+ * THE ANCHOR (owner orders 2026-11-22): the command box is ANCHORED
  * at its home corner by default — locked in place, per his anchor
  * law (anchored = locked until unanchored). Unanchoring frees it to
  * be dragged and stretched; the anchor state persists like the size
  * and position do. Anything but the explicit "unanchored" record
  * reads as anchored, so the box opens at home for everyone who has
  * never touched the control.
+ *
+ * THE ANCHOR HOME IS THE LEFT SIDE (owner refinement 2026-11-22,
+ * superseding the same day's center placement): at regular,
+ * non-maximized window sizes the centered box overlapped other
+ * elements — "make it align anchor to the left side of the screen
+ * which gives more space and do it properly." The anchored box sits
+ * at the bottom-left with a clear margin on every side, fully
+ * on-screen at any window size, clear of the right-side selection
+ * buttons.
  */
 export function loadBoxAnchored(): boolean {
   try {
@@ -81,10 +96,13 @@ export function saveBoxAnchored(anchored: boolean) {
   }
 }
 
-function loadBoxSize(): { w: number; h: number } {
-  let parsed: { w: number; h: number } = { ...COMMAND_BOX_DEFAULT_SIZE };
+function loadBoxSizeFrom(
+  key: string,
+  fallback: { w: number; h: number },
+): { w: number; h: number } {
+  let parsed: { w: number; h: number } = { ...fallback };
   try {
-    const raw = globalThis.localStorage?.getItem(BOX_SIZE_KEY);
+    const raw = globalThis.localStorage?.getItem(key);
     if (raw) {
       const value: unknown = JSON.parse(raw);
       if (
@@ -97,18 +115,62 @@ function loadBoxSize(): { w: number; h: number } {
       }
     }
   } catch {
-    // fall through to the default size
+    // fall through to the fallback size
   }
   if (typeof window === "undefined") return parsed;
   return clampWindowSize(parsed.w, parsed.h, window.innerWidth, window.innerHeight);
 }
 
-function saveBoxSize(size: { w: number; h: number }) {
+function loadBoxSize(): { w: number; h: number } {
+  return loadBoxSizeFrom(BOX_SIZE_KEY, COMMAND_BOX_DEFAULT_SIZE);
+}
+
+function saveBoxSizeTo(key: string, size: { w: number; h: number }) {
   try {
-    globalThis.localStorage?.setItem(BOX_SIZE_KEY, JSON.stringify(size));
+    globalThis.localStorage?.setItem(key, JSON.stringify(size));
   } catch {
     // best effort only
   }
+}
+
+/**
+ * CLICK-TO-ENLARGE (owner order 2026-11-22): tapping the rail's dot
+ * grip grows the chat box to an enlarged state — the exact same
+ * format, only bigger, type included — and tapping it again returns
+ * to the standard size. Each state keeps its OWN size record: the
+ * standard size he stretched persists under BOX_SIZE_KEY exactly as
+ * before, and the enlarged size persists under its own key, so the
+ * box reopens in whichever state he left it, at the size he left
+ * that state at. The enlarged default is the standard size scaled.
+ */
+export const COMMAND_BOX_ENLARGE_SCALE = 1.4;
+
+export function loadBoxEnlarged(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(BOX_ENLARGED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function saveBoxEnlarged(enlarged: boolean) {
+  try {
+    globalThis.localStorage?.setItem(BOX_ENLARGED_KEY, enlarged ? "true" : "false");
+  } catch {
+    // best effort only
+  }
+}
+
+function loadBoxEnlargedSize(standard: { w: number; h: number }): { w: number; h: number } {
+  return loadBoxSizeFrom(BOX_ENLARGED_SIZE_KEY, {
+    w: Math.round(standard.w * COMMAND_BOX_ENLARGE_SCALE),
+    h: Math.round(standard.h * COMMAND_BOX_ENLARGE_SCALE),
+  });
+}
+
+/** Save a size under the record of the state it belongs to. */
+function persistBoxSize(size: { w: number; h: number }, enlarged: boolean) {
+  saveBoxSizeTo(enlarged ? BOX_ENLARGED_SIZE_KEY : BOX_SIZE_KEY, size);
 }
 
 function loadBoxPosition(): { x: number; y: number } | null {
@@ -152,6 +214,8 @@ function clearPersistedBoxLayout() {
   try {
     globalThis.localStorage?.removeItem(BOX_POSITION_KEY);
     globalThis.localStorage?.removeItem(BOX_SIZE_KEY);
+    globalThis.localStorage?.removeItem(BOX_ENLARGED_SIZE_KEY);
+    globalThis.localStorage?.removeItem(BOX_ENLARGED_KEY);
   } catch {
     // best effort only
   }
@@ -172,6 +236,7 @@ export function CommandBox({
   responseLine,
   responseSource,
   userLine,
+  userSource = "typed",
   history,
   onMinimizeShortcut,
   presence,
@@ -197,6 +262,14 @@ export function CommandBox({
    */
   userLine?: string | undefined;
   /**
+   * SPEAKING PROTOCOL (owner order 2026-11-22): how the operator's
+   * line arrived decides the speaker of record shown in the log —
+   * "typed": his character, the Black Hatter, speaks the line (and
+   * the god follows the command); "voice": the operator himself, on
+   * the mic — no presence speaks or represents for him.
+   */
+  userSource?: "typed" | "voice";
+  /**
    * The full conversation (the reply-history store), rendered as the
    * chat log itself — flowing lines, Captain / Anubis / System, in
    * order. There is no thread picker or dropdown on the face (owner
@@ -221,8 +294,13 @@ export function CommandBox({
   partnerSpeaking?: boolean;
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
+  // Minimized starts EXPANDED on every load — session-only (the
+  // defect fix above); the enlarged state is his to leave set.
   const [minimized, setMinimized] = useState(false);
-  const [boxSize, setBoxSize] = useState(loadBoxSize);
+  const [enlarged, setEnlarged] = useState(loadBoxEnlarged);
+  const [boxSize, setBoxSize] = useState(() =>
+    loadBoxEnlarged() ? loadBoxEnlargedSize(loadBoxSize()) : loadBoxSize(),
+  );
   const [anchored, setAnchored] = useState(loadBoxAnchored);
   const [viewport, setViewport] = useState(() =>
     typeof window === "undefined"
@@ -231,6 +309,8 @@ export function CommandBox({
   );
   const sizeRef = useRef(boxSize);
   sizeRef.current = boxSize;
+  const enlargedRef = useRef(enlarged);
+  enlargedRef.current = enlarged;
   // Part 28: the tab machinery (Scene / Motion / Tools / Settings /
   // Commands panels) lives behind ONE Menu button. The default face is
   // the chat alone; the menu opens only when he asks for it and is not
@@ -294,6 +374,13 @@ export function CommandBox({
   const moveDrag = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (!dragging.current) return;
+      // While the box is in his hand, the pointer's motion is a
+      // move — never a text selection (owner defect 2026-11-22:
+      // the first drag highlighted text before it moved). The
+      // rail's user-select: none covers the press itself; this
+      // covers the travel. Selection inside the thread is untouched:
+      // drags only ever start on the rail.
+      event.preventDefault();
       const next = clamp(
         event.clientX - dragOffset.current.x,
         event.clientY - dragOffset.current.y,
@@ -327,6 +414,7 @@ export function CommandBox({
   const resetBoxLayout = useCallback(() => {
     clearPersistedBoxLayout();
     setBoxSize({ ...COMMAND_BOX_DEFAULT_SIZE });
+    setEnlarged(false);
     setPosition(null);
     setAnchored(true);
     saveBoxAnchored(true);
@@ -366,11 +454,26 @@ export function CommandBox({
     if (!resizing.current) return;
     resizing.current = null;
     event.currentTarget.releasePointerCapture(event.pointerId);
-    saveBoxSize(sizeRef.current);
+    // The size he leaves a state at is that state's size (enlarge
+    // order 2026-11-22): standard stretches save to the standard
+    // record, enlarged stretches to the enlarged record.
+    persistBoxSize(sizeRef.current, enlargedRef.current);
+  }, []);
+
+  // CLICK-TO-ENLARGE (owner order 2026-11-22): the rail's dot grip
+  // toggles the enlarged state. Leaving a state saves its size
+  // under its own record first, so each state reopens at the size
+  // he left it — the format never changes, only the scale.
+  const toggleEnlarged = useCallback(() => {
+    const next = !enlargedRef.current;
+    persistBoxSize(sizeRef.current, enlargedRef.current);
+    setBoxSize(next ? loadBoxEnlargedSize(loadBoxSize()) : loadBoxSize());
+    setEnlarged(next);
+    saveBoxEnlarged(next);
   }, []);
 
   // THE ANCHOR TOGGLE: anchored, the box sits locked at its home
-  // corner — the stage's bottom-left (owner order 2026-11-22: the
+  // corner — the stage's bottom-left (owner orders 2026-11-22: the
   // chat sits at the bottom, the stage's center and the Captain's
   // medallion stay clear). Unanchoring keeps it exactly where it
   // sits and hands him the drag and the stretch; anchoring again
@@ -389,15 +492,57 @@ export function CommandBox({
       return;
     }
     const height = boxRef.current?.offsetHeight || boxSize.h;
-    setAnchorPos({
-      x: COMMAND_BOX_HOME_MARGIN,
-      y: Math.max(8, viewport.h - height - COMMAND_BOX_HOME_MARGIN),
-    });
+    const width = boxRef.current?.offsetWidth || boxSize.w;
+    // The anchor home: bottom-left, WINDOW_MARGIN clear on every
+    // side, run through the window clamp so the ENTIRE box —
+    // input row included — sits inside the viewport at any window
+    // size, maximized or not, clear of the right-side buttons.
+    // Enlarging grows it from this left anchor (the effect re-runs
+    // on boxSize) and the clamp still holds it on-screen.
+    setAnchorPos(
+      clampWindowPosition(
+        WINDOW_MARGIN,
+        viewport.h - height - WINDOW_MARGIN,
+        width,
+        height,
+        viewport.w,
+        viewport.h,
+      ),
+    );
   }, [anchored, boxSize, minimized, viewport]);
+
+  // GEOMETRY HEALING (owner screen check 2026-11-22 — the panel sat
+  // too low and the bottom of the chat ran off his screen): a saved
+  // position is never trusted blindly. On open, on viewport resize,
+  // and whenever the box's size changes (a stretch, the enlarge
+  // toggle), an unanchored position is pulled back inside the
+  // viewport with the window clamp — the same discipline
+  // windowGeometry gave the floating windows — and the healed
+  // position is what gets saved.
+  useEffect(() => {
+    if (anchored || viewport.w === 0 || viewport.h === 0) return;
+    setPosition((previous) => {
+      if (!previous) return previous;
+      const height = minimized
+        ? boxRef.current?.offsetHeight || boxSize.h
+        : boxSize.h;
+      const healed = clampWindowPosition(
+        previous.x,
+        previous.y,
+        boxSize.w,
+        height,
+        viewport.w,
+        viewport.h,
+      );
+      if (healed.x === previous.x && healed.y === previous.y) return previous;
+      saveBoxPosition(healed);
+      return healed;
+    });
+  }, [anchored, viewport, boxSize, minimized]);
 
   const toggleAnchored = useCallback(() => {
     if (anchored) {
-      // Unanchor in place: the centered spot becomes the free
+      // Unanchor in place: the anchored spot becomes the free
       // position, so the box does not jump when the lock comes off.
       const rect = boxRef.current?.getBoundingClientRect();
       const free = {
@@ -450,7 +595,13 @@ export function CommandBox({
     ...(anchored
       ? anchorPos
         ? { left: anchorPos.x, top: anchorPos.y, right: "auto", bottom: "auto", transform: "none" }
-        : { left: COMMAND_BOX_HOME_MARGIN, top: "auto", right: "auto", bottom: COMMAND_BOX_HOME_MARGIN, transform: "none" }
+        : {
+            left: WINDOW_MARGIN,
+            bottom: WINDOW_MARGIN,
+            right: "auto",
+            top: "auto",
+            transform: "none",
+          }
       : position
         ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
         : {}),
@@ -470,6 +621,11 @@ export function CommandBox({
 
   const lastEntry = history && history.length > 0 ? history[history.length - 1] : undefined;
   const showLiveUser = Boolean(userLine) && userLine !== lastEntry?.question;
+  // The speaker of record (speaking protocol, owner order
+  // 2026-11-22): typed lines are spoken by his character, the Black
+  // Hatter; mic lines are the operator himself, in his own voice.
+  const speakerLabel = (source: "typed" | "voice" | undefined) =>
+    source === "voice" ? "Operator — voice" : "The Black Hatter";
   const liveSpeaker =
     responseSource === "microphone" || responseSource === "awaiting response"
       ? "System"
@@ -479,9 +635,10 @@ export function CommandBox({
   return (
     <section
       ref={boxRef}
-      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}`}
+      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}${enlarged ? " avatar-command-box--enlarged" : ""}`}
       style={boxStyle}
       data-anchored={anchored ? "true" : "false"}
+      data-enlarged={enlarged ? "true" : "false"}
       aria-label="Chat with Anubis"
     >
       <div
@@ -494,7 +651,16 @@ export function CommandBox({
         aria-label={anchored ? "Chat window anchored at its home corner" : "Drag to move the chat window"}
         title={anchored ? "Anchored at the bottom-left home corner — unanchor to move" : "Drag to move"}
       >
-        <GripVertical aria-hidden="true" />
+        <button
+          type="button"
+          className="avatar-command-box__grip-toggle"
+          onClick={toggleEnlarged}
+          aria-pressed={enlarged}
+          aria-label={enlarged ? "Shrink the chat window to standard size" : "Enlarge the chat window"}
+          title={enlarged ? "Back to standard size" : "Enlarge the chat window"}
+        >
+          <GripVertical aria-hidden="true" />
+        </button>
         {presence}
         <span className="avatar-command-box__title">Chat</span>
         <button
@@ -604,7 +770,9 @@ export function CommandBox({
               <div className="avatar-command-box__thread-entry" key={`${entry.at}-${index}`}>
                 {entry.question && (
                   <p className="avatar-command-box__thread-q">
-                    <span className="avatar-command-box__thread-who">Captain:</span>{" "}
+                    <span className="avatar-command-box__thread-who">
+                      {speakerLabel(entry.source)}:
+                    </span>{" "}
                     {entry.question}
                   </p>
                 )}
@@ -615,7 +783,10 @@ export function CommandBox({
             ))}
             {showLiveUser && (
               <p className="avatar-command-box__thread-q avatar-command-box__user-line">
-                <span className="avatar-command-box__thread-who">Captain:</span> {userLine}
+                <span className="avatar-command-box__thread-who">
+                  {speakerLabel(userSource)}:
+                </span>{" "}
+                {userLine}
               </p>
             )}
             {showLiveResponse && (

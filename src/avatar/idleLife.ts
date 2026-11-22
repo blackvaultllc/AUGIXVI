@@ -22,6 +22,7 @@
  *
  * Pure data + decisions, no DOM — unit-testable like the avatar rules.
  */
+import { closeWithBlessing, respectfulAddress } from "./etiquette";
 
 export type IdleActivity =
   | "breathe"
@@ -169,17 +170,30 @@ export function idleChalkboardThought(random: () => number = Math.random): strin
 /**
  * A short status report when something needs the operator. SUGGESTIONS ONLY —
  * he never opens panels, pushes, deploys or fixes anything himself.
+ *
+ * ETIQUETTE (owner order 2026-11-22): a report is the closing word
+ * of his check-in, and conversations with a god close with the
+ * blessing — so every report line closes with it (etiquette.ts).
+ * The sub-AI report is the employees' standing delivered upward:
+ * their status reaches the god in the respect form, closed in
+ * peace, before his own blessing seals the report.
  */
 export function idleReportLine(subject: IdleActivity, dataKnown: boolean): string | null {
   if (!dataKnown) return null;
   if (subject === "check-business") {
-    return "Report: business steady. Nothing needs you yet — flagging only if it changes.";
+    return closeWithBlessing(
+      "Report: business steady. Nothing needs you yet — flagging only if it changes.",
+    );
   }
   if (subject === "check-sub-ais") {
-    return "Report: the sub AI employees are learning and working. Supply and demand balanced for now.";
+    return closeWithBlessing(
+      respectfulAddress(
+        "Report: the sub AI employees are learning and working. Supply and demand balanced for now.",
+      ),
+    );
   }
   if (subject === "check-earth") {
-    return "Report: Earth reads nominal from orbit. No alerts.";
+    return closeWithBlessing("Report: Earth reads nominal from orbit. No alerts.");
   }
   return null;
 }

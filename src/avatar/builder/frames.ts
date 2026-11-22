@@ -16,11 +16,15 @@
  * - RESET: one frame back to its default, or all of them, from the
  *   builder's Frames tab.
  *
- * The command box is the one self-managed frame: it carries its own
+ * Three frames are self-managed: the command box carries its own
  * anchor, position, and size system on its rail (CommandBox.tsx),
- * shipped before this module existed. It is listed in the registry
- * so the Frames tab shows the whole stage honestly, and its reset
- * goes through its own store.
+ * and the two medallions run the shared medallion anchor system
+ * (useMedallionAnchor — grab, move, stretch, persisted on the
+ * medallion itself). They are listed in the registry so the Frames
+ * tab shows the whole stage honestly, and their resets go through
+ * their own stores. This module's offsets drive the frames that
+ * have no mover of their own: the HUD clusters and the construct
+ * controls.
  *
  * Plain TS + injectable storage — the snap math and the store are
  * unit-testable without a DOM.
@@ -46,14 +50,14 @@ export const STAGE_FRAMES: readonly FrameDef[] = [
   {
     id: "anubis",
     name: "Anubis medallion",
-    blurb: "The command face, top-center by default.",
-    selfManaged: false,
+    blurb: "Runs its own medallion anchor — grab, move and stretch the medallion itself; where you leave it persists.",
+    selfManaged: true,
   },
   {
     id: "black-hatter",
     name: "Black Hatter medallion",
-    blurb: "The owner's own medallion at center stage.",
-    selfManaged: false,
+    blurb: "Runs its own medallion anchor — grab, move and stretch the medallion itself; where you leave it persists.",
+    selfManaged: true,
   },
   {
     id: "hud-status",

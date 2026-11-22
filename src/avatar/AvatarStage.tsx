@@ -96,11 +96,32 @@ import { AugiePresence } from "./AugiePresence";
 import { speakingMsForText } from "./LivingPortrait";
 import { AnubisPresence } from "./AnubisPresence";
 import { BlackHatterPresence } from "./BlackHatterPresence";
+import { MontuPresence } from "./MontuPresence";
 import {
   DEFAULT_STAGE_PERSPECTIVE,
+  conversationViewFor,
+  isGodPerspective,
   perspectiveAfterClose,
+  type GodPerspective,
   type StagePerspective,
 } from "./stagePerspective";
+import {
+  applyNotificationInstruction,
+  describeNotificationInstruction,
+  loadNotificationPrefs,
+  parseNotificationInstruction,
+  saveNotificationPrefs,
+  shouldNotify,
+} from "./notificationPrefs";
+import { StageNotifications, type StageNotification } from "./StageNotifications";
+import { StageToolbar } from "./StageToolbar";
+import {
+  STAGE_BACKDROPS,
+  backdropById,
+  loadStageBackdrop,
+  saveStageBackdrop,
+  type StageBackdropId,
+} from "./stageBackdrop";
 import { FloatingWindow } from "./windows/FloatingWindow";
 import {
   clearFigureOffset,
@@ -137,6 +158,7 @@ import { greetOperator } from "./greeting";
 import {
   pickIdleActivity,
   idleChalkboardThought,
+  idleReportLine,
   IDLE_INTERVAL_MS,
   type IdleActivity,
 } from "./idleLife";
@@ -444,8 +466,10 @@ export function AvatarStage({
   // THE ENVIRONMENT BUILDER (owner order 2026-11-22): the Captain's
   // designed Room — layouts saved as he goes, the active room fed to
   // the renderer, pieces placed/moved/anchored from the panel and
-  // by dragging on the stage itself. The stage frames (medallions,
-  // HUD clusters) carry their own offsets beside it.
+  // by dragging on the stage itself. The stage frames that are not
+  // self-managed (the HUD clusters, the construct controls) carry
+  // their offsets beside it; the medallions run their own anchor
+  // system, like the command box.
   const [builderOpen, setBuilderOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [layoutStore, setLayoutStore] = useState<LayoutStore>(() => loadLayoutStore());
@@ -461,6 +485,11 @@ export function AvatarStage({
   const framesArmedRef = useRef(framesArmed);
   framesArmedRef.current = framesArmed;
   const [snapGuides, setSnapGuides] = useState<SnapGuides | null>(null);
+  // ON STAGE BY ORDER (owner order 2026-11-22): a position order —
+  // "bring Augie in", "step aside" — stands him on the stage itself
+  // in the live Room, outside his box, until his box closes the
+  // standing arrangement back down (closeConstruct clears this).
+  const [constructOnStage, setConstructOnStage] = useState(false);
   const stageDockRef = useRef<HTMLDivElement>(null);
   // DOCKING: the renderer's host element is moved — not recreated —
   // between its home slot on the stage and the construct window's
@@ -480,6 +509,37 @@ export function AvatarStage({
   // himself; a station takes the focus when he turns to it, and the
   // perspective returns to him when it closes.
   const [perspective, setPerspective] = useState<StagePerspective>(DEFAULT_STAGE_PERSPECTIVE);
+  // CONVERSATION VIEWS (owner order 2026-11-22): speaking with ONE
+  // god is a CALL — his Black Hatter and the god, side by side.
+  // Tapping a SECOND god while one holds the perspective raises a
+  // COUNCIL — the gods present at the smaller factor. Tapping the
+  // Black Hatter, or opening the construct, ends the council and
+  // returns the stage to its standing arrangement. The views are
+  // presentation only: his anchored placements and sizes hold.
+  const [council, setCouncil] = useState<StagePerspective[]>([]);
+  const conversationView = conversationViewFor(perspective, council);
+  const selectGod = useCallback(
+    (god: GodPerspective) => {
+      if (council.length >= 2) {
+        // Already in council: tapping a god takes the call to him alone.
+        setCouncil([]);
+        setPerspective(god);
+        return;
+      }
+      if (isGodPerspective(perspective) && perspective !== god) {
+        // A second god joins the one addressed: a council.
+        setCouncil([perspective, god]);
+        setPerspective(god);
+        return;
+      }
+      setPerspective(god);
+    },
+    [perspective, council],
+  );
+  const selectOwner = useCallback(() => {
+    setCouncil([]);
+    setPerspective(DEFAULT_STAGE_PERSPECTIVE);
+  }, []);
   // PULSE WINDOW: presence + motion, the rPPG heart-rate estimate and
   // the room-frequency readout in a small floating box (operator order
   // 2026-11-21). Opens from Tools → Rooms and from "open pulse".
@@ -555,9 +615,38 @@ export function AvatarStage({
   // on the mic, the Captain is speaking himself.
   const [hatterSpeaking, setHatterSpeaking] = useState(false);
   const hatterSpeechTimer = useRef<number | null>(null);
+  // SPEAKING PROTOCOL (owner order 2026-11-22): how his last line
+  // arrived decides who the speaker of record is — TYPED lines are
+  // the Black Hatter speaking (his character delivers them, and the
+  // god follows the command); MIC lines are the operator himself,
+  // and no presence speaks or echoes for him.
+  const [lastUserSource, setLastUserSource] = useState<"typed" | "voice">("typed");
+  const lastUserSourceRef = useRef<"typed" | "voice">("typed");
+  // REPORTS AS NOTIFICATIONS (owner order 2026-11-22): completions
+  // surface on the stage as notifications, gated by his standing
+  // notification rules (notificationPrefs.ts) at raise time.
+  const [notifications, setNotifications] = useState<StageNotification[]>([]);
+  const notificationIdRef = useRef(0);
+  const notify = useCallback((topic: string, text: string) => {
+    if (!shouldNotify(loadNotificationPrefs(), topic, Date.now())) return;
+    notificationIdRef.current += 1;
+    const id = notificationIdRef.current;
+    setNotifications((current) => [...current.slice(-3), { id, topic, text, at: Date.now() }]);
+    window.setTimeout(() => {
+      setNotifications((current) => current.filter((item) => item.id !== id));
+    }, 14_000);
+  }, []);
+  const dismissNotification = useCallback((id: number) => {
+    setNotifications((current) => current.filter((item) => item.id !== id));
+  }, []);
   const recordReply = useCallback((text: string) => {
     setTranscript((prev) =>
-      appendReplyHistory(prev, { at: Date.now(), question: lastQuestionRef.current, answer: text }),
+      appendReplyHistory(prev, {
+        at: Date.now(),
+        question: lastQuestionRef.current,
+        answer: text,
+        source: lastUserSourceRef.current,
+      }),
     );
     // Every exchange also goes to the CORE's durable memory (Part 30):
     // written now, or queued on this surface and synced when the core
@@ -595,6 +684,19 @@ export function AvatarStage({
     rendRef.current?.setWorldScene(id);
     setWorldScene(id);
   }, []);
+  // STAGE BACKDROP (owner order 2026-11-22): a saved, switchable
+  // choice in his layout. "world" is the living particle world;
+  // "desert-photo" is his own photograph (desert with pyramids)
+  // dropped in at its registered path — until the file lands, the
+  // stage falls back to the world (backdropArtReady flips false on
+  // a failed load and the layer simply never covers anything).
+  const [backdrop, setBackdrop] = useState<StageBackdropId>(loadStageBackdrop);
+  const [backdropArtReady, setBackdropArtReady] = useState(true);
+  const applyBackdrop = useCallback((id: StageBackdropId) => {
+    setBackdrop(id);
+    saveStageBackdrop(id);
+    setBackdropArtReady(true);
+  }, []);
 
   // WINDOW CONTROLS — movable windows he can open himself or on my order.
   const openWindow = useCallback((which: "notepad" | "chalkboard" | "player") => {
@@ -618,11 +720,14 @@ export function AvatarStage({
   // the perspective to the Black Hatter — the default.
   const openConstruct = useCallback(() => {
     setConstructOpen(true);
+    setCouncil([]);
     setPerspective("construct");
   }, []);
   const closeConstruct = useCallback(() => {
     setConstructOpen(false);
     setConstructDock(null);
+    setConstructOnStage(false);
+    setCouncil([]);
     setPerspective(perspectiveAfterClose());
   }, []);
 
@@ -632,9 +737,11 @@ export function AvatarStage({
   // the Black Hatter and the construct is off stage.
   useEffect(() => {
     rendRef.current?.setConstructVisible(
-      worldScreen !== "live" || (constructOpen && constructDock !== null),
+      worldScreen !== "live" ||
+        constructOnStage ||
+        (constructOpen && constructDock !== null),
     );
-  }, [worldScreen, constructOpen, constructDock]);
+  }, [worldScreen, constructOpen, constructDock, constructOnStage]);
 
   // ONE VOICE AT A TIME: when Anubis starts answering, the Black
   // Hatter's line is done — his mouth stills and Anubis's medallion
@@ -1070,6 +1177,74 @@ export function AvatarStage({
     [say],
   );
 
+  // CONSTRUCT POSITION ORDERS (owner order 2026-11-22): the typed
+  // and spoken forms — "bring Augie in", "move to the left side",
+  // "move right", "step aside" — and the toolbar's buttons run
+  // these same moves. He FLOATS (an eased glide, never a jump), the
+  // landing spot persists like every drag (saveFigureOffset), and
+  // aside he turns in profile toward the middle of the stage so the
+  // Captain sees the whole screen.
+  const constructFloatRef = useRef<number | null>(null);
+  const floatConstructTo = useCallback((targetX: number, targetY: number) => {
+    const renderer = rendRef.current;
+    if (!renderer) return;
+    if (constructFloatRef.current !== null) {
+      window.cancelAnimationFrame(constructFloatRef.current);
+    }
+    const start = renderer.figureOffset;
+    const startedAt = performance.now();
+    const DURATION_MS = 900;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - startedAt) / DURATION_MS);
+      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      renderer.setFigureOffset(
+        start.x + (targetX - start.x) * eased,
+        start.y + (targetY - start.y) * eased,
+      );
+      if (t < 1) {
+        constructFloatRef.current = window.requestAnimationFrame(step);
+      } else {
+        constructFloatRef.current = null;
+        saveFigureOffset(renderer.figureOffset);
+      }
+    };
+    constructFloatRef.current = window.requestAnimationFrame(step);
+  }, []);
+  const settleConstructOnStage = useCallback(() => {
+    // Off the box, onto the stage, anchored and free at the landing.
+    setConstructOpen(false);
+    setConstructDock(null);
+    setConstructOnStage(true);
+    setCouncil([]);
+    setPerspective("construct");
+    setConstructAnchored(true);
+    saveConstructAnchored(true);
+    rendRef.current?.setConstructAnchored(true);
+  }, []);
+  const bringConstructIn = useCallback(() => {
+    settleConstructOnStage();
+    rendRef.current?.resetFigureOffset();
+    clearFigureOffset();
+    rendRef.current?.faceOperator();
+  }, [settleConstructOnStage]);
+  const floatConstructAside = useCallback(
+    (side: "left" | "right") => {
+      const renderer = rendRef.current;
+      const hostEl = host.current;
+      if (!renderer || !hostEl) return;
+      settleConstructOnStage();
+      const point = renderer.figureScreenPoint();
+      if (!point) return;
+      const rect = hostEl.getBoundingClientRect();
+      const targetPx = side === "left" ? rect.width * 0.13 : rect.width * 0.87;
+      const scale = renderer.worldUnitsPerPixel();
+      const current = renderer.figureOffset;
+      floatConstructTo(current.x + (targetPx - point.x) * scale, current.y);
+      renderer.faceSide(side);
+    },
+    [floatConstructTo, settleConstructOnStage],
+  );
+
   function togglePresent() {
     const b = bridgeRef.current;
     b.present(b.presenting ? null : "file");
@@ -1080,6 +1255,8 @@ export function AvatarStage({
       // in the Command box above the reply, even for commands that
       // return early (rooms, /help, wake greeting).
       setLastUserMessage(text.trim());
+      setLastUserSource(source);
+      lastUserSourceRef.current = source;
       // His typed words are spoken by his own medallion: the Black
       // Hatter's mouth moves for the length of the line. The mic
       // path (source "voice") is the Captain himself — the Hatter
@@ -1127,6 +1304,19 @@ export function AvatarStage({
         return;
       }
       commandText = commandText.replace(/^\/+/, "").trim();
+      // NOTIFICATION CONTROL BY HIS WORD (owner order 2026-11-22):
+      // "hold notifications for X hours", "don't tell me about
+      // that, tell me about this" — the standing rules change here
+      // and every report honors them from this point on.
+      const noteInstruction = parseNotificationInstruction(commandText);
+      if (noteInstruction) {
+        saveNotificationPrefs(
+          applyNotificationInstruction(loadNotificationPrefs(), noteInstruction, Date.now()),
+        );
+        setResponseSource("notification preferences");
+        say(describeNotificationInstruction(noteInstruction));
+        return;
+      }
       const interaction = parseInteractionCommand(commandText);
       if (interaction && interaction.type !== "wake") {
         applyInterfaceCommand(interaction.type);
@@ -1458,6 +1648,29 @@ export function AvatarStage({
       if (/^close\s+(?:the\s+)?(?:augi\s+)?avatar$/i.test(avatarRequest)) {
         closeConstruct();
         say("His box is closed. The stage is back to you, Captain.");
+        return;
+      }
+      // CONSTRUCT POSITION ORDERS (owner order 2026-11-22): "bring
+      // Augie in" stands him on the stage facing the Captain; "move
+      // to the left side" / "move right" / "step aside" floats him
+      // to that side in profile, out of the way, so the whole
+      // screen reads clear. The landing persists like a drag.
+      if (
+        /^(?:bring|call)\s+(?:augi|augie|osiris)\s+in$/i.test(avatarRequest) ||
+        avatarRequest === "come in augi" ||
+        avatarRequest === "augi come in"
+      ) {
+        bringConstructIn();
+        say("AUGI is in, Captain — on the stage, facing you.");
+        return;
+      }
+      const asideMatch = avatarRequest.match(
+        /^(?:move\s+(?:augi\s+)?(?:to\s+)?(?:the\s+)?|step\s+aside\s*(?:to\s+)?(?:the\s+)?|augi\s+(?:move\s+)?(?:to\s+)?(?:the\s+)?)(left|right)(?:\s+side)?$/,
+      );
+      if (asideMatch?.[1] || avatarRequest === "step aside") {
+        const side = asideMatch?.[1] === "right" ? "right" : "left";
+        floatConstructAside(side);
+        say(`AUGI steps to the ${side}, Captain — side-on and out of your way.`);
         return;
       }
       // Movable windows: notepad, chalkboard, player.
@@ -2037,6 +2250,22 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       setLastWords(line);
       setResponseSource("idle life");
       aiRef.current?.speak(line);
+      // REPORTS AS NOTIFICATIONS (owner order 2026-11-22): a
+      // finished check reports as a stage notification — the same
+      // report pattern as the sub-category constructs — gated by
+      // his standing notification rules inside notify().
+      const reportTopic =
+        action.activity === "check-business"
+          ? "business"
+          : action.activity === "check-sub-ais"
+            ? "employees"
+            : action.activity === "check-earth"
+              ? "earth"
+              : null;
+      if (reportTopic) {
+        const report = idleReportLine(action.activity, true);
+        if (report) notify(reportTopic, report);
+      }
       // No window opens here — idle life is presence and words only.
       // Notepad, chalkboard and player open on the operator's explicit
       // command or tap, never on Augie's own initiative (2026-11-21).
@@ -2233,6 +2462,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}${osirisDragging ? " avatar-stage--dragging-osiris" : ""}${captainDriving ? " avatar-stage--captain-driving" : ""}${!constructAnchored ? " avatar-stage--construct-held" : ""}${framesArmed ? " avatar-stage--moving-frames" : ""}`}
       data-scene-ready={ready ? "" : undefined}
       data-stage-look={worldScreen === "live" && worldScene === "room" ? "light" : "dark"}
+      data-conversation-view={conversationView}
       style={stageStyle}
       onDragOver={(event) => {
         if (builderOpen && event.dataTransfer.types.includes("augi-builder-base")) {
@@ -2248,35 +2478,72 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         placeFromLibrary(baseId, floor ?? undefined);
       }}
     >
+      {backdrop === "desert-photo" && backdropArtReady && (
+        <img
+          className="avatar-stage__backdrop"
+          src={backdropById("desert-photo").image ?? undefined}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          onError={() => setBackdropArtReady(false)}
+        />
+      )}
       <div ref={stageDockRef} className="avatar-stage-dock">
         <div ref={host} className="avatar-construct-host" />
       </div>
       {!clearScreen && worldScreen === "live" && (
-        <div className="avatar-frame" {...frameDragProps("black-hatter")}>
-          <BlackHatterPresence
-            inPerspective={perspective === "black-hatter"}
-            speaking={hatterSpeaking}
-            style={frameStyle("black-hatter")}
-            onSelect={() => {
-              if (!framesArmedRef.current) setPerspective(DEFAULT_STAGE_PERSPECTIVE);
-            }}
-          />
-        </div>
+        <BlackHatterPresence
+          inPerspective={perspective === "black-hatter"}
+          speaking={hatterSpeaking}
+          inCall={conversationView === "call"}
+          onSelect={selectOwner}
+        />
       )}
       {!clearScreen && worldScreen === "live" && (
-        <div className="avatar-frame" {...frameDragProps("anubis")}>
-          <AnubisPresence
-            ready={ready}
-            speaking={state === "SPEAKING"}
-            listening={voiceListening}
-            acting={presenting || state === "THINKING"}
-            inPerspective={perspective === "anubis"}
-            style={frameStyle("anubis")}
-            onSelect={() => {
-              if (!framesArmedRef.current) setPerspective("anubis");
-            }}
-          />
-        </div>
+        <AnubisPresence
+          ready={ready}
+          speaking={state === "SPEAKING"}
+          listening={voiceListening}
+          acting={presenting || state === "THINKING"}
+          inPerspective={perspective === "anubis"}
+          inCall={conversationView === "call" && perspective === "anubis"}
+          inCouncil={council.includes("anubis")}
+          atAttention={perspective === "anubis"}
+          onSelect={() => selectGod("anubis")}
+        />
+      )}
+      {!clearScreen && worldScreen === "live" && (
+        <MontuPresence
+          ready={ready}
+          inPerspective={perspective === "montu"}
+          inCall={conversationView === "call" && perspective === "montu"}
+          inCouncil={council.includes("montu")}
+          atAttention={perspective === "montu"}
+          onSelect={() => selectGod("montu")}
+        />
+      )}
+      {!clearScreen && worldScreen === "live" && (
+        <StageToolbar
+          perspective={perspective}
+          conversationView={conversationView}
+          onSeatOwner={selectOwner}
+          onSeatGod={selectGod}
+          onBringIn={() => {
+            bringConstructIn();
+            say("AUGI is in, Captain — on the stage, facing you.");
+          }}
+          onStepAside={(side) => {
+            floatConstructAside(side);
+            say(`AUGI steps to the ${side}, Captain — side-on and out of your way.`);
+          }}
+          onHome={() => {
+            bringConstructIn();
+            say("AUGI is back at his home spot, anchored and free.");
+          }}
+        />
+      )}
+      {!clearScreen && worldScreen === "live" && (
+        <StageNotifications items={notifications} onDismiss={dismissNotification} />
       )}
       {!clearScreen && worldScreen === "live" && constructOpen && (
         <div className="avatar-frame" {...frameDragProps("construct-controls")}>
@@ -2374,6 +2641,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           responseLine={lastWords}
           responseSource={responseSource}
           userLine={lastUserMessage}
+          userSource={lastUserSource}
           history={transcript}
           partnerSpeaking={state === "SPEAKING"}
           presence={
@@ -2464,6 +2732,27 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => {
                       applyWorldScene(scene.id);
                       say(sceneLine(scene.id));
+                    }}
+                  />
+                ))}
+              </div>
+            </CommandGroup>
+          )}
+          {commandTab === "scene" && (
+            <CommandGroup label="Backdrop — the stage's saved background, his to set">
+              <div className="avatar-command-box__grid">
+                {STAGE_BACKDROPS.map((option) => (
+                  <CommandAction
+                    key={option.id}
+                    icon={WORLD_SCENE_ICONS.desert}
+                    label={backdrop === option.id ? `${option.name} · set` : option.name}
+                    onClick={() => {
+                      applyBackdrop(option.id);
+                      say(
+                        option.id === "desert-photo"
+                          ? "The Desert backdrop is set — your photograph, Captain, when it lands at its place."
+                          : "The living world is the backdrop again.",
+                      );
                     }}
                   />
                 ))}

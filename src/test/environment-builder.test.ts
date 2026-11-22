@@ -257,11 +257,11 @@ describe("environment builder — his theme backdrops", () => {
 describe("environment builder — stage frames (the Movers pattern)", () => {
   it("drag precedence: a saved offset wins; no record means the default spot", () => {
     let store = loadFrameStore(fakeStorage());
-    expect(frameOffset(store, "anubis")).toEqual({ dx: 0, dy: 0, anchored: true });
-    store = withFrameOffset(store, "anubis", { dx: 120, dy: -40, anchored: true });
-    expect(frameOffset(store, "anubis")).toEqual({ dx: 120, dy: -40, anchored: true });
-    store = withoutFrame(store, "anubis");
-    expect(frameOffset(store, "anubis")).toEqual({ dx: 0, dy: 0, anchored: true });
+    expect(frameOffset(store, "hud-status")).toEqual({ dx: 0, dy: 0, anchored: true });
+    store = withFrameOffset(store, "hud-status", { dx: 120, dy: -40, anchored: true });
+    expect(frameOffset(store, "hud-status")).toEqual({ dx: 120, dy: -40, anchored: true });
+    store = withoutFrame(store, "hud-status");
+    expect(frameOffset(store, "hud-status")).toEqual({ dx: 0, dy: 0, anchored: true });
   });
 
   it("frame offsets persist, and the self-managed command box is never stored here", () => {

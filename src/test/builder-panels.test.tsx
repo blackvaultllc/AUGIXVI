@@ -80,12 +80,13 @@ describe("BuilderPanel", () => {
     expect(screen.getByRole("button", { name: /World map — countries/ })).toBeInTheDocument();
   });
 
-  it("the frames list names every frame, and the chat panel reads as its own mover", () => {
+  it("the frames list names every frame, and the self-managed read as their own movers", () => {
     render(<BuilderPanel {...panelProps()} />);
     expect(screen.getByText("Anubis medallion")).toBeInTheDocument();
     expect(screen.getByText("Black Hatter medallion")).toBeInTheDocument();
     expect(screen.getByText("Command box (chat)")).toBeInTheDocument();
-    expect(screen.getByText("its own mover")).toBeInTheDocument();
+    // The command box and both medallions run their own movers.
+    expect(screen.getAllByText("its own mover")).toHaveLength(3);
   });
 });
 

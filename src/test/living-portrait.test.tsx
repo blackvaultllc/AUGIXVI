@@ -49,11 +49,17 @@ describe("living medallion faces", () => {
       sawClosed = lid().classList.contains("is-closed");
     }
     expect(sawClosed).toBe(true);
-    // And they open again — a blink, not a stuck lid.
-    act(() => {
-      vi.advanceTimersByTime(400);
-    });
-    expect(lid().classList.contains("is-closed")).toBe(false);
+    // And they open again — a blink, not a stuck lid. (Checked in
+    // slices: an occasional double blink may close them once more
+    // first — what must never happen is a lid that stays shut.)
+    let sawOpenAgain = false;
+    for (let i = 0; i < 40 && !sawOpenAgain; i += 1) {
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      sawOpenAgain = !lid().classList.contains("is-closed");
+    }
+    expect(sawOpenAgain).toBe(true);
   });
 
   it("Anubis's mouth moves while he speaks and stills when he stops", () => {

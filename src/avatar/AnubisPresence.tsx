@@ -26,7 +26,14 @@
  * PERSPECTIVE (owner order 2026-11-22): Anubis stays at his station —
  * top center — and speaks from his place. Tapping his medallion
  * brings him into perspective (the focus ring); the stage's default
- * perspective is the Black Hatter, and Anubis's station never moves.
+ * perspective is the Black Hatter.
+ *
+ * THE ANCHOR (owner order 2026-11-22): his medallion is an anchored
+ * element on the shared medallion system (useMedallionAnchor). Its
+ * factory home is his station, top center, larger than before —
+ * and like every medallion he can be grabbed, moved, and stretched,
+ * and where the Captain leaves him persists. The station's home
+ * does not move; the medallion is his to place.
  *
  * REPLACEABLE ASSET: the medallion reads exactly one file,
  * public/anubis-presence/face.webp. Replacing that file changes the
@@ -42,9 +49,17 @@
  * lives inside Anubis's medallion only; the Room around it stays
  * light.
  */
-import type { CSSProperties } from "react";
-import { ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
+import { useState } from "react";
+import { ANUBIS_BINDING, ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
 import { ANUBIS_FEATURES, LivingPortrait } from "./LivingPortrait";
+import {
+  availablePresenceViews,
+  effectivePresenceView,
+  loadPresenceView,
+  savePresenceView,
+  type PresenceView,
+} from "./presenceView";
+import { useMedallionAnchor } from "./useMedallionAnchor";
 
 export const ANUBIS_FACE_SRC = ANUBIS_PORTRAIT_SRC;
 
@@ -54,8 +69,10 @@ export function AnubisPresence({
   listening,
   acting,
   inPerspective = false,
+  inCall = false,
+  inCouncil = false,
+  atAttention = false,
   onSelect,
-  style,
 }: {
   /** False until the renderer's first frame — the stage is loading. */
   ready: boolean;
@@ -67,18 +84,45 @@ export function AnubisPresence({
   acting: boolean;
   /** The stage's focus is on Anubis's station right now. */
   inPerspective?: boolean;
+  /** A one-god CALL conversation is live with Anubis (owner order 2026-11-22). */
+  inCall?: boolean;
+  /** Anubis sits in a GROUP council of gods, at the smaller factor. */
+  inCouncil?: boolean;
+  /**
+   * AT ATTENTION (owner order 2026-11-22): the god he is speaking
+   * to falls to attention while addressed — the standing rule for
+   * every god on the stage.
+   */
+  atAttention?: boolean;
   /** Tapping the medallion brings Anubis into perspective. */
   onSelect?: () => void;
-  /** The stage-frame offset (Environment Builder) — the translate rides on top of the station's own CSS placement. */
-  style?: CSSProperties;
 }) {
+  const anchor = useMedallionAnchor("anubis");
+  // HEAD OR BODY (owner order 2026-11-22): the switch offers the
+  // body perspective only when the binding carries body artwork —
+  // Anubis's binding has none yet, so he is head-only until it lands.
+  const views = availablePresenceViews(ANUBIS_BINDING);
+  const [view, setView] = useState<PresenceView>(() =>
+    effectivePresenceView(ANUBIS_BINDING, loadPresenceView(ANUBIS_BINDING.id)),
+  );
+  const showBody = view === "body" && Boolean(ANUBIS_BINDING.body);
+  const toggleView = () => {
+    const next: PresenceView = view === "head" ? "body" : "head";
+    setView(next);
+    savePresenceView(ANUBIS_BINDING.id, next);
+  };
   const classes = [
     "anubis-presence",
+    "medallion-anchor",
+    anchor.lifted ? "medallion-anchor--lifted" : "",
     speaking ? "anubis-presence--speaking" : "",
     listening ? "anubis-presence--listening" : "",
     acting ? "anubis-presence--acting" : "",
     !ready ? "anubis-presence--connecting" : "",
     inPerspective ? "anubis-presence--in-perspective" : "",
+    inCall ? "medallion-anchor--in-call" : "",
+    inCouncil ? "medallion-anchor--in-council" : "",
+    atAttention ? "medallion-anchor--attention" : "",
     onSelect ? "anubis-presence--selectable" : "",
   ]
     .filter(Boolean)
@@ -95,12 +139,15 @@ export function AnubisPresence({
   return (
     <div
       className={classes}
-      style={style}
       role={onSelect ? "button" : "img"}
       tabIndex={onSelect ? 0 : undefined}
       aria-label={`Anubis — ${state}`}
-      title={onSelect ? `Anubis — ${state} — tap to bring Anubis into perspective` : `Anubis — ${state}`}
-      onClick={onSelect}
+      title={
+        onSelect
+          ? `Anubis — ${state} — tap to bring Anubis into perspective; drag to move his medallion`
+          : `Anubis — ${state}`
+      }
+      onClick={anchor.wrapSelect(onSelect)}
       onKeyDown={
         onSelect
           ? (event) => {
@@ -111,22 +158,57 @@ export function AnubisPresence({
             }
           : undefined
       }
+      {...anchor.rootProps}
     >
-      <div className="anubis-presence__face">
-        {/* LIVING FACE (owner order 2026-11-22): the portrait itself,
-            plus blinking eyelids and a mouth that moves while Anubis
-            speaks — a face, not a frozen picture (LivingPortrait). */}
-        <LivingPortrait
-          src={ANUBIS_FACE_SRC}
-          features={ANUBIS_FEATURES}
-          speaking={speaking}
-          imgClassName="anubis-presence__img"
-        />
+      <div className="anubis-presence__face" style={anchor.faceStyle}>
+        {showBody ? (
+          <img
+            className="anubis-presence__img"
+            src={ANUBIS_BINDING.body}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+          />
+        ) : (
+          /* LIVING FACE (owner order 2026-11-22): the portrait itself,
+             plus blinking eyelids and a mouth that moves while Anubis
+             speaks — a face, not a frozen picture (LivingPortrait).
+             The body view carries no feature map, so it stays a plain
+             portrait; the head is the living face. */
+          <LivingPortrait
+            src={ANUBIS_FACE_SRC}
+            features={ANUBIS_FEATURES}
+            speaking={speaking}
+            imgClassName="anubis-presence__img"
+          />
+        )}
       </div>
       <div className="anubis-presence__plate">
-        <span className="anubis-presence__name">Anubis</span>
-        <span className="anubis-presence__role">Command</span>
+        <span className="anubis-presence__name">{ANUBIS_BINDING.name}</span>
+        <span className="anubis-presence__role">{ANUBIS_BINDING.roleLabel}</span>
       </div>
+      {views.length > 1 && (
+        <button
+          type="button"
+          className="medallion-anchor__view-toggle"
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleView();
+          }}
+          aria-pressed={view === "body"}
+          aria-label={view === "head" ? "Show Anubis full body" : "Show Anubis head only"}
+          title={view === "head" ? "Body perspective" : "Head perspective"}
+        >
+          {view === "head" ? "Body" : "Head"}
+        </button>
+      )}
+      <div
+        className="medallion-anchor__stretch"
+        role="separator"
+        aria-label="Stretch the Anubis medallion"
+        title="Drag to stretch the medallion"
+        {...anchor.stretchProps}
+      />
     </div>
   );
 }
