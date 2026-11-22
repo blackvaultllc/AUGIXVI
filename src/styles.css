@@ -5358,6 +5358,10 @@
 .window-analytics__pill.is-problem { color: #a33b1f; }
 .window-analytics__pill.is-unavailable { color: #6b6252; }
 .trusted-devices__row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; border: 1px solid var(--border, #d8cdb4); border-radius: 0.6rem; padding: 0.45rem 0.7rem; font-size: 0.85rem; }
+.phone-brain__list { display: flex; flex-direction: column; gap: 0.55rem; list-style: none; margin: 0; padding: 0; }
+.phone-brain__row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; border: 1px solid var(--border, #d8cdb4); border-radius: 0.6rem; padding: 0.45rem 0.7rem; font-size: 0.85rem; line-height: 1.4; }
+.phone-brain__bar { height: 0.5rem; border: 1px solid var(--border, #d8cdb4); border-radius: 999px; overflow: hidden; }
+.phone-brain__bar-fill { height: 100%; background: var(--accent, #b98a1c); transition: width 0.2s ease; }
 .window-law__ask { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
 .window-law__ask input { flex: 1 1 auto; min-width: 0; padding: 0.55rem 0.7rem; border-radius: 0.55rem; border: 1px solid var(--border, #d8cdb4); font-size: 0.95rem; }
 .window-law__answer { white-space: pre-wrap; line-height: 1.5; font-size: 0.95rem; }

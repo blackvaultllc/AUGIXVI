@@ -30,7 +30,8 @@
     "exactOptionalPropertyTypes": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@mlc-ai/web-llm": ["./src/types/web-llm.d.ts"]
     }
   }
 }

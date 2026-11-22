@@ -20,13 +20,21 @@ export type OllamaAIOptions = {
   ) => { answer: string; source: "saved memory" | "local knowledge" } | null;
   /**
    * CLOUD FAILOVER: when the local brain is unreachable, ask the server pipe
-   * (Groq → Gemini → OpenRouter → server-side Ollama). Resolves with the
-   * answer + the provider that actually spoke, or null to go simulated.
+   * (Groq → Gemini → OpenRouter → server-side Ollama → the on-phone brain,
+   * which the pipe's client tries before falling to simulated). Resolves
+   * with the answer + the provider that actually spoke, or null to go
+   * simulated. When a fallback answers, the provider is NAMED through
+   * onResponseSource — never hidden behind a generic label.
    */
   cloudFallback?: (text: string) => Promise<{ answer: string; provider: string } | null>;
-  onResponseSource?: (
-    source: "live brain" | "saved memory" | "local knowledge" | "offline notice",
-  ) => void;
+  /**
+   * ON-PHONE BRAIN (owner order 2026-11-22): the small brain inside
+   * this device. Consulted in the latched-offline state, where the
+   * cloud pipe is never re-asked — the emergency case this leg exists
+   * for. Resolves with the answer + its provider name, or null.
+   */
+  onPhoneFallback?: (text: string) => Promise<{ answer: string; provider: string } | null>;
+  onResponseSource?: (source: string) => void;
 };
 
 export const DEFAULT_SYSTEM =
@@ -296,6 +304,18 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
         speak(local.answer, listen);
         return local.answer;
       }
+      // LATCHED OFFLINE: the cloud pipe is not re-asked here, so the
+      // on-phone brain gets its own door — in the emergency state it
+      // may be the only real brain this device has.
+      if (opts.onPhoneFallback) {
+        const phone = await opts.onPhoneFallback(text).catch(() => null);
+        if (phone) {
+          lastOfflineReplyText = "";
+          onResponseSource?.(phone.provider);
+          speak(phone.answer, listen);
+          return phone.answer;
+        }
+      }
       return offlineReply();
     }
     if (isQuietCommand(text)) {
@@ -317,11 +337,12 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       if (error instanceof DOMException && error.name === "AbortError") return "";
       setOffline(true);
       scheduleRetry();
-      // FAILOVER PIPE: cloud brains next (server-side keys), then simulated.
+      // FAILOVER PIPE: cloud brains next (server-side keys; its client
+      // tries the on-phone brain before simulated), then simulated.
       if (opts.cloudFallback) {
         const cloud = await opts.cloudFallback(text);
         if (cloud) {
-          onResponseSource?.("live brain");
+          onResponseSource?.(cloud.provider);
           speak(cloud.answer, listen);
           return cloud.answer;
         }
