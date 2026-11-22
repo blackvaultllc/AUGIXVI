@@ -24,6 +24,7 @@ export type DeviceKind =
   | "camera"
   | "cube-node"
   | "controller"
+  | "drone"
   | "medical"
   | "sensor"
   | "audio"
@@ -36,6 +37,7 @@ export const DEVICE_KIND_LABELS: Record<DeviceKind, string> = {
   camera: "Camera",
   "cube-node": "Cube node",
   controller: "Controller / input",
+  drone: "Drone / quadcopter",
   medical: "Medical device",
   sensor: "Sensor",
   audio: "Audio device",
@@ -64,6 +66,47 @@ export const PLACEMENT_LABELS: Record<DevicePlacement, string> = {
   "cube-node": "Cube node",
   worn: "Worn",
   fixed: "Fixed in place",
+};
+
+/**
+ * DEVICE MASTERY (operator doctrine, 2026-11-21): on first contact a
+ * device is mapped COMPLETELY — identity, address, ports, protocol,
+ * and the full control map — and the fingerprint below is where that
+ * map lives. A field that was never mapped stays ABSENT: the card
+ * claims only what contact actually proved. The bench work that
+ * fills these fields (drone RF / app-protocol mapping) is hardware
+ * work; this schema is its home.
+ */
+
+/** One open port found on the device during mapping. */
+export type DevicePort = {
+  port: number;
+  /** tcp / udp / … as found. */
+  protocol?: string | undefined;
+  /** What answers there, in plain words ("RTSP stream", "app control"). */
+  service?: string | undefined;
+};
+
+export type ControlActionKind = "command" | "stick" | "toggle" | "range" | "other";
+
+/** One entry of a device's control map — a thing Osiris can make it do. */
+export type ControlAction = {
+  id: string;
+  /** Plain name: "Take off", "Left stick — pitch", "Light color". */
+  label: string;
+  kind: ControlActionKind;
+  /**
+   * How the action is actually invoked, as mapped: the packet, the
+   * endpoint, the GATT characteristic, the RF frame. A claim without
+   * this is not a control — it is a wish.
+   */
+  detail: string;
+  /**
+   * Proven on the bench (sent and the device obeyed) vs mapped-only
+   * (inferred from a capture or a manual, never yet driven). Only
+   * verified actions may ever be represented as usable control.
+   */
+  verified: boolean;
 };
 
 /** One GATT service as the profiler actually found it on the device. */
@@ -173,6 +216,16 @@ export type DeviceProfile = {
   presence: DevicePresence;
   /** Detection log — appeared/disappeared, newest last, capped. */
   presenceEvents: PresenceEvent[];
+  /* ---- the first-contact map (device mastery) ---- */
+  /** Network address as mapped: IP, MAC, or host — as found. */
+  address?: string | undefined;
+  /** The protocol the device speaks, as mapped ("UDP app protocol",
+   * "BLE GATT", "2.4 GHz proprietary RF", "RTSP/ONVIF"…). */
+  protocol?: string | undefined;
+  /** Open ports found on the device. Absent = never port-mapped. */
+  ports?: DevicePort[] | undefined;
+  /** The full control map. Absent = no control surface mapped yet. */
+  controls?: ControlAction[] | undefined;
   /** How this profile got here. */
   source: "ble-profile" | "manual";
   declaredServices: DeclaredService[];
@@ -347,6 +400,59 @@ const KINDS = new Set<string>(Object.keys(DEVICE_KIND_LABELS));
 const TRANSPORTS = new Set<string>(Object.keys(TRANSPORT_LABELS));
 const PLACEMENTS = new Set<string>(Object.keys(PLACEMENT_LABELS));
 
+const CONTROL_KINDS = new Set<string>(["command", "stick", "toggle", "range", "other"]);
+const MAX_PORTS = 64;
+const MAX_CONTROLS = 64;
+
+function sanitizePorts(v: unknown): DevicePort[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: DevicePort[] = [];
+  for (const item of v) {
+    if (!isRecord(item)) continue;
+    const port = item["port"];
+    if (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535) continue;
+    out.push({
+      port,
+      protocol:
+        typeof item["protocol"] === "string" && item["protocol"].trim()
+          ? item["protocol"].trim().slice(0, 16)
+          : undefined,
+      service:
+        typeof item["service"] === "string" && item["service"].trim()
+          ? item["service"].trim().slice(0, 80)
+          : undefined,
+    });
+    if (out.length >= MAX_PORTS) break;
+  }
+  return out.length ? out : undefined;
+}
+
+function sanitizeControls(v: unknown): ControlAction[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: ControlAction[] = [];
+  for (const item of v) {
+    if (!isRecord(item)) continue;
+    const label = typeof item["label"] === "string" ? item["label"].trim().slice(0, 80) : "";
+    const detail = typeof item["detail"] === "string" ? item["detail"].trim().slice(0, 300) : "";
+    if (!label || !detail) continue;
+    out.push({
+      id:
+        typeof item["id"] === "string" && item["id"].trim()
+          ? item["id"].trim().slice(0, 48)
+          : label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "control",
+      label,
+      kind:
+        typeof item["kind"] === "string" && CONTROL_KINDS.has(item["kind"])
+          ? (item["kind"] as ControlActionKind)
+          : "other",
+      detail,
+      verified: item["verified"] === true,
+    });
+    if (out.length >= MAX_CONTROLS) break;
+  }
+  return out.length ? out : undefined;
+}
+
 export function sanitizeProfile(v: unknown): DeviceProfile | null {
   if (!isRecord(v) || typeof v["id"] !== "string" || typeof v["displayName"] !== "string")
     return null;
@@ -383,6 +489,16 @@ export function sanitizeProfile(v: unknown): DeviceProfile | null {
       typeof v["activationSsid"] === "string" && v["activationSsid"].trim()
         ? v["activationSsid"]
         : undefined,
+    address:
+      typeof v["address"] === "string" && v["address"].trim()
+        ? v["address"].trim().slice(0, 120)
+        : undefined,
+    protocol:
+      typeof v["protocol"] === "string" && v["protocol"].trim()
+        ? v["protocol"].trim().slice(0, 120)
+        : undefined,
+    ports: sanitizePorts(v["ports"]),
+    controls: sanitizeControls(v["controls"]),
     beaconRole: v["beaconRole"] === true ? true : undefined,
     ownerConfirmed: v["ownerConfirmed"] === true ? true : undefined,
     controlGranted: v["controlGranted"] === true ? true : undefined,
@@ -476,4 +592,76 @@ export function newDeviceId(): string {
  */
 export function canControl(profile: DeviceProfile): boolean {
   return profile.ownerConfirmed === true && profile.controlGranted === true;
+}
+
+
+/* ---------------- the control map as text (form <-> profile) -------- */
+
+/** Ports, one per line: "7099 | udp | app control". */
+export function parsePortsText(text: string): DevicePort[] | undefined {
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  return sanitizePorts(
+    lines.map((line) => {
+      const [portRaw, protocol, service] = line.split("|").map((p) => p?.trim() ?? "");
+      return { port: Number(portRaw), protocol, service };
+    }),
+  );
+}
+
+export function formatPortsText(ports: DevicePort[] | undefined): string {
+  if (!ports) return "";
+  return ports
+    .map((p) => [String(p.port), p.protocol ?? "", p.service ?? ""].join(" | ").replace(/\s\|\s$/, ""))
+    .join("\n");
+}
+
+/** Controls, one per line: "Take off | command | UDP packet … | verified".
+ * The trailing "| verified" is the bench proof flag — without it the
+ * action is mapped-only and may never be represented as usable. */
+export function parseControlsText(text: string): ControlAction[] | undefined {
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  return sanitizeControls(
+    lines.map((line, i) => {
+      const parts = line.split("|").map((p) => p.trim());
+      const verified = parts.some((p) => p.toLowerCase() === "verified");
+      const kept = parts.filter((p) => p.toLowerCase() !== "verified");
+      return {
+        id: `control-${i + 1}`,
+        label: kept[0] ?? "",
+        kind: kept[1] ?? "other",
+        detail: kept.slice(2).join(" | "),
+        verified,
+      };
+    }),
+  );
+}
+
+export function formatControlsText(controls: ControlAction[] | undefined): string {
+  if (!controls) return "";
+  return controls
+    .map((c) => `${c.label} | ${c.kind} | ${c.detail}${c.verified ? " | verified" : ""}`)
+    .join("\n");
+}
+
+/* ---------------- what a control surface may show ------------------- */
+
+export type ControlSurface =
+  | { state: "not-granted"; mapped: ControlAction[] }
+  | { state: "granted"; usable: ControlAction[]; unproven: ControlAction[] };
+
+/**
+ * The Permission Law at the surface (operator order 2026-11-21):
+ * control NOT granted → the surface shows the map only, no control
+ * actions. Granted → the surface may present control, and even then
+ * only VERIFIED actions are usable; mapped-but-unproven entries
+ * stay labeled unproven. A surface that skips this gate is lying.
+ */
+export function controlSurface(profile: DeviceProfile): ControlSurface {
+  const mapped = profile.controls ?? [];
+  if (!canControl(profile)) return { state: "not-granted", mapped };
+  return {
+    state: "granted",
+    usable: mapped.filter((c) => c.verified),
+    unproven: mapped.filter((c) => !c.verified),
+  };
 }

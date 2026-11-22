@@ -7,6 +7,11 @@ import {
   updateDevice,
   upsertDevice,
   canControl,
+  controlSurface,
+  formatControlsText,
+  formatPortsText,
+  parseControlsText,
+  parsePortsText,
   sanitizeProfile,
   type DeviceProfile,
 } from "@/avatar/devices/deviceRegistry";
@@ -190,5 +195,87 @@ describe("the Permission Law flags (Part 29)", () => {
     expect(ownerOnly && canControl(ownerOnly)).toBe(false);
     expect(grantOnly && canControl(grantOnly)).toBe(false);
     expect(both && canControl(both)).toBe(true);
+  });
+});
+
+describe("device mastery — the first-contact map (doctrine update 2026-11-21)", () => {
+  const base = {
+    id: "drone-1",
+    displayName: "Folding drone (with remote)",
+    kind: "drone",
+    transport: "wifi-ap",
+    externalId: "",
+    presence: "unknown",
+    presenceEvents: [],
+    source: "manual",
+    declaredServices: [],
+    capabilities: [],
+    limitations: [],
+    batteryLevel: null,
+    measured: {},
+    firstSeen: 1,
+    lastSeen: 1,
+  };
+
+  it("holds address, protocol, ports, and the control map — junk is dropped", () => {
+    const profile = sanitizeProfile({
+      ...base,
+      address: "192.168.0.1",
+      protocol: "UDP app protocol",
+      ports: [
+        { port: 7099, protocol: "udp", service: "app control" },
+        { port: 0 },
+        { port: 70000 },
+        { port: "554" },
+      ],
+      controls: [
+        { label: "Take off", kind: "command", detail: "UDP packet to the hotspot", verified: true },
+        { label: "", kind: "command", detail: "no label — dropped", verified: false },
+        { label: "Left stick — pitch", kind: "stick", detail: "app protocol channel 2" },
+      ],
+    });
+    expect(profile?.kind).toBe("drone");
+    expect(profile?.address).toBe("192.168.0.1");
+    expect(profile?.protocol).toBe("UDP app protocol");
+    expect(profile?.ports).toEqual([{ port: 7099, protocol: "udp", service: "app control" }]);
+    expect(profile?.controls).toHaveLength(2);
+    expect(profile?.controls?.[1]?.verified).toBe(false);
+  });
+
+  it("form text round-trips: ports and controls parse and re-format", () => {
+    const ports = parsePortsText("7099 | udp | app control\n554 | tcp | rtsp");
+    expect(ports).toHaveLength(2);
+    expect(formatPortsText(ports)).toContain("7099 | udp | app control");
+    const controls = parseControlsText(
+      "Take off | command | UDP packet | verified\nLand | command | UDP packet",
+    );
+    expect(controls?.[0]?.verified).toBe(true);
+    expect(controls?.[1]?.verified).toBe(false);
+    expect(formatControlsText(controls)).toContain("Take off | command | UDP packet | verified");
+  });
+
+  it("the control surface obeys the Permission Law gate exactly", () => {
+    const controls = [
+      { id: "c1", label: "Take off", kind: "command" as const, detail: "UDP packet", verified: true },
+      { id: "c2", label: "Flip", kind: "command" as const, detail: "guessed frame", verified: false },
+    ];
+    const ungranted = sanitizeProfile({ ...base, controls });
+    expect(controlSurface(ungranted!).state).toBe("not-granted");
+
+    const ownerOnly = sanitizeProfile({ ...base, controls, ownerConfirmed: true });
+    expect(controlSurface(ownerOnly!).state).toBe("not-granted");
+
+    const granted = sanitizeProfile({
+      ...base,
+      controls,
+      ownerConfirmed: true,
+      controlGranted: true,
+    });
+    const surface = controlSurface(granted!);
+    expect(surface.state).toBe("granted");
+    if (surface.state === "granted") {
+      expect(surface.usable.map((c) => c.label)).toEqual(["Take off"]);
+      expect(surface.unproven.map((c) => c.label)).toEqual(["Flip"]);
+    }
   });
 });

@@ -29,6 +29,11 @@ import {
   upsertDevice,
   type DeviceKind,
   type DevicePlacement,
+  controlSurface,
+  formatControlsText,
+  formatPortsText,
+  parseControlsText,
+  parsePortsText,
   type DeviceProfile,
   type DeviceTransport,
   type MeasuredConstraints,
@@ -83,6 +88,10 @@ const EMPTY_FORM = {
   focalDistanceMm: "",
   focalNotes: "",
   lightingNotes: "",
+  address: "",
+  protocol: "",
+  portsText: "",
+  controlsText: "",
   capabilities: "",
   limitations: "",
   notes: "",
@@ -303,6 +312,10 @@ export function DevicesWindow({
           : "",
       focalNotes: device.measured.focalNotes ?? "",
       lightingNotes: device.measured.lightingNotes ?? "",
+      address: device.address ?? "",
+      protocol: device.protocol ?? "",
+      portsText: formatPortsText(device.ports),
+      controlsText: formatControlsText(device.controls),
       capabilities: device.capabilities.join("\n"),
       limitations: device.limitations.join("\n"),
       notes: device.measured.notes ?? "",
@@ -348,6 +361,10 @@ export function DevicesWindow({
       ownerConfirmed: form.ownerConfirmed ? (true as const) : undefined,
       controlGranted: form.controlGranted ? (true as const) : undefined,
       lastSeenRssi: parseNumber(form.lastSeenRssi),
+      address: form.address.trim() ? form.address.trim() : undefined,
+      protocol: form.protocol.trim() ? form.protocol.trim() : undefined,
+      ports: parsePortsText(form.portsText),
+      controls: parseControlsText(form.controlsText),
       capabilities: form.capabilities
         .split("\n")
         .map((line) => line.trim())
@@ -705,6 +722,41 @@ export function DevicesWindow({
               />
             </label>
             <label>
+              Address (as mapped — IP, MAC, or host)
+              <input
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="empty until mapped"
+              />
+            </label>
+            <label>
+              Protocol (as mapped)
+              <input
+                value={form.protocol}
+                onChange={(e) => setForm({ ...form, protocol: e.target.value })}
+                placeholder="e.g. UDP app protocol · BLE GATT · 2.4 GHz proprietary RF"
+              />
+            </label>
+            <label>
+              Open ports (one per line: port | tcp/udp | what answers)
+              <textarea
+                value={form.portsText}
+                onChange={(e) => setForm({ ...form, portsText: e.target.value })}
+                rows={2}
+                placeholder={"7099 | udp | app control"}
+              />
+            </label>
+            <label>
+              Control map (one per line: name | kind | how it's invoked — add
+              "| verified" ONLY when the bench proved the device obeys)
+              <textarea
+                value={form.controlsText}
+                onChange={(e) => setForm({ ...form, controlsText: e.target.value })}
+                rows={3}
+                placeholder={"Take off | command | UDP packet to the drone hotspot"}
+              />
+            </label>
+            <label>
               Capabilities (one per line — only what you verified)
               <textarea
                 value={form.capabilities}
@@ -819,6 +871,71 @@ export function DevicesWindow({
                 Permission Law: {selected.ownerConfirmed ? "owner-confirmed" : "not owner-confirmed"}{" "}
                 · control {selected.controlGranted ? "GRANTED by the operator" : "not granted — observation only"}.
               </p>
+              {(selected.address || selected.protocol || selected.ports) && (
+                <p className="window-devices__meta">
+                  Fingerprint: {selected.address ? `address ${selected.address}` : "no address mapped"}
+                  {selected.protocol ? ` · protocol ${selected.protocol}` : ""}
+                  {selected.ports
+                    ? ` · ports ${selected.ports
+                        .map((pt) => `${pt.port}${pt.protocol ? `/${pt.protocol}` : ""}${pt.service ? ` (${pt.service})` : ""}`)
+                        .join(", ")}`
+                    : ""}
+                </p>
+              )}
+              {(() => {
+                const surface = controlSurface(selected);
+                if (surface.state === "not-granted") {
+                  return surface.mapped.length ? (
+                    <div className="window-devices__meta">
+                      Control map — recorded for mapping only. Control is not granted for this
+                      device, so no control actions are offered.
+                      <ul>
+                        {surface.mapped.map((c) => (
+                          <li key={c.id}>
+                            {c.label} ({c.kind}) — {c.detail}
+                            {c.verified ? " · bench-verified" : " · mapped, unproven"}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p className="window-devices__meta">
+                      Control map: nothing mapped yet — no control surface is claimed for this
+                      device.
+                    </p>
+                  );
+                }
+                return (
+                  <div className="window-devices__meta">
+                    Control GRANTED by the operator.
+                    {surface.usable.length > 0 && (
+                      <>
+                        {" "}Osiris may use:
+                        <ul>
+                          {surface.usable.map((c) => (
+                            <li key={c.id}>
+                              {c.label} ({c.kind}) — {c.detail}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    {surface.usable.length === 0 && " No verified actions yet — the map holds nothing proven to drive."}
+                    {surface.unproven.length > 0 && (
+                      <>
+                        {" "}Mapped but not yet proven (not usable):
+                        <ul>
+                          {surface.unproven.map((c) => (
+                            <li key={c.id}>
+                              {c.label} ({c.kind}) — {c.detail}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
               {selected.lastSeenRssi !== undefined && (
                 <p className="window-devices__meta">
                   Signal at last sighting: {selected.lastSeenRssi} dBm.

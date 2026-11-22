@@ -81,7 +81,7 @@ export function AnatomyWindow({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <FloatingWindow id="anatomy" title="AUGI Anatomy" onClose={onClose} initialWidth={560} initialHeight={520}>
+    <FloatingWindow id="anatomy" title="AUGI Anatomy" onClose={onClose} initialWidth={520} initialHeight={460}>
       <div className="window-logs">
         <svg viewBox="0 0 640 340" role="img" aria-label="Map of Augie's systems" style={{ width: "100%" }}>
           {ANATOMY_LINKS.map((link) => {
