@@ -95,20 +95,21 @@ describe("medallion controls — moving made obvious", () => {
       <AnubisPresence ready speaking={false} listening={false} acting={false} onSelect={vi.fn()} />,
     );
     const root = container.querySelector(".anubis-presence") as HTMLElement;
-    // Factory home on the jsdom stage (1024×768): top-center.
-    expect(root.style.left).toBe("428px");
-    expect(root.style.top).toBe("16px");
+    // Factory home on the jsdom stage (1024×768): center stage — Anubis
+    // is the resident now (presence doctrine, size 264).
+    expect(root.style.left).toBe("380px");
+    expect(root.style.top).toBe("229px");
     const handle = screen.getByRole("button", { name: /^Move Anubis/ });
     pointer(handle, "pointerdown", 500, 100);
     expect(screen.getByText("Free — drag to place")).not.toBeNull();
     pointer(handle, "pointermove", 560, 160);
     pointer(handle, "pointerup", 560, 160);
-    expect(root.style.left).toBe("488px");
-    expect(root.style.top).toBe("76px");
+    expect(root.style.left).toBe("440px");
+    expect(root.style.top).toBe("289px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.medallion.anubis.v1") ?? "{}")).toEqual({
-      x: 488,
-      y: 76,
-      size: 168,
+      x: 440,
+      y: 289,
+      size: 264,
     });
     expect(screen.getByText("Anchored")).not.toBeNull();
   });
@@ -126,11 +127,11 @@ describe("medallion controls — moving made obvious", () => {
     // dead-center would stack Anubis onto him, so he lands flanking
     // — right of the Captain, vertically centered.
     expect(anubis.style.left).toBe("714px");
-    expect(anubis.style.top).toBe("260px");
+    expect(anubis.style.top).toBe("212px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.medallion.anubis.v1") ?? "{}")).toEqual({
       x: 714,
-      y: 260,
-      size: 168,
+      y: 212,
+      size: 264,
     });
   });
 
