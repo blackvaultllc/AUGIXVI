@@ -24,6 +24,7 @@ import {
   History,
   ScrollText,
   FlaskConical,
+  Network,
   Laptop,
   LogOut,
   Plane,
@@ -82,6 +83,7 @@ import { AnalyticWindow } from "./AnalyticWindow";
 import { GateLogWindow } from "./GateLogWindow";
 import { LogsWindow } from "./LogsWindow";
 import { TestAreaWindow } from "./TestAreaWindow";
+import { AnatomyWindow } from "./AnatomyWindow";
 import { SandboxWindow } from "./SandboxWindow";
 import { LibraryWindow } from "./LibraryWindow";
 import { DevicesWindow } from "./DevicesWindow";
@@ -341,6 +343,7 @@ export function AvatarStage({
   const [gateLogOpen, setGateLogOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [testAreaOpen, setTestAreaOpen] = useState(false);
+  const [anatomyOpen, setAnatomyOpen] = useState(false);
   // SANDBOX WINDOW: the attack-simulation + antivirus-design bench —
   // modeled attacks stepped stage by stage, each stage naming the
   // countermeasure that hooks it (operator order 2026-11-21).
@@ -731,6 +734,11 @@ export function AvatarStage({
       if (room === "gate-log") {
         setGateLogOpen(true);
         say("Gate log is open — every recorded knock on the gate, newest first.");
+        return;
+      }
+      if (room === "anatomy") {
+        setAnatomyOpen(true);
+        say("Anatomy is open — the map of my systems, their live state, and your saved configuration versions.");
         return;
       }
       if (room === "test-area") {
@@ -1585,6 +1593,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setTestAreaOpen(true)}
                   />
                   <CommandAction
+                    icon={Network}
+                    label="Anatomy"
+                    onClick={() => setAnatomyOpen(true)}
+                  />
+                  <CommandAction
                     icon={BookOpen}
                     label="Library"
                     onClick={() => setLibraryOpen(true)}
@@ -1797,6 +1810,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
       {logsOpen && <LogsWindow onClose={() => setLogsOpen(false)} />}
       {testAreaOpen && <TestAreaWindow onClose={() => setTestAreaOpen(false)} />}
+      {anatomyOpen && <AnatomyWindow onClose={() => setAnatomyOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
       {devicesOpen && (
