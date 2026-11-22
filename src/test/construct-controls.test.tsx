@@ -49,4 +49,44 @@ describe("ConstructControls", () => {
     );
     expect(screen.getByText(/CAPTAIN DRIVING — WASD \+ SPACE/)).toBeInTheDocument();
   });
+
+  it("the body hold: companion by default, full-body held when thrown (2026-11-22)", () => {
+    const onToggleBodyHold = vi.fn();
+    const { rerender } = render(
+      <ConstructControls
+        anchored
+        captainDriving={false}
+        onToggleAnchor={() => {}}
+        onToggleControl={() => {}}
+        fullBodyHold={false}
+        onToggleBodyHold={onToggleBodyHold}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /BODY · COMPANION SIZE/ }));
+    expect(onToggleBodyHold).toHaveBeenCalledTimes(1);
+    rerender(
+      <ConstructControls
+        anchored
+        captainDriving={false}
+        onToggleAnchor={() => {}}
+        onToggleControl={() => {}}
+        fullBodyHold
+        onToggleBodyHold={onToggleBodyHold}
+      />,
+    );
+    const held = screen.getByRole("button", { name: /BODY · FULL — HELD/ });
+    expect(held).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("no body button when the stage does not wire the hold", () => {
+    render(
+      <ConstructControls
+        anchored
+        captainDriving={false}
+        onToggleAnchor={() => {}}
+        onToggleControl={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /BODY ·/ })).not.toBeInTheDocument();
+  });
 });

@@ -62,6 +62,16 @@ export class AvatarLocomotion {
   private holdPosition = false;
   /** Arrived-at-mark face-the-operator flag: yaw returns to camera-forward (+z). */
   private faceCamera = false;
+  /**
+   * FULL-BODY HOLD (owner order 2026-11-22, live defect fix): on load
+   * the construct flashed full-body, then shrank to the compact
+   * companion presentation. The Captain's ruling: full body is a real,
+   * HOLDABLE state. While the hold is on, nothing shrinks him — walk,
+   * shrink commands, mode changes all keep scaleTarget at 1 — until
+   * the Captain releases the hold himself. Default off: the compact
+   * companion presentation stays the default, exactly as ordered.
+   */
+  private fullBodyHold = false;
   private waypoints: THREE.Vector3[] = DEFAULT_WALK_ROUTE.map(
     (point) => new THREE.Vector3(point.x, 0, point.z),
   );
@@ -127,7 +137,7 @@ export class AvatarLocomotion {
     this.looking = false;
     this.holdPosition = false;
     if (mode === "walk" || mode === "run") {
-      this.scaleTarget = COMPACT_SCALE;
+      this.scaleTarget = this.fullBodyHold ? 1 : COMPACT_SCALE;
     }
     if (mode === "walk" || mode === "run" || mode === "fly") {
       if (!this.loopRoute) {
@@ -145,7 +155,28 @@ export class AvatarLocomotion {
   }
 
   shrink() {
-    this.scaleTarget = COMPACT_SCALE;
+    // The full-body hold outranks a shrink: he stays whole until the
+    // Captain releases the hold (see the hold note on the field).
+    this.scaleTarget = this.fullBodyHold ? 1 : COMPACT_SCALE;
+  }
+
+  get isFullBodyHeld() {
+    return this.fullBodyHold;
+  }
+
+  /** Throw or release the full-body hold. Throwing it grows him to
+   * full size now; releasing it returns him to the compact companion
+   * presentation. */
+  setFullBodyHold(held: boolean) {
+    this.fullBodyHold = held;
+    if (held) {
+      this.grow();
+    } else if (this.mode !== "fly") {
+      // Releasing mid-flight keeps him whole until he lands; a landed
+      // return still arrives full-size (the come-back rule), and the
+      // next walk/shrink settles him back to companion size.
+      this.scaleTarget = COMPACT_SCALE;
+    }
   }
 
   grow() {

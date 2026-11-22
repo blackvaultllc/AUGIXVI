@@ -998,6 +998,19 @@ export class AvatarRenderer {
     return this.constructAnchored;
   }
   /**
+   * Full-body hold (owner order 2026-11-22, live defect fix): the
+   * load flash — full body, then collapse to the companion head
+   * presentation — becomes a state the Captain throws and holds.
+   * Delegates to locomotion, where the hold outranks shrink/walk
+   * scaling until released.
+   */
+  setFullBodyHold(held: boolean) {
+    this.locomotion.setFullBodyHold(held);
+  }
+  get isFullBodyHeld(): boolean {
+    return this.locomotion.isFullBodyHeld;
+  }
+  /**
    * Captain control (owner order 2026-11-22): click takes the keys,
    * WASD drives, SPACEBAR acts. Taking control stops locomotion so
    * the Captain and AUGI never fight over the figure; releasing it

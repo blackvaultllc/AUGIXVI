@@ -1,4 +1,4 @@
-import { Anchor, Gamepad2, Hand } from "lucide-react";
+import { Anchor, Gamepad2, Hand, PersonStanding, Shrink } from "lucide-react";
 
 /**
  * CONSTRUCT CONTROLS — AUGI's anchor and control state, stated plainly
@@ -13,6 +13,10 @@ import { Anchor, Gamepad2, Hand } from "lucide-react";
  * - CONTROL: AUGI FREE, or CAPTAIN DRIVING — click AUGI (or the
  *   control button) to take the keys: WASD moves him, SPACEBAR is
  *   his action. Click again, or press Escape, to hand him back.
+ * - BODY: COMPANION size is the default presentation; FULL BODY is a
+ *   hold the Captain throws — AUGI stays whole until it is released
+ *   (owner order 2026-11-22, the load-flash defect: full body must be
+ *   a real, holdable state, not a flash).
  * (Placed environment objects use the opposite anchor meaning —
  * anchored = locked in place. That is the builder's law, not his.)
  */
@@ -21,11 +25,15 @@ export function ConstructControls({
   captainDriving,
   onToggleAnchor,
   onToggleControl,
+  fullBodyHold = false,
+  onToggleBodyHold,
 }: {
   anchored: boolean;
   captainDriving: boolean;
   onToggleAnchor: () => void;
   onToggleControl: () => void;
+  fullBodyHold?: boolean;
+  onToggleBodyHold?: () => void;
 }) {
   return (
     <div className="construct-controls" role="group" aria-label="AUGI construct controls">
@@ -64,6 +72,22 @@ export function ConstructControls({
           {captainDriving ? "CAPTAIN DRIVING — WASD + SPACE" : "CONTROL · AUGI FREE"}
         </span>
       </button>
+      {onToggleBodyHold && (
+        <button
+          type="button"
+          className={`construct-controls__button${fullBodyHold ? " is-full-body" : ""}`}
+          onClick={onToggleBodyHold}
+          aria-pressed={fullBodyHold}
+          title={
+            fullBodyHold
+              ? "AUGI is at full body, and holding it. Click to return him to companion size."
+              : "Put AUGI at full body and hold him there until you change it."
+          }
+        >
+          {fullBodyHold ? <PersonStanding aria-hidden="true" /> : <Shrink aria-hidden="true" />}
+          <span>{fullBodyHold ? "BODY · FULL — HELD" : "BODY · COMPANION SIZE"}</span>
+        </button>
+      )}
     </div>
   );
 }

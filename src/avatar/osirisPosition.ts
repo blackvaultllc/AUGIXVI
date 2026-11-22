@@ -39,6 +39,7 @@ export const FIGURE_OFFSET_LIMITS = { x: 6.5, up: 3.4, down: 2.4 } as const;
 
 export const OSIRIS_POSITION_STORAGE_KEY = "augi.avatar.osiris-position.v1";
 export const CONSTRUCT_ANCHOR_STORAGE_KEY = "augi.avatar.construct-anchor.v1";
+export const FULL_BODY_HOLD_STORAGE_KEY = "augi.avatar.body-hold.v1";
 
 export function clampFigureOffset(offset: FigureOffset): FigureOffset {
   const clamp = (value: number, min: number, max: number) =>
@@ -121,6 +122,33 @@ export function saveConstructAnchored(
   if (!storage) return;
   try {
     storage.setItem(CONSTRUCT_ANCHOR_STORAGE_KEY, anchored ? "anchored" : "unanchored");
+  } catch {
+    // Best effort only — the live stage state still holds.
+  }
+}
+
+/**
+ * The full-body hold (owner order 2026-11-22, live defect fix):
+ * nothing saved means NOT held — the compact companion presentation
+ * is the default, as ordered. Only an explicit saved "full" opens
+ * the stage with AUGI at full body, held there until released.
+ */
+export function loadFullBodyHold(storage: StorageLike | null = defaultStorage()): boolean {
+  if (!storage) return false;
+  try {
+    return storage.getItem(FULL_BODY_HOLD_STORAGE_KEY) === "full";
+  } catch {
+    return false;
+  }
+}
+
+export function saveFullBodyHold(
+  held: boolean,
+  storage: StorageLike | null = defaultStorage(),
+): void {
+  if (!storage) return;
+  try {
+    storage.setItem(FULL_BODY_HOLD_STORAGE_KEY, held ? "full" : "companion");
   } catch {
     // Best effort only — the live stage state still holds.
   }

@@ -4,13 +4,16 @@ import {
   CONSTRUCT_ANCHOR_STORAGE_KEY,
   FIGURE_HOME,
   FIGURE_OFFSET_LIMITS,
+  FULL_BODY_HOLD_STORAGE_KEY,
   OSIRIS_POSITION_STORAGE_KEY,
   clampFigureOffset,
   clearFigureOffset,
   loadConstructAnchored,
   loadFigureOffset,
+  loadFullBodyHold,
   saveConstructAnchored,
   saveFigureOffset,
+  saveFullBodyHold,
 } from "@/avatar/osirisPosition";
 import { parseSceneCommand, sceneLine } from "@/avatar/worldScenes";
 import { WorldSceneManager } from "@/avatar/worldSceneRenderer";
@@ -107,6 +110,29 @@ describe("AUGI's anchor — the construct law", () => {
     const storage = fakeStorage();
     storage.setItem(CONSTRUCT_ANCHOR_STORAGE_KEY, "garbage");
     expect(loadConstructAnchored(storage)).toBe(true);
+  });
+});
+
+describe("AUGI's full-body hold (defect fix 2026-11-22)", () => {
+  it("defaults to NOT held — companion size is the default presentation", () => {
+    const storage = fakeStorage();
+    expect(loadFullBodyHold(storage)).toBe(false);
+    expect(loadFullBodyHold(null)).toBe(false);
+  });
+
+  it("round-trips the thrown hold across a reload", () => {
+    const storage = fakeStorage();
+    saveFullBodyHold(true, storage);
+    expect(storage.map.get(FULL_BODY_HOLD_STORAGE_KEY)).toBe("full");
+    expect(loadFullBodyHold(storage)).toBe(true);
+    saveFullBodyHold(false, storage);
+    expect(loadFullBodyHold(storage)).toBe(false);
+  });
+
+  it("anything but the explicit 'full' reads as not held", () => {
+    const storage = fakeStorage();
+    storage.setItem(FULL_BODY_HOLD_STORAGE_KEY, "garbage");
+    expect(loadFullBodyHold(storage)).toBe(false);
   });
 });
 

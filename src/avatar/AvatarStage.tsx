@@ -60,8 +60,10 @@ import {
   clearFigureOffset,
   loadConstructAnchored,
   loadFigureOffset,
+  loadFullBodyHold,
   saveConstructAnchored,
   saveFigureOffset,
+  saveFullBodyHold,
 } from "./osirisPosition";
 import { ConstructControls } from "./ConstructControls";
 import { NotepadWindow, ChalkboardWindow, PlayerWindow } from "./windows/windows";
@@ -1144,6 +1146,9 @@ export function AvatarStage({
     const savedSpot = loadFigureOffset();
     if (savedSpot) r.setFigureOffset(savedSpot.x, savedSpot.y);
     r.setConstructAnchored(loadConstructAnchored());
+    // FULL-BODY HOLD (owner order 2026-11-22): if the Captain left
+    // the hold thrown, AUGI opens at full body and stays there.
+    r.setFullBodyHold(loadFullBodyHold());
     r.onFrame = (p) => {
       setPerf(p);
       setReady(true);
@@ -1380,6 +1385,23 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     setCaptainDriving(next);
     rendRef.current?.setCaptainDriving(next);
   }, []);
+  // FULL-BODY HOLD (owner order 2026-11-22, live defect fix): full
+  // body is a state he holds, not a load flash. The toggle grows him
+  // whole and keeps him there — across reloads too — until released.
+  const [fullBodyHold, setFullBodyHold] = useState(loadFullBodyHold);
+  const bodyHoldRef = useRef(fullBodyHold);
+  bodyHoldRef.current = fullBodyHold;
+  const toggleBodyHold = useCallback(() => {
+    const next = !bodyHoldRef.current;
+    setFullBodyHold(next);
+    saveFullBodyHold(next);
+    rendRef.current?.setFullBodyHold(next);
+    say(
+      next
+        ? "AUGI is at full body, Captain, and he will hold it there."
+        : "AUGI is back to companion size.",
+    );
+  }, [say]);
   const resetOsirisHome = useCallback(() => {
     rendRef.current?.resetFigureOffset();
     clearFigureOffset();
@@ -1775,6 +1797,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           captainDriving={captainDriving}
           onToggleAnchor={toggleAnchor}
           onToggleControl={toggleControl}
+          fullBodyHold={fullBodyHold}
+          onToggleBodyHold={toggleBodyHold}
         />
       )}
       {cubeOpen && (

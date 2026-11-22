@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickVisionModel } from "@/avatar/PictureAnalysis";
+import { collectGenerateStream, pickVisionModel } from "@/avatar/PictureAnalysis";
 import { parseAnalysis } from "@/avatar/analysisParsing";
 
 describe("picture analysis vision-model choice", () => {
@@ -15,6 +15,41 @@ describe("picture analysis vision-model choice", () => {
   it("returns null when only text models are installed — the room must say unavailable", () => {
     expect(pickVisionModel(["llama3.1:8b", "qwen2.5:7b", "llama3.2:3b"])).toBeNull();
     expect(pickVisionModel([])).toBeNull();
+  });
+});
+
+describe("streamed generate responses (defect fix 2026-11-22)", () => {
+  it("accumulates NDJSON fragments and reports the running text as it lands", async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        // A line split across two chunks must still parse whole.
+        controller.enqueue(encoder.encode('{"response":"A desk"}\n{"respo'));
+        controller.enqueue(encoder.encode('nse":" with a monitor."}\n{"response":"","done":true}\n'));
+        controller.close();
+      },
+    });
+    const seen: string[] = [];
+    const full = await collectGenerateStream(new Response(stream), (text) => {
+      seen.push(text);
+    });
+    expect(full).toBe("A desk with a monitor.");
+    expect(seen).toEqual(["A desk", "A desk with a monitor."]);
+  });
+
+  it("falls back to a plain JSON body when the response has no stream", async () => {
+    const seen: string[] = [];
+    const res = new Response(JSON.stringify({ response: "One-shot answer." }), {
+      headers: { "Content-Type": "application/json" },
+    });
+    // A Response built from a string HAS a body stream; emulate the
+    // no-body case by nulling it the way some runtimes do.
+    Object.defineProperty(res, "body", { value: null });
+    const full = await collectGenerateStream(res, (text) => {
+      seen.push(text);
+    });
+    expect(full).toBe("One-shot answer.");
+    expect(seen).toEqual(["One-shot answer."]);
   });
 });
 

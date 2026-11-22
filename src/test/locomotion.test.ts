@@ -75,6 +75,29 @@ describe("avatar locomotion", () => {
     expect(root.position.y + root.scale.y * -3.2).toBeGreaterThan(-3.2);
   });
 
+  it("holds full body while the hold is thrown — walk and shrink cannot shrink him (2026-11-22)", () => {
+    const root = new THREE.Group();
+    const walker = new AvatarLocomotion(root);
+
+    walker.setFullBodyHold(true);
+    expect(walker.isFullBodyHeld).toBe(true);
+    walker.walk();
+    for (let frame = 0; frame < 40; frame++) walker.tick(0.05);
+    expect(root.scale.x).toBeCloseTo(1, 3);
+
+    walker.shrink();
+    for (let frame = 0; frame < 40; frame++) walker.tick(0.05);
+    expect(root.scale.x).toBeCloseTo(1, 3);
+
+    // Releasing the hold hands size back to the modes: a walk settles
+    // him to companion scale again.
+    walker.setFullBodyHold(false);
+    expect(walker.isFullBodyHeld).toBe(false);
+    walker.walk();
+    for (let frame = 0; frame < 40; frame++) walker.tick(0.05);
+    expect(root.scale.x).toBeLessThan(0.5);
+  });
+
   it("marks home at the origin and only counts a landed return as arrived", () => {
     expect(MARK).toEqual({ x: 0, z: 0 });
     expect(hasArrivedAtMark(0, 0, 0)).toBe(true);

@@ -2583,6 +2583,11 @@
   background: #2b4a7d;
   color: #ffd75e;
 }
+.construct-controls__button.is-full-body {
+  border-color: #ffd75e;
+  background: #2b4a7d;
+  color: #ffd75e;
+}
 .construct-controls__button:disabled {
   opacity: 0.55;
   cursor: not-allowed;

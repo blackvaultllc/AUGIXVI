@@ -10,6 +10,15 @@
  * Nothing leaves this machine. When no vision model is installed, or
  * Ollama is not answering, the panel says so plainly — including when
  * Scan is pressed — and never invents a result.
+ *
+ * STREAMING (live defect fix, owner order 2026-11-22): the local
+ * vision model runs CPU-only on the Parrot, so a full answer takes
+ * minute-class time. The old request waited for the WHOLE answer
+ * (stream: false) and the panel showed nothing until it landed —
+ * over a minute of blank. Now the answer streams in token by token
+ * like chat, an honest working line names the model and counts the
+ * seconds from the first second, and any failure lands as a labeled
+ * error on the surface — never a silent blank.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadBrainAddress } from "./brain";
@@ -55,6 +64,55 @@ export function pickVisionModel(installed: string[]): string | null {
   return installed.find((name) => VISION_NAME_RE.test(name)) ?? null;
 }
 
+/**
+ * Read a streamed Ollama /api/generate response (NDJSON: one JSON
+ * object per line, each carrying the next `response` fragment) and
+ * accumulate the full text, calling onText with the running total as
+ * each fragment lands — the panel renders the answer WHILE it is
+ * being written instead of after a minute of blank (defect fix
+ * 2026-11-22). Falls back to a plain JSON body when the response has
+ * no readable stream.
+ */
+export async function collectGenerateStream(
+  res: Response,
+  onText: (textSoFar: string) => void,
+): Promise<string> {
+  if (!res.body) {
+    const data = (await res.json()) as { response?: string };
+    const text = data.response ?? "";
+    if (text) onText(text);
+    return text;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let full = "";
+  const takeLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    try {
+      const data = JSON.parse(trimmed) as { response?: string };
+      if (data.response) {
+        full += data.response;
+        onText(full);
+      }
+    } catch {
+      // A partial line split across chunks is buffered below; a line
+      // that never parses is skipped, never shown as a result.
+    }
+  };
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) takeLine(line);
+  }
+  if (buffer.trim()) takeLine(buffer);
+  return full;
+}
+
 type ModelState =
   | { status: "checking" }
   | { status: "ready"; model: string }
@@ -96,6 +154,10 @@ export function PictureAnalysis() {
   const [modelState, setModelState] = useState<ModelState>({ status: "checking" });
   const [cameraOn, setCameraOn] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** Streaming state (defect fix 2026-11-22): the answer so far and
+   * the seconds on the clock, both live from the first second. */
+  const [streamText, setStreamText] = useState("");
+  const [elapsed, setElapsed] = useState(0);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
@@ -179,45 +241,81 @@ export function PictureAnalysis() {
 
   const analyze = async (base64: string, source: string, dataUrl: string) => {
     if (modelState.status !== "ready" || !base64) return;
+    const model = modelState.model;
     setBusy(true);
     setError("");
     setPreview(dataUrl);
+    setStreamText("");
+    setElapsed(0);
+    const startedAt = Date.now();
+    const clock = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    }, 250);
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
+    let partial = "";
     try {
       const res = await fetch(`${brain}/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          model: modelState.model,
+          model,
           prompt: ANALYZE_PROMPT,
           images: [base64],
-          stream: false,
+          stream: true,
           options: { num_predict: 220 },
         }),
       });
       if (!res.ok) throw new Error(`the vision model answered ${res.status}`);
-      const data = (await res.json()) as { response?: string };
-      const text = (data.response ?? "").trim();
+      const text = (
+        await collectGenerateStream(res, (soFar) => {
+          partial = soFar;
+          setStreamText(soFar);
+        })
+      ).trim();
       if (!text) throw new Error("the vision model returned an empty answer");
       const parsed = parseAnalysis(text);
       setAnalysis({
         text: parsed.summary || text,
         findings: parsed.findings,
-        model: modelState.model,
+        model,
         at: Date.now(),
         source,
       });
     } catch (err) {
-      setError(
-        `Analysis unavailable: ${
-          err instanceof Error ? err.message : "the request failed"
-        }. Nothing was invented — try again, or check that the vision model is installed.`,
-      );
+      const timedOut = err instanceof Error && err.name === "AbortError";
+      if (partial.trim()) {
+        // Honest partial: the model was cut off mid-answer — show what
+        // it actually produced, labeled as partial, never dressed up
+        // as a finished analysis.
+        const parsed = parseAnalysis(partial.trim());
+        setAnalysis({
+          text: parsed.summary || partial.trim(),
+          findings: parsed.findings,
+          model,
+          at: Date.now(),
+          source: `${source} — PARTIAL (timed out at ${Math.round(ANALYZE_TIMEOUT_MS / 1000)}s)`,
+        });
+        setError(
+          `The vision model timed out at ${Math.round(ANALYZE_TIMEOUT_MS / 1000)} seconds — the answer above is what it produced before the cut-off, labeled partial. Nothing was invented.`,
+        );
+      } else {
+        setError(
+          `Analysis unavailable: ${
+            timedOut
+              ? `the vision model did not answer within ${Math.round(ANALYZE_TIMEOUT_MS / 1000)} seconds`
+              : err instanceof Error
+                ? err.message
+                : "the request failed"
+          }. Nothing was invented — try again, or check that the vision model is installed.`,
+        );
+      }
     } finally {
       window.clearTimeout(timer);
+      window.clearInterval(clock);
       setBusy(false);
+      setStreamText("");
     }
   };
 
@@ -341,7 +439,7 @@ export function PictureAnalysis() {
             onClick={scanRoom}
             disabled={!cameraOn || busy}
           >
-            {busy ? "Analyzing…" : "Scan the room"}
+            {busy ? `Analyzing… ${elapsed}s` : "Scan the room"}
           </button>
         </div>
       </section>
@@ -359,6 +457,40 @@ export function PictureAnalysis() {
           aria-label="Picture file to analyze"
         />
       </section>
+
+      {busy && (
+        <section style={panelStyle} aria-label="Analysis in progress">
+          <p style={{ margin: "0 0 8px" }} role="status">
+            Analyzing with <b>{modelState.status === "ready" ? modelState.model : "the vision model"}</b>
+            … {elapsed}s — running locally on this machine (CPU), so a full answer takes a
+            while. The words appear below as the model writes them.
+          </p>
+          {streamText ? (
+            (() => {
+              const live = parseAnalysis(streamText);
+              return (
+                <>
+                  <p style={{ margin: "0 0 8px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                    {live.summary || streamText}
+                  </p>
+                  {live.findings.length > 0 && (
+                    <>
+                      <h3 style={{ margin: "0 0 6px", fontSize: "15px" }}>Things found so far</h3>
+                      <ul style={{ margin: 0, paddingLeft: "20px", lineHeight: 1.5 }}>
+                        {live.findings.map((finding, index) => (
+                          <li key={`${index}-${finding}`}>{finding}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </>
+              );
+            })()
+          ) : (
+            <p style={{ margin: 0, color: "#9fb0c9" }}>Waiting for the model's first words…</p>
+          )}
+        </section>
+      )}
 
       {error && (
         <p role="alert" style={{ ...panelStyle, borderColor: "#ef4444", margin: 0 }}>
