@@ -6492,6 +6492,443 @@
   font-size: 1rem;
 }
 
+/* WORLD OF LOGIC — the battle frame (presentation rebuild,
+   2026-11-22): a real fight scene in the Final Fantasy three-box
+   frame. The scene is bright — a fight you can see — and the
+   boxes are the standing FF blue: deep blue gradient, pale
+   border, white text. Motion is transform/opacity only, one
+   lunge per turn — never a flash or a strobe. */
+.wol-battle {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: linear-gradient(180deg, #101a30 0%, #0b0e14 100%);
+  color: #eef2f7;
+  overflow: auto;
+  padding: 14px;
+}
+.wol-bf-scene {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 300px;
+  border: 2px solid #dbe7ff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 2px rgba(10, 24, 64, 0.55);
+}
+/* The grass — bright sky over a lit field. */
+.wol-bf-scene--outside {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0) 52%, rgba(9, 60, 24, 0.35) 100%),
+    linear-gradient(180deg, #8ec9e8 0%, #c4e6c0 54%, #58a83e 54.2%, #3f8f2e 100%);
+}
+/* The woods — a darker clearing, still plainly readable. */
+.wol-bf-scene--woods {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0) 52%, rgba(2, 32, 14, 0.45) 100%),
+    linear-gradient(180deg, #4d7ea6 0%, #7fae7d 54%, #2e6b2f 54.2%, #21571f 100%);
+}
+.wol-bf-tree-line {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 54%;
+  pointer-events: none;
+}
+.wol-bf-pine {
+  position: absolute;
+  bottom: 0;
+  height: 92%;
+  transform-origin: bottom left;
+  opacity: 0.9;
+}
+.wol-bf-scene-line {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #0d2138;
+  background: rgba(240, 248, 255, 0.82);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+/* The enemy's nameplate — the FF enemy box, riding the scene. */
+.wol-bf-nameplate {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: min(340px, 62%);
+  background: linear-gradient(180deg, rgba(29, 63, 174, 0.96), rgba(15, 34, 102, 0.96));
+  border: 2px solid #dbe7ff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.wol-bf-plate-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.wol-bf-plate-line {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #c9d9ff;
+}
+.wol-bf-plate-lesson {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #eef2ff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.wol-bf-plate-hp {
+  margin: 8px 0 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.wol-bf-plate-guard {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.wol-bf-hpbar {
+  height: 11px;
+  background: rgba(4, 10, 30, 0.75);
+  border: 1px solid rgba(219, 231, 255, 0.6);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.wol-bf-hpbar-fill {
+  height: 100%;
+  transition: width 0.45s ease;
+}
+.wol-bf-hpbar-fill--enemy {
+  background: linear-gradient(90deg, #f97316, #fbbf24);
+}
+.wol-bf-hpbar-fill--ally {
+  background: linear-gradient(90deg, #22c55e, #a3e635);
+}
+/* The fighters in the scene. */
+.wol-bf-fighter {
+  position: absolute;
+  bottom: 7%;
+  width: clamp(120px, 21vw, 200px);
+  filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.35));
+  animation: wol-bf-bob 2.6s ease-in-out infinite alternate;
+}
+.wol-bf-fighter--enemy {
+  left: 9%;
+}
+.wol-bf-fighter--captain {
+  right: 9%;
+  animation-delay: -1.3s;
+}
+.wol-bf-figure-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.wol-bf-guard-badge {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  font-size: 1.7rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+.wol-bf-allies {
+  position: absolute;
+  right: calc(9% + clamp(120px, 21vw, 200px) + 8px);
+  bottom: 9%;
+  display: flex;
+  gap: 6px;
+}
+.wol-bf-ally-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #1d3fae, #0f2266);
+  border: 2px solid #dbe7ff;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+.wol-bf-dmg {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    0 0 12px rgba(0, 0, 0, 0.35);
+  animation: wol-bf-float-up 0.78s ease-out forwards;
+  pointer-events: none;
+}
+.wol-bf-dmg--crit {
+  color: #ffd23e;
+  font-size: 1.8rem;
+}
+.wol-bf-banner {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  font-size: clamp(1.4rem, 4.5vw, 2.4rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: #ffffff;
+  background: linear-gradient(180deg, rgba(29, 63, 174, 0.94), rgba(15, 34, 102, 0.94));
+  border: 2px solid #dbe7ff;
+  border-radius: 12px;
+  padding: 10px 26px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+}
+/* Turn animation — one lunge, one shake, then rest. */
+.wol-bf-lunge-l {
+  animation: wol-bf-lunge-l 0.55s ease;
+}
+.wol-bf-lunge-r {
+  animation: wol-bf-lunge-r 0.55s ease;
+}
+.wol-bf-hit {
+  animation: wol-bf-hit 0.5s ease;
+}
+.wol-bf-defeated {
+  animation: wol-bf-fall 0.9s ease forwards;
+}
+.wol-bf-caught {
+  animation: wol-bf-caught 0.9s ease forwards;
+}
+@keyframes wol-bf-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-6px);
+  }
+}
+@keyframes wol-bf-lunge-l {
+  0% {
+    transform: translateX(0);
+  }
+  35% {
+    transform: translateX(-52px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+@keyframes wol-bf-lunge-r {
+  0% {
+    transform: translateX(0);
+  }
+  35% {
+    transform: translateX(52px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+@keyframes wol-bf-hit {
+  0%,
+  100% {
+    transform: translateX(0);
+    filter: brightness(1) drop-shadow(0 10px 10px rgba(0, 0, 0, 0.35));
+  }
+  25% {
+    transform: translateX(9px);
+    filter: brightness(1.7) drop-shadow(0 10px 10px rgba(0, 0, 0, 0.35));
+  }
+  55% {
+    transform: translateX(-7px);
+    filter: brightness(1.3) drop-shadow(0 10px 10px rgba(0, 0, 0, 0.35));
+  }
+}
+@keyframes wol-bf-float-up {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.8);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -46px) scale(1);
+  }
+}
+@keyframes wol-bf-fall {
+  to {
+    transform: translateY(26px) rotate(7deg);
+    opacity: 0.25;
+    filter: grayscale(0.7) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+  }
+}
+@keyframes wol-bf-caught {
+  to {
+    transform: scale(0.25) translateY(30px);
+    opacity: 0.35;
+  }
+}
+/* The compact log — the record, inside the frame. */
+.wol-bf-log {
+  flex: 0 0 auto;
+  background: rgba(8, 14, 28, 0.92);
+  border: 1px solid #3a4763;
+  border-radius: 10px;
+  padding: 7px 12px 9px;
+}
+.wol-bf-log-title {
+  margin: 0 0 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #9fb0c9;
+}
+.wol-bf-log-lines {
+  max-height: 62px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wol-bf-log-line {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #d7e0ee;
+}
+/* The blue boxes row — command (+attack/send beside it) and fighter. */
+.wol-bf-boxes {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.wol-bf-command-wrap {
+  display: flex;
+  gap: 10px;
+  flex: 2 1 480px;
+  flex-wrap: wrap;
+}
+.wol-bf-box {
+  background: linear-gradient(180deg, #1d3fae 0%, #122a75 100%);
+  border: 2px solid #dbe7ff;
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 2px rgba(8, 20, 58, 0.6),
+    0 8px 20px rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+  padding: 10px 12px 12px;
+}
+.wol-bf-box--command {
+  flex: 1 1 250px;
+}
+.wol-bf-box--attack {
+  flex: 1 1 250px;
+}
+.wol-bf-box--fighter {
+  flex: 1 1 300px;
+}
+.wol-bf-box-title {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  color: #ffffff;
+}
+.wol-bf-box-line {
+  margin: 4px 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #e6edff;
+}
+.wol-bf-party {
+  margin-top: 8px;
+}
+.wol-bf-party-title {
+  font-weight: 700;
+}
+.wol-bf-ally {
+  margin-top: 6px;
+}
+.wol-bf-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-top: 4px;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.wol-bf-row:hover:not(:disabled),
+.wol-bf-row:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(219, 231, 255, 0.7);
+}
+.wol-bf-row:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.wol-bf-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.wol-bf-row-label {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.wol-bf-row-sub {
+  font-size: 0.72rem;
+  color: #c9d9ff;
+}
+.wol-bf-row-chevron {
+  color: #c9d9ff;
+  font-size: 1rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wol-bf-fighter,
+  .wol-bf-lunge-l,
+  .wol-bf-lunge-r,
+  .wol-bf-hit,
+  .wol-bf-defeated,
+  .wol-bf-caught,
+  .wol-bf-dmg {
+    animation: none;
+  }
+  .wol-bf-hpbar-fill {
+    transition: none;
+  }
+}
+
 
 /* Office Analytics + Law Desk windows (Parts 10-11) */
 .window-analytics__list, .trusted-devices__list { display: flex; flex-direction: column; gap: 0.55rem; }

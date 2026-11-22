@@ -1,11 +1,23 @@
-// BATTLE PANEL — the battle screen (owner order 2026-11-07
-// ~10:53 CST): the enemy's file, the Captain's gear, the moves,
-// and the turn-by-turn log. The panel renders what the engine
-// decides — it never decides anything itself.
+// BATTLE PANEL — the battle screen. The panel renders what the
+// engine decides — it never decides anything itself.
+//
+// PRESENTATION (rebuilt 2026-11-22 on the owner's verdict —
+// "this is not how this game should look at all"): a real fight
+// scene in the Final Fantasy three-box frame — the scene box
+// (fighters facing off on the grass/woods, the enemy's nameplate
+// with its HP bar), the fighter box, and the command box with
+// the attack-choice box beside the Attack menu. These tests pin
+// the frame, the animation hooks, and the standing rule that
+// the battle RULES never move: battles.ts stays byte-identical,
+// asserted by hash below.
 //
 // Ported with the panel from the VoiceWave Command Deck
 // (blackvaultllc/voicewave-command-deck @ 7653d36,
 // src/test/battle-panel.test.tsx) — import paths rewired.
+
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -36,13 +48,13 @@ function battleFor(label: string): BattleState {
   return startBattle({ id: "test-battle", area: "outside", enemy, allies: [] });
 }
 
-function renderPanel(
+function panel(
   battle: BattleState,
+  onMove: (move: BattleMoveId, sendId?: string) => void,
+  onClose: () => void,
   opts: { potionCount?: number; captured?: CapturedVirus[] } = {},
 ) {
-  const onMove = vi.fn((_move: BattleMoveId, _sendId?: string) => {});
-  const onClose = vi.fn(() => {});
-  render(
+  return (
     <BattlePanel
       battle={battle}
       captainLevel={1}
@@ -51,9 +63,18 @@ function renderPanel(
       captured={opts.captured ?? []}
       onMove={onMove}
       onClose={onClose}
-    />,
+    />
   );
-  return { onMove, onClose };
+}
+
+function renderPanel(
+  battle: BattleState,
+  opts: { potionCount?: number; captured?: CapturedVirus[] } = {},
+) {
+  const onMove = vi.fn((_move: BattleMoveId, _sendId?: string) => {});
+  const onClose = vi.fn(() => {});
+  const utils = render(panel(battle, onMove, onClose, opts));
+  return { onMove, onClose, ...utils };
 }
 
 beforeEach(() => {
@@ -61,12 +82,12 @@ beforeEach(() => {
   localStorage.removeItem("augi.battles.captured.v1");
 });
 
-describe("BattlePanel", () => {
+describe("BattlePanel — the fight", () => {
   it("shows the enemy's file — name, temperament, lesson, health", () => {
     renderPanel(battleFor("SPAM CALLER"));
     expect(screen.getByRole("dialog", { name: /Battle — SPAM CALLER/ })).toBeTruthy();
     expect(screen.getByText(/Calm, tame — it can be caught/)).toBeTruthy();
-    // The lesson shows twice — in the enemy's file and in the
+    // The lesson shows — in the enemy's nameplate and in the
     // opening log line.
     expect(screen.getAllByText(/Test lesson/).length).toBeGreaterThan(0);
     expect(screen.getByText(/HP 25 \/ 25/)).toBeTruthy();
@@ -86,6 +107,8 @@ describe("BattlePanel", () => {
     expect(guarding.enemy.guarding).toBe(true);
     renderPanel(guarding);
     expect(screen.getByText(/GUARDING — sword and staff bounce off/)).toBeTruthy();
+    // …and the guard badge rides the monster's figure in the scene.
+    expect(document.querySelector(".wol-bf-guard-badge")).not.toBeNull();
   });
 
   it("clicking a move plays it, and the keys play it too", () => {
@@ -133,5 +156,95 @@ describe("BattlePanel", () => {
     expect(screen.getByText(/defeated — \+10 XP/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /BACK TO THE WORLD/ }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("BattlePanel — the three-box frame (2026-11-22 rebuild)", () => {
+  it("renders the scene box with both fighters facing off on the field", () => {
+    renderPanel(battleFor("VIRUS MITE"));
+    const scene = screen.getByTestId("wol-battle-scene");
+    expect(scene).toBeTruthy();
+    expect(scene.getAttribute("data-area")).toBe("outside");
+    // Both figures stand in the scene — the monster and the Captain.
+    expect(screen.getByTestId("wol-battle-enemy-figure")).toBeTruthy();
+    expect(screen.getByTestId("wol-battle-captain-figure")).toBeTruthy();
+    expect(document.querySelector(".wol-bf-fighter--enemy svg")).not.toBeNull();
+    expect(document.querySelector(".wol-bf-fighter--captain svg")).not.toBeNull();
+    // The enemy's HP rides the scene as a bar, not a paragraph.
+    const bar = screen.getByRole("progressbar", { name: /VIRUS MITE health/ });
+    expect(bar).toBeTruthy();
+  });
+
+  it("renders the fighter box and the command box as FF blue boxes", () => {
+    renderPanel(battleFor("VIRUS MITE"));
+    expect(screen.getByTestId("wol-box-fighter")).toBeTruthy();
+    expect(screen.getByTestId("wol-box-command")).toBeTruthy();
+    expect(screen.getByText(/THE BLACK HATTER — CAPTAIN/)).toBeTruthy();
+  });
+
+  it("the attack-choice box opens right beside the Attack menu", () => {
+    renderPanel(battleFor("VIRUS MITE"));
+    const attackBox = screen.getByTestId("wol-box-attack");
+    expect(attackBox).toBeTruthy();
+    // The four attack tools live in the attack box, not the command box.
+    const sword = screen.getByRole("button", { name: /SWORD \(1\)/ });
+    expect(attackBox.contains(sword)).toBe(true);
+    const commandBox = screen.getByTestId("wol-box-command");
+    expect(commandBox.contains(sword)).toBe(false);
+    // Folding the Attack menu away folds its choice box with it.
+    fireEvent.click(screen.getByRole("button", { name: /ATTACK/ }));
+    expect(screen.queryByTestId("wol-box-attack")).toBeNull();
+  });
+
+  it("the turn log is a compact strip inside the frame, not the page", () => {
+    renderPanel(battleFor("VIRUS MITE"));
+    const log = screen.getByRole("region", { name: /Battle log/ }) as HTMLElement | null;
+    const logSection =
+      log ?? (document.querySelector(".wol-bf-log") as HTMLElement | null);
+    expect(logSection).not.toBeNull();
+    expect(logSection!.querySelector(".wol-bf-log-lines")).not.toBeNull();
+    expect(logSection!.textContent).toMatch(/VIRUS MITE — calm, tame/);
+  });
+
+  it("a landed hit animates: the Captain lunges, the monster shakes, the damage floats", () => {
+    const before = battleFor("SPAM CALLER");
+    const after = applyBattleMove(before, "sword", {
+      classId: null,
+      potionCount: 1,
+      captured: [],
+      nowIso: "2026-11-07T12:00:00.000Z",
+    }).state;
+    const dmg = before.enemy.hp - after.enemy.hp;
+    expect(dmg).toBeGreaterThan(0);
+    const onMove = vi.fn((_move: BattleMoveId, _sendId?: string) => {});
+    const onClose = vi.fn(() => {});
+    const { rerender } = render(panel(before, onMove, onClose));
+    rerender(panel(after, onMove, onClose));
+    const enemyFigure = screen.getByTestId("wol-battle-enemy-figure");
+    expect(enemyFigure.className).toMatch(/wol-bf-hit/);
+    const captainFigure = screen.getByTestId("wol-battle-captain-figure");
+    expect(captainFigure.className).toMatch(/wol-bf-lunge-l/);
+    const floater = document.querySelector(".wol-bf-dmg");
+    expect(floater).not.toBeNull();
+    expect(floater!.textContent).toContain(String(dmg));
+  });
+
+  it("a won battle drops the monster in the scene and banners the result", () => {
+    const b = battleFor("VIRUS MITE");
+    const won = applyBattleMove(b, "sword", {
+      classId: null,
+      potionCount: 1,
+      captured: [],
+      nowIso: "2026-11-07T12:00:00.000Z",
+    }).state;
+    renderPanel(won);
+    expect(screen.getByTestId("wol-battle-enemy-figure").className).toMatch(/wol-bf-defeated/);
+    expect(screen.getByTestId("wol-battle-banner").textContent).toMatch(/VIRUS MITE DEFEATED/);
+  });
+
+  it("the battle RULES never move — battles.ts is byte-identical", () => {
+    const path = resolve(process.cwd(), "src/avatar/world-of-logic/battles.ts");
+    const hash = createHash("sha256").update(readFileSync(path)).digest("hex");
+    expect(hash).toBe("ed6fcc1906c125841ec311f34a925d3c22b3cfacb050b559aadd5a882e4ef097");
   });
 });

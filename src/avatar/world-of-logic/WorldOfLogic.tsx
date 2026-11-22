@@ -341,6 +341,10 @@ export default function WorldOfLogic() {
           gridTemplateColumns: `repeat(${WORLD_COLS}, 1fr)`,
           gap: 2,
           userSelect: "none",
+          background: "#0d4023",
+          border: "2px solid #1f7a3d",
+          borderRadius: 12,
+          padding: 6,
         }}
       >
         {cells.map((tile) => {
@@ -348,17 +352,21 @@ export default function WorldOfLogic() {
           const isCaptain = captain.x === tile.x && captain.y === tile.y;
           const inWoods = tile.x >= WOODS_START_X;
           const isSelected = selected && m && selected.label === m.label;
+          // The field is lit to be READ (owner's verdict
+          // 2026-11-22: the near-black void was part of the
+          // defect) — bright grass, a deeper but plainly visible
+          // woods, bifocal-legible at a glance.
           const bg = isCaptain
             ? "#d4af37"
             : m
               ? (colorFor(m.label) ?? "#7c2d12")
               : inWoods
                 ? (tile.x + tile.y) % 3 === 0
-                  ? "#0a3d1e"
-                  : "#07301a"
+                  ? "#1a7a44"
+                  : "#146636"
                 : (tile.x + tile.y) % 2 === 0
-                  ? "#14532d"
-                  : "#175c33";
+                  ? "#35ac57"
+                  : "#2e9e4f";
           return (
             <button
               key={`${tile.x}-${tile.y}`}
@@ -380,7 +388,7 @@ export default function WorldOfLogic() {
                 borderRadius: 6,
                 background: bg,
                 color: "#0b0e14",
-                fontSize: "clamp(10px, 2.2vw, 18px)",
+                fontSize: "clamp(13px, 2.6vw, 22px)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
