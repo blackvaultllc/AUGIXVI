@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Eye, type LucideIcon } from "lucide-react";
 import { useState } from "react";
@@ -864,5 +866,55 @@ describe("command box viewport heal + enlarge + phone form", () => {
       widthSpy.mockRestore();
       heightSpy.mockRestore();
     }
+  });
+
+  it("minimizing on the phone collapses the panel to the bar — no reserved height left behind", () => {
+    const widthSpy = vi
+      .spyOn(window, "innerWidth", "get")
+      .mockReturnValue(390);
+    const heightSpy = vi
+      .spyOn(window, "innerHeight", "get")
+      .mockReturnValue(844);
+    try {
+      const { container } = renderBox();
+      const box = boxOf(container);
+      expect(box.style.height).toBe("380px");
+      fireEvent.click(screen.getByRole("button", { name: "Minimize command box" }));
+      expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
+      // The footprint collapses completely (owner symptom 2026-11-22
+      // — minimize left a big blue gap): the box carries NO fixed
+      // height, so its height is the slim bar's own and the stage
+      // area it covered belongs to the stage again.
+      expect(box.style.height).toBe("");
+      // The conversation is gone from the face; the input — never
+      // hidden — rides in the bar.
+      expect(container.querySelector(".avatar-command-box__conversation")).toBeNull();
+      expect(screen.getByLabelText("Message for Anubis")).toBeInTheDocument();
+      // Expanding restores the open panel at his size.
+      fireEvent.click(screen.getByRole("button", { name: "Expand command box" }));
+      expect(box.classList.contains("avatar-command-box--minimized")).toBe(false);
+      expect(box.style.height).toBe("380px");
+      expect(container.querySelector(".avatar-command-box__conversation")).not.toBeNull();
+    } finally {
+      widthSpy.mockRestore();
+      heightSpy.mockRestore();
+    }
+  });
+
+  it("the stylesheet folds the minimized rail into a row — the bar is the whole footprint", () => {
+    // jsdom has no layout, so the collapse itself is pinned at the
+    // stylesheet: the effective (last, cascade-winning) minimized
+    // rules must give the box an automatic height and fold the rail
+    // from a column into a horizontal bar. If a future edit stands
+    // the rail back up, the big blue gap returns — this fails first.
+    const css = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+    const boxRuleStart = css.lastIndexOf(".avatar-command-box--minimized {");
+    expect(boxRuleStart).toBeGreaterThan(-1);
+    const boxRule = css.slice(boxRuleStart, css.indexOf("}", boxRuleStart));
+    expect(boxRule).toContain("height: auto");
+    const railRuleStart = css.indexOf(".avatar-command-box--minimized .avatar-command-box__rail {");
+    expect(railRuleStart).toBeGreaterThan(-1);
+    const railRule = css.slice(railRuleStart, css.indexOf("}", railRuleStart));
+    expect(railRule).toContain("flex-direction: row");
   });
 });
