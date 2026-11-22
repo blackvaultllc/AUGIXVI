@@ -15,6 +15,8 @@ import { eyeBrightnessFor, eyeColorFor, smoothEyePulse } from "./eyes";
 import { breathCycleAt } from "./heartbeat";
 import { SceneManager } from "./sceneManager";
 import { WorldSceneManager } from "./worldSceneRenderer";
+import { BuilderSceneManager } from "./builder/builderScene";
+import type { RoomContent } from "./builder/room";
 import {
   DEFAULT_WORLD_SCENE,
   type PortalKind,
@@ -267,6 +269,14 @@ export class AvatarRenderer {
   private lightStage = false;
   private sceneManager: SceneManager;
   private worldScenes: WorldSceneManager;
+  /**
+   * THE ENVIRONMENT BUILDER'S RENDERED ROOM (owner order
+   * 2026-11-22): the Captain's placed items inside the Room scene.
+   * The room data itself lives in the stage (builder/room.ts).
+   */
+  private builderScenes: BuilderSceneManager;
+  /** His backdrop color for the Room — the light stage clears to it. */
+  private builderBackdrop: string | null = null;
   private locomotion: AvatarLocomotion;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
@@ -358,6 +368,8 @@ export class AvatarRenderer {
     // the pines live in the park now, grown from the same builder.
     this.worldScenes = new WorldSceneManager(this.scene);
     this.worldScenes.setScene(DEFAULT_WORLD_SCENE);
+    this.builderScenes = new BuilderSceneManager(this.scene);
+    this.builderScenes.setVisible(DEFAULT_WORLD_SCENE === "room");
     this.sceneManager.setEnvironmentVisible(false);
     const data = source(settings.maxParticles);
     this.drawCount = data.count;
@@ -635,6 +647,7 @@ export class AvatarRenderer {
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
     this.camera.aspect = w / h;
+    this.worldScenes.setViewAspect(w / h);
     this.camera.position.z = w / h < 1 ? (11 / (w / h)) * 0.75 : 11;
     this.camera.lookAt(0, -0.8, 0);
     this.camera.updateProjectionMatrix();
@@ -930,6 +943,70 @@ export class AvatarRenderer {
   setWorldScene(id: WorldSceneId) {
     this.worldScenes.setScene(id);
     this.applyStageLook(id);
+    // The builder's placed room belongs to the Room scene only.
+    this.builderScenes.setVisible(id === "room");
+  }
+
+  /**
+   * THE ENVIRONMENT BUILDER (owner order 2026-11-22): hand the
+   * renderer the Captain's designed room — placed items render in
+   * the Room, and his surface choices (backdrop color + picture,
+   * floor, wall) drive the Room's set and the light-stage clear.
+   */
+  setBuilderRoom(room: RoomContent) {
+    this.builderScenes.setRoom(room);
+    this.worldScenes.setRoomSurfaces(room.surfaces);
+    this.builderBackdrop = room.surfaces.backdrop;
+    if (this.lightStage) this.renderer.setClearColor(room.surfaces.backdrop, 1);
+  }
+
+  /** The builder's selection ring follows the stage's pick. */
+  setBuilderSelected(id: string | null) {
+    this.builderScenes.setSelected(id);
+  }
+
+  /** The canvas element — the stage hit-tests builder drags on it. */
+  get domElement(): HTMLCanvasElement {
+    return this.renderer.domElement;
+  }
+
+  /**
+   * Where a pointer ray lands on the Room's floor (room coordinates
+   * — the same space placed items live in), or null off the floor.
+   */
+  builderFloorPoint(clientX: number, clientY: number): { x: number; z: number } | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(ndc, this.camera);
+    // The floor plane in world space: the builder group stands at
+    // GROUND_Y (-3.2), so the plane through y = -3.2 facing up.
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 3.2);
+    const hit = new THREE.Vector3();
+    if (!raycaster.ray.intersectPlane(plane, hit)) return null;
+    return { x: hit.x, z: hit.z };
+  }
+
+  /** The placed item under a pointer ray, or null. */
+  builderPick(clientX: number, clientY: number): string | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(ndc, this.camera);
+    const hits = raycaster.intersectObjects(this.builderScenes.pickRoots(), true);
+    for (const hit of hits) {
+      const id = hit.object.userData["itemId"];
+      if (typeof id === "string") return id;
+    }
+    return null;
   }
   /**
    * THE STAGE LOOK (owner order 2026-11-22): the Room is a LIGHT
@@ -945,7 +1022,7 @@ export class AvatarRenderer {
   private applyStageLook(id: WorldSceneId) {
     const light = id === "room";
     this.lightStage = light;
-    this.renderer.setClearColor(light ? 0xf6f2e9 : 0x02040a, 1);
+    this.renderer.setClearColor(light ? (this.builderBackdrop ?? 0xf6f2e9) : 0x02040a, 1);
     this.bloom.enabled = !light;
     const blending = light ? THREE.NormalBlending : THREE.AdditiveBlending;
     const setMaterial = (material: THREE.ShaderMaterial) => {
@@ -1160,6 +1237,7 @@ export class AvatarRenderer {
     this.mat.dispose();
     this.sceneManager.dispose();
     this.worldScenes.dispose();
+    this.builderScenes.dispose();
     for (const o of [...this.hands, ...this.arms, ...this.forearms, this.file, this.cape, this.eyes]) {
       o.geometry.dispose();
       (o.material as THREE.Material).dispose();

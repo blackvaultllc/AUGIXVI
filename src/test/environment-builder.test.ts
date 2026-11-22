@@ -36,6 +36,7 @@ import {
   withFrameOffset,
   withoutFrame,
 } from "@/avatar/builder/frames";
+import { BACKDROPS, backdropById, backdropPlaneSize } from "@/avatar/builder/backdrops";
 
 function fakeStorage() {
   const values = new Map<string, string>();
@@ -118,11 +119,29 @@ describe("environment builder — room surfaces persist like items", () => {
   it("surface choices save and reload through the layout store", () => {
     const storage = fakeStorage();
     let layouts = defaultLayoutStore();
-    const surfaces = { backdrop: "#101018", floor: "#2a4a7a", wall: "#3a3f4a" };
+    const surfaces = {
+      backdrop: "#101018",
+      backdropImage: "egypt-throne",
+      floor: "#2a4a7a",
+      wall: "#3a3f4a",
+    };
     layouts = withLayoutRoom(layouts, layouts.activeId, setSurfaces(emptyRoom(), surfaces));
     saveLayoutStore(layouts, storage);
     const reloaded = loadLayoutStore(storage);
     expect(reloaded.layouts[0]!.room.surfaces).toEqual(surfaces);
+  });
+
+  it("a backdrop picture must come from his own theme registry — unknown ids read as none", () => {
+    const room = sanitizeRoom({
+      surfaces: { backdrop: "#101018", backdropImage: "not-his-picture", floor: "#2a4a7a", wall: "#3a3f4a" },
+      items: [],
+    });
+    expect(room.surfaces.backdropImage).toBeNull();
+    const withArt = sanitizeRoom({
+      surfaces: { backdropImage: "egypt-pyramids-planets" },
+      items: [],
+    });
+    expect(withArt.surfaces.backdropImage).toBe("egypt-pyramids-planets");
   });
 
   it("items and their anchor states survive the same round trip", () => {
@@ -170,7 +189,12 @@ describe("environment builder — the portable room package", () => {
     const layout = {
       id: "den",
       name: "Captain's Den",
-      room: setSurfaces(roomWithItem(true), { backdrop: "#0e1420", floor: "#28486e", wall: "#5a6a86" }),
+      room: setSurfaces(roomWithItem(true), {
+        ...DEFAULT_SURFACES,
+        backdrop: "#0e1420",
+        floor: "#28486e",
+        wall: "#5a6a86",
+      }),
     };
     const text = exportRoomPackage(layout);
     const parsed = JSON.parse(text) as Record<string, unknown>;
@@ -188,6 +212,37 @@ describe("environment builder — the portable room package", () => {
     expect(parseRoomPackage("hello").ok).toBe(false);
     expect(parseRoomPackage('{"kind":"something-else","version":1}').ok).toBe(false);
     expect(parseRoomPackage('{"kind":"augi-room","version":99}').ok).toBe(false);
+  });
+});
+
+describe("environment builder — his theme backdrops", () => {
+  it("the registry carries both of his sets, every entry a real shipped file size", () => {
+    expect(BACKDROPS.filter((asset) => asset.set === "egyptian")).toHaveLength(12);
+    expect(BACKDROPS.filter((asset) => asset.set === "maps")).toHaveLength(10);
+    for (const asset of BACKDROPS) {
+      expect(asset.width).toBeGreaterThan(0);
+      expect(asset.height).toBeGreaterThan(0);
+      expect(asset.src.endsWith(".jpg")).toBe(true);
+    }
+    expect(backdropById("background-1")).toBeNull();
+    expect(backdropById("egypt-pyramids-planets")!.name).toBe("Pyramids under the planets");
+  });
+
+  it("cover fit: the picture covers the view with its aspect never distorted", () => {
+    // Wide picture, squarer view: height rules, width overflows (cropped).
+    const wide = backdropPlaneSize({ width: 1600, height: 900 }, 20, 15);
+    expect(wide.h).toBe(15);
+    expect(wide.w).toBeCloseTo(15 * (1600 / 900));
+    expect(wide.w / wide.h).toBeCloseTo(1600 / 900);
+    // Square picture, wide view: width rules, height overflows.
+    const square = backdropPlaneSize({ width: 474, height: 474 }, 28, 15.7);
+    expect(square.w).toBe(28);
+    expect(square.h).toBe(28);
+    // Both dimensions always cover the view.
+    for (const size of [wide, square]) {
+      expect(size.w).toBeGreaterThanOrEqual(20);
+      expect(size.h).toBeGreaterThanOrEqual(15);
+    }
   });
 });
 

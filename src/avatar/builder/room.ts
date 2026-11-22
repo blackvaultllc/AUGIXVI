@@ -21,10 +21,18 @@
  * Plain TS, injectable storage — unit-testable without a DOM.
  */
 import { LIBRARY, libraryItem, type ItemSizeId } from "./library";
+import { backdropById } from "./backdrops";
 
 export type RoomSurfaces = {
-  /** The room's backdrop — the renderer's clear color in the Room. */
+  /** The room's backdrop color — the renderer's clear color in the Room. */
   backdrop: string;
+  /**
+   * A backdrop PICTURE from the Captain's theme sets (backdrops.ts),
+   * by asset id — or null for the plain color backdrop. When set,
+   * the picture is cover-fit on the back wall under a quieting veil
+   * tinted by `backdrop`, per his fit rule.
+   */
+  backdropImage: string | null;
   /** The floor tint — the Room's floor plane and grid. */
   floor: string;
   /** The back-wall grid tint. */
@@ -34,6 +42,7 @@ export type RoomSurfaces = {
 /** The shipped Room: warm white, pale blue-gray floor, soft wall. */
 export const DEFAULT_SURFACES: RoomSurfaces = {
   backdrop: "#f6f2e9",
+  backdropImage: null,
   floor: "#93a9c9",
   wall: "#aebfd8",
 };
@@ -122,7 +131,7 @@ export function removeItem(room: RoomContent, id: string): RoomContent {
 }
 
 export function setSurfaces(room: RoomContent, surfaces: RoomSurfaces): RoomContent {
-  return { ...room, surfaces: { ...surfaces } };
+  return { ...room, surfaces: sanitizeSurfaces(surfaces) };
 }
 
 /** A fresh placed item for a library base, at a floor spot. */
@@ -156,6 +165,9 @@ export function sanitizeSurfaces(raw: unknown): RoomSurfaces {
     typeof candidate === "string" && HEX.test(candidate) ? candidate : fallback;
   return {
     backdrop: pick(value.backdrop, DEFAULT_SURFACES.backdrop),
+    // Only a picture from his own theme registry may ride a layout —
+    // an unknown id reads as no picture, never as a broken image.
+    backdropImage: backdropById(value.backdropImage)?.id ?? null,
     floor: pick(value.floor, DEFAULT_SURFACES.floor),
     wall: pick(value.wall, DEFAULT_SURFACES.wall),
   };

@@ -17,6 +17,13 @@ import {
 } from "./worldScenes";
 import { buildPersonPoints, PeopleSim } from "./people";
 import { LABEL_CANVAS_HEIGHT, LABEL_FONT_PX, labelCanvasWidth, labelPlaqueSize } from "./labelPlaque";
+import {
+  BACKDROP_IMAGE_OPACITY,
+  BACKDROP_VEIL_OPACITY,
+  backdropById,
+  backdropPlaneSize,
+} from "./builder/backdrops";
+import type { RoomSurfaces } from "./builder/room";
 
 /** Same ground line the SceneManager builds on. */
 const GROUND_Y = -3.2;
@@ -231,6 +238,43 @@ export class WorldSceneManager {
   private portalReadyAt = 0;
   /** Elapsed scene clock — drives the waves and idle motion. */
   private time = 0;
+  /**
+   * THE ROOM'S SURFACES (Environment Builder, owner order
+   * 2026-11-22): the Captain's chosen floor/wall tints and backdrop
+   * picture for the Room. Defaults are the shipped Room exactly.
+   */
+  private roomSurfaces: RoomSurfaces = {
+    backdrop: "#f6f2e9",
+    backdropImage: null,
+    floor: "#93a9c9",
+    wall: "#aebfd8",
+  };
+  /** The stage camera's aspect — the backdrop's cover-fit reads it. */
+  private viewAspect = 16 / 9;
+
+  /** The builder's surface choices for the Room; rebuilds the set live. */
+  setRoomSurfaces(surfaces: RoomSurfaces) {
+    this.roomSurfaces = { ...surfaces };
+    if (this.current === "room" && this.roomSet) {
+      this.group.remove(this.roomSet);
+      this.disposeRoomSet(this.roomSet);
+      this.roomSet = this.buildRoomSet();
+      this.group.add(this.roomSet);
+    }
+  }
+
+  /** The renderer reports its camera aspect so backdrops cover-fit. */
+  setViewAspect(aspect: number) {
+    if (!Number.isFinite(aspect) || aspect <= 0) return;
+    const changed = Math.abs(aspect - this.viewAspect) > 0.01;
+    this.viewAspect = aspect;
+    if (changed && this.current === "room" && this.roomSet && this.roomSurfaces.backdropImage) {
+      this.group.remove(this.roomSet);
+      this.disposeRoomSet(this.roomSet);
+      this.roomSet = this.buildRoomSet();
+      this.group.add(this.roomSet);
+    }
+  }
 
   constructor(scene: THREE.Scene) {
     this.group.name = "augie-living-world";
@@ -310,14 +354,75 @@ export class WorldSceneManager {
   private buildRoomSet(): THREE.Group {
     const set = new THREE.Group();
     set.name = "living-world-room";
-    const floor = new THREE.GridHelper(36, 36, 0xc9a227, 0x93a9c9);
+    const surfaces = this.roomSurfaces;
+    // THE BACKDROP PICTURE (Environment Builder): one of the
+    // Captain's theme pictures, cover-fit on the back wall — scaled
+    // to cover with its aspect intact, overflow cropped, never
+    // stretched — under a veil tinted by the room's backdrop color,
+    // so the art never overpowers the interface (his fit rule).
+    const backdrop = backdropById(surfaces.backdropImage);
+    if (backdrop) {
+      // The view the wall must cover: the camera (fov 40, z = 11)
+      // sees ≈15.7 world units of height at the wall's depth; above
+      // the floor line that is ≈10.3. Cover-fit against that window.
+      const viewH = 10.4;
+      const viewW = viewH * this.viewAspect * 1.8;
+      const size = backdropPlaneSize(backdrop, viewW, viewH);
+      const material = new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: BACKDROP_IMAGE_OPACITY,
+        depthWrite: false,
+      });
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(size.w, size.h), material);
+      plane.position.set(0, size.h / 2, -10.6);
+      plane.name = "living-world-room-backdrop";
+      set.add(plane);
+      try {
+        new THREE.TextureLoader().load(backdrop.src, (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          material.map = texture;
+          material.needsUpdate = true;
+        });
+      } catch {
+        // No image loading here (test DOMs): the veil and the room
+        // still render; the picture simply never lands.
+      }
+      const veil = new THREE.Mesh(
+        new THREE.PlaneGeometry(size.w, size.h),
+        new THREE.MeshBasicMaterial({
+          color: new THREE.Color(surfaces.backdrop),
+          transparent: true,
+          opacity: BACKDROP_VEIL_OPACITY,
+          depthWrite: false,
+        }),
+      );
+      veil.position.set(0, size.h / 2, -10.5);
+      veil.name = "living-world-room-backdrop-veil";
+      set.add(veil);
+    }
+    // The floor tint: a quiet plane under the grid, so his floor
+    // color reads as a floor and not only as grid lines.
+    const floorPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(36, 36),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color(surfaces.floor),
+        transparent: true,
+        opacity: 0.3,
+        depthWrite: false,
+      }),
+    );
+    floorPlane.rotation.x = -Math.PI / 2;
+    floorPlane.position.y = 0.01;
+    floorPlane.name = "living-world-room-floor";
+    set.add(floorPlane);
+    const floor = new THREE.GridHelper(36, 36, 0xc9a227, new THREE.Color(surfaces.floor));
     const floorMaterial = floor.material as THREE.Material;
     floorMaterial.transparent = true;
     floorMaterial.opacity = 0.32;
     floorMaterial.depthWrite = false;
     floor.position.y = 0.02;
     set.add(floor);
-    const wall = new THREE.GridHelper(18, 18, 0xd8b84a, 0xaebfd8);
+    const wall = new THREE.GridHelper(18, 18, 0xd8b84a, new THREE.Color(surfaces.wall));
     const wallMaterial = wall.material as THREE.Material;
     wallMaterial.transparent = true;
     wallMaterial.opacity = 0.16;
@@ -327,6 +432,19 @@ export class WorldSceneManager {
     wall.position.set(0, 9, -10);
     set.add(wall);
     return set;
+  }
+
+  private disposeRoomSet(set: THREE.Group) {
+    set.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.geometry) mesh.geometry.dispose();
+      const material = mesh.material as THREE.Material | undefined;
+      if (material) {
+        const basic = material as THREE.MeshBasicMaterial;
+        basic.map?.dispose();
+        material.dispose();
+      }
+    });
   }
 
   /** Swap the stage to one of the active scene's floors. */
