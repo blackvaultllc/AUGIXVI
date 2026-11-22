@@ -71,4 +71,45 @@ describe("floating window controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Restore Notes size" }));
     expect(container.querySelector(".floating-window--maximized")).toBeNull();
   });
+
+  it("clamps a persisted oversized geometry back inside the viewport on open", () => {
+    localStorage.setItem(
+      "augi.window.win-huge",
+      JSON.stringify({ x: 0, y: 0, w: 5000, h: 5000, minimized: false }),
+    );
+    const { container } = render(
+      <FloatingWindow id="win-huge" title="Notes" onClose={vi.fn()}>
+        <p>body text</p>
+      </FloatingWindow>,
+    );
+    const win = container.querySelector<HTMLElement>(".floating-window");
+    expect(win?.style.width).toBe(`${window.innerWidth - 32}px`);
+    expect(win?.style.height).toBe(`${window.innerHeight - 32}px`);
+    expect(win?.style.left).toBe("4px");
+    expect(win?.style.top).toBe("4px");
+  });
+
+  it("pulls the window back inside when the viewport itself shrinks", () => {
+    const { container } = render(
+      <FloatingWindow id="win-shrink" title="Notes" onClose={vi.fn()}>
+        <p>body text</p>
+      </FloatingWindow>,
+    );
+    const win = container.querySelector<HTMLElement>(".floating-window");
+    expect(win?.style.width).toBe("420px");
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+    try {
+      Object.defineProperty(window, "innerWidth", { value: 360, configurable: true });
+      Object.defineProperty(window, "innerHeight", { value: 300, configurable: true });
+      fireEvent(window, new window.Event("resize"));
+      expect(win?.style.width).toBe("328px");
+      expect(win?.style.height).toBe("268px");
+      expect(win?.style.left).toBe("28px");
+      expect(win?.style.top).toBe("28px");
+    } finally {
+      Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
+      Object.defineProperty(window, "innerHeight", { value: originalHeight, configurable: true });
+    }
+  });
 });

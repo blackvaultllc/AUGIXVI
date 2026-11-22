@@ -40,4 +40,37 @@ describe("AR Cube window", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close AR Cube" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("opens at the contained default size, inside the viewport with margins", () => {
+    const { container } = render(<ArCubeWindow onClose={vi.fn()} />);
+    const win = container.querySelector<HTMLElement>(".floating-window");
+    expect(win).not.toBeNull();
+    expect(win?.style.width).toBe("520px");
+    expect(win?.style.height).toBe("600px");
+    expect(win?.style.left).toBe("120px");
+    expect(win?.style.top).toBe("90px");
+  });
+
+  it("never reopens at a persisted oversized geometry — it is clamped back inside the viewport", () => {
+    // Regression for Domenick's 2026-11-21 screenshot: a saved
+    // near-full-screen geometry reopened covering the whole stage and
+    // burying the command box. The saved values must be clamped to
+    // the viewport minus margins before they are applied.
+    localStorage.setItem(
+      "augi.window.ar-cube",
+      JSON.stringify({ x: 5000, y: 4000, w: 4000, h: 3000, minimized: false }),
+    );
+    const { container } = render(<ArCubeWindow onClose={vi.fn()} />);
+    const win = container.querySelector<HTMLElement>(".floating-window");
+    const maxW = window.innerWidth - 32;
+    const maxH = window.innerHeight - 32;
+    expect(win?.style.width).toBe(`${maxW}px`);
+    expect(win?.style.height).toBe(`${maxH}px`);
+    expect(Number.parseInt(win?.style.left ?? "0", 10)).toBeLessThanOrEqual(
+      window.innerWidth - maxW - 4,
+    );
+    expect(Number.parseInt(win?.style.top ?? "0", 10)).toBeLessThanOrEqual(
+      window.innerHeight - maxH - 4,
+    );
+  });
 });

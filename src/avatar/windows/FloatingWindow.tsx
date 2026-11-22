@@ -14,6 +14,13 @@ import {
   type ReactNode,
 } from "react";
 import { Maximize2, Minimize2, Minus, X } from "lucide-react";
+import {
+  WINDOW_MARGIN,
+  WINDOW_MIN_HEIGHT,
+  WINDOW_MIN_WIDTH,
+  clampWindowPosition,
+  clampWindowSize,
+} from "./windowGeometry";
 
 type SavedGeometry = { x: number; y: number; w: number; h: number; minimized: boolean };
 
@@ -71,14 +78,27 @@ export function FloatingWindow({
   accent?: string;
 }) {
   const saved = useRef(loadGeometry(id)).current;
-  const [position, setPosition] = useState(() => ({
-    x: saved?.x ?? 120,
-    y: saved?.y ?? 90,
-  }));
-  const [size, setSize] = useState({
-    w: saved?.w ?? initialWidth,
-    h: saved?.h ?? initialHeight,
-  });
+  // Bounds (operator order 2026-11-21): saved geometry is never trusted
+  // blindly — a size persisted on a big screen (or dragged huge) must
+  // not reopen covering a smaller viewport. Clamp size and position to
+  // the current viewport so the window always opens inside the stage
+  // with clear margins; the clamped values are what get re-saved.
+  const initialSize = clampWindowSize(
+    saved?.w ?? initialWidth,
+    saved?.h ?? initialHeight,
+    window.innerWidth,
+    window.innerHeight,
+  );
+  const initialPosition = clampWindowPosition(
+    saved?.x ?? 120,
+    saved?.y ?? 90,
+    initialSize.w,
+    initialSize.h,
+    window.innerWidth,
+    window.innerHeight,
+  );
+  const [position, setPosition] = useState(initialPosition);
+  const [size, setSize] = useState(initialSize);
   const [minimized, setMinimized] = useState(saved?.minimized ?? false);
   const [maximized, setMaximized] = useState(false);
   const drag = useRef<{ mode: "move" | "resize"; dx: number; dy: number } | null>(null);
@@ -87,6 +107,30 @@ export function FloatingWindow({
   useEffect(() => {
     saveGeometry(id, { ...position, ...size, minimized });
   }, [id, position, size, minimized]);
+
+  // If the viewport itself shrinks (split screen, phone rotation, a
+  // smaller browser pane), pull the window back inside the bounds
+  // instead of leaving it covering the stage.
+  useEffect(() => {
+    const onViewportResize = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const nextSize = clampWindowSize(size.w, size.h, vw, vh);
+      setSize(nextSize);
+      setPosition((current) =>
+        clampWindowPosition(
+          current.x,
+          current.y,
+          nextSize.w,
+          minimized ? 40 : nextSize.h,
+          vw,
+          vh,
+        ),
+      );
+    };
+    window.addEventListener("resize", onViewportResize);
+    return () => window.removeEventListener("resize", onViewportResize);
+  }, [size, minimized]);
 
   const clamp = useCallback(
     (x: number, y: number) => {
@@ -124,12 +168,21 @@ export function FloatingWindow({
     if (d.mode === "move") {
       setPosition(clamp(event.clientX - d.dx, event.clientY - d.dy));
     } else {
+      // Resize can grow the window only into the space left before the
+      // viewport edge (minus the margin) — never past it, so a resize
+      // can no longer make a window swallow the whole screen.
+      const rect = winRef.current?.getBoundingClientRect();
+      const left = rect?.left ?? 0;
+      const top = rect?.top ?? 0;
       setSize((current) => ({
-        w: Math.max(
-          260,
-          event.clientX + d.dx - (winRef.current?.getBoundingClientRect().left ?? 0),
+        w: Math.min(
+          Math.max(WINDOW_MIN_WIDTH, event.clientX + d.dx - left),
+          Math.max(WINDOW_MIN_WIDTH, window.innerWidth - left - WINDOW_MARGIN),
         ),
-        h: Math.max(140, event.clientY + d.dy - (winRef.current?.getBoundingClientRect().top ?? 0)),
+        h: Math.min(
+          Math.max(WINDOW_MIN_HEIGHT, event.clientY + d.dy - top),
+          Math.max(WINDOW_MIN_HEIGHT, window.innerHeight - top - WINDOW_MARGIN),
+        ),
       }));
     }
   };
@@ -138,6 +191,25 @@ export function FloatingWindow({
     if (!drag.current) return;
     drag.current = null;
     event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
+  // Restoring from minimized brings the full height back: pull the
+  // window inside the bounds first — while minimized it may sit at the
+  // very bottom, where the full window would spill off-screen.
+  const toggleMinimized = () => {
+    if (minimized) {
+      setPosition((current) =>
+        clampWindowPosition(
+          current.x,
+          current.y,
+          size.w,
+          size.h,
+          window.innerWidth,
+          window.innerHeight,
+        ),
+      );
+    }
+    setMinimized((m) => !m);
   };
 
   // THREE BUTTONS, THREE JOBS: X closes, maximize/restore fills the screen,
@@ -173,7 +245,7 @@ export function FloatingWindow({
         onPointerMove={onMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        onDoubleClick={() => setMinimized((m) => !m)}
+        onDoubleClick={toggleMinimized}
       >
         <span className="floating-window__title" style={{ color: accent }}>
           {title}
@@ -184,7 +256,7 @@ export function FloatingWindow({
             className="floating-window__button"
             onClick={() => {
               setMaximized(false);
-              setMinimized((m) => !m);
+              toggleMinimized();
             }}
             aria-label={minimized ? `Restore ${title}` : `Minimize ${title}`}
           >
