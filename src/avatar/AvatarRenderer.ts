@@ -156,8 +156,11 @@ const postShader = {
 const EYE_X = 0.175;
 const EYE_Y = 1.14;
 const EYE_Z = 0.46;
-const EYE_RADIUS = 0.062;
-const EYE_POINTS_PER_EYE = 130;
+/* Radius/point size raised with the RED order (2026-11-22): the eyes
+   must be plainly visible across the room, not a detail he has to
+   hunt for. */
+const EYE_RADIUS = 0.078;
+const EYE_POINTS_PER_EYE = 150;
 
 const eyeVert = /* glsl */ `
 attribute float aRand;
@@ -166,7 +169,7 @@ varying float vRand;
 void main(){
   vRand = aRand;
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = 2.1 * uPixel * (4.0 / -mv.z) * (0.7 + aRand * 0.6) * (0.85 + uGlow * 0.25);
+  gl_PointSize = 2.5 * uPixel * (4.0 / -mv.z) * (0.7 + aRand * 0.6) * (0.85 + uGlow * 0.25);
   gl_Position = projectionMatrix * mv;
 }`;
 
@@ -289,7 +292,7 @@ export class AvatarRenderer {
   private arms: THREE.Points[] = [];
   private forearms: THREE.Points[] = [];
   private eyes!: THREE.Points;
-  private eyeColor = new THREE.Color(0.35, 0.85, 1.0);
+  private eyeColor = new THREE.Color(0.85, 0.1, 0.08);
   private eyeTmpColor = new THREE.Color();
   private eyePulse = 0.85;
   /** Forward pitch of the whole figure — Superman flight leans into travel. */
@@ -1006,6 +1009,21 @@ export class AvatarRenderer {
    */
   setFullBodyHold(held: boolean) {
     this.locomotion.setFullBodyHold(held);
+  }
+  /**
+   * CONSTRUCT ON STAGE OR IN HIS BOX (owner order 2026-11-22): the
+   * sand construct no longer holds center stage by default — the
+   * stage sets him invisible until the Captain opens the AUGI avatar
+   * window, where the canvas docks and he stands in his own
+   * container. Hiding the figure anchor hides every form of him
+   * (body, eyes, cape, hands, and the morph shapes, which are his
+   * own particles); the world behind him keeps rendering either way.
+   */
+  setConstructVisible(visible: boolean) {
+    this.figureAnchor.visible = visible;
+  }
+  get constructVisible(): boolean {
+    return this.figureAnchor.visible;
   }
   get isFullBodyHeld(): boolean {
     return this.locomotion.isFullBodyHeld;

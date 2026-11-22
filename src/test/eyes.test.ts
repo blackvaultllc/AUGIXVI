@@ -3,20 +3,30 @@ import { eyeBrightnessFor, eyeColorFor, smoothEyePulse } from "@/avatar/eyes";
 import type { AvatarState } from "@/avatar/AvatarBridge";
 
 /**
- * THE EYES (owner order 2026-11-21): two eyes replace the single dot;
- * color = state/emotion, pulse = smoothed speech. The mapping is the
- * contract — five states, five distinct colors — and the pulse must be
- * provably smooth (bounded steps, no overshoot), never a strobe.
+ * THE EYES (owner orders 2026-11-21, RED order 2026-11-22): two eyes
+ * replace the single dot; every state is BLOODSHOT RED — visibility
+ * is the point — with the states kept distinct by shade and heat.
+ * The pulse must be provably smooth (bounded steps, no overshoot),
+ * never a strobe.
  */
 describe("eye color mapping", () => {
   const states: AvatarState[] = ["IDLE", "LISTENING", "THINKING", "SPEAKING", "GLITCH"];
 
   it("maps every state to its documented color", () => {
-    expect(eyeColorFor("IDLE")).toEqual({ r: 0.35, g: 0.85, b: 1.0 }); // calm cyan
-    expect(eyeColorFor("LISTENING")).toEqual({ r: 0.3, g: 1.0, b: 0.55 }); // emerald
-    expect(eyeColorFor("THINKING")).toEqual({ r: 0.62, g: 0.45, b: 1.0 }); // violet
-    expect(eyeColorFor("SPEAKING")).toEqual({ r: 1.0, g: 0.72, b: 0.25 }); // warm gold
-    expect(eyeColorFor("GLITCH")).toEqual({ r: 1.0, g: 0.3, b: 0.15 }); // red-orange alert
+    expect(eyeColorFor("IDLE")).toEqual({ r: 0.85, g: 0.1, b: 0.08 }); // deep bloodshot red
+    expect(eyeColorFor("LISTENING")).toEqual({ r: 1.0, g: 0.16, b: 0.1 }); // ember red
+    expect(eyeColorFor("THINKING")).toEqual({ r: 0.9, g: 0.08, b: 0.28 }); // crimson-magenta
+    expect(eyeColorFor("SPEAKING")).toEqual({ r: 1.0, g: 0.28, b: 0.08 }); // hot red-orange
+    expect(eyeColorFor("GLITCH")).toEqual({ r: 1.0, g: 0.05, b: 0.05 }); // alarm red
+  });
+
+  it("keeps every state inside the red family — red always dominates", () => {
+    for (const s of states) {
+      const c = eyeColorFor(s);
+      expect(c.r).toBeGreaterThanOrEqual(0.85);
+      expect(c.r).toBeGreaterThan(c.g);
+      expect(c.r).toBeGreaterThan(c.b);
+    }
   });
 
   it("gives every state a distinct color", () => {

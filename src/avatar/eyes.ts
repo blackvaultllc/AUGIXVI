@@ -1,16 +1,22 @@
 import type { AvatarState } from "./AvatarBridge";
 
 /**
- * THE EYES (owner order 2026-11-21): the single glowing dot on his face
- * is gone — he has TWO eyes now. They flash with his speech and their
- * COLOR carries his state/emotion. The mapping (kept small and tasteful
- * on purpose — five states, five colors, no rainbow):
+ * THE EYES (owner orders 2026-11-21, RED order 2026-11-22): the single
+ * glowing dot on his face is gone — he has TWO eyes now. They flash
+ * with his speech and their COLOR carries his state/emotion.
  *
- *   IDLE      calm cyan      — at rest, watchful
- *   LISTENING emerald green  — attention on the operator
- *   THINKING  violet         — processing
- *   SPEAKING  warm gold      — his voice; brightness rides the speech level
- *   GLITCH    red-orange     — alert / warning
+ * THE RED ORDER (2026-11-22): the Captain could not see the old
+ * colors, so the eyes are BLOODSHOT RED in every state — visibility
+ * is the point. The family stays red; the states stay distinct by
+ * shade and heat, the way bloodshot eyes deepen:
+ *
+ *   IDLE      deep bloodshot red — at rest, watchful
+ *   LISTENING ember red          — attention on the operator
+ *   THINKING  crimson-magenta    — processing (the one shade that
+ *                                  leans toward the vein)
+ *   SPEAKING  hot red-orange     — his voice; brightness rides the
+ *                                  speech level
+ *   GLITCH    alarm red          — alert / warning, the hottest base
  *
  * A summons (alertBoost) does not change the color family; it pushes
  * brightness up — the same eyes, hotter.
@@ -24,11 +30,11 @@ import type { AvatarState } from "./AvatarBridge";
 export type EyeColor = { r: number; g: number; b: number };
 
 const EYE_COLORS: Record<AvatarState, EyeColor> = {
-  IDLE: { r: 0.35, g: 0.85, b: 1.0 },
-  LISTENING: { r: 0.3, g: 1.0, b: 0.55 },
-  THINKING: { r: 0.62, g: 0.45, b: 1.0 },
-  SPEAKING: { r: 1.0, g: 0.72, b: 0.25 },
-  GLITCH: { r: 1.0, g: 0.3, b: 0.15 },
+  IDLE: { r: 0.85, g: 0.1, b: 0.08 },
+  LISTENING: { r: 1.0, g: 0.16, b: 0.1 },
+  THINKING: { r: 0.9, g: 0.08, b: 0.28 },
+  SPEAKING: { r: 1.0, g: 0.28, b: 0.08 },
+  GLITCH: { r: 1.0, g: 0.05, b: 0.05 },
 };
 
 /** The eye color for a state — see the mapping table above. */
@@ -57,7 +63,7 @@ export function eyeBrightnessFor(state: AvatarState, speechLevel: number, alertB
       base = 1.25;
       break;
     default:
-      base = 0.85;
+      base = 0.95;
   }
   return base + Math.max(0, Math.min(1, alertBoost)) * 0.5;
 }
