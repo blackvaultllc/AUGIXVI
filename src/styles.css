@@ -2891,21 +2891,38 @@
 }
 
 /* Devices window (2026-11-21) — the device-understanding sector:
-   registry list + capability report cards */
+   registry list + capability report cards.
+   Type scale (operator order 2026-11-21 — one deliberate hierarchy,
+   no random jumps): title 1rem / body 0.9rem / section head 0.76rem
+   uppercase / label 0.74rem uppercase / fine print 0.78rem.
+   Form controls are dark end to end (operator order 2026-11-21):
+   color-scheme dark + explicit dark fields and option lists, so a
+   dropdown never flashes white against the stage. */
 .window-devices {
+  --dev-fs-title: 1rem;
+  --dev-fs-body: 0.9rem;
+  --dev-fs-head: 0.76rem;
+  --dev-fs-label: 0.74rem;
+  --dev-fs-fine: 0.78rem;
+  --dev-panel: rgba(6, 16, 26, 0.55);
+  --dev-field: #08131d;
+  --dev-field-text: #e6f9ff;
+  color-scheme: dark;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
   height: 100%;
   overflow-y: auto;
+  font-size: var(--dev-fs-body);
 }
 .window-devices__intro {
-  font-size: 0.9rem;
+  font-size: var(--dev-fs-body);
+  line-height: 1.45;
   opacity: 0.85;
   margin: 0;
 }
 .window-devices__heartbeat {
-  font-size: 0.85rem;
+  font-size: var(--dev-fs-fine);
   opacity: 0.85;
   margin: 0;
 }
@@ -2915,16 +2932,26 @@
   gap: 0.5rem;
   align-items: flex-start;
 }
-.window-devices__unavailable {
+.window-devices__unavailable,
+.window-devices__watcher {
   display: flex;
   gap: 0.4rem;
   align-items: flex-start;
-  font-size: 0.85rem;
+  font-size: var(--dev-fs-body);
+  line-height: 1.45;
+  background: var(--dev-panel);
   border: 1px solid var(--avatar-hud-line);
   border-radius: 8px;
   padding: 0.5rem 0.6rem;
   margin: 0;
-  max-width: 30rem;
+  max-width: 34rem;
+}
+.window-devices__watcher {
+  border-color: var(--avatar-hud-accent, #22d3ee);
+}
+.window-devices__watcher--quiet {
+  border-color: var(--avatar-hud-line);
+  opacity: 0.85;
 }
 .window-devices__unavailable svg {
   flex: 0 0 auto;
@@ -2933,12 +2960,12 @@
   margin-top: 2px;
 }
 .window-devices__error {
-  font-size: 0.88rem;
+  font-size: var(--dev-fs-body);
   margin: 0;
   color: #f87171;
 }
 .window-devices__done {
-  font-size: 0.88rem;
+  font-size: var(--dev-fs-body);
   margin: 0;
   opacity: 0.9;
 }
@@ -2946,39 +2973,70 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.5rem 0.75rem;
+  background: var(--dev-panel);
   border: 1px solid var(--avatar-hud-line);
   border-radius: 8px;
   padding: 0.6rem;
+}
+.window-devices__formtitle {
+  grid-column: 1 / -1;
+  font-size: var(--dev-fs-title);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0;
 }
 .window-devices__form label {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  font-size: 0.78rem;
+  font-size: var(--dev-fs-label);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   opacity: 0.95;
 }
 .window-devices__form input,
 .window-devices__form select,
 .window-devices__form textarea {
-  background: transparent;
+  background: var(--dev-field);
   border: 1px solid var(--avatar-hud-line);
   border-radius: 6px;
-  color: inherit;
+  color: var(--dev-field-text);
+  color-scheme: dark;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: var(--dev-fs-body);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
   padding: 0.35rem 0.45rem;
+}
+.window-devices__form select option {
+  background-color: #0a1826;
+  color: var(--dev-field-text);
+}
+.window-devices__form input:focus-visible,
+.window-devices__form select:focus-visible,
+.window-devices__form textarea:focus-visible {
+  outline: 1px solid var(--avatar-hud-accent, #22d3ee);
+  outline-offset: 0;
 }
 .window-devices__form label.window-devices__check {
   flex-direction: row;
   align-items: center;
   gap: 0.45rem;
-  font-size: 0.85rem;
+  font-size: var(--dev-fs-body);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
 }
 .window-devices__form label.window-devices__check input {
   width: auto;
+  accent-color: var(--avatar-hud-accent, #22d3ee);
 }
-.window-devices__form button {
-  align-self: end;
+.window-devices__formactions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: end;
 }
 .window-devices__body {
   display: flex;
@@ -2992,7 +3050,9 @@
 }
 .window-devices__list h3,
 .window-devices__card h3 {
-  font-size: 0.95rem;
+  font-size: var(--dev-fs-title);
+  font-weight: 600;
+  letter-spacing: 0.02em;
   margin: 0 0 0.4rem;
 }
 .window-devices__list ul {
@@ -3006,20 +3066,23 @@
 .window-devices__list li button {
   width: 100%;
   text-align: left;
-  background: transparent;
+  background: var(--dev-panel);
   border: 1px solid var(--avatar-hud-line);
   border-radius: 8px;
   color: inherit;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: var(--dev-fs-body);
   padding: 0.45rem 0.55rem;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
 }
+.window-devices__list li button:hover {
+  border-color: var(--avatar-hud-accent, #22d3ee);
+}
 .window-devices__list li button span {
-  font-size: 0.72rem;
+  font-size: var(--dev-fs-fine);
   opacity: 0.7;
 }
 .window-devices__list li button.is-active {
@@ -3027,6 +3090,7 @@
 }
 .window-devices__card {
   flex: 1 1 320px;
+  background: var(--dev-panel);
   border: 1px solid var(--avatar-hud-line);
   border-radius: 8px;
   padding: 0.6rem 0.7rem;
@@ -3040,15 +3104,25 @@
   align-items: flex-start;
   gap: 0.5rem;
 }
+.window-devices__cardactions {
+  display: flex;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
 .window-devices__card h4 {
-  font-size: 0.85rem;
+  font-size: var(--dev-fs-head);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--avatar-hud-accent, #22d3ee);
   margin: 0 0 0.3rem;
 }
 .window-devices__card section {
   margin: 0;
 }
 .window-devices__meta {
-  font-size: 0.78rem;
+  font-size: var(--dev-fs-fine);
+  line-height: 1.45;
   opacity: 0.75;
   margin: 0;
 }
@@ -3059,27 +3133,35 @@
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  font-size: 0.88rem;
+  font-size: var(--dev-fs-body);
+  line-height: 1.45;
 }
 .window-devices__greeting {
-  font-size: 0.92rem;
+  font-size: var(--dev-fs-body);
+  line-height: 1.45;
+  background: var(--dev-panel);
   border: 1px solid var(--avatar-hud-accent, #22d3ee);
   border-radius: 8px;
   padding: 0.5rem 0.6rem;
   margin: 0;
 }
 .window-devices__rssi {
-  background: transparent;
+  background: var(--dev-field);
   border: 1px solid var(--avatar-hud-line);
   border-radius: 6px;
-  color: inherit;
+  color: var(--dev-field-text);
+  color-scheme: dark;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--dev-fs-body);
   padding: 0.35rem 0.45rem;
   width: 10rem;
 }
+.window-devices .window-hint {
+  font-size: var(--dev-fs-fine);
+  line-height: 1.45;
+}
 .window-devices__uuid {
-  font-size: 0.7rem;
+  font-size: var(--dev-fs-fine);
   opacity: 0.6;
   word-break: break-all;
 }

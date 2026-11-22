@@ -1,0 +1,15 @@
+[Unit]
+Description=Augie Wi-Fi watcher — the Parrot's ear for registered device SSIDs
+After=network-online.target augie.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/blackhatter/.local/node22/bin/node /home/blackhatter/augie-watcher/wifi-watcher.mjs
+Restart=always
+RestartSec=5
+Environment=AUGIE_SERVER=http://127.0.0.1:8081
+Environment=WATCH_INTERVAL_MS=20000
+
+[Install]
+WantedBy=default.target

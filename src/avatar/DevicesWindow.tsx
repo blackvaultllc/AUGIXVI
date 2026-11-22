@@ -17,7 +17,7 @@
  * The BLE hardware path is BUILT, NOT YET VERIFIED on real hardware.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bluetooth, BluetoothOff, Plus, Radar, Trash2 } from "lucide-react";
+import { Bluetooth, BluetoothOff, Pencil, Plus, Radar, Trash2 } from "lucide-react";
 import { FloatingWindow } from "./windows/FloatingWindow";
 import {
   DEVICE_KIND_LABELS,
@@ -49,6 +49,13 @@ import {
   type PresenceWatchState,
 } from "./devices/presence";
 import { HEARTBEAT_PERIOD_MS } from "./heartbeat";
+import type { WatcherView } from "./devices/wifiWatch";
+
+/** What the window knows about the local Wi-Fi watcher (the Parrot's ear). */
+type WatcherInfo =
+  | { kind: "unknown" }
+  | { kind: "none" }
+  | { kind: "live"; view: WatcherView };
 
 type BleState =
   | { kind: "idle" }
@@ -117,6 +124,8 @@ export function DevicesWindow({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [watcher, setWatcher] = useState<WatcherInfo>({ kind: "unknown" });
   const [ble, setBle] = useState<BleState>({ kind: "idle" });
   const [scanNote, setScanNote] = useState<string | null>(null);
   const [watch, setWatch] = useState<PresenceWatchState>(() => getPresenceWatch());
@@ -171,6 +180,62 @@ export function DevicesWindow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * The local Wi-Fi watcher's real state, from the Augie server this
+   * page is served by. On the Parrot build a watcher service sweeps
+   * the air with nmcli and reports here; on the hosted build this
+   * answers "none" and the honest browser text below stands. Polled
+   * while the window is open so the state shown is the state now.
+   */
+  const refreshWatcher = async () => {
+    try {
+      const response = await fetch("/api/devices/watchlist", { cache: "no-store" });
+      if (!response.ok) {
+        setWatcher({ kind: "none" });
+        return;
+      }
+      const data: unknown = await response.json();
+      const view =
+        typeof data === "object" && data !== null
+          ? (data as Record<string, unknown>)["watcher"]
+          : null;
+      if (typeof view === "object" && view !== null) {
+        setWatcher({ kind: "live", view: view as WatcherView });
+      } else {
+        setWatcher({ kind: "none" });
+      }
+    } catch {
+      setWatcher({ kind: "none" });
+    }
+  };
+
+  useEffect(() => {
+    void refreshWatcher();
+    const timer = setInterval(() => void refreshWatcher(), 20_000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * Keep the server's watch-list equal to the registry's activation
+   * SSIDs, so the Parrot's watcher sweeps for exactly what Augie has
+   * registered — the wand included, by its registered name, never
+   * hard-coded. Best-effort: where no local server store exists the
+   * sync simply goes nowhere and nothing pretends otherwise.
+   */
+  useEffect(() => {
+    const ssids = [
+      ...new Set(
+        devices.map((d) => watchedSsid(d)).filter((s): s is string => s !== null),
+      ),
+    ];
+    void fetch("/api/devices/watchlist", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ssids }),
+    }).catch(() => undefined);
+  }, [devices]);
+
   const markPresence = (kind: "appeared" | "disappeared") => {
     if (!selected) return;
     const result = recordPresenceEvent(devicesRef.current, selected.id, {
@@ -210,6 +275,45 @@ export function DevicesWindow({
     }
   };
 
+  /** Open the form pre-filled with a device's current values, so a
+   *  fix never means delete-and-recreate (operator order 2026-11-21). */
+  const startEdit = (device: DeviceProfile) => {
+    setForm({
+      displayName: device.displayName,
+      kind: device.kind,
+      transport: device.transport,
+      externalId: device.externalId,
+      ssid: device.ssid ?? "",
+      placement: device.placement ?? "",
+      placementNote: device.placementNote ?? "",
+      activationSsid: device.activationSsid ?? "",
+      beaconRole: device.beaconRole === true,
+      lastSeenRssi: device.lastSeenRssi !== undefined ? String(device.lastSeenRssi) : "",
+      streamType: device.measured.streamType ?? "",
+      streamAddress: device.measured.streamAddress ?? "",
+      streamFps: device.measured.streamFps !== undefined ? String(device.measured.streamFps) : "",
+      latencyMs: device.measured.latencyMs !== undefined ? String(device.measured.latencyMs) : "",
+      focalDistanceMm:
+        device.measured.focalDistanceMm !== undefined
+          ? String(device.measured.focalDistanceMm)
+          : "",
+      focalNotes: device.measured.focalNotes ?? "",
+      lightingNotes: device.measured.lightingNotes ?? "",
+      capabilities: device.capabilities.join("\n"),
+      limitations: device.limitations.join("\n"),
+      notes: device.measured.notes ?? "",
+    });
+    setEditingId(device.id);
+    setSelectedId(device.id);
+    setShowForm(true);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setShowForm(false);
+  };
+
   const submitManual = () => {
     const name = form.displayName.trim();
     if (!name) return;
@@ -227,9 +331,7 @@ export function DevicesWindow({
     if (form.focalNotes.trim()) measured.focalNotes = form.focalNotes.trim();
     if (form.lightingNotes.trim()) measured.lightingNotes = form.lightingNotes.trim();
     if (form.notes.trim()) measured.notes = form.notes.trim();
-    const now = Date.now();
-    const profile: DeviceProfile = {
-      id: newDeviceId(),
+    const formFields = {
       displayName: name,
       kind: form.kind,
       transport: form.transport,
@@ -238,10 +340,8 @@ export function DevicesWindow({
       placement: form.placement ? form.placement : undefined,
       placementNote: form.placementNote.trim() ? form.placementNote.trim() : undefined,
       activationSsid: form.activationSsid.trim() ? form.activationSsid.trim() : undefined,
-      beaconRole: form.beaconRole ? true : undefined,
+      beaconRole: form.beaconRole ? (true as const) : undefined,
       lastSeenRssi: parseNumber(form.lastSeenRssi),
-      source: "manual",
-      declaredServices: [],
       capabilities: form.capabilities
         .split("\n")
         .map((line) => line.trim())
@@ -250,21 +350,41 @@ export function DevicesWindow({
         .split("\n")
         .map((line) => line.trim())
         .filter(Boolean),
-      batteryLevel: null,
       measured,
-      presence: "unknown",
-      presenceEvents: [],
-      firstSeen: now,
-      lastSeen: now,
     };
-    setDevices((current) => upsertDevice(current, profile));
-    setSelectedId(profile.id);
+    const now = Date.now();
+    const existing = editingId ? devicesRef.current.find((d) => d.id === editingId) : undefined;
+    if (existing) {
+      // Edit in place: everything the form does not own — presence,
+      // its event log, declared services, device info, battery,
+      // source, first/last seen — survives untouched. An edit is not
+      // a sighting, so lastSeen does not move.
+      const profile: DeviceProfile = { ...existing, ...formFields };
+      setDevices((current) => upsertDevice(current, profile));
+      setSelectedId(existing.id);
+    } else {
+      const profile: DeviceProfile = {
+        id: newDeviceId(),
+        ...formFields,
+        source: "manual",
+        declaredServices: [],
+        batteryLevel: null,
+        presence: "unknown",
+        presenceEvents: [],
+        firstSeen: now,
+        lastSeen: now,
+      };
+      setDevices((current) => upsertDevice(current, profile));
+      setSelectedId(profile.id);
+    }
+    setEditingId(null);
     setForm(EMPTY_FORM);
     setShowForm(false);
   };
 
   const removeSelected = () => {
     if (!selected) return;
+    if (editingId === selected.id) cancelEdit();
     setDevices((current) => removeDevice(current, selected.id));
     setSelectedId(null);
   };
@@ -287,15 +407,45 @@ export function DevicesWindow({
           the device declares it or you measured it.
         </p>
 
-        <p className="window-devices__unavailable" role="status">
-          Wi-Fi presence watch is UNAVAILABLE in this web app — browsers cannot scan Wi-Fi networks,
-          so Augie cannot watch for a hotspot SSID from here. Checks ride Augie's heartbeat while he
-          is on stage — about every{" "}
-          {Math.round((HEARTBEAT_CHECK_DIVIDER * HEARTBEAT_PERIOD_MS) / 1000)} seconds — and also
-          run on demand, and each one reports this honestly instead of faking a scan. The registry
-          holds each device's activation SSID, beacon/wand role, and presence log for the local
-          Augie build to watch, and presence can be recorded by hand on a device's card.
-        </p>
+        {watcher.kind === "live" && watcher.view.active ? (
+          <p className="window-devices__watcher" role="status">
+            Local Wi-Fi watcher is LIVE — this machine's ear is sweeping the air for the names
+            Augie watches:{" "}
+            {watcher.view.watchedSsids.length > 0
+              ? watcher.view.watchedSsids.join(", ")
+              : "none registered yet"}
+            . Last scan{" "}
+            {watcher.view.lastScanAt
+              ? new Date(watcher.view.lastScanAt).toLocaleTimeString()
+              : "just now"}
+            {watcher.view.tool ? ` via ${watcher.view.tool}` : ""}. When a watched name appears,
+            its device flips ACTIVE here on its own — and a wand's appearance wakes Augie with
+            the greeting. Checks still ride Augie's heartbeat, about every{" "}
+            {Math.round((HEARTBEAT_CHECK_DIVIDER * HEARTBEAT_PERIOD_MS) / 1000)} seconds.
+          </p>
+        ) : (
+          <>
+            <p className="window-devices__unavailable" role="status">
+              Wi-Fi presence watch is UNAVAILABLE in this web app — browsers cannot scan Wi-Fi
+              networks, so Augie cannot watch for a hotspot SSID from here. Checks ride Augie's
+              heartbeat while he is on stage — about every{" "}
+              {Math.round((HEARTBEAT_CHECK_DIVIDER * HEARTBEAT_PERIOD_MS) / 1000)} seconds — and
+              also run on demand, and each one reports this honestly instead of faking a scan.
+              The registry holds each device's activation SSID, beacon/wand role, and presence
+              log for the local Augie build to watch, and presence can be recorded by hand on a
+              device's card.
+            </p>
+            {watcher.kind === "live" && (
+              <p className="window-devices__watcher window-devices__watcher--quiet" role="status">
+                A local Wi-Fi watcher exists on this machine but is not reporting — last scan{" "}
+                {watcher.view.lastScanAt
+                  ? new Date(watcher.view.lastScanAt).toLocaleString()
+                  : "never"}
+                . Until it wakes, presence checks record nothing.
+              </p>
+            )}
+          </>
+        )}
         <p className="window-devices__heartbeat" role="status">
           Presence check rides Augie's heartbeat —{" "}
           {watch.lastCheckAt
@@ -337,7 +487,17 @@ export function DevicesWindow({
               and no device was guessed at. You can still register a device by hand below.
             </p>
           )}
-          <button type="button" className="window-btn" onClick={() => setShowForm((v) => !v)}>
+          <button
+            type="button"
+            className="window-btn"
+            onClick={() => {
+              if (!showForm) {
+                setEditingId(null);
+                setForm(EMPTY_FORM);
+              }
+              setShowForm((v) => !v);
+            }}
+          >
             <Plus aria-hidden="true" /> Register a device by hand
           </button>
         </div>
@@ -360,6 +520,9 @@ export function DevicesWindow({
               submitManual();
             }}
           >
+            <h3 className="window-devices__formtitle">
+              {editingId ? "Edit device" : "Register a device by hand"}
+            </h3>
             <label>
               Device name
               <input
@@ -540,9 +703,16 @@ export function DevicesWindow({
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
               />
             </label>
-            <button type="submit" className="window-btn">
-              Save device
-            </button>
+            <div className="window-devices__formactions">
+              <button type="submit" className="window-btn">
+                {editingId ? "Save changes" : "Save device"}
+              </button>
+              {editingId && (
+                <button type="button" className="window-btn" onClick={cancelEdit}>
+                  Cancel edit
+                </button>
+              )}
+            </div>
           </form>
         )}
 
@@ -581,9 +751,18 @@ export function DevicesWindow({
             >
               <header>
                 <h3>{selected.displayName}</h3>
-                <button type="button" className="window-btn" onClick={removeSelected}>
-                  <Trash2 aria-hidden="true" /> Remove
-                </button>
+                <div className="window-devices__cardactions">
+                  <button
+                    type="button"
+                    className="window-btn"
+                    onClick={() => startEdit(selected)}
+                  >
+                    <Pencil aria-hidden="true" /> Edit
+                  </button>
+                  <button type="button" className="window-btn" onClick={removeSelected}>
+                    <Trash2 aria-hidden="true" /> Remove
+                  </button>
+                </div>
               </header>
               <p className="window-devices__meta">
                 {DEVICE_KIND_LABELS[selected.kind]} · {TRANSPORT_LABELS[selected.transport]}

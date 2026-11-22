@@ -97,12 +97,83 @@ export type WifiScanResult =
 const SCAN_UNAVAILABLE_REASON =
   "This web app cannot scan Wi-Fi networks — browsers expose no Wi-Fi scanning API. No scan was performed and nothing was faked.";
 
+const SCAN_STALE_WATCHER_REASON =
+  "The local Wi-Fi watcher has not reported a fresh scan, so the air cannot be read right now. No scan was performed and nothing was faked.";
+
 /**
- * Scan the Wi-Fi environment. In this web build the honest answer is
- * unavailable; a local/native build replaces this implementation with
- * a real scanner returning the same shape.
+ * Map one /api/devices/scan-state answer onto the scan boundary.
+ * Pure, so the local-feed behavior is unit-testable without a
+ * server. Returns:
+ *  - an available scan when the local watcher is active — its
+ *    sightings ARE a real scan of the air around the Parrot;
+ *  - an unavailable scan naming the stale watcher when a watcher
+ *    exists but has gone quiet;
+ *  - null when the answer holds no watcher at all (every hosted /
+ *    browser-only context) — the caller then gives the canonical
+ *    browsers-cannot-scan answer.
+ */
+export function wifiScanFromWatcherState(state: unknown, now: number): WifiScanResult | null {
+  if (typeof state !== "object" || state === null) return null;
+  const record = state as Record<string, unknown>;
+  const watcher = record["watcher"];
+  if (typeof watcher !== "object" || watcher === null) return null;
+  const view = watcher as Record<string, unknown>;
+  if (view["active"] !== true) {
+    return typeof view["lastScanAt"] === "number"
+      ? { available: false, reason: SCAN_STALE_WATCHER_REASON, at: now }
+      : null;
+  }
+  const rawNetworks = Array.isArray(record["networks"]) ? record["networks"] : [];
+  const networks: WifiNetworkSighting[] = [];
+  for (const item of rawNetworks) {
+    if (typeof item !== "object" || item === null) continue;
+    const entry = item as Record<string, unknown>;
+    if (typeof entry["ssid"] !== "string" || !entry["ssid"]) continue;
+    networks.push(
+      typeof entry["rssi"] === "number" && entry["rssi"] >= -120 && entry["rssi"] <= 0
+        ? { ssid: entry["ssid"], rssi: entry["rssi"] }
+        : { ssid: entry["ssid"] },
+    );
+  }
+  return { available: true, networks, at: now };
+}
+
+/**
+ * Ask the local Augie server what its Wi-Fi watcher last saw. On
+ * the Parrot build, the watcher service sweeps the air with nmcli
+ * and reports sightings to the server; this is how they reach the
+ * presence pipeline. Any failure — no server route, no watcher,
+ * hosted build — resolves to null, never to a fake scan.
+ */
+async function scanViaLocalWatcher(now: number): Promise<WifiScanResult | null> {
+  try {
+    if (typeof fetch !== "function") return null;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    try {
+      const response = await fetch("/api/devices/scan-state", {
+        signal: controller.signal,
+        cache: "no-store",
+      });
+      if (!response.ok) return null;
+      return wifiScanFromWatcherState(await response.json(), now);
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Scan the Wi-Fi environment. A browser cannot scan — but where
+ * Augie runs on the local server, the Parrot's watcher service can,
+ * and its sightings answer here. With no local watcher the honest
+ * answer is unavailable; nothing is ever faked.
  */
 export async function scanWifiEnvironment(now: number = Date.now()): Promise<WifiScanResult> {
+  const local = await scanViaLocalWatcher(now);
+  if (local) return local;
   return { available: false, reason: SCAN_UNAVAILABLE_REASON, at: now };
 }
 

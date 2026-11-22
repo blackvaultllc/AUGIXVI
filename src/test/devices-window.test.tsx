@@ -180,4 +180,39 @@ describe("Devices window", () => {
     expect(screen.queryByRole("article")).toBeNull();
     expect(screen.getByText(/No devices registered yet/)).toBeTruthy();
   });
+
+  it("edits a device in place — pre-filled form, no delete-and-recreate", () => {
+    saveRegistry([
+      seeded({
+        id: "wand-edit",
+        displayName: "Magic Wand",
+        kind: "camera",
+        transport: "wifi-ap",
+        ssid: "SOFTISH-1851",
+        activationSsid: "SOFTISH-1851",
+        beaconRole: true,
+        placement: "handheld",
+        placementNote: "in my hand",
+        presence: "active",
+        presenceEvents: [{ kind: "appeared", at: 3000, rssi: -49, via: "manual" }],
+      }),
+    ]);
+    render(<DevicesWindow onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Edit/ }));
+    // The form opens pre-filled with the device's current values.
+    expect((screen.getByLabelText(/Device name/) as HTMLInputElement).value).toBe("Magic Wand");
+    expect((screen.getByLabelText(/Wi-Fi SSID/) as HTMLInputElement).value).toBe("SOFTISH-1851");
+    expect((screen.getByLabelText(/Role detail/) as HTMLInputElement).value).toBe("in my hand");
+    fireEvent.change(screen.getByLabelText(/Role detail/), {
+      target: { value: "taped to my glasses — forward eye" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    // Same single device, updated in place; presence history survives.
+    expect(screen.getAllByRole("article")).toHaveLength(1);
+    expect(
+      screen.getByText(/Placement \/ role: Handheld — taped to my glasses — forward eye/),
+    ).toBeTruthy();
+    expect(screen.getByText(/Status: ACTIVE — present and on/)).toBeTruthy();
+    expect(screen.getByText(/Appeared · .* · recorded by hand/)).toBeTruthy();
+  });
 });

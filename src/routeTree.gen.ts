@@ -19,6 +19,9 @@ import { Route as AvatarGameRouteImport } from './routes/avatar_.game'
 import { Route as AvatarWorldRouteImport } from './routes/avatar_.world'
 import { Route as LearnerGameRouteImport } from './routes/learner_.game'
 import { Route as LearnerRacingRouteImport } from './routes/learner_.racing'
+import { Route as ApiDevicesScanStateRouteImport } from './routes/api.devices.scan-state'
+import { Route as ApiDevicesSightingsRouteImport } from './routes/api.devices.sightings'
+import { Route as ApiDevicesWatchlistRouteImport } from './routes/api.devices.watchlist'
 import { Route as ApiLibraryArticleRouteImport } from './routes/api.library.article'
 import { Route as ApiLibraryCatalogRouteImport } from './routes/api.library.catalog'
 import { Route as ApiLibrarySearchRouteImport } from './routes/api.library.search'
@@ -79,6 +82,21 @@ const LearnerRacingRoute = LearnerRacingRouteImport.update({
   path: '/learner/racing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDevicesScanStateRoute = ApiDevicesScanStateRouteImport.update({
+  id: '/api/devices/scan-state',
+  path: '/api/devices/scan-state',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevicesSightingsRoute = ApiDevicesSightingsRouteImport.update({
+  id: '/api/devices/sightings',
+  path: '/api/devices/sightings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevicesWatchlistRoute = ApiDevicesWatchlistRouteImport.update({
+  id: '/api/devices/watchlist',
+  path: '/api/devices/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLibraryArticleRoute = ApiLibraryArticleRouteImport.update({
   id: '/api/library/article',
   path: '/api/library/article',
@@ -136,6 +154,9 @@ export interface FileRoutesByFullPath {
   '/avatar/world': typeof AvatarWorldRoute
   '/learner/game': typeof LearnerGameRoute
   '/learner/racing': typeof LearnerRacingRoute
+  '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
+  '/api/devices/sightings': typeof ApiDevicesSightingsRoute
+  '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -157,6 +178,9 @@ export interface FileRoutesByTo {
   '/avatar/world': typeof AvatarWorldRoute
   '/learner/game': typeof LearnerGameRoute
   '/learner/racing': typeof LearnerRacingRoute
+  '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
+  '/api/devices/sightings': typeof ApiDevicesSightingsRoute
+  '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -179,6 +203,9 @@ export interface FileRoutesById {
   '/avatar_/world': typeof AvatarWorldRoute
   '/learner_/game': typeof LearnerGameRoute
   '/learner_/racing': typeof LearnerRacingRoute
+  '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
+  '/api/devices/sightings': typeof ApiDevicesSightingsRoute
+  '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -202,6 +229,9 @@ export interface FileRouteTypes {
     | '/avatar/world'
     | '/learner/game'
     | '/learner/racing'
+    | '/api/devices/scan-state'
+    | '/api/devices/sightings'
+    | '/api/devices/watchlist'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -223,6 +253,9 @@ export interface FileRouteTypes {
     | '/avatar/world'
     | '/learner/game'
     | '/learner/racing'
+    | '/api/devices/scan-state'
+    | '/api/devices/sightings'
+    | '/api/devices/watchlist'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -244,6 +277,9 @@ export interface FileRouteTypes {
     | '/avatar_/world'
     | '/learner_/game'
     | '/learner_/racing'
+    | '/api/devices/scan-state'
+    | '/api/devices/sightings'
+    | '/api/devices/watchlist'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -266,6 +302,9 @@ export interface RootRouteChildren {
   AvatarWorldRoute: typeof AvatarWorldRoute
   LearnerGameRoute: typeof LearnerGameRoute
   LearnerRacingRoute: typeof LearnerRacingRoute
+  ApiDevicesScanStateRoute: typeof ApiDevicesScanStateRoute
+  ApiDevicesSightingsRoute: typeof ApiDevicesSightingsRoute
+  ApiDevicesWatchlistRoute: typeof ApiDevicesWatchlistRoute
   ApiLibraryArticleRoute: typeof ApiLibraryArticleRoute
   ApiLibraryCatalogRoute: typeof ApiLibraryCatalogRoute
   ApiLibrarySearchRoute: typeof ApiLibrarySearchRoute
@@ -349,6 +388,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnerRacingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/devices/scan-state': {
+      id: '/api/devices/scan-state'
+      path: '/api/devices/scan-state'
+      fullPath: '/api/devices/scan-state'
+      preLoaderRoute: typeof ApiDevicesScanStateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devices/sightings': {
+      id: '/api/devices/sightings'
+      path: '/api/devices/sightings'
+      fullPath: '/api/devices/sightings'
+      preLoaderRoute: typeof ApiDevicesSightingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devices/watchlist': {
+      id: '/api/devices/watchlist'
+      path: '/api/devices/watchlist'
+      fullPath: '/api/devices/watchlist'
+      preLoaderRoute: typeof ApiDevicesWatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/library/article': {
       id: '/api/library/article'
       path: '/api/library/article'
@@ -426,6 +486,9 @@ const rootRouteChildren: RootRouteChildren = {
   AvatarWorldRoute: AvatarWorldRoute,
   LearnerGameRoute: LearnerGameRoute,
   LearnerRacingRoute: LearnerRacingRoute,
+  ApiDevicesScanStateRoute: ApiDevicesScanStateRoute,
+  ApiDevicesSightingsRoute: ApiDevicesSightingsRoute,
+  ApiDevicesWatchlistRoute: ApiDevicesWatchlistRoute,
   ApiLibraryArticleRoute: ApiLibraryArticleRoute,
   ApiLibraryCatalogRoute: ApiLibraryCatalogRoute,
   ApiLibrarySearchRoute: ApiLibrarySearchRoute,
