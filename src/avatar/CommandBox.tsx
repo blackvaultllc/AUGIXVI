@@ -14,6 +14,7 @@ import {
   ChevronUp,
   Eye,
   GripVertical,
+  Menu,
   MessagesSquare,
   Mic,
   MicOff,
@@ -42,9 +43,14 @@ const BOX_THREAD_KEY = "augi.avatar.command-box.thread.v1";
 
 function loadThreadOpen(): boolean {
   try {
-    return globalThis.localStorage?.getItem(BOX_THREAD_KEY) === "true";
+    const stored = globalThis.localStorage?.getItem(BOX_THREAD_KEY);
+    // Part 28 (owner order 2026-11-21): the default face is a plain
+    // chat, so the thread is OPEN by default — only an explicit saved
+    // "false" (he collapsed it himself) starts it closed.
+    if (stored === null || stored === undefined) return true;
+    return stored === "true";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -153,6 +159,11 @@ export function CommandBox({
   const [position, setPosition] = useState(loadBoxPosition);
   const [minimized, setMinimized] = useState(loadBoxMinimized);
   const [threadOpen, setThreadOpen] = useState(loadThreadOpen);
+  // Part 28: the tab machinery (Scene / Motion / Tools / Settings /
+  // Commands panels) lives behind ONE Menu button. The default face is
+  // the chat alone; the menu opens only when he asks for it and is not
+  // persisted — every fresh load starts as a plain chat box.
+  const [machineryOpen, setMachineryOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -266,12 +277,13 @@ export function CommandBox({
     ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
     : undefined;
 
-  // MMORPG layout (owner order 2026-11-21): tabs across the top of the
-  // box, the active tab's content under them, the conversation — the
-  // thread plus the latest exchange — as the lower body, and the input
-  // pinned at the very bottom. The grip stays above the tabs as the
-  // window's drag/title bar; when minimized it and the input are all
-  // that show.
+  // PLAIN CHAT FACE (Part 28, owner order 2026-11-21 — supersedes the
+  // MMORPG tab-first layout): the default face is a regular chat box —
+  // the conversation thread (open by default) plus the latest exchange,
+  // and the input pinned at the bottom. ALL machinery — the tabs and
+  // their panels — sits behind the one Menu button in the grip and
+  // renders only while the menu is open. The grip stays the window's
+  // drag/title bar; when minimized it and the input are all that show.
 
   return (
     <section
@@ -294,6 +306,21 @@ export function CommandBox({
         <span className="avatar-command-box__title">Command</span>
         <button
           type="button"
+          className="avatar-command-box__window-button avatar-command-box__menu-button"
+          onClick={() => {
+            if (minimized) restoreNow();
+            setMachineryOpen((open) => !open);
+          }}
+          aria-expanded={machineryOpen}
+          aria-controls="avatar-command-machinery"
+          aria-label={machineryOpen ? "Close the tools menu" : "Open the tools menu"}
+          title="Tools, rooms and settings"
+        >
+          <Menu aria-hidden="true" />
+          <span>Menu</span>
+        </button>
+        <button
+          type="button"
           className="avatar-command-box__window-button"
           onClick={toggleMinimized}
           aria-label={minimized ? "Expand command box" : "Minimize command box"}
@@ -303,8 +330,8 @@ export function CommandBox({
         </button>
       </div>
 
-      {!minimized && (
-        <>
+      {!minimized && machineryOpen && (
+        <div id="avatar-command-machinery" className="avatar-command-box__machinery">
           <div className="avatar-command-box__tabs" role="tablist" aria-label="Command tabs">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button
@@ -330,6 +357,11 @@ export function CommandBox({
           >
             {activeTab === "commands" ? <CommandsDocument highlighted={null} /> : children}
           </div>
+        </div>
+      )}
+
+      {!minimized && (
+        <>
           <div className="avatar-command-box__conversation" role="group" aria-label="Conversation">
             {history !== undefined && (
               <>

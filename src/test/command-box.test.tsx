@@ -57,6 +57,11 @@ describe("command box grip controls", () => {
 
   it("minimizes when the grip button is pressed — the press does not start a drag", () => {
     renderBox();
+    // Part 28: the panel lives behind the Menu button — open it so the
+    // panel is on screen, then prove minimize hides it and expand
+    // brings it back, with no drag capture on either press.
+    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
+    expect(screen.getByText("panel body")).toBeInTheDocument();
     const minimize = screen.getByRole("button", { name: "Minimize command box" });
     pointerDown(minimize);
     expect(captureSpy).not.toHaveBeenCalled();
@@ -164,13 +169,9 @@ describe("command box conversation thread", () => {
     );
   }
 
-  it("keeps the thread collapsed until he opens it, then shows the exchange in order", () => {
+  it("shows the thread OPEN by default, the exchange in order (Part 28 plain chat face)", () => {
     renderBoxWithHistory(true);
     const toggle = screen.getByRole("button", { name: /Conversation \(2\)/ });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("The cube is open.")).not.toBeInTheDocument();
-
-    fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     const first = screen.getByText("open the cube");
     const firstReply = screen.getByText("The cube is open.");
@@ -187,7 +188,17 @@ describe("command box conversation thread", () => {
       second.compareDocumentPosition(secondReply) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
+    // He can still collapse it himself.
     fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("The cube is open.")).not.toBeInTheDocument();
+  });
+
+  it("respects his own saved collapse — an explicit 'false' starts the thread closed", () => {
+    localStorage.setItem("augi.avatar.command-box.thread.v1", "false");
+    renderBoxWithHistory(true);
+    const toggle = screen.getByRole("button", { name: /Conversation \(2\)/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("The cube is open.")).not.toBeInTheDocument();
   });
 
@@ -198,16 +209,17 @@ describe("command box conversation thread", () => {
 });
 
 /**
- * MMORPG LAYOUT (owner order 2026-11-21): he did not like the box's
- * arrangement — response on top, tabs in the middle, conversation
- * buried — and ordered the opposite, "like playing a video game, on
- * the MMORPG": tabs across the TOP of the box, the active tab's
- * content under them, the conversation as the lower body, and the
- * input pinned at the very bottom, always visible. Same pieces, MMO
- * order; everything that worked (tab switching, the thread, the echo,
- * submit, voice, minimize) must keep working in the new order.
+ * PLAIN CHAT FACE (Part 28, owner order 2026-11-21 — supersedes the
+ * MMORPG tab-first layout): "All these options and I can't just get a
+ * regular chat box to conversate with my AI and be able to see the
+ * replies like a normal person." The DEFAULT face is a plain chat:
+ * the thread open by default, the latest exchange, one typing line.
+ * ALL machinery — tabs and their panels — sits behind ONE Menu button
+ * in the grip. Abilities unchanged; everything that worked (tab
+ * switching, the thread, the echo, submit, voice, minimize) must keep
+ * working, one Menu press away.
  */
-describe("command box MMORPG layout", () => {
+describe("command box plain chat face", () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -259,17 +271,16 @@ describe("command box MMORPG layout", () => {
   const before = (a: HTMLElement, b: HTMLElement) =>
     Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-  it("orders the box MMO-style: tabs, panel, conversation, input", () => {
+  it("default face is a plain chat: thread, latest exchange, input — no tabs, no panel", () => {
     render(<StatefulBox />);
-    const tablist = screen.getByRole("tablist");
-    const panel = screen.getByText("scene panel body");
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
+
     const toggle = screen.getByRole("button", { name: /Conversation \(2\)/ });
     const echo = screen.getByText("last thing I said");
     const reply = screen.getByText("Latest reply.");
     const input = screen.getByPlaceholderText(/Type a command/);
 
-    expect(before(tablist, panel)).toBe(true);
-    expect(before(panel, toggle)).toBe(true);
     expect(before(toggle, reply)).toBe(true);
     expect(before(echo, reply)).toBe(true);
     expect(before(reply, input)).toBe(true);
@@ -282,8 +293,29 @@ describe("command box MMORPG layout", () => {
     expect(zone).not.toContainElement(input);
   });
 
+  it("the one Menu button opens the machinery — tabs and panel above the conversation", () => {
+    render(<StatefulBox />);
+    const menu = screen.getByRole("button", { name: /tools menu/i });
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(menu);
+    expect(menu).toHaveAttribute("aria-expanded", "true");
+    const tablist = screen.getByRole("tablist");
+    const panel = screen.getByText("scene panel body");
+    const toggle = screen.getByRole("button", { name: /Conversation \(2\)/ });
+    expect(before(tablist, panel)).toBe(true);
+    expect(before(panel, toggle)).toBe(true);
+
+    fireEvent.click(menu);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
+    // The chat never left.
+    expect(screen.getByText("Latest reply.")).toBeInTheDocument();
+  });
+
   it("every tab still switches the panel while conversation and input stay put", () => {
     render(<StatefulBox />);
+    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
     const input = screen.getByPlaceholderText(/Type a command/);
 
     fireEvent.click(screen.getByRole("tab", { name: /Tools/ }));
@@ -307,6 +339,7 @@ describe("command box MMORPG layout", () => {
 
   it("the Commands tab still shows the full command document in the panel", () => {
     render(<StatefulBox />);
+    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
     fireEvent.click(screen.getByRole("tab", { name: /Commands/ }));
     expect(screen.getByText(/Every command Osiris can act on/)).toBeInTheDocument();
     // The panel swapped; the conversation and bottom input did not move.
@@ -319,7 +352,6 @@ describe("command box MMORPG layout", () => {
 
   it("the open thread reads down into the latest reply, right above the input", () => {
     render(<StatefulBox />);
-    fireEvent.click(screen.getByRole("button", { name: /Conversation \(2\)/ }));
     const first = screen.getByText("open the cube");
     const last = screen.getByText("Flying.");
     const reply = screen.getByText("Latest reply.");
@@ -329,8 +361,10 @@ describe("command box MMORPG layout", () => {
     expect(before(reply, input)).toBe(true);
   });
 
-  it("minimizing hides tabs, panel and conversation — never the input", () => {
+  it("minimizing hides machinery and conversation — never the input; expanding restores the chat face", () => {
     render(<StatefulBox />);
+    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Minimize command box" }));
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
@@ -339,7 +373,7 @@ describe("command box MMORPG layout", () => {
     expect(screen.getByPlaceholderText(/Type a command/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Expand command box" }));
-    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(screen.getByText("Latest reply.")).toBeInTheDocument();
     expect(
       before(screen.getByText("Latest reply."), screen.getByPlaceholderText(/Type a command/)),
     ).toBe(true);

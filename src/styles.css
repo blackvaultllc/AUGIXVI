@@ -1604,6 +1604,19 @@
   width: 0.75rem;
   height: 0.75rem;
 }
+/* Part 28: the one Menu button that opens the tab machinery — it
+   carries a text label so it reads as a clear control, not an icon
+   puzzle, and pushes itself to the grip's right edge. */
+.avatar-command-box__menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .avatar-command-box__response {
   padding: 0.4rem 0.5rem;
   border: 1px solid var(--avatar-hud-line);
