@@ -1,14 +1,19 @@
 /**
  * PICTURE ANALYSIS — Augie's analytic window (operator room).
  *
- * Two ways in: scan the room with the live camera, or pick a picture
- * file. Either way the image goes to the Parrot's LOCAL Ollama vision
- * model and the analysis comes back as text on this page. Nothing
- * leaves this machine. When no vision model is installed, or Ollama is
- * not answering, the room says so plainly — it never invents a result.
+ * Part 27: the PRIMARY face is the small FloatingWindow on the stage
+ * (AnalyticWindow); the /avatar/analyze page renders this same panel
+ * as the secondary, full-page face. Two ways in: scan the room with
+ * the live camera, or pick a picture file. Either way the image goes
+ * to the Parrot's LOCAL Ollama vision model and the result comes back
+ * as the picture WITH a short analysis AND a list of things found.
+ * Nothing leaves this machine. When no vision model is installed, or
+ * Ollama is not answering, the panel says so plainly — including when
+ * Scan is pressed — and never invents a result.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadBrainAddress } from "./brain";
+import { parseAnalysis } from "./analysisParsing";
 import { CANONICAL_VISION_MODEL } from "./visionModel";
 
 const ANALYZE_PROMPT = [
@@ -17,6 +22,8 @@ const ANALYZE_PROMPT = [
   "any people (count them only — never try to identify anyone), any readable text,",
   "and anything unusual or worth the operator's attention.",
   "If the image is dark, blurry or unclear, say so plainly. Never invent details.",
+  "After the description, add a line that says FINDINGS: and then list each distinct thing",
+  "you found, one per line, each starting with '- '. Keep the list to what is actually visible.",
 ].join(" ");
 
 /** Installed-model names the room prefers, best first — the canonical
@@ -53,7 +60,13 @@ type ModelState =
   | { status: "ready"; model: string }
   | { status: "unavailable"; reason: string };
 
-type Analysis = { text: string; model: string; at: number; source: string };
+type Analysis = {
+  text: string;
+  findings: string[];
+  model: string;
+  at: number;
+  source: string;
+};
 
 const panelStyle: React.CSSProperties = {
   border: "1px solid #26314a",
@@ -86,11 +99,15 @@ export function PictureAnalysis() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
+  /** When the model was last checked, and what the check found — the
+   * "Check again" button must VISIBLY report, never spin silently. */
+  const [lastChecked, setLastChecked] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const checkModel = useCallback(async () => {
     setModelState({ status: "checking" });
+    setLastChecked(null);
     try {
       const res = await fetch(`${brain}/api/tags`);
       if (!res.ok) throw new Error(`Ollama answered ${res.status}`);
@@ -114,6 +131,11 @@ export function PictureAnalysis() {
         status: "unavailable",
         reason: `Ollama is not answering at ${brain}. Picture analysis is unavailable until the brain is reachable.`,
       });
+    } finally {
+      // The check always lands somewhere visible: the status text above
+      // changes AND the time is stamped, so "Check again" can never
+      // look like it did nothing (Part 27).
+      setLastChecked(new Date().toLocaleTimeString());
     }
   }, [brain]);
 
@@ -179,7 +201,14 @@ export function PictureAnalysis() {
       const data = (await res.json()) as { response?: string };
       const text = (data.response ?? "").trim();
       if (!text) throw new Error("the vision model returned an empty answer");
-      setAnalysis({ text, model: modelState.model, at: Date.now(), source });
+      const parsed = parseAnalysis(text);
+      setAnalysis({
+        text: parsed.summary || text,
+        findings: parsed.findings,
+        model: modelState.model,
+        at: Date.now(),
+        source,
+      });
     } catch (err) {
       setError(
         `Analysis unavailable: ${
@@ -192,7 +221,20 @@ export function PictureAnalysis() {
     }
   };
 
+  /** Scan/upload with no usable model must SAY why, in plain words —
+   * a silently disabled button reads as broken (Part 27). */
+  const refuseWithoutModel = (): boolean => {
+    if (modelState.status === "ready") return false;
+    setError(
+      modelState.status === "checking"
+        ? "Still checking for the vision model — give it a second, then press Scan again."
+        : `Scan can't run: ${modelState.reason}`,
+    );
+    return true;
+  };
+
   const scanRoom = () => {
+    if (refuseWithoutModel()) return;
     const video = videoRef.current;
     if (!video || !cameraOn) return;
     const width = video.videoWidth || 640;
@@ -213,6 +255,7 @@ export function PictureAnalysis() {
 
   const onFile = (file: File | null) => {
     if (!file) return;
+    if (refuseWithoutModel()) return;
     setError("");
     const reader = new FileReader();
     reader.onload = () => {
@@ -222,8 +265,6 @@ export function PictureAnalysis() {
     reader.onerror = () => setError("That picture could not be read.");
     reader.readAsDataURL(file);
   };
-
-  const ready = modelState.status === "ready";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -236,15 +277,33 @@ export function PictureAnalysis() {
           </p>
         )}
         {modelState.status === "unavailable" && (
-          <div>
-            <p style={{ margin: "0 0 8px" }} role="alert">
-              {modelState.reason}
-            </p>
-            <button type="button" style={buttonStyle} onClick={() => void checkModel()}>
-              Check again
-            </button>
-          </div>
+          <p style={{ margin: "0 0 8px" }} role="alert">
+            {modelState.reason}
+          </p>
         )}
+        <div
+          style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "8px" }}
+        >
+          <button
+            type="button"
+            style={buttonStyle}
+            onClick={() => void checkModel()}
+            disabled={modelState.status === "checking"}
+          >
+            {modelState.status === "checking" ? "Checking…" : "Check again"}
+          </button>
+          <span style={{ fontSize: "13px", color: "#9fb0c9" }} role="status">
+            {lastChecked
+              ? `Last checked ${lastChecked} — ${
+                  modelState.status === "ready"
+                    ? `${modelState.model} is ready`
+                    : modelState.status === "checking"
+                      ? "checking…"
+                      : "no vision model available"
+                }`
+              : "Not checked yet this session."}
+          </span>
+        </div>
       </section>
 
       <section style={panelStyle} aria-label="Scan the room">
@@ -280,7 +339,7 @@ export function PictureAnalysis() {
             type="button"
             style={primaryButtonStyle}
             onClick={scanRoom}
-            disabled={!cameraOn || busy || !ready}
+            disabled={!cameraOn || busy}
           >
             {busy ? "Analyzing…" : "Scan the room"}
           </button>
@@ -295,7 +354,7 @@ export function PictureAnalysis() {
         <input
           type="file"
           accept="image/*"
-          disabled={busy || !ready}
+          disabled={busy}
           onChange={(event) => onFile(event.target.files?.[0] ?? null)}
           aria-label="Picture file to analyze"
         />
@@ -322,6 +381,16 @@ export function PictureAnalysis() {
         <section style={panelStyle} aria-label="Analysis result">
           <h2 style={{ margin: "0 0 8px", fontSize: "17px" }}>Analysis</h2>
           <p style={{ margin: "0 0 8px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{analysis.text}</p>
+          {analysis.findings.length > 0 && (
+            <>
+              <h3 style={{ margin: "0 0 6px", fontSize: "15px" }}>Things found</h3>
+              <ul style={{ margin: "0 0 8px", paddingLeft: "20px", lineHeight: 1.5 }}>
+                {analysis.findings.map((finding, index) => (
+                  <li key={`${index}-${finding}`}>{finding}</li>
+                ))}
+              </ul>
+            </>
+          )}
           <p style={{ margin: 0, fontSize: "13px", color: "#9fb0c9" }}>
             Source: {analysis.source} · Model: {analysis.model} ·{" "}
             {new Date(analysis.at).toLocaleTimeString()} · Analyzed locally on the Parrot.

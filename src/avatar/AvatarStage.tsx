@@ -76,6 +76,7 @@ import { attachOllamaAI, type OllamaAIOptions } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
 import { ArCubeWindow } from "./ArCubeWindow";
 import { PulseWindow } from "./PulseWindow";
+import { AnalyticWindow } from "./AnalyticWindow";
 import { GateLogWindow } from "./GateLogWindow";
 import { SandboxWindow } from "./SandboxWindow";
 import { LibraryWindow } from "./LibraryWindow";
@@ -328,6 +329,7 @@ export function AvatarStage({
   // the room-frequency readout in a small floating box (operator order
   // 2026-11-21). Opens from Tools → Rooms and from "open pulse".
   const [pulseOpen, setPulseOpen] = useState(false);
+  const [analyzeOpen, setAnalyzeOpen] = useState(false);
   // GATE LOG WINDOW: every recorded knock on the gate (trap-path
   // probes), read server-side under the operator session (operator
   // order 2026-11-21 — "Honeypot city"). Opens from Tools → Rooms and
@@ -695,7 +697,9 @@ export function AvatarStage({
         return;
       }
       if (room === "picture-analysis") {
-        void navigate({ to: "/avatar/analyze" });
+        // Part 27: the analytic WINDOW is the primary face now; the
+        // /avatar/analyze page remains as the secondary full page.
+        setAnalyzeOpen(true);
         return;
       }
       if (room === "game") {
@@ -1530,7 +1534,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   <CommandAction
                     icon={ScanSearch}
                     label="Picture Analysis"
-                    onClick={() => void navigate({ to: "/avatar/analyze" })}
+                    onClick={() => setAnalyzeOpen(true)}
                   />
                   <CommandAction
                     icon={Gamepad2}
@@ -1763,6 +1767,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
       {arCubeOpen && <ArCubeWindow onClose={() => setArCubeOpen(false)} />}
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
+      {analyzeOpen && <AnalyticWindow onClose={() => setAnalyzeOpen(false)} />}
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
