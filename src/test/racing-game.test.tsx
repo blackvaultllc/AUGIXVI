@@ -7,9 +7,11 @@ import { startLearnerSession } from "@/avatar/learner/learnerProfile";
 /**
  * PLAY-THROUGH — this suite drives the real component through every
  * state the spec names: setup picks, the 3-2-1-GO countdown, racing
- * questions (correct, wrong, and timed-out), a full pit stop (NOS
- * earned and spent), a partial pit stop (green GO button early), the
- * finish podium, Play Again, and the 1-Minute Sprint.
+ * questions (correct = the car speeds up, wrong = the car slows
+ * down, and NO question timer — a question waits to be answered),
+ * a full pit stop (NOS earned and spent), a partial pit stop
+ * (green GO button early), the finish podium, Play Again, and the
+ * 1-Minute Sprint.
  */
 
 function readPrompt(container: HTMLElement): { a: number; b: number } | null {
@@ -151,26 +153,53 @@ describe("multiplication racing — full play-through", () => {
     expect(screen.getByRole("button", { name: "Start the Race!" })).toBeInTheDocument();
   });
 
-  it("a wrong answer never punishes — no boost, the fact is shown, racing goes on", () => {
+  it("THE SPEED LOOP: right answer speeds her car up, wrong answer slows it down", () => {
+    const { container } = render(<RacingGame />);
+    startRace(container);
+    const speed = () => screen.getByTestId("player-speed").textContent;
+    // Rolling at base speed before any answer.
+    expect(speed()).toBe("Your speed: 7");
+
+    // RIGHT answer — the car SPEEDS UP (7.2 + 4.4 boost = 11.6 -> 12).
+    const first = readPrompt(container);
+    if (!first) throw new Error("no question");
+    clickAnswer(container, first.a * first.b);
+    expect(speed()).toBe("Your speed: 12");
+
+    // WRONG answer — the car SLOWS DOWN (boost gone, 7.2 - 3.4 slow
+    // = 3.8 -> 4), the right fact is shown kindly, racing goes on.
+    advance(1300);
+    const second = readPrompt(container);
+    if (!second) throw new Error("no second question");
+    clickWrongAnswer(container);
+    expect(speed()).toBe("Your speed: 4");
+    expect(
+      screen.getByText(
+        new RegExp(`Good try! ${second.a} × ${second.b} = ${second.a * second.b}`),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/slows down a little/)).toBeInTheDocument();
+
+    // The next RIGHT answer speeds her right back up.
+    advance(1300);
+    const third = readPrompt(container);
+    if (!third) throw new Error("no third question");
+    clickAnswer(container, third.a * third.b);
+    expect(speed()).toBe("Your speed: 12");
+  });
+
+  it("a question has NO timer — left alone, it waits to be answered", () => {
     const { container } = render(<RacingGame />);
     startRace(container);
     const prompt = readPrompt(container);
     if (!prompt) throw new Error("no question");
-    clickWrongAnswer(container);
-    expect(
-      screen.getByText(new RegExp(`Good try! ${prompt.a} × ${prompt.b} = ${prompt.a * prompt.b}`)),
-    ).toBeInTheDocument();
-    advance(1600);
-    expect(readPrompt(container)).not.toBeNull();
-  });
-
-  it("a question left alone times out and the race moves on", () => {
-    const { container } = render(<RacingGame />);
-    startRace(container);
-    advance(10200);
-    expect(screen.getByText(/Time's up! Here comes the next one/)).toBeInTheDocument();
-    advance(1500);
-    expect(readPrompt(container)).not.toBeNull();
+    // 12 seconds — past the old 10-second limit — and she is still
+    // on lap 1 (base speed covers ~91 of 100 units), so the very
+    // same question must still be on screen, untimed and unhurried.
+    advance(12000);
+    expect(screen.queryByText(/Time's up/)).not.toBeInTheDocument();
+    expect(readPrompt(container)).toEqual(prompt);
+    expect(container.querySelector(".racing-timer")).toBeNull();
   });
 
   it("a pit problem answered wrong stays put with the trick still showing", () => {

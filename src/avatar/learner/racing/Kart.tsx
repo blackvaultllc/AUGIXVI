@@ -4,7 +4,8 @@
  * behind the glass, and chunky kart wheels like a Mario kart. Pit
  * stop upgrades are VISIBLE on the car: spoiler, turbo pod, engine
  * scoop, golden wheels. When the car is boosting (or on NOS), the
- * exhaust flame shows.
+ * exhaust flame shows; when it is slowed after a wrong answer,
+ * soft gray puffs roll out instead.
  */
 
 export interface CarStyle {
@@ -105,6 +106,7 @@ export function Kart({
   driver,
   upgrades = NO_UPGRADES,
   boosting = false,
+  slowing = false,
   title,
 }: {
   style: string;
@@ -112,6 +114,9 @@ export function Kart({
   driver: Driver;
   upgrades?: KartUpgrades;
   boosting?: boolean;
+  /** Slowed after a wrong answer: soft gray puffs at the exhaust,
+   *  the gentle opposite of the boost flame. */
+  slowing?: boolean;
   title: string;
 }) {
   const wheelFill = upgrades.goldenWheels ? "#ffb703" : "#2b2320";
@@ -127,6 +132,14 @@ export function Kart({
             transform="translate(8 0)"
           />
           <path d="M4 57 L-6 53 L-2 58 L-6 62 L5 61 Z" fill="#ffd60a" transform="translate(6 0)" />
+        </g>
+      )}
+      {/* soft gray puffs when slowed — the car is rolling slower */}
+      {slowing && !boosting && (
+        <g aria-hidden="true" fill="#adb5bd">
+          <circle cx="0" cy="58" r="5" opacity="0.85" />
+          <circle cx="-9" cy="53" r="7" opacity="0.55" />
+          <circle cx="-19" cy="58" r="9" opacity="0.32" />
         </g>
       )}
       {/* ground shadow */}

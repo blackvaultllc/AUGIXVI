@@ -21,26 +21,40 @@ import {
  * MULTIPLICATION RACING GAME — a TEST feature for DIJA'S Academy
  * (operator order 2026-11-21, modeled on a 10-year-old learner).
  *
- * Pick a car, a color, a driver. 3, 2, 1, GO: four karts race three
- * laps by themselves, and the player's kart speeds up for every
- * multiplication question he answers (10 seconds each, no punishment
- * for a miss — it just doesn't speed up). At the end of laps 1 and 2
- * his kart pulls into a PIT STOP: no timer, no rush, problems that
- * teach the strategy trick behind the facts, and every solved
- * problem bolts a real upgrade onto his kart. Solve all three and
- * the next lap gets a NOS button — one tap, big zoom. A separate
- * 1-Minute Sprint (Eureka-style) is on the start screen for beating
- * his own best score.
+ * THE GAME LOOP, exactly as Domenick specced it on 2026-11-21 after
+ * watching Khadija play: a real TRACK with CARS RACING on it — four
+ * karts on one track, racing the whole way to the finish line. The
+ * question pops up in the middle of the screen, right UNDER the
+ * race, with FOUR answer options. RIGHT answer — her car SPEEDS UP.
+ * WRONG answer — her car SLOWS DOWN. That speed loop is the game.
+ *
+ * There is NO timer on a question: it waits until she answers
+ * (kids' rules — no pressuring countdowns, no flashing). A wrong
+ * answer never stops her car or sends it backward; it just slows
+ * for a few seconds, the right fact is shown kindly, and the next
+ * right answer speeds her right back up. The speedometer in the
+ * HUD shows her speed so she can SEE the loop working.
+ *
+ * Pick a car, a color, a driver. 3, 2, 1, GO: four karts race
+ * three laps. At the end of laps 1 and 2 her kart pulls into a
+ * PIT STOP: no timer, no rush, problems that teach the strategy
+ * trick behind the facts, and every solved problem bolts a real
+ * upgrade onto her kart. Solve all three and the next lap gets a
+ * NOS button — one tap, big zoom. A separate 1-Minute Sprint
+ * (Eureka-style) is on the start screen for beating her own best
+ * score.
  */
 
 const TOTAL_LAPS = 3;
 const LAP_LENGTH = 100;
 const TOTAL_DISTANCE = TOTAL_LAPS * LAP_LENGTH;
-const QUESTION_SECONDS = 10;
 const GAP_SECONDS = 1.1;
 const PLAYER_BASE_SPEED = 7.2;
 const BOOST_AMOUNT = 4.4;
 const BOOST_DECAY = 1.9;
+const SLOW_AMOUNT = 3.4;
+const SLOW_DECAY = 1.4;
+const MIN_PLAYER_SPEED = 3;
 const UPGRADE_BONUS = 0.35;
 const NOS_BONUS = 9;
 const NOS_SECONDS = 3;
@@ -81,9 +95,9 @@ interface Racer {
 interface Engine {
   racers: Racer[];
   boost: number;
+  slow: number;
   nosTimeLeft: number;
   question: MathQuestion | null;
-  questionTimeLeft: number;
   gapLeft: number;
   feedback: string | null;
   correctCount: number;
@@ -95,9 +109,9 @@ function emptyEngine(): Engine {
   return {
     racers: [],
     boost: 0,
+    slow: 0,
     nosTimeLeft: 0,
     question: null,
-    questionTimeLeft: QUESTION_SECONDS,
     gapLeft: 0.4,
     feedback: "Answer questions to speed up!",
     correctCount: 0,
@@ -268,6 +282,7 @@ export function RacingGame() {
     const eng = engineRef.current;
     eng.question = null;
     eng.boost = 0;
+    eng.slow = 0;
     setPitIndex(index);
     setPitList(pitProblems(index));
     setPitStep(0);
@@ -289,11 +304,17 @@ export function RacingGame() {
       if (racer.finishedOrder != null) continue;
       let speed: number;
       if (racer.isPlayer) {
-        speed =
+        // THE SPEED LOOP: right answers add boost, wrong answers add
+        // slow. The floor means a miss never stops her or sends her
+        // backward — she just rolls slower for a few seconds.
+        speed = Math.max(
+          MIN_PLAYER_SPEED,
           PLAYER_BASE_SPEED +
-          eng.boost +
-          upgradeBonusRef.current +
-          (eng.nosTimeLeft > 0 ? NOS_BONUS : 0);
+            eng.boost +
+            upgradeBonusRef.current +
+            (eng.nosTimeLeft > 0 ? NOS_BONUS : 0) -
+            eng.slow,
+        );
       } else {
         speed =
           racer.baseSpeed *
@@ -307,6 +328,7 @@ export function RacingGame() {
     }
 
     eng.boost = Math.max(0, eng.boost - BOOST_DECAY * dt);
+    eng.slow = Math.max(0, eng.slow - SLOW_DECAY * dt);
     if (eng.nosTimeLeft > 0) eng.nosTimeLeft = Math.max(0, eng.nosTimeLeft - dt);
 
     const lapBefore = Math.floor(playerBefore / LAP_LENGTH);
@@ -321,21 +343,14 @@ export function RacingGame() {
       return;
     }
 
-    // Question cadence.
-    if (eng.question) {
-      eng.questionTimeLeft -= dt;
-      if (eng.questionTimeLeft <= 0) {
-        eng.feedback = "Time's up! Here comes the next one.";
-        eng.question = null;
-        eng.gapLeft = GAP_SECONDS;
-      }
-    } else {
+    // Question cadence. NO TIMER: once a question pops up it waits
+    // until she answers — nothing counts down, nothing times out.
+    if (!eng.question) {
       eng.gapLeft -= dt;
       if (eng.gapLeft <= 0) {
         const lap = Math.min(TOTAL_LAPS, Math.floor(player.progress / LAP_LENGTH) + 1);
         eng.question = raceQuestion(lap, Math.random, eng.lastKey);
         eng.lastKey = questionKey(eng.question);
-        eng.questionTimeLeft = QUESTION_SECONDS;
       }
     }
   }
@@ -345,11 +360,18 @@ export function RacingGame() {
     const q = eng.question;
     if (!q || phase !== "racing") return;
     if (choice === q.answer) {
+      // RIGHT — the car SPEEDS UP, and any slow-down shakes off.
       eng.boost = BOOST_AMOUNT;
+      eng.slow = 0;
       eng.correctCount += 1;
       eng.feedback = PRAISE[Math.floor(Math.random() * PRAISE.length)]!;
     } else {
-      eng.feedback = `Good try! ${q.a} × ${q.b} = ${q.answer}.`;
+      // WRONG — the car SLOWS DOWN for a few seconds. The right
+      // fact is shown kindly, and the next right answer speeds
+      // her right back up.
+      eng.boost = 0;
+      eng.slow = SLOW_AMOUNT;
+      eng.feedback = `Good try! ${q.a} × ${q.b} = ${q.answer}. Your car slows down a little — the next right answer speeds it back up!`;
     }
     eng.question = null;
     eng.gapLeft = GAP_SECONDS;
@@ -475,21 +497,41 @@ export function RacingGame() {
         driver={r.driver}
         upgrades={r.isPlayer ? kartUpgrades : NO_UPGRADES}
         boosting={r.isPlayer && (eng.boost > 0.5 || eng.nosTimeLeft > 0)}
+        slowing={r.isPlayer && eng.slow > 0.3}
         title={`${r.name}'s kart`}
       />
     );
   }
 
+  /** Her car's speed right now — the number the speedometer shows
+   *  and the same math the engine moves her car with. */
+  const playerSpeed = player
+    ? Math.max(
+        MIN_PLAYER_SPEED,
+        PLAYER_BASE_SPEED +
+          eng.boost +
+          upgrades.length * UPGRADE_BONUS +
+          (eng.nosTimeLeft > 0 ? NOS_BONUS : 0) -
+          eng.slow,
+      )
+    : PLAYER_BASE_SPEED;
+
   function track() {
     return (
       <div className="racing-track" aria-label="Race track">
         {racers.map((r) => {
-          const inLap = r.progress % LAP_LENGTH;
-          const leftPct = r.finishedOrder != null ? 96 : Math.min(88, (inLap / LAP_LENGTH) * 88);
+          // One continuous race: cars travel the WHOLE track from
+          // the start to the checkered finish — no jumping back at
+          // each lap. The dashed marks show where laps 2 and 3 start.
+          const leftPct =
+            r.finishedOrder != null ? 92 : Math.min(88, (r.progress / TOTAL_DISTANCE) * 88);
           return (
             <div className="racing-lane" key={r.id}>
               <span className="racing-lane__name">{r.name}</span>
               <div className="racing-lane__road">
+                <span className="racing-lane__lapmark" style={{ left: "29.3%" }} />
+                <span className="racing-lane__lapmark" style={{ left: "58.6%" }} />
+                <span className="racing-lane__finish" aria-hidden="true" />
                 <div className="racing-car" style={{ left: `${leftPct}%` }}>
                   {renderKart(r)}
                 </div>
@@ -671,6 +713,9 @@ export function RacingGame() {
           Lap {playerLap} of {TOTAL_LAPS}
         </span>
         <span aria-live="polite">You are in {ordinal(playerPlace)} place!</span>
+        <span className="racing-hud__speed" data-testid="player-speed">
+          Your speed: {Math.round(playerSpeed)}
+        </span>
         {upgradeNames.length > 0 && (
           <span className="racing-hud__upgrades">
             {upgradeNames.map((u) => u.name).join(" · ")}
@@ -690,23 +735,10 @@ export function RacingGame() {
         <div className="racing-question">
           {eng.question ? (
             <>
-              <p className="racing-question__label">Answer to speed up!</p>
+              <p className="racing-question__label">
+                {eng.slow > 0.3 ? "Answer to speed back up!" : "Answer to speed up!"}
+              </p>
               <p className="racing-question__prompt">{eng.question.prompt}</p>
-              <div
-                className="racing-timer"
-                role="progressbar"
-                aria-label="Time left for this question"
-                aria-valuemin={0}
-                aria-valuemax={QUESTION_SECONDS}
-                aria-valuenow={Math.max(0, Math.ceil(eng.questionTimeLeft))}
-              >
-                <div
-                  className="racing-timer__fill"
-                  style={{
-                    width: `${Math.max(0, (eng.questionTimeLeft / QUESTION_SECONDS) * 100)}%`,
-                  }}
-                />
-              </div>
               <div className="racing-answers">
                 {eng.question.choices.map((choice) => (
                   <button
