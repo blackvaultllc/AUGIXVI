@@ -45,8 +45,8 @@ describe("AR Cube window", () => {
     const { container } = render(<ArCubeWindow onClose={vi.fn()} />);
     const win = container.querySelector<HTMLElement>(".floating-window");
     expect(win).not.toBeNull();
-    expect(win?.style.width).toBe("520px");
-    expect(win?.style.height).toBe("600px");
+    expect(win?.style.width).toBe("400px");
+    expect(win?.style.height).toBe("480px");
     expect(win?.style.left).toBe("120px");
     expect(win?.style.top).toBe("90px");
   });
