@@ -34,6 +34,7 @@ export type RoomTarget =
   | "test-area"
   | "anatomy"
   | "departments"
+  | "captains-log"
   | "sandbox"
   | "library"
   | "devices";
@@ -96,6 +97,12 @@ const PULSE_PATTERNS: readonly RegExp[] = [
 const GATE_LOG_PATTERNS: readonly RegExp[] = [
   /^(?:gate\s+log|honeypot)$/,
   /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:gate\s+log|honeypot)$/,
+];
+
+const CAPTAINS_LOG_PATTERNS: readonly RegExp[] = [
+  /^(?:captain'?s\s+log|video\s+(?:log|journal))$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:captain'?s\s+log|video\s+(?:log|journal))$/,
+  /^record\s+(?:a\s+)?(?:log|journal)(?:\s+entry)?$/,
 ];
 
 const DEPARTMENTS_PATTERNS: readonly RegExp[] = [
@@ -163,6 +170,7 @@ export function parseRoomCommand(text: string): RoomTarget | null {
   if (TEST_AREA_PATTERNS.some((p) => p.test(phrase))) return "test-area";
   if (ANATOMY_PATTERNS.some((p) => p.test(phrase))) return "anatomy";
   if (DEPARTMENTS_PATTERNS.some((p) => p.test(phrase))) return "departments";
+  if (CAPTAINS_LOG_PATTERNS.some((p) => p.test(phrase))) return "captains-log";
   if (SANDBOX_PATTERNS.some((p) => p.test(phrase))) return "sandbox";
   if (LIBRARY_PATTERNS.some((p) => p.test(phrase))) return "library";
   if (DEVICES_PATTERNS.some((p) => p.test(phrase))) return "devices";

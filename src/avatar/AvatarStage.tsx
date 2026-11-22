@@ -15,6 +15,7 @@ import {
   Box,
   Bug,
   Building2,
+  Clapperboard,
   Camera,
   Coffee,
   Expand,
@@ -85,6 +86,7 @@ import { LogsWindow } from "./LogsWindow";
 import { TestAreaWindow } from "./TestAreaWindow";
 import { AnatomyWindow } from "./AnatomyWindow";
 import { DepartmentsWindow } from "./DepartmentsWindow";
+import { CaptainsLogWindow } from "./CaptainsLogWindow";
 import { SandboxWindow } from "./SandboxWindow";
 import { LibraryWindow } from "./LibraryWindow";
 import { DevicesWindow } from "./DevicesWindow";
@@ -346,6 +348,7 @@ export function AvatarStage({
   const [testAreaOpen, setTestAreaOpen] = useState(false);
   const [anatomyOpen, setAnatomyOpen] = useState(false);
   const [departmentsOpen, setDepartmentsOpen] = useState(false);
+  const [captainsLogOpen, setCaptainsLogOpen] = useState(false);
   // SANDBOX WINDOW: the attack-simulation + antivirus-design bench —
   // modeled attacks stepped stage by stage, each stage naming the
   // countermeasure that hooks it (operator order 2026-11-21).
@@ -736,6 +739,11 @@ export function AvatarStage({
       if (room === "gate-log") {
         setGateLogOpen(true);
         say("Gate log is open — every recorded knock on the gate, newest first.");
+        return;
+      }
+      if (room === "captains-log") {
+        setCaptainsLogOpen(true);
+        say("Captain's log is open — record when ready; entries stay on this machine.");
         return;
       }
       if (room === "departments") {
@@ -1610,6 +1618,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setDepartmentsOpen(true)}
                   />
                   <CommandAction
+                    icon={Clapperboard}
+                    label="Captain's Log"
+                    onClick={() => setCaptainsLogOpen(true)}
+                  />
+                  <CommandAction
                     icon={BookOpen}
                     label="Library"
                     onClick={() => setLibraryOpen(true)}
@@ -1824,6 +1837,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {testAreaOpen && <TestAreaWindow onClose={() => setTestAreaOpen(false)} />}
       {anatomyOpen && <AnatomyWindow onClose={() => setAnatomyOpen(false)} />}
       {departmentsOpen && <DepartmentsWindow onClose={() => setDepartmentsOpen(false)} />}
+      {captainsLogOpen && <CaptainsLogWindow onClose={() => setCaptainsLogOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
       {devicesOpen && (
