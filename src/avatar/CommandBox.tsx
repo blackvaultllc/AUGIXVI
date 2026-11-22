@@ -121,7 +121,48 @@ function loadBoxSizeFrom(
   return clampWindowSize(parsed.w, parsed.h, window.innerWidth, window.innerHeight);
 }
 
+/**
+ * THE PHONE DEFAULT (owner order 2026-11-22 — "make the box smaller
+ * for the phone and I can minimize and make it bigger"): below the
+ * stylesheet's phone breakpoint, the desktop default (500×430)
+ * clamps to nearly the whole screen, so the panel filled his phone
+ * even with an empty thread. With NO saved size on record, a
+ * phone-width viewport opens at this compact default instead. The
+ * moment he stretches the box or enlarges it, that size persists
+ * under the same records as on desktop — the phone default only
+ * ever fills the gap before his first stretch, and his saved size
+ * always wins over it.
+ */
+export const COMMAND_BOX_PHONE_BREAKPOINT = 700;
+
+export function phoneDefaultBoxSize(
+  viewportW: number,
+  viewportH: number,
+): { w: number; h: number } {
+  return clampWindowSize(
+    Math.min(340, viewportW),
+    Math.min(400, Math.round(viewportH * 0.45)),
+    viewportW,
+    viewportH,
+  );
+}
+
+function hasSavedBoxSize(key: string): boolean {
+  try {
+    return globalThis.localStorage?.getItem(key) != null;
+  } catch {
+    return false;
+  }
+}
+
 function loadBoxSize(): { w: number; h: number } {
+  if (
+    typeof window !== "undefined" &&
+    window.innerWidth <= COMMAND_BOX_PHONE_BREAKPOINT &&
+    !hasSavedBoxSize(BOX_SIZE_KEY)
+  ) {
+    return phoneDefaultBoxSize(window.innerWidth, window.innerHeight);
+  }
   return loadBoxSizeFrom(BOX_SIZE_KEY, COMMAND_BOX_DEFAULT_SIZE);
 }
 

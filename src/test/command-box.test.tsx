@@ -792,11 +792,74 @@ describe("command box viewport heal + enlarge + phone form", () => {
       const { container } = renderBox();
       const box = boxOf(container);
       expect(box.dataset["anchored"]).toBe("true");
-      // Width clamps to the phone (390 − 2×16 margin); the box
-      // stands at the bottom-left, its input row above the edge.
-      expect(box.style.width).toBe("358px");
+      // The compact phone default (owner order 2026-11-22): with no
+      // saved size on record the box opens at 340×380 on a 390×844
+      // phone — NOT the desktop default clamped to nearly the whole
+      // screen. It stands at the bottom-left, its input row above
+      // the edge: top = 844 − 380 − 16 margin.
+      expect(box.style.width).toBe("340px");
+      expect(box.style.height).toBe("380px");
       expect(box.style.left).toBe("16px");
-      expect(box.style.top).toBe("398px");
+      expect(box.style.top).toBe("448px");
+    } finally {
+      widthSpy.mockRestore();
+      heightSpy.mockRestore();
+    }
+  });
+
+  it("a size he saved on the phone wins over the phone default", () => {
+    localStorage.setItem(
+      "augi.avatar.command-box.size.v2",
+      JSON.stringify({ w: 300, h: 500 }),
+    );
+    const widthSpy = vi
+      .spyOn(window, "innerWidth", "get")
+      .mockReturnValue(390);
+    const heightSpy = vi
+      .spyOn(window, "innerHeight", "get")
+      .mockReturnValue(844);
+    try {
+      const { container } = renderBox();
+      const box = boxOf(container);
+      // His stretch persists on the phone exactly as on desktop —
+      // the phone default only fills the gap before his first one.
+      expect(box.style.width).toBe("300px");
+      expect(box.style.height).toBe("500px");
+      expect(box.style.top).toBe("328px");
+    } finally {
+      widthSpy.mockRestore();
+      heightSpy.mockRestore();
+    }
+  });
+
+  it("enlarge on the phone grows the box from the compact default — and shrinking returns to it", () => {
+    const widthSpy = vi
+      .spyOn(window, "innerWidth", "get")
+      .mockReturnValue(390);
+    const heightSpy = vi
+      .spyOn(window, "innerHeight", "get")
+      .mockReturnValue(844);
+    try {
+      const { container } = renderBox();
+      const box = boxOf(container);
+      expect(box.style.width).toBe("340px");
+      expect(box.style.height).toBe("380px");
+      fireEvent.click(screen.getByRole("button", { name: "Enlarge the chat window" }));
+      expect(box.dataset["enlarged"]).toBe("true");
+      // 340×380 × 1.4, the width clamped by the phone (390 − 2×16).
+      expect(box.style.width).toBe("358px");
+      expect(box.style.height).toBe("532px");
+      fireEvent.click(
+        screen.getByRole("button", { name: "Shrink the chat window to standard size" }),
+      );
+      expect(box.dataset["enlarged"]).toBe("false");
+      expect(box.style.width).toBe("340px");
+      expect(box.style.height).toBe("380px");
+      // The compact default became the phone's standard record.
+      expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v2") ?? "{}")).toEqual({
+        w: 340,
+        h: 380,
+      });
     } finally {
       widthSpy.mockRestore();
       heightSpy.mockRestore();
