@@ -92,10 +92,10 @@ describe("command box grip controls", () => {
     expect(box.dataset["anchored"]).toBe("true");
     // The anchored home (owner orders 2026-11-22): the LEFT side,
     // bottom corner, margin from the edges — jsdom is 1024×768 and
-    // the standard box is the compact 500×430, so home is
-    // x=16, y=768−430−16.
+    // the standard box is the compact 460×400, so home is
+    // x=16, y=768−400−16.
     expect(box.style.left).toBe("16px");
-    expect(box.style.top).toBe("322px");
+    expect(box.style.top).toBe("352px");
     pointerDown(screen.getByText("Chat"));
     expect(captureSpy).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
@@ -301,9 +301,9 @@ describe("command box resize", () => {
     );
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
     // The compact home default (owner order 2026-11-22, defect fix:
-    // 500×430 class, bottom-left — the stage's center stays clear).
-    expect(box.style.width).toBe("500px");
-    expect(box.style.height).toBe("430px");
+    // 460×400 class, bottom-left — the stage's center stays clear).
+    expect(box.style.width).toBe("460px");
+    expect(box.style.height).toBe("400px");
     // Anchored boxes do not stretch — unanchor first.
     fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
     const corner = screen.getByRole("separator", { name: "Resize the chat window" });
@@ -311,11 +311,11 @@ describe("command box resize", () => {
     expect(captureSpy).toHaveBeenCalled();
     pointer(corner, "pointermove", 200, 150);
     pointer(corner, "pointerup", 200, 150);
-    expect(box.style.width).toBe("600px");
-    expect(box.style.height).toBe("480px");
+    expect(box.style.width).toBe("560px");
+    expect(box.style.height).toBe("450px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v2")!)).toEqual({
-      w: 600,
-      h: 480,
+      w: 560,
+      h: 450,
     });
   });
 
@@ -586,11 +586,11 @@ describe("command box home form and bottom-stacked log", () => {
     );
   }
 
-  it("opens compact and anchored — 500×430 at the home corner", () => {
+  it("opens compact and anchored — 460×400 at the home corner", () => {
     const { container } = renderHome();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
-    expect(box.style.width).toBe("500px");
-    expect(box.style.height).toBe("430px");
+    expect(box.style.width).toBe("460px");
+    expect(box.style.height).toBe("400px");
     expect(box.dataset["anchored"]).toBe("true");
     // Anchored home is the bottom-left: left margin, no centering transform.
     expect(box.style.left).toBe("16px");
@@ -656,8 +656,8 @@ describe("command box home form and bottom-stacked log", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Reset the chat window to its home spot and size" }),
     );
-    expect(box.style.width).toBe("500px");
-    expect(box.style.height).toBe("430px");
+    expect(box.style.width).toBe("460px");
+    expect(box.style.height).toBe("400px");
     expect(box.dataset["anchored"]).toBe("true");
     expect(box.style.left).toBe("16px");
     expect(localStorage.getItem("augi.avatar.command-box.size.v2")).toBeNull();
@@ -672,7 +672,7 @@ describe("command box home form and bottom-stacked log", () => {
  * dot grip toggles an enlarged state in the SAME format (both sizes
  * persist separately); and at phone width the anchored box sits
  * fully inside the small viewport with its margin. The standard
- * size these numbers run from is the compact home form, 500×430.
+ * size these numbers run from is the compact home form, 460×400.
  */
 describe("command box viewport heal + enlarge + phone form", () => {
   const captureSpy = vi.fn();
@@ -723,29 +723,29 @@ describe("command box viewport heal + enlarge + phone form", () => {
     );
     const { container } = renderBox();
     const box = boxOf(container);
-    // 500×430 at 1024×768 clamps to the far inside corner (edge 4).
-    expect(box.style.left).toBe("520px");
-    expect(box.style.top).toBe("334px");
+    // 460×400 at 1024×768 clamps to the far inside corner (edge 4).
+    expect(box.style.left).toBe("560px");
+    expect(box.style.top).toBe("364px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.position.v1") ?? "{}")).toEqual(
-      { x: 520, y: 334 },
+      { x: 560, y: 364 },
     );
   });
 
   it("the dot grip enlarges the box in the same format — and shrinks it back", () => {
     const { container } = renderBox();
     const box = boxOf(container);
-    expect(box.style.width).toBe("500px");
-    expect(box.style.height).toBe("430px");
+    expect(box.style.width).toBe("460px");
+    expect(box.style.height).toBe("400px");
     fireEvent.click(screen.getByRole("button", { name: "Enlarge the chat window" }));
     expect(box.dataset["enlarged"]).toBe("true");
-    // 500×430 × 1.4 — inside the jsdom viewport, no clamp needed.
-    expect(box.style.width).toBe("700px");
-    expect(box.style.height).toBe("602px");
+    // 460×400 × 1.4 — inside the jsdom viewport, no clamp needed.
+    expect(box.style.width).toBe("644px");
+    expect(box.style.height).toBe("560px");
     expect(localStorage.getItem("augi.avatar.command-box.enlarged.v1")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Shrink the chat window to standard size" }));
     expect(box.dataset["enlarged"]).toBe("false");
-    expect(box.style.width).toBe("500px");
-    expect(box.style.height).toBe("430px");
+    expect(box.style.width).toBe("460px");
+    expect(box.style.height).toBe("400px");
     expect(localStorage.getItem("augi.avatar.command-box.enlarged.v1")).toBe("false");
   });
 
@@ -760,8 +760,8 @@ describe("command box viewport heal + enlarge + phone form", () => {
     const { container } = renderBox();
     const box = boxOf(container);
     expect(box.dataset["enlarged"]).toBe("true");
-    expect(box.style.width).toBe("700px");
-    expect(box.style.height).toBe("602px");
+    expect(box.style.width).toBe("644px");
+    expect(box.style.height).toBe("560px");
   });
 
   it("the standard size is never overwritten by enlarging", () => {
@@ -916,5 +916,32 @@ describe("command box viewport heal + enlarge + phone form", () => {
     expect(railRuleStart).toBeGreaterThan(-1);
     const railRule = css.slice(railRuleStart, css.indexOf("}", railRuleStart));
     expect(railRule).toContain("flex-direction: row");
+  });
+
+  it("the stylesheet keeps the phone rail inside the panel — a strip across the top, never a spilling column", () => {
+    // jsdom has no layout, so the containment is pinned at the
+    // stylesheet (owner defect 2026-11-22): the desktop rail is a
+    // column taller than a short phone panel, and its lower
+    // buttons hung below the panel's frame on his phone. Below
+    // the phone breakpoint the box must stack — rail folded into
+    // one horizontal strip across the panel's top — so no panel
+    // height can push a button outside the frame again.
+    const css = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+    const mediaStart = css.indexOf("@media (max-width: 700px)");
+    expect(mediaStart).toBeGreaterThan(-1);
+    const media = css.slice(mediaStart);
+    const boxRuleStart = media.indexOf(".avatar-command-box {");
+    expect(boxRuleStart).toBeGreaterThan(-1);
+    const boxRule = media.slice(boxRuleStart, media.indexOf("}", boxRuleStart));
+    expect(boxRule).toContain("flex-direction: column");
+    const railRuleStart = media.indexOf(".avatar-command-box__rail {");
+    expect(railRuleStart).toBeGreaterThan(-1);
+    const railRule = media.slice(railRuleStart, media.indexOf("}", railRuleStart));
+    expect(railRule).toContain("flex-direction: row");
+    expect(railRule).toContain("width: auto");
+    // The grid vestige of the pre-flex layout must not come back,
+    // and the retired standalone toolbar stays retired.
+    expect(media).not.toContain("grid-template-rows");
+    expect(media).not.toContain("stage-toolbar");
   });
 });

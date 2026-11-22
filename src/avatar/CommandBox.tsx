@@ -50,14 +50,16 @@ const BOX_ENLARGED_SIZE_KEY = "augi.avatar.command-box.enlarged-size.v1";
 
 /**
  * The chat window's HOME form (owner order 2026-11-22, the defect
- * fix): compact — 500×430 class — anchored at the stage's
+ * fix): compact — 460×400 class — anchored at the stage's
  * bottom-left corner, so the center of the stage and the Captain's
- * medallion stay clear. His own stretches replace the size (saved
- * under the v2 key — the v1 sizes belonged to the broken layout),
- * and the rail's reset button always brings the home form back in
- * one click.
+ * medallion stay clear. The size came down a step from the earlier
+ * 500×430 on his PC check the same day: at bottom-left on his PC
+ * screen, a little smaller fits the screen perfectly. His own
+ * stretches replace the size (saved under the v2 key — the v1
+ * sizes belonged to the broken layout), and the rail's reset
+ * button always brings the home form back in one click.
  */
-export const COMMAND_BOX_DEFAULT_SIZE = { w: 500, h: 430 } as const;
+export const COMMAND_BOX_DEFAULT_SIZE = { w: 460, h: 400 } as const;
 
 /** The anchored home spot: the bottom-left corner, in px margins. */
 export const COMMAND_BOX_HOME_MARGIN = 16;
@@ -124,7 +126,7 @@ function loadBoxSizeFrom(
 /**
  * THE PHONE DEFAULT (owner order 2026-11-22 — "make the box smaller
  * for the phone and I can minimize and make it bigger"): below the
- * stylesheet's phone breakpoint, the desktop default (500×430)
+ * stylesheet's phone breakpoint, the desktop default (460×400)
  * clamps to nearly the whole screen, so the panel filled his phone
  * even with an empty thread. With NO saved size on record, a
  * phone-width viewport opens at this compact default instead. The
