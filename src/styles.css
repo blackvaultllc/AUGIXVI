@@ -2872,6 +2872,43 @@
   gap: 0.6rem;
   height: 100%;
 }
+/* Part 22: Logs & Updates window. */
+.window-logs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 100%;
+}
+.window-logs__tabs {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+.window-logs__tabs .window-btn[aria-pressed="true"] {
+  outline: 2px solid var(--avatar-hud-accent, #d4af37);
+  outline-offset: 1px;
+}
+.window-logs__note {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  opacity: 0.9;
+}
+.window-logs__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.window-logs__line {
+  font-family: ui-monospace, monospace;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  word-break: break-word;
+  opacity: 0.92;
+}
 .window-gate-log__note {
   font-size: 0.9rem;
   opacity: 0.85;

@@ -22,6 +22,7 @@ import {
   Gamepad2,
   Globe,
   History,
+  ScrollText,
   Laptop,
   LogOut,
   Plane,
@@ -78,6 +79,7 @@ import { ArCubeWindow } from "./ArCubeWindow";
 import { PulseWindow } from "./PulseWindow";
 import { AnalyticWindow } from "./AnalyticWindow";
 import { GateLogWindow } from "./GateLogWindow";
+import { LogsWindow } from "./LogsWindow";
 import { SandboxWindow } from "./SandboxWindow";
 import { LibraryWindow } from "./LibraryWindow";
 import { DevicesWindow } from "./DevicesWindow";
@@ -335,6 +337,7 @@ export function AvatarStage({
   // order 2026-11-21 — "Honeypot city"). Opens from Tools → Rooms and
   // from "open gate log" / "honeypot".
   const [gateLogOpen, setGateLogOpen] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(false);
   // SANDBOX WINDOW: the attack-simulation + antivirus-design bench —
   // modeled attacks stepped stage by stage, each stage naming the
   // countermeasure that hooks it (operator order 2026-11-21).
@@ -725,6 +728,11 @@ export function AvatarStage({
       if (room === "gate-log") {
         setGateLogOpen(true);
         say("Gate log is open — every recorded knock on the gate, newest first.");
+        return;
+      }
+      if (room === "logs") {
+        setLogsOpen(true);
+        say("Logs are open — the service journal, update state, and the updater's own record.");
         return;
       }
       if (room === "sandbox") {
@@ -1559,6 +1567,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   />
                   <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
                   <CommandAction
+                    icon={ScrollText}
+                    label="Logs"
+                    onClick={() => setLogsOpen(true)}
+                  />
+                  <CommandAction
                     icon={BookOpen}
                     label="Library"
                     onClick={() => setLibraryOpen(true)}
@@ -1769,6 +1782,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
       {analyzeOpen && <AnalyticWindow onClose={() => setAnalyzeOpen(false)} />}
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
+      {logsOpen && <LogsWindow onClose={() => setLogsOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
       {devicesOpen && (

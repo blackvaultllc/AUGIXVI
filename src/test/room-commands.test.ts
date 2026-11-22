@@ -112,6 +112,18 @@ describe("room routing — deterministic and terminal", () => {
   });
 
   it.each([
+    "logs",
+    "open logs",
+    "show me the logs",
+    "updates",
+    "open updates",
+    "check for updates",
+    "service log",
+  ])("routes %j to the Logs window (Part 22)", (phrase) => {
+    expect(parseRoomCommand(phrase)).toBe("logs");
+  });
+
+  it.each([
     "sandbox",
     "open sandbox",
     "open the sandbox",
