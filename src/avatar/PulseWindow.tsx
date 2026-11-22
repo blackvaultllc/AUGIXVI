@@ -37,6 +37,7 @@ import {
   type PulseReadout,
   type RoiSample,
 } from "./pulse";
+import { expressionCues, perceptionSentence, voiceCues } from "./perception";
 
 /**
  * FaceLandmarker model — BUNDLED with the app under public/mediapipe/
@@ -133,7 +134,14 @@ function CameraPulsePanel() {
   const rafRef = useRef(0);
   const runningRef = useRef(false);
   const samplesRef = useRef<RoiSample[]>([]);
-  const faceRef = useRef<{ box: FaceBox; at: number } | null>(null);
+  const faceRef = useRef<{
+    box: FaceBox;
+    at: number;
+    /** Raw landmarks of the latest detection — Part 25's cue input.
+     * Used live for geometry ratios only; never stored, never an
+     * identity template. */
+    landmarks: readonly { x: number; y: number }[] | null;
+  } | null>(null);
   const prevGrayRef = useRef<Uint8ClampedArray | null>(null);
   const motionEmaRef = useRef(0);
   const lastDetectRef = useRef(0);
@@ -157,6 +165,8 @@ function CameraPulsePanel() {
    * default view, never an aggressive crop. */
   const [frameAspect, setFrameAspect] = useState<string | undefined>(undefined);
   const [freqState, setFreqState] = useState<"off" | "live" | "quiet">("off");
+  /** Part 25: the live perception sentence ("Cues suggest: …") or null. */
+  const [perception, setPerception] = useState<string | null>(null);
 
   const drawSparkline = useCallback((waveform: number[]) => {
     const canvas = sparkRef.current;
@@ -226,6 +236,7 @@ function CameraPulsePanel() {
     setReadout({ state: "unavailable", reason: "not started" });
     setDomFreq(null);
     setFreqState("off");
+    setPerception(null);
   }, []);
 
   useEffect(() => () => stop(), [stop]);
@@ -247,11 +258,12 @@ function CameraPulsePanel() {
       lastDetectRef.current = now;
       try {
         const res = detector.detectForVideo(video, now);
-        const box = res.faceLandmarks?.[0]
-          ? landmarksBox(res.faceLandmarks[0], video.videoWidth, video.videoHeight)
+        const landmarks = res.faceLandmarks?.[0] ?? null;
+        const box = landmarks
+          ? landmarksBox(landmarks, video.videoWidth, video.videoHeight)
           : null;
         if (box) {
-          faceRef.current = { box, at: now };
+          faceRef.current = { box, at: now, landmarks };
         }
       } catch {
         // A failed frame is not a failed sense; the next tick retries.
@@ -356,6 +368,20 @@ function CameraPulsePanel() {
         );
         setDomFreq(dom);
         setFreqState(dom ? "live" : "quiet");
+      }
+      // Part 25: the perception read — expression + voice cues,
+      // live only. No face in view means no sentence, honestly.
+      {
+        const faceCues =
+          present && face?.landmarks ? expressionCues(face.landmarks) : [];
+        let voice: string[] = [];
+        const analyser = analyserRef.current;
+        if (analyser) {
+          const buf = new Float32Array(analyser.fftSize);
+          analyser.getFloatTimeDomainData(buf);
+          voice = voiceCues(buf, analyser.context.sampleRate).cues;
+        }
+        setPerception(perceptionSentence(faceCues, voice));
       }
       if (!detectorRef.current) {
         setReadout({ state: "unavailable", reason: "face tracker unavailable" });
@@ -518,6 +544,15 @@ function CameraPulsePanel() {
       <p className="window-pulse__summary" role="status">
         {summary}
       </p>
+      {perception && (
+        <p className="window-pulse__perception" role="status">
+          {perception}
+          <span className="window-pulse__privacy">
+            {" "}
+            — cues only, read live; expression is not identity, and nothing here is stored.
+          </span>
+        </p>
+      )}
       {running && (
         <button type="button" className="window-btn" onClick={stop}>
           Stop sensing
