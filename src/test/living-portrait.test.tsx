@@ -2,7 +2,8 @@ import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AnubisPresence } from "@/avatar/AnubisPresence";
 import { BlackHatterPresence } from "@/avatar/BlackHatterPresence";
-import { speakingMsForText } from "@/avatar/LivingPortrait";
+import { MontuPresence } from "@/avatar/MontuPresence";
+import { MONTU_FEATURES, speakingMsForText } from "@/avatar/LivingPortrait";
 
 /**
  * LIVING FACES (owner order 2026-11-22, the core defect): the
@@ -88,6 +89,52 @@ describe("living medallion faces", () => {
     const root = container.querySelector(".black-hatter-presence")!;
     expect(root.classList.contains("black-hatter-presence--speaking")).toBe(true);
     expect(root.getAttribute("aria-label")).toContain("speaking");
+  });
+
+  it("Montu's face is alive too — eyelids over the falcon's eyes, a mouth at the beak (2026-11-22)", () => {
+    const { container } = render(<MontuPresence ready />);
+    const lidLeft = container.querySelector<HTMLElement>('[data-testid="living-lid-left"]');
+    const lidRight = container.querySelector<HTMLElement>('[data-testid="living-lid-right"]');
+    const mouth = container.querySelector<HTMLElement>('[data-testid="living-mouth"]');
+    expect(lidLeft).not.toBeNull();
+    expect(lidRight).not.toBeNull();
+    expect(mouth).not.toBeNull();
+    // The overlays sit on HIS measured features — the falcon's
+    // eyes at (43.7, 40.5) / (56.3, 40.5), the beak's seam at
+    // (50.0, 46.8) — not on another face's map.
+    expect(lidLeft!.style.left).toBe(`${MONTU_FEATURES.leftEye.x - MONTU_FEATURES.eyeW / 2}%`);
+    expect(lidLeft!.style.top).toBe(`${MONTU_FEATURES.leftEye.y - MONTU_FEATURES.eyeH / 2}%`);
+    expect(lidRight!.style.left).toBe(`${MONTU_FEATURES.rightEye.x - MONTU_FEATURES.eyeW / 2}%`);
+    expect(mouth!.style.left).toBe(`${MONTU_FEATURES.mouth.x - MONTU_FEATURES.mouthW / 2}%`);
+    expect(mouth!.style.top).toBe(`${MONTU_FEATURES.mouth.y - MONTU_FEATURES.mouthH / 2}%`);
+    // At rest the beak is shut — the portrait's own beak shows.
+    expect(mouth!.style.opacity).toBe("0");
+  });
+
+  it("Montu blinks on the same cadence — he was the one frozen face (2026-11-22)", () => {
+    const { container } = render(<MontuPresence ready />);
+    const lid = () => container.querySelector('[data-testid="living-lid-left"]')!;
+    expect(lid().classList.contains("is-closed")).toBe(false);
+    let sawClosed = false;
+    for (let i = 0; i < 240 && !sawClosed; i += 1) {
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      sawClosed = lid().classList.contains("is-closed");
+    }
+    expect(sawClosed).toBe(true);
+  });
+
+  it("Montu's beak moves while he speaks (2026-11-22)", () => {
+    const { container } = render(<MontuPresence ready speaking />);
+    const mouth = container.querySelector<HTMLElement>('[data-testid="living-mouth"]')!;
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    expect(mouth.style.opacity).toBe("1");
+    expect(container.querySelector(".montu-presence")!.classList.contains("montu-presence--speaking")).toBe(
+      true,
+    );
   });
 
   it("the Black Hatter is silent at rest — no speaking class, mouth shut", () => {

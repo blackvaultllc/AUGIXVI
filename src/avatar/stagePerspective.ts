@@ -2,24 +2,30 @@
  * STAGE PERSPECTIVE (owner orders 2026-11-22): whose presence holds
  * the stage's focus.
  *
- * THE DEFAULT IS THE BLACK HATTER — Domenick himself. The screen he
- * returns to is his own face at center: he speaks in the system AS
- * the Black Hatter, and the stations recognize that face as the
- * owner (see BLACK_HATTER_BINDING in medallionPortraits.ts).
+ * THE DEFAULT IS ANUBIS (owner order 2026-11-22, superseding the
+ * Black-Hatter-center arrangement): Anubis is the resident
+ * commander — the face on the stage, the one the Captain talks to
+ * day to day — and the screen he returns to is Anubis at center.
+ * The Black Hatter's medallion is PUT AWAY by default: not deleted,
+ * his saved placement and size persist untouched, and the Owner
+ * seat brings him back onto the stage, where he takes the
+ * perspective. His standing as the speaker of record for the
+ * Captain's typed lines in the Command box is unchanged — that is
+ * the speaking protocol, not stage presence.
  *
- * A station comes INTO PERSPECTIVE when he turns to it — Anubis by
- * addressing his medallion, the construct by opening the AUGI avatar
- * window — and it speaks from its own place while it holds the
- * focus. Closing the station, or tapping the Black Hatter's
- * medallion, returns the perspective to the default: him.
+ * A station comes INTO PERSPECTIVE when he turns to it — a god by
+ * summoning him (see presenceDoctrine.ts for who is on the stage at
+ * all), the construct by opening the AUGI avatar window — and it
+ * speaks from its own place while it holds the focus. Closing the
+ * station returns the perspective to the default: Anubis.
  *
  * Plain data, no rendering — unit-testable per the repo's rules.
  */
 export type StagePerspective = "black-hatter" | "anubis" | "montu" | "construct";
 
-export const DEFAULT_STAGE_PERSPECTIVE: StagePerspective = "black-hatter";
+export const DEFAULT_STAGE_PERSPECTIVE: StagePerspective = "anubis";
 
-/** The perspective a station's close returns to — always the owner. */
+/** The perspective a station's close returns to — the resident commander. */
 export function perspectiveAfterClose(): StagePerspective {
   return DEFAULT_STAGE_PERSPECTIVE;
 }

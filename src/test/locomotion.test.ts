@@ -180,6 +180,99 @@ describe("avatar locomotion", () => {
     expect(Math.hypot(root.position.x - MARK.x, root.position.z - MARK.z)).toBeLessThan(0.01);
   });
 
+  it("guided walk: a commanded move travels as a grounded walk and arrives once (2026-11-22)", () => {
+    const root = new THREE.Group();
+    const walker = new AvatarLocomotion(root);
+    let arrivals = 0;
+    expect(
+      walker.walkToPoint({ x: 2.5, z: 0.5 }, { onArrive: () => (arrivals += 1) }),
+    ).toBe(true);
+    expect(walker.isGuidedWalking).toBe(true);
+    expect(walker.isWalking).toBe(true); // the gait is playing — he walks, not slides
+
+    // Grounded the whole way: feet stay on the floor line at every
+    // frame of the travel, and he is never at the target early.
+    let frames = 0;
+    while (walker.isGuidedWalking && frames < 400) {
+      walker.tick(0.05);
+      frames += 1;
+      expect(root.position.y + root.scale.y * -3.2).toBeCloseTo(-3.2, 6);
+    }
+    expect(frames).toBeGreaterThan(10); // the journey takes real steps
+    expect(walker.isGuidedWalking).toBe(false);
+    expect(walker.currentMode).toBe("idle"); // settles to idle on arrival
+    expect(arrivals).toBe(1); // exactly one arrival hand-back
+    expect(root.position.x).toBeCloseTo(2.5, 5);
+    expect(root.position.z).toBeCloseTo(0.5, 5);
+    // And he STAYS arrived — no second callback, no drift.
+    for (let frame = 0; frame < 40; frame++) walker.tick(0.05);
+    expect(arrivals).toBe(1);
+    expect(root.position.x).toBeCloseTo(2.5, 5);
+  });
+
+  it("guided walk: a cross-stage order runs; a short hop walks (2026-11-22)", () => {
+    const farRoot = new THREE.Group();
+    const far = new AvatarLocomotion(farRoot);
+    far.walkToPoint({ x: 6, z: 0 });
+    expect(far.currentMode).toBe("run");
+    expect(far.isWalking).toBe(true); // run is leg locomotion too
+
+    const nearRoot = new THREE.Group();
+    const near = new AvatarLocomotion(nearRoot);
+    near.walkToPoint({ x: 1.5, z: 0 });
+    expect(near.currentMode).toBe("walk");
+  });
+
+  it("guided walk: bring-in arrives full size; a plain order keeps companion scale (2026-11-22)", () => {
+    const homeRoot = new THREE.Group();
+    const home = new AvatarLocomotion(homeRoot);
+    home.walkToPoint({ x: -2, z: 0 }, { fullSizeOnArrive: true });
+    for (let frame = 0; frame < 400 && home.isGuidedWalking; frame++) home.tick(0.05);
+    // Arrival sets his size target whole; the grow settles over the
+    // next frames, as every size change in him does.
+    for (let frame = 0; frame < 60; frame++) home.tick(0.05);
+    expect(homeRoot.scale.x).toBeCloseTo(1, 3); // arrives WHOLE, the come-back rule
+
+    const asideRoot = new THREE.Group();
+    const aside = new AvatarLocomotion(asideRoot);
+    aside.walkToPoint({ x: 2, z: 0 });
+    for (let frame = 0; frame < 400 && aside.isGuidedWalking; frame++) aside.tick(0.05);
+    expect(asideRoot.scale.x).toBeLessThan(0.5); // the walk's own companion scale
+  });
+
+  it("guided walk: a newer order takes him over — the arrival never fires (2026-11-22)", () => {
+    const root = new THREE.Group();
+    const walker = new AvatarLocomotion(root);
+    let arrivals = 0;
+    walker.walkToPoint({ x: 3, z: 0 }, { onArrive: () => (arrivals += 1) });
+    walker.tick(0.05);
+    walker.stop(); // the Captain's newer word rules
+    expect(walker.isGuidedWalking).toBe(false);
+    for (let frame = 0; frame < 100; frame++) walker.tick(0.05);
+    expect(arrivals).toBe(0);
+
+    // Same for a mode change mid-walk (his own wander order).
+    const root2 = new THREE.Group();
+    const walker2 = new AvatarLocomotion(root2);
+    let arrivals2 = 0;
+    walker2.walkToPoint({ x: 3, z: 0 }, { onArrive: () => (arrivals2 += 1) });
+    walker2.tick(0.05);
+    walker2.setMode("fly");
+    expect(walker2.isGuidedWalking).toBe(false);
+    for (let frame = 0; frame < 100; frame++) walker2.tick(0.05);
+    expect(arrivals2).toBe(0);
+  });
+
+  it("guided walk: the full-body hold keeps him whole while he walks an order (2026-11-22)", () => {
+    const root = new THREE.Group();
+    const walker = new AvatarLocomotion(root);
+    walker.setFullBodyHold(true);
+    walker.walkToPoint({ x: 2, z: 0 });
+    for (let frame = 0; frame < 10; frame++) walker.tick(0.05);
+    expect(walker.isGuidedWalking).toBe(true);
+    expect(root.scale.x).toBeCloseTo(1, 3);
+  });
+
   it("follows a finite custom path through an object before stopping", () => {
     const root = new THREE.Group();
     const walker = new AvatarLocomotion(root);

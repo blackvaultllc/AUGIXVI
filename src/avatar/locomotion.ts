@@ -6,6 +6,8 @@ const MIN_SPEED = 0.25;
 const MAX_SPEED = 3;
 const JUMP_SECONDS = 0.9;
 const JUMP_HEIGHT = 1.1;
+/** Guided walks longer than this (world units) are run, not walked. */
+const GUIDED_RUN_DISTANCE = 4.5;
 const DEFAULT_WALK_ROUTE = [
   { x: 0, z: 0 },
   { x: -2.2, z: 0.8 },
@@ -62,6 +64,22 @@ export class AvatarLocomotion {
   private holdPosition = false;
   /** Arrived-at-mark face-the-operator flag: yaw returns to camera-forward (+z). */
   private faceCamera = false;
+  /**
+   * GUIDED WALK (owner order 2026-11-22): a COMMANDED move — bring
+   * in, step aside — travels as a WALK on this same walker, never as
+   * a screen-plane float of the figure's anchor. The old float eased
+   * the anchor across the screen with no gait at all and read as a
+   * zoom/slide; a guided walk moves the ROOT along the floor with
+   * the walking motion playing, grounded the whole way, and settles
+   * to idle on arrival — the same grounded walk as his wandering,
+   * which the Captain likes. While a guided walk runs, `guided`
+   * holds; any order that takes him over (stop, come back, a form,
+   * a facing snap) cancels it silently — the arrival callback only
+   * ever fires for a walk that actually arrives.
+   */
+  private guided = false;
+  private guidedFullSizeOnArrive = false;
+  private onGuidedArrive: (() => void) | null = null;
   /**
    * FULL-BODY HOLD (owner order 2026-11-22, live defect fix): on load
    * the construct flashed full-body, then shrank to the compact
@@ -121,6 +139,11 @@ export class AvatarLocomotion {
     return this.returning;
   }
 
+  /** A commanded walk (bring in / step aside) is travelling now. */
+  get isGuidedWalking() {
+    return this.guided;
+  }
+
   get isLookingAround() {
     return this.looking;
   }
@@ -132,6 +155,9 @@ export class AvatarLocomotion {
   }
 
   setMode(mode: LocomotionMode) {
+    // A fresh mode order takes him over — a guided walk in progress
+    // is cancelled, never completed, by the change.
+    this.cancelGuidedWalk();
     this.mode = mode;
     this.returning = false;
     this.looking = false;
@@ -180,6 +206,7 @@ export class AvatarLocomotion {
   }
 
   grow() {
+    this.cancelGuidedWalk();
     this.mode = "idle";
     this.returning = false;
     this.looking = false;
@@ -211,6 +238,7 @@ export class AvatarLocomotion {
   }
 
   idle() {
+    this.cancelGuidedWalk();
     this.mode = "idle";
     this.returning = false;
     this.holdPosition = false;
@@ -230,9 +258,59 @@ export class AvatarLocomotion {
     return true;
   }
 
+  /**
+   * Walk to ONE floor point under orders — the commanded moves
+   * (bring in, step aside) ride this, so the travel is his own
+   * grounded walk: feet on the floor line, gait playing, scale set
+   * by the walk rules (companion size, unless the full-body hold is
+   * thrown), idle on arrival. A short hop walks; a cross-stage
+   * journey runs — still legs on the floor, never a zoom. The
+   * arrival callback fires exactly once, only if he arrives; any
+   * order that takes him over first cancels it silently.
+   */
+  walkToPoint(
+    point: LocomotionPoint,
+    options?: { fullSizeOnArrive?: boolean; onArrive?: () => void },
+  ): boolean {
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.z)) return false;
+    const distance = Math.hypot(point.x - this.root.position.x, point.z - this.root.position.z);
+    this.returning = false;
+    this.looking = false;
+    this.holdPosition = false;
+    this.faceCamera = false;
+    this.mode = distance > GUIDED_RUN_DISTANCE ? "run" : "walk";
+    this.scaleTarget = this.fullBodyHold ? 1 : COMPACT_SCALE;
+    this.waypoints = [new THREE.Vector3(point.x, 0, point.z)];
+    this.waypointIndex = 0;
+    this.loopRoute = false;
+    this.guided = true;
+    this.guidedFullSizeOnArrive = options?.fullSizeOnArrive ?? false;
+    this.onGuidedArrive = options?.onArrive ?? null;
+    return true;
+  }
+
+  /** Drop a guided walk where it stands — no arrival, no callback. */
+  cancelGuidedWalk() {
+    this.guided = false;
+    this.guidedFullSizeOnArrive = false;
+    this.onGuidedArrive = null;
+  }
+
+  /** Arrival at a guided walk's end: settle, then hand back once. */
+  private completeGuidedArrival() {
+    if (!this.guided) return;
+    this.guided = false;
+    if (this.guidedFullSizeOnArrive) this.scaleTarget = 1;
+    this.guidedFullSizeOnArrive = false;
+    const callback = this.onGuidedArrive;
+    this.onGuidedArrive = null;
+    callback?.();
+  }
+
   comeBack() {
     // From the ground he walks home; from the air he glides home and
     // lands. Either way the journey actually happens — nothing snaps.
+    this.cancelGuidedWalk();
     if (this.mode !== "fly") this.mode = "walk";
     this.returning = true;
     this.looking = false;
@@ -247,6 +325,7 @@ export class AvatarLocomotion {
 
   /** Alert: face the camera immediately from wherever he stands. */
   faceForward() {
+    this.cancelGuidedWalk();
     this.faceCamera = false;
     this.returning = false;
     this.looking = false;
@@ -262,6 +341,7 @@ export class AvatarLocomotion {
    * camera-forward; faceForward() restores the front.
    */
   faceSide(direction: 1 | -1) {
+    this.cancelGuidedWalk();
     this.faceCamera = false;
     this.returning = false;
     this.looking = false;
@@ -333,6 +413,9 @@ export class AvatarLocomotion {
         this.waypointIndex += 1;
       } else {
         this.mode = "idle";
+        // A guided walk ends here: grounded, at the ordered spot,
+        // with its one arrival hand-back.
+        this.completeGuidedArrival();
       }
       return;
     }

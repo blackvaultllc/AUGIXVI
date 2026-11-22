@@ -8,7 +8,7 @@
  * on the stage (osirisPosition.ts), whom the operator addresses
  * directly only for definitely important things. This component is
  * presentation only: it renames nothing, it routes nothing; it puts
- * the command face where he asked for it — top center of the screen,
+ * the command face where he asked for it — center of the screen,
  * "just like how you are," a centered living presence tied to the
  * Command box below.
  *
@@ -23,17 +23,18 @@
  * by the medallion's ground and the collar's deep blue, never a dark
  * face). The medallion is sized to read gold across the room.
  *
- * PERSPECTIVE (owner order 2026-11-22): Anubis stays at his station —
- * top center — and speaks from his place. Tapping his medallion
- * brings him into perspective (the focus ring); the stage's default
- * perspective is the Black Hatter.
+ * PERSPECTIVE (owner orders 2026-11-22): Anubis is the RESIDENT
+ * commander — the stage's default presence and its default
+ * perspective, standing at center. He speaks from his place;
+ * tapping his medallion brings him into perspective (the focus
+ * ring), and every station's close returns the focus to him.
  *
  * THE ANCHOR (owner order 2026-11-22): his medallion is an anchored
  * element on the shared medallion system (useMedallionAnchor). Its
- * factory home is his station, top center, larger than before —
- * and like every medallion he can be grabbed, moved, and stretched,
- * and where the Captain leaves him persists. The station's home
- * does not move; the medallion is his to place.
+ * factory home is center stage — and like every medallion he can
+ * be grabbed, moved, and stretched, and where the Captain leaves
+ * him persists. The station's home does not move; the medallion is
+ * his to place.
  *
  * REPLACEABLE ASSET: the medallion reads exactly one file,
  * public/anubis-presence/face.webp. Replacing that file changes the
