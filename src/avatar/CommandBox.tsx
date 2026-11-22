@@ -266,6 +266,13 @@ export function CommandBox({
     ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
     : undefined;
 
+  // MMORPG layout (owner order 2026-11-21): tabs across the top of the
+  // box, the active tab's content under them, the conversation — the
+  // thread plus the latest exchange — as the lower body, and the input
+  // pinned at the very bottom. The grip stays above the tabs as the
+  // window's drag/title bar; when minimized it and the input are all
+  // that show.
+
   return (
     <section
       ref={boxRef}
@@ -298,15 +305,6 @@ export function CommandBox({
 
       {!minimized && (
         <>
-          <div className="avatar-command-box__response" aria-live="polite">
-            {userLine ? (
-              <p className="avatar-command-box__user-line">
-                <span className="avatar-command-box__user-label">You:</span> {userLine}
-              </p>
-            ) : null}
-            <span className="avatar-command-box__response-source">{responseSource}</span>
-            <p>{responseLine}</p>
-          </div>
           <div className="avatar-command-box__tabs" role="tablist" aria-label="Command tabs">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button
@@ -332,61 +330,70 @@ export function CommandBox({
           >
             {activeTab === "commands" ? <CommandsDocument highlighted={null} /> : children}
           </div>
-          {history !== undefined && (
-            <>
-              <button
-                type="button"
-                className="avatar-command-box__thread-toggle"
-                aria-expanded={threadOpen}
-                aria-controls="avatar-command-thread"
-                onClick={toggleThread}
-              >
-                <MessagesSquare aria-hidden="true" />
-                <span>
-                  Conversation{history.length > 0 ? ` (${history.length})` : ""}
-                </span>
-                {threadOpen ? (
-                  <ChevronUp aria-hidden="true" />
-                ) : (
-                  <ChevronDown aria-hidden="true" />
-                )}
-              </button>
-              {threadOpen && (
-                <div
-                  id="avatar-command-thread"
-                  className="avatar-command-box__thread"
-                  ref={threadRef}
-                  role="log"
-                  aria-label="Conversation so far"
+          <div className="avatar-command-box__conversation" role="group" aria-label="Conversation">
+            {history !== undefined && (
+              <>
+                <button
+                  type="button"
+                  className="avatar-command-box__thread-toggle"
+                  aria-expanded={threadOpen}
+                  aria-controls="avatar-command-thread"
+                  onClick={toggleThread}
                 >
-                  {history.length === 0 ? (
-                    <p className="avatar-command-box__thread-empty">
-                      Nothing yet — your messages and Augie&rsquo;s replies collect here, in
-                      order, so you can read back over the conversation while you type.
-                    </p>
+                  <MessagesSquare aria-hidden="true" />
+                  <span>Conversation{history.length > 0 ? ` (${history.length})` : ""}</span>
+                  {threadOpen ? (
+                    <ChevronUp aria-hidden="true" />
                   ) : (
-                    history.map((entry, index) => (
-                      <div
-                        className="avatar-command-box__thread-entry"
-                        key={`${entry.at}-${index}`}
-                      >
-                        {entry.question && (
-                          <p className="avatar-command-box__thread-q">
-                            <span className="avatar-command-box__thread-who">You:</span>{" "}
-                            {entry.question}
-                          </p>
-                        )}
-                        <p className="avatar-command-box__thread-a">
-                          <span className="avatar-command-box__thread-who">Augie:</span>{" "}
-                          {entry.answer}
-                        </p>
-                      </div>
-                    ))
+                    <ChevronDown aria-hidden="true" />
                   )}
-                </div>
-              )}
-            </>
-          )}
+                </button>
+                {threadOpen && (
+                  <div
+                    id="avatar-command-thread"
+                    className="avatar-command-box__thread"
+                    ref={threadRef}
+                    role="log"
+                    aria-label="Conversation so far"
+                  >
+                    {history.length === 0 ? (
+                      <p className="avatar-command-box__thread-empty">
+                        Nothing yet — your messages and Augie&rsquo;s replies collect here, in
+                        order, so you can read back over the conversation while you type.
+                      </p>
+                    ) : (
+                      history.map((entry, index) => (
+                        <div
+                          className="avatar-command-box__thread-entry"
+                          key={`${entry.at}-${index}`}
+                        >
+                          {entry.question && (
+                            <p className="avatar-command-box__thread-q">
+                              <span className="avatar-command-box__thread-who">You:</span>{" "}
+                              {entry.question}
+                            </p>
+                          )}
+                          <p className="avatar-command-box__thread-a">
+                            <span className="avatar-command-box__thread-who">Augie:</span>{" "}
+                            {entry.answer}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+            <div className="avatar-command-box__response" aria-live="polite">
+              {userLine ? (
+                <p className="avatar-command-box__user-line">
+                  <span className="avatar-command-box__user-label">You:</span> {userLine}
+                </p>
+              ) : null}
+              <span className="avatar-command-box__response-source">{responseSource}</span>
+              <p>{responseLine}</p>
+            </div>
+          </div>
         </>
       )}
 

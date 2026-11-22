@@ -1640,6 +1640,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--avatar-hud-line);
 }
 .avatar-command-box__tab {
   display: inline-flex;
@@ -1667,6 +1669,14 @@
   max-height: 14rem;
   overflow-y: auto;
   font-size: 0.62rem;
+}
+/* MMORPG layout (owner order 2026-11-21): the conversation — thread
+   plus the latest exchange — is the box's lower body, directly above
+   the input. The wrapper keeps the box's standard rhythm inside. */
+.avatar-command-box__conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
 }
 .avatar-command-box__thread-toggle {
   display: flex;
