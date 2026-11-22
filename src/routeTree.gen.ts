@@ -19,6 +19,7 @@ import { Route as AvatarGameRouteImport } from './routes/avatar_.game'
 import { Route as AvatarWorldRouteImport } from './routes/avatar_.world'
 import { Route as LearnerGameRouteImport } from './routes/learner_.game'
 import { Route as LearnerRacingRouteImport } from './routes/learner_.racing'
+import { Route as ApiDevicesPhoneSightingsRouteImport } from './routes/api.devices.phone-sightings'
 import { Route as ApiDevicesScanStateRouteImport } from './routes/api.devices.scan-state'
 import { Route as ApiDevicesSightingsRouteImport } from './routes/api.devices.sightings'
 import { Route as ApiDevicesWatchlistRouteImport } from './routes/api.devices.watchlist'
@@ -82,6 +83,12 @@ const LearnerRacingRoute = LearnerRacingRouteImport.update({
   path: '/learner/racing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDevicesPhoneSightingsRoute =
+  ApiDevicesPhoneSightingsRouteImport.update({
+    id: '/api/devices/phone-sightings',
+    path: '/api/devices/phone-sightings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiDevicesScanStateRoute = ApiDevicesScanStateRouteImport.update({
   id: '/api/devices/scan-state',
   path: '/api/devices/scan-state',
@@ -154,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/avatar/world': typeof AvatarWorldRoute
   '/learner/game': typeof LearnerGameRoute
   '/learner/racing': typeof LearnerRacingRoute
+  '/api/devices/phone-sightings': typeof ApiDevicesPhoneSightingsRoute
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
   '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
@@ -178,6 +186,7 @@ export interface FileRoutesByTo {
   '/avatar/world': typeof AvatarWorldRoute
   '/learner/game': typeof LearnerGameRoute
   '/learner/racing': typeof LearnerRacingRoute
+  '/api/devices/phone-sightings': typeof ApiDevicesPhoneSightingsRoute
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
   '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
@@ -203,6 +212,7 @@ export interface FileRoutesById {
   '/avatar_/world': typeof AvatarWorldRoute
   '/learner_/game': typeof LearnerGameRoute
   '/learner_/racing': typeof LearnerRacingRoute
+  '/api/devices/phone-sightings': typeof ApiDevicesPhoneSightingsRoute
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
   '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/avatar/world'
     | '/learner/game'
     | '/learner/racing'
+    | '/api/devices/phone-sightings'
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
     | '/api/devices/watchlist'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/avatar/world'
     | '/learner/game'
     | '/learner/racing'
+    | '/api/devices/phone-sightings'
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
     | '/api/devices/watchlist'
@@ -277,6 +289,7 @@ export interface FileRouteTypes {
     | '/avatar_/world'
     | '/learner_/game'
     | '/learner_/racing'
+    | '/api/devices/phone-sightings'
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
     | '/api/devices/watchlist'
@@ -302,6 +315,7 @@ export interface RootRouteChildren {
   AvatarWorldRoute: typeof AvatarWorldRoute
   LearnerGameRoute: typeof LearnerGameRoute
   LearnerRacingRoute: typeof LearnerRacingRoute
+  ApiDevicesPhoneSightingsRoute: typeof ApiDevicesPhoneSightingsRoute
   ApiDevicesScanStateRoute: typeof ApiDevicesScanStateRoute
   ApiDevicesSightingsRoute: typeof ApiDevicesSightingsRoute
   ApiDevicesWatchlistRoute: typeof ApiDevicesWatchlistRoute
@@ -386,6 +400,13 @@ declare module '@tanstack/react-router' {
       path: '/learner/racing'
       fullPath: '/learner/racing'
       preLoaderRoute: typeof LearnerRacingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devices/phone-sightings': {
+      id: '/api/devices/phone-sightings'
+      path: '/api/devices/phone-sightings'
+      fullPath: '/api/devices/phone-sightings'
+      preLoaderRoute: typeof ApiDevicesPhoneSightingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/devices/scan-state': {
@@ -486,6 +507,7 @@ const rootRouteChildren: RootRouteChildren = {
   AvatarWorldRoute: AvatarWorldRoute,
   LearnerGameRoute: LearnerGameRoute,
   LearnerRacingRoute: LearnerRacingRoute,
+  ApiDevicesPhoneSightingsRoute: ApiDevicesPhoneSightingsRoute,
   ApiDevicesScanStateRoute: ApiDevicesScanStateRoute,
   ApiDevicesSightingsRoute: ApiDevicesSightingsRoute,
   ApiDevicesWatchlistRoute: ApiDevicesWatchlistRoute,

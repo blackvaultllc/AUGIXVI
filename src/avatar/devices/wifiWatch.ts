@@ -133,13 +133,20 @@ export function watcherActive(
   return lastScanAt !== null && now - lastScanAt <= staleMs;
 }
 
-/** Build the scan-state view the client consumes. */
 export function buildScanState(
   input: {
     watchlist: string[];
     sightings: SightingsReport | null;
     lastScanAt: number | null;
     tool: string | null;
+    /**
+     * A second scanner's latest report — Ghost Protocol One on the
+     * owner's phone (Part 23). The Parrot's own watcher stays the
+     * primary source; the phone extends Augie's ears to wherever the
+     * owner is standing. Each report is judged by its own age, and
+     * the union is what presence sees.
+     */
+    phoneSightings?: SightingsReport | null;
   },
   now: number,
 ): ScanStateView {
@@ -153,7 +160,31 @@ export function buildScanState(
             tool: input.tool,
             watchedSsids: input.watchlist,
           },
-    networks: presentNetworks(input.sightings, now),
+    networks: mergePresentNetworks(
+      presentNetworks(input.sightings, now),
+      presentNetworks(input.phoneSightings ?? null, now),
+    ),
     graceMs: WATCH_GRACE_MS,
   };
+}
+
+/** Union of two present-network lists; per SSID the stronger rssi wins. */
+export function mergePresentNetworks(
+  a: SightingNetwork[],
+  b: SightingNetwork[],
+): SightingNetwork[] {
+  const bySsid = new Map<string, SightingNetwork>();
+  for (const net of [...a, ...b]) {
+    const existing = bySsid.get(net.ssid);
+    if (!existing) {
+      bySsid.set(net.ssid, net);
+      continue;
+    }
+    const best =
+      net.rssi !== undefined && (existing.rssi === undefined || net.rssi > existing.rssi)
+        ? net
+        : existing;
+    bySsid.set(net.ssid, best);
+  }
+  return [...bySsid.values()];
 }

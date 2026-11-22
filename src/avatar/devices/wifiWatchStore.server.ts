@@ -32,12 +32,16 @@ type WatchFs = typeof import("node:fs/promises");
 type WatchFile = {
   watchlist: { ssids: string[]; updatedAt: number };
   sightings: SightingsReport | null;
+  /** Ghost Protocol One's latest report (Part 23) — kept apart from
+   * the Parrot watcher's own report; scan-state merges the two. */
+  phoneSightings: SightingsReport | null;
   watcher: { lastScanAt: number | null; tool: string | null };
 };
 
 const EMPTY_FILE: WatchFile = {
   watchlist: { ssids: [], updatedAt: 0 },
   sightings: null,
+  phoneSightings: null,
   watcher: { lastScanAt: null, tool: null },
 };
 
@@ -70,6 +74,7 @@ class FileWatchStore {
           updatedAt: typeof watchlist["updatedAt"] === "number" ? watchlist["updatedAt"] : 0,
         },
         sightings: sanitizeSightings(record["sightings"], Date.now()),
+        phoneSightings: sanitizeSightings(record["phoneSightings"], Date.now()),
         watcher: {
           lastScanAt: typeof watcher["lastScanAt"] === "number" ? watcher["lastScanAt"] : null,
           tool: typeof watcher["tool"] === "string" ? watcher["tool"] : null,
@@ -118,12 +123,19 @@ class FileWatchStore {
     });
   }
 
+  async recordPhoneSightings(report: SightingsReport): Promise<void> {
+    await this.mutate((state) => {
+      state.phoneSightings = report;
+    });
+  }
+
   async scanState(now: number): Promise<ScanStateView> {
     const state = await this.load();
     return buildScanState(
       {
         watchlist: state.watchlist.ssids,
         sightings: state.sightings,
+        phoneSightings: state.phoneSightings,
         lastScanAt: state.watcher.lastScanAt,
         tool: state.watcher.tool,
       },
@@ -136,6 +148,7 @@ export interface WifiWatchStore {
   setWatchlist(ssids: string[]): Promise<void>;
   getWatchlist(): Promise<{ ssids: string[]; watcher: { lastScanAt: number | null; tool: string | null } }>;
   recordSightings(report: SightingsReport): Promise<void>;
+  recordPhoneSightings(report: SightingsReport): Promise<void>;
   scanState(now: number): Promise<ScanStateView>;
 }
 
@@ -186,6 +199,14 @@ export async function recordWifiSightings(report: SightingsReport): Promise<bool
   const store = await getStore();
   if (!store) return false;
   await store.recordSightings(report);
+  return true;
+}
+
+/** Record one Ghost Protocol One sightings report. False where unavailable. */
+export async function recordPhoneWifiSightings(report: SightingsReport): Promise<boolean> {
+  const store = await getStore();
+  if (!store) return false;
+  await store.recordPhoneSightings(report);
   return true;
 }
 
