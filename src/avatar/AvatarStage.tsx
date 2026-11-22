@@ -23,6 +23,7 @@ import {
   Clapperboard,
   Camera,
   Coffee,
+  DoorOpen,
   Ear,
   Expand,
   Eye,
@@ -31,12 +32,15 @@ import {
   Globe,
   Hammer,
   History,
+  Home,
   Map as MapIcon,
   Network,
   Laptop,
   LayoutGrid,
   LocateFixed,
   LogOut,
+  MoveLeft,
+  MoveRight,
   Plane,
   Presentation,
   Save,
@@ -115,7 +119,7 @@ import {
   shouldNotify,
 } from "./notificationPrefs";
 import { StageNotifications, type StageNotification } from "./StageNotifications";
-import { StageToolbar } from "./StageToolbar";
+import { loadSpeechVolume, saveSpeechVolume } from "./speechVoice";
 import {
   STAGE_BACKDROPS,
   backdropById,
@@ -387,6 +391,16 @@ export function AvatarStage({
   useEffect(() => {
     applyVoiceGate();
   }, [applyVoiceGate, voiceCalPrefs]);
+  // THE GODS' VOICE LEVEL (owner order 2026-11-22): his speech
+  // volume, full by default — he could not hear the gods on his
+  // phone at full phone volume. The level is his, set in Settings
+  // beside the calibration, and read by the voice provider at every
+  // line (speechVoice.ts).
+  const [speechVolume, setSpeechVolume] = useState<number>(() => loadSpeechVolume());
+  const changeSpeechVolume = useCallback((next: number) => {
+    setSpeechVolume(next);
+    saveSpeechVolume(next);
+  }, []);
   const [ready, setReady] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [chat, setChat] = useState("");
@@ -2537,26 +2551,12 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onSelect={() => selectGod("montu")}
         />
       )}
-      {!clearScreen && worldScreen === "live" && (
-        <StageToolbar
-          perspective={perspective}
-          conversationView={conversationView}
-          onSeatOwner={selectOwner}
-          onSeatGod={selectGod}
-          onBringIn={() => {
-            bringConstructIn();
-            say("AUGI is in, Captain — on the stage, facing you.");
-          }}
-          onStepAside={(side) => {
-            floatConstructAside(side);
-            say(`AUGI steps to the ${side}, Captain — side-on and out of your way.`);
-          }}
-          onHome={() => {
-            bringConstructIn();
-            say("AUGI is back at his home spot, anchored and free.");
-          }}
-        />
-      )}
+      {/* THE TOOLBAR IS GONE FROM THE STAGE (owner order 2026-11-22
+          — consolidation): the standalone bottom-center bar's seats
+          and construct-position orders now live INSIDE the chat box
+          (Scene tab: Seats; Motion tab: Construct position). The
+          chat box is the main box that controls everything; the
+          stage carries no extra controls he does not need. */}
       {!clearScreen && worldScreen === "live" && (
         <StageNotifications items={notifications} onDismiss={dismissNotification} />
       )}
@@ -2624,6 +2624,14 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         <div className="avatar-hud__db-status">
           PHONE BRAIN: {phoneBrainState ? phoneBrainStatusLabel(phoneBrainState) : "CHECKING…"}
         </div>
+        {/* SYSTEM HEALTH (owner order 2026-11-22): the calibration
+            state joins the standing readouts — the voice gate he
+            armed (or did not) is a fact the stage itself holds. A
+            knowledge fault surfaces here too, beside the sensor
+            fault line, instead of hiding inside a closed panel. */}
+        <div className="avatar-hud__db-status">
+          VOICE CAL: {voiceCalPrefs.enabled ? "ON" : "OFF"}
+        </div>
         <div>
           {perf.fps} FPS {!clearScreen && `· ${(perf.particles / 1000).toFixed(0)}K PTS`}
         </div>
@@ -2634,6 +2642,9 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           </div>
         )}
         {sensor?.error && !clearScreen && <div className="avatar-hud__warning">{sensor.error}</div>}
+        {memoryError && !clearScreen && (
+          <div className="avatar-hud__warning">KNOWLEDGE: {memoryError}</div>
+        )}
       </div>
       {!clearScreen && (
         <CommandBox
@@ -2670,6 +2681,31 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             />
           }
         >
+          {commandTab === "scene" && (
+            <CommandGroup label="Seats — the stage turns to who you call">
+              <div className="avatar-command-box__grid">
+                <CommandAction
+                  thumb="/owner-presence/captain-infinity.webp"
+                  label={
+                    perspective === "black-hatter" && conversationView !== "council"
+                      ? "Owner · seated"
+                      : "Owner"
+                  }
+                  onClick={selectOwner}
+                />
+                <CommandAction
+                  thumb="/anubis-presence/face.webp"
+                  label={perspective === "anubis" ? "Anubis · seated" : "Anubis"}
+                  onClick={() => selectGod("anubis")}
+                />
+                <CommandAction
+                  thumb="/montu-presence/face.webp"
+                  label={perspective === "montu" ? "Montu · seated" : "Montu"}
+                  onClick={() => selectGod("montu")}
+                />
+              </div>
+            </CommandGroup>
+          )}
           {commandTab === "scene" && (
             <CommandGroup label="Avatar scale">
               <div className="avatar-command-box__grid">
@@ -2773,6 +2809,44 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     }}
                   />
                 ))}
+              </div>
+            </CommandGroup>
+          )}
+          {commandTab === "motion" && (
+            <CommandGroup label="Construct position">
+              <div className="avatar-command-box__grid">
+                <CommandAction
+                  icon={DoorOpen}
+                  label="Bring in"
+                  onClick={() => {
+                    bringConstructIn();
+                    say("AUGI is in, Captain — on the stage, facing you.");
+                  }}
+                />
+                <CommandAction
+                  icon={MoveLeft}
+                  label="Left"
+                  onClick={() => {
+                    floatConstructAside("left");
+                    say("AUGI steps to the left, Captain — side-on and out of your way.");
+                  }}
+                />
+                <CommandAction
+                  icon={MoveRight}
+                  label="Right"
+                  onClick={() => {
+                    floatConstructAside("right");
+                    say("AUGI steps to the right, Captain — side-on and out of your way.");
+                  }}
+                />
+                <CommandAction
+                  icon={Home}
+                  label="Home"
+                  onClick={() => {
+                    bringConstructIn();
+                    say("AUGI is back at his home spot, anchored and free.");
+                  }}
+                />
               </div>
             </CommandGroup>
           )}
@@ -3092,6 +3166,21 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
               <CommandGroup label="On-phone brain — the emergency brain">
                 <PhoneBrainPanel onStatusChange={setPhoneBrainState} />
               </CommandGroup>
+              <CommandGroup label="Voice — the gods' speech">
+                <Slider
+                  label="Voice volume"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={speechVolume}
+                  onChange={changeSpeechVolume}
+                  fmt={(v) => `${Math.round(v * 100)}%`}
+                />
+                <p>
+                  The gods speak in a deeper British man's voice — a woman's voice only when the
+                  speaker is a woman. The level is yours; full is the standing default.
+                </p>
+              </CommandGroup>
               <CommandGroup label="Voice calibration — only my operator's voice">
                 <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
               </CommandGroup>
@@ -3238,11 +3327,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
 
 function CommandAction({
   icon: Icon,
+  thumb,
   label,
   onClick,
   disabled = false,
 }: {
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  /** A face instead of an icon — the seats carry their portraits,
+   *  the way the old toolbar's seat buttons did. */
+  thumb?: string;
   label: string;
   onClick: () => void;
   disabled?: boolean;
@@ -3255,7 +3348,17 @@ function CommandAction({
       disabled={disabled}
       title={label}
     >
-      <Icon aria-hidden="true" />
+      {thumb ? (
+        <img
+          className="avatar-command-box__action-thumb"
+          src={thumb}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+        />
+      ) : Icon ? (
+        <Icon aria-hidden="true" />
+      ) : null}
       <span>{label}</span>
     </button>
   );

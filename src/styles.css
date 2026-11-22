@@ -2277,6 +2277,16 @@
   color: #ffd75e;
   stroke-width: 2.3;
 }
+/* The seats' faces inside the box (consolidation, owner order
+   2026-11-22): a seat action carries its portrait, round and
+   gold-ringed, where an icon would sit. */
+.avatar-command-box__action-thumb {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 1px solid rgb(212 175 55 / 65%);
+}
 .avatar-command-box__action:hover:not(:disabled) {
   border-color: #ffd75e;
   background: #2b4a7d;
@@ -7509,68 +7519,12 @@
   height: 0.85rem;
 }
 
-/* THE TOOLBAR AREA (owner order 2026-11-22 — his uploaded toolbar
-   schema's arrangement, re-implemented originally): a framed main
-   bar bottom-center — square buttons in labeled groups with a
-   separator — read with the right-side construct cluster as one
-   toolbar system. The chat window stacks above it wherever they
-   meet; the bar never takes the screen. */
-.stage-toolbar {
-  position: absolute;
-  left: 50%;
-  bottom: 0.9rem;
-  transform: translateX(-50%);
-  z-index: 7;
-  display: flex;
-  align-items: stretch;
-  gap: 0.55rem;
-  padding: 0.45rem 0.55rem;
-  border-radius: 0.8rem;
-  border: 1px solid rgb(212 175 55 / 55%);
-  background: rgb(8 12 22 / 88%);
-  box-shadow: 0 16px 34px rgb(0 0 0 / 45%);
-}
-.stage-toolbar__group {
-  display: flex;
-  gap: 0.4rem;
-}
-.stage-toolbar__separator {
-  width: 1px;
-  background: rgb(212 175 55 / 40%);
-}
-.stage-toolbar__button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.22rem;
-  width: 3.6rem;
-  height: 3.6rem;
-  border-radius: 0.55rem;
-  border: 1px solid #8fb2e8;
-  background: #20365f;
-  color: #ffffff;
-  font-size: 0.6rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-.stage-toolbar__button svg {
-  width: 1.15rem;
-  height: 1.15rem;
-}
-.stage-toolbar__button[aria-pressed="true"] {
-  border-color: #ffd75e;
-  color: #ffe98a;
-  box-shadow: 0 0 14px rgb(255 215 94 / 35%);
-}
-.stage-toolbar__thumb {
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 9999px;
-  object-fit: cover;
-  border: 1px solid rgb(212 175 55 / 65%);
-}
+/* THE TOOLBAR AREA IS RETIRED (owner order 2026-11-22 —
+   consolidation): the standalone bottom-center bar is gone from
+   the stage. Its seats and construct-position orders live inside
+   the chat box now (Scene tab: Seats; Motion tab: Construct
+   position) — the chat box is the main box that controls
+   everything, and the stage carries no extra controls. */
 
 /* THE PHOTO BACKDROP (owner order 2026-11-22): his supplied
    photograph fills the stage behind the living world — the Desert
@@ -7606,25 +7560,45 @@
   .avatar-command-box {
     max-width: calc(100vw - 1.2rem);
     max-height: calc(100dvh - 1.2rem);
-    /* THE MESSAGE BOX SITS AT THE BOTTOM (owner order 2026-11-22 —
-       "that message box with the mic is supposed to be on the
-       bottom not the top"): the thread row takes the panel's
-       slack, so the form — pinned to the last row — rests on the
-       panel's bottom edge and the chat rises above it, the
-       MMORPG way. Placement is stated outright here so no phone
-       state (fresh, enlarged, machinery open) can float the input
-       to the top again. */
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    /* THE RAIL NEVER LEAVES THE PANEL (owner defect 2026-11-22):
+       on the desktop the rail is a column down the panel's left
+       edge, and the column is TALLER than a short phone panel —
+       its lower buttons (anchor, reset, menu, minimize) hung
+       below the panel's frame in a loose column on the stage.
+       On the phone the box stacks instead: the rail becomes a
+       single horizontal strip across the panel's top — one button
+       tall, inside the frame at every panel height — and the main
+       column (machinery, conversation, input) fills the rest,
+       the thread taking the slack so the message box with the
+       mic rests on the panel's bottom edge and the chat rises
+       above it, the MMORPG way. No phone state (fresh, enlarged,
+       machinery open) can spill the rail or float the input. */
+    flex-direction: column;
+  }
+  /* Minimized keeps the one-line bar: rail strip and input side
+     by side, the whole footprint the bar's own height. */
+  .avatar-command-box--minimized {
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+  }
+  .avatar-command-box__rail {
+    flex-direction: row;
+    width: auto;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    padding: 0;
+  }
+  /* The strip has no room for the vertical title; the face and
+     the buttons carry the rail on the phone. */
+  .avatar-command-box__rail .avatar-command-box__title {
+    display: none;
   }
   .avatar-command-box__conversation {
-    grid-row: 2;
     max-height: none;
   }
   .avatar-command-box__thread {
     max-height: none;
-  }
-  .avatar-command-box__form {
-    grid-row: 3;
   }
   /* The rail's controls: the desktop's appearance and size. */
   .avatar-command-box__rail .avatar-command-box__window-button,
@@ -7659,29 +7633,6 @@
     max-width: 25vw;
     overflow-wrap: anywhere;
     text-align: right;
-  }
-  /* The toolbar becomes the schema's vertical side bar on the
-     right edge — clear of the panel below and the cluster at the
-     bottom-right. */
-  .stage-toolbar {
-    left: auto;
-    right: 0.5rem;
-    top: 50%;
-    bottom: auto;
-    transform: translateY(-50%);
-    flex-direction: column;
-    padding: 0.4rem;
-  }
-  .stage-toolbar__group {
-    flex-direction: column;
-  }
-  .stage-toolbar__separator {
-    width: auto;
-    height: 1px;
-  }
-  .stage-toolbar__button {
-    width: 3.1rem;
-    height: 3.1rem;
   }
   .stage-notifications {
     top: auto;

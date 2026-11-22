@@ -148,6 +148,19 @@ describe("proactive, not just reactive", () => {
     shown.shown = true;
     expect(watcher.check(Date.now() + 5000)).toBeNull();
   });
+
+  it("the Sha report speaks in the respect forms — no canned assistant offers", () => {
+    // Owner order 2026-11-22: the generic "I can send a check-in
+    // message if you say so" line is gone. A god addresses the
+    // Captain by his title and closes with the blessing.
+    const shown = { shown: false };
+    const watcher = shaWatcher(shown, 1000);
+    const observation = watcher.check(Date.now());
+    expect(observation?.message).toContain("Captain");
+    expect(observation?.suggestion).toContain("Captain");
+    expect(observation?.suggestion).toContain("Ankh, wedja, seneb");
+    expect(observation?.suggestion).not.toContain("if you say so");
+  });
 });
 
 describe("self-update in the cube — approve first, always", () => {

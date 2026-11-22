@@ -1,9 +1,17 @@
 import type { AvatarBridge } from "./AvatarBridge";
+import { configureSpeechUtterance } from "./speechVoice";
 
+/**
+ * The stand-in's fallback lines (owner order 2026-11-22): the
+ * generic assistant fillers ("Processing complete", "Standing by
+ * for your next command") are GONE. Even the stand-in addresses
+ * him as the Captain, in the respect forms — no canned assistant
+ * phrasing anywhere in god speech.
+ */
 const REPLIES = [
-  "I hear you. Processing complete.",
-  "Understood. Standing by for your next command.",
-  "Interesting. Tell me more.",
+  "I hear you, Captain. It is being seen to.",
+  "Understood, Captain. I stand ready for your next word.",
+  "Noted, Captain. Speak on, if you wish.",
 ];
 
 /** Stand-in AI: replace with real STT/LLM/TTS by calling the same bridge methods. */
@@ -29,8 +37,9 @@ export function attachSimulatedAI(
     const t0 = performance.now();
     try {
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = 0.95;
-      u.pitch = 0.8;
+      // The gods' voice, same as the real provider: the deeper
+      // British man's voice at his volume level (speechVoice.ts).
+      configureSpeechUtterance(u);
       window.speechSynthesis.speak(u);
     } catch {
       /* no TTS */
@@ -59,13 +68,13 @@ export function attachSimulatedAI(
     if (isPresentCommand(text)) {
       clear();
       bridge.present("file");
-      speak("Bringing it into view.", listen);
+      speak("Bringing it into view, Captain.", listen);
       return true;
     }
     if (/\b(put (it )?away|close (it|the file)|dismiss)\b/i.test(text)) {
       clear();
       bridge.present(null);
-      speak("Done.", listen);
+      speak("It is done, Captain.", listen);
       return true;
     }
     return false;
@@ -82,7 +91,7 @@ export function attachSimulatedAI(
           bridge.onSummon(() => {
             clear();
             bridge.setState("GLITCH");
-            later(350, () => speak("What do you want?", listen));
+            later(350, () => speak("I am listening, Captain.", listen));
           }),
           bridge.onUserSpeechStart(() => {
             userTalking = true;

@@ -4,7 +4,14 @@
  * message came in: he pops up a suggestion and SAYS it — he does NOT
  * auto-open panels and does NOT act without the operator's say. He fixes
  * only when told.
+ *
+ * SPEECH ETIQUETTE (owner order 2026-11-22): no generic assistant
+ * offers — the "I can send a check-in message if you say so" family
+ * is GONE. A god reports to the Captain as a god speaks: addressed
+ * to him by his title, in the respect forms (etiquette.ts), and a
+ * report closes with the blessing.
  */
+import { closeWithBlessing } from "./etiquette";
 
 export type ProactiveObservation = {
   id: string;
@@ -24,7 +31,7 @@ export type ProactiveWatcher = {
   quietPeriodMs: number;
 };
 
-const SHA_NOT_SHOWN = "Sha hasn't shown yet today.";
+const SHA_NOT_SHOWN = "Captain — Sha hasn't shown yet today.";
 
 export function shaWatcher(
   shownRef: { shown: boolean },
@@ -43,7 +50,9 @@ export function shaWatcher(
         id: `sha-${nowMs}`,
         atMs: nowMs,
         message: SHA_NOT_SHOWN,
-        suggestion: "I can send a check-in message if you say so.",
+        suggestion: closeWithBlessing(
+          "On your word, Captain, I will send her a check-in",
+        ),
       };
     },
   };
