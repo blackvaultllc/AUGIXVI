@@ -8,6 +8,7 @@ import {
 import { AvatarStage } from "./AvatarStage";
 import { SpaceView } from "./SpaceView";
 import { LearnerHeartDoor } from "./learner/LearnerHeartDoor";
+import { confirmThisDevice, fetchDeviceStatus } from "./trustedDevice";
 
 type GateState =
   "checking" | "unconfigured" | "signed-out" | "verifying" | "mfa" | "transitioning" | "authorized";
@@ -102,11 +103,24 @@ export function OperatorGate() {
   const [signOutError, setSignOutError] = useState("");
   const [operatorName, setOperatorName] = useState<string | null>(null);
   const [operatorFullName, setOperatorFullName] = useState<string | null>(null);
+  const [deviceStatus, setDeviceStatus] = useState<{ trusted: boolean; ip: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const activeAccessTokenRef = useRef("");
   const verifiedTokenRef = useRef("");
   const verifyingTokenRef = useRef("");
   const transitionTimeoutRef = useRef<number | null>(null);
+
+  // Part 8: ask (once) whether this device + IP is already confirmed,
+  // so the sign-in card can say so honestly. Grants nothing by itself.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchDeviceStatus().then((status) => {
+      if (!cancelled) setDeviceStatus(status);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refreshBootstrapStatus = useCallback(async () => {
     try {
@@ -220,6 +234,10 @@ export function OperatorGate() {
         setOperatorName(result.operatorName ?? null);
         setOperatorFullName(result.operatorFullName ?? null);
         setOperatorClaimed(true);
+        // Part 8: a FULLY verified sign-in (password + MFA + registry)
+        // confirms this device + IP for next time. Best-effort — the
+        // confirmation layer never blocks entry.
+        void confirmThisDevice(accessToken);
         verifiedTokenRef.current = accessToken;
         setState("transitioning");
         transitionTimeoutRef.current = window.setTimeout(() => {
@@ -454,6 +472,11 @@ export function OperatorGate() {
           ) : (
             <p>Enter the current code from your authenticator app.</p>
           )}
+          {deviceStatus?.trusted && (
+            <p className="operator-auth__device">
+              This device is confirmed — your code is the last step.
+            </p>
+          )}
           <form className="operator-auth__form" onSubmit={(event) => void verifyMfa(event)}>
             <label>
               Verification code
@@ -492,6 +515,13 @@ export function OperatorGate() {
             ? "Create the first operator account for this installation."
             : "Sign in to continue."}
         </p>
+        {!registrationMode && deviceStatus && (
+          <p className="operator-auth__device">
+            {deviceStatus.trusted
+              ? `This device is confirmed (IP ${deviceStatus.ip}). Welcome back — email and password, then your authenticator code. No extra steps, no checkbox.`
+              : "This device or network is not confirmed yet, so full verification applies. After a successful sign-in this device is confirmed automatically — there is no checkbox and nothing extra to click."}
+          </p>
+        )}
         <form
           className="operator-auth__form"
           onSubmit={(event) =>

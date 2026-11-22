@@ -59,11 +59,16 @@ describe("command box grip controls", () => {
     pointerDown(minimize);
     expect(captureSpy).not.toHaveBeenCalled();
     fireEvent.click(minimize);
-    expect(screen.queryByText("panel body")).not.toBeInTheDocument();
+    expect(screen.queryByText("Standing by.")).not.toBeInTheDocument();
     const expand = screen.getByRole("button", { name: "Expand command box" });
     pointerDown(expand);
     expect(captureSpy).not.toHaveBeenCalled();
     fireEvent.click(expand);
+    // Part 28: expanding restores the CHAT face; the machinery panel
+    // appears only when he opens Tools, rooms & settings.
+    expect(screen.getByText("Standing by.")).toBeInTheDocument();
+    expect(screen.queryByText("panel body")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Tools, rooms & settings/ }));
     expect(screen.getByText("panel body")).toBeInTheDocument();
   });
 
@@ -162,14 +167,10 @@ describe("command box conversation thread", () => {
     );
   }
 
-  it("keeps the thread collapsed until he opens it, then shows the exchange in order", () => {
+  it("Part 28: the thread is the default face — visible in order, no toggle to open it", () => {
     renderBoxWithHistory(true);
-    const toggle = screen.getByRole("button", { name: /Conversation \(2\)/ });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("The cube is open.")).not.toBeInTheDocument();
-
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    // No Conversation toggle exists anymore; the chat is just there.
+    expect(screen.queryByRole("button", { name: /Conversation/ })).not.toBeInTheDocument();
     const first = screen.getByText("open the cube");
     const firstReply = screen.getByText("The cube is open.");
     const second = screen.getByText("now fly");
@@ -178,13 +179,18 @@ describe("command box conversation thread", () => {
     expect(first.compareDocumentPosition(firstReply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(firstReply.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(second.compareDocumentPosition(secondReply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-
-    fireEvent.click(toggle);
-    expect(screen.queryByText("The cube is open.")).not.toBeInTheDocument();
+    // The machinery stays out of the chat face until he asks for it.
+    expect(screen.queryByText("panel body")).not.toBeInTheDocument();
+    const tools = screen.getByRole("button", { name: /Tools, rooms & settings/ });
+    expect(tools).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(tools);
+    expect(tools).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("panel body")).toBeInTheDocument();
   });
 
-  it("offers no thread toggle when no history is wired in", () => {
+  it("shows the live response line when no history is wired in", () => {
     renderBoxWithHistory(false);
-    expect(screen.queryByRole("button", { name: /Conversation/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Standing by.")).toBeInTheDocument();
+    expect(screen.queryByRole("log")).not.toBeInTheDocument();
   });
 });

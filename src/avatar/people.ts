@@ -179,14 +179,17 @@ export function buildPersonPoints(
   const sway = pose.mode === "stand" ? Math.sin(pose.time * 1.1) * 0.008 : 0;
 
   // TORSO — stacked rings, waist pinch, like a soft turned column.
-  const rings = 7;
+  // Part 18 density pass (owner defect report 2026-11-21): citizens read
+  // as GHOSTS at the old counts — every part below carries more points
+  // and real tube volume now, toward Augie's own figure as the bar.
+  const rings = 9;
   for (let ring = 0; ring < rings; ring += 1) {
     const t = ring / (rings - 1);
     const y = hipY + t * torsoLen;
     const rx =
       (appearance.hip + (appearance.shoulder - appearance.hip) * t) *
       (1 - 0.13 * Math.sin(Math.PI * t));
-    const per = 16;
+    const per = 24;
     for (let i = 0; i < per; i += 1) {
       const angle = (i / per) * Math.PI * 2 + ring * 0.35;
       cloud.point(
@@ -199,27 +202,27 @@ export function buildPersonPoints(
     }
   }
   // NECK + HEAD
-  cloud.segment([sway, shoulderY, 0], [sway, headCenter[1] - headR * 0.7, 0], 8, 0.045, appearance.skin);
+  cloud.segment([sway, shoulderY, 0], [sway, headCenter[1] - headR * 0.7, 0], 12, 0.055, appearance.skin);
   cloud.ellipsoid(
     [headCenter[0] + sway, headCenter[1], headCenter[2]],
     headR * 0.88,
     headR,
     headR * 0.94,
-    80,
+    140,
     appearance.skin,
   );
   // HAIR — cap, plus the style: long falls down the back, a bun sits high.
   if (appearance.hair !== "none") {
     const capCenter: Vec3 = [headCenter[0] + sway, headCenter[1] + headR * 0.22, headCenter[2] - headR * 0.12];
-    cloud.ellipsoid(capCenter, headR * 0.95, headR * 0.82, headR * 1.0, 26, appearance.hairColor);
+    cloud.ellipsoid(capCenter, headR * 0.95, headR * 0.82, headR * 1.0, 44, appearance.hairColor);
     if (appearance.hair === "long") {
       for (let strand = 0; strand < 4; strand += 1) {
         const x = (strand - 1.5) * headR * 0.32;
         cloud.segment(
           [x + sway, headCenter[1] + headR * 0.5, -headR * 0.78],
           [x + sway, shoulderY + 0.02 * H, -headR * 0.95],
-          6,
-          0.02,
+          9,
+          0.026,
           appearance.hairColor,
         );
       }
@@ -229,7 +232,7 @@ export function buildPersonPoints(
         headR * 0.42,
         headR * 0.42,
         headR * 0.42,
-        12,
+        20,
         appearance.hairColor,
       );
     }
@@ -260,9 +263,9 @@ export function buildPersonPoints(
       elbow = addScaled(shoulder, [side * 0.13, -0.98, 0.06], upperArmLen);
       hand = addScaled(elbow, [side * 0.05, -0.97, 0.2], forearmLen);
     }
-    cloud.segment(shoulder, elbow, 24, 0.062, appearance.shirt);
-    cloud.segment(elbow, hand, 20, 0.05, appearance.shirt);
-    cloud.ellipsoid(hand, 0.045, 0.05, 0.045, 6, appearance.skin);
+    cloud.segment(shoulder, elbow, 32, 0.078, appearance.shirt);
+    cloud.segment(elbow, hand, 28, 0.064, appearance.shirt);
+    cloud.ellipsoid(hand, 0.045, 0.05, 0.045, 10, appearance.skin);
   }
 
   // LEGS — hip → knee → ankle. The walk uses particleLegs' own numbers:
@@ -285,10 +288,10 @@ export function buildPersonPoints(
       knee = addScaled(hip, [0, -1, 0.01], thighLen);
       ankle = addScaled(knee, [0, -1, 0.01], shinLen);
     }
-    cloud.segment(hip, knee, 28, 0.075, appearance.pants);
-    cloud.segment(knee, ankle, 24, 0.06, appearance.pants);
+    cloud.segment(hip, knee, 36, 0.095, appearance.pants);
+    cloud.segment(knee, ankle, 32, 0.078, appearance.pants);
     // shoe — a short forward line at the ankle.
-    cloud.segment(ankle, [ankle[0], Math.max(0.01, ankle[1] - 0.02), ankle[2] + 0.16], 6, 0.035, appearance.shoes);
+    cloud.segment(ankle, [ankle[0], Math.max(0.01, ankle[1] - 0.02), ankle[2] + 0.16], 8, 0.042, appearance.shoes);
   }
 
   return {
@@ -316,6 +319,9 @@ export type PersonDef = {
   waypoints: readonly Waypoint[];
   /** Walk speed in world units/sec. */
   speed?: number;
+  /** Part 9: the real department this citizen's desk belongs to
+   * (departments.ts id), when the scene maps citizens to real work. */
+  dept?: string;
 };
 
 export type PersonState = {
@@ -330,7 +336,30 @@ export type PersonState = {
   walking: boolean;
 };
 
-const DEFAULT_SPEED = 0.85;
+const DEFAULT_SPEED = 1.5;
+
+/**
+ * Part 18 gait fix (owner defect report 2026-11-21 — citizens read as
+ * WALKING BACKWARDS): the walk clock used to advance at a fixed rate
+ * (gaitTime += dt * 1.35) unrelated to how far the body actually moved,
+ * so the feet swept backward through stance ~2x faster than the body
+ * traveled — the legs cycled against the motion and read as reversed.
+ * Now the gait is keyed to DISTANCE: one full leg cycle (gaitTime * 7
+ * spanning 2π) covers exactly the distance the feet sweep in stance —
+ * 4 * legLen * sin(maxThighSwing) — so a planted foot moves backward
+ * relative to the body at the same speed the body moves forward. No
+ * slide, no moonwalk. Facing already equals velocity (heading lerps to
+ * atan2(dx, dz) and the figure is built facing +z).
+ */
+export function strideCycleDistance(appearance: PersonAppearance): number {
+  const legLen = 0.52 * appearance.height; // thigh + shin
+  return 4 * legLen * Math.sin(0.42);
+}
+
+/** gaitTime units advanced per world unit traveled. */
+export function gaitAdvancePerUnit(appearance: PersonAppearance): number {
+  return (Math.PI * 2) / 7 / strideCycleDistance(appearance);
+}
 
 function angleLerp(current: number, target: number, maxStep: number): number {
   let delta = (target - current) % (Math.PI * 2);
@@ -394,7 +423,8 @@ export class PeopleSim {
           const step = Math.min(distance, speed * dt);
           person.x += (dx / distance) * step;
           person.z += (dz / distance) * step;
-          person.gaitTime += dt * 1.35 * (speed / DEFAULT_SPEED);
+          // Stride-matched: the legs advance exactly with the travel.
+          person.gaitTime += step * gaitAdvancePerUnit(person.def.appearance);
           person.mode = "walk";
         }
       } else {

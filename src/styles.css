@@ -1214,6 +1214,11 @@
   color: oklch(0.78 0.15 25);
   font-size: 0.75rem;
 }
+.operator-auth__device {
+  color: oklch(0.82 0.09 155);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
 .operator-auth__mode {
   width: 100%;
   margin-top: 0.9rem;
@@ -1668,7 +1673,8 @@
   overflow-y: auto;
   font-size: 0.62rem;
 }
-.avatar-command-box__thread-toggle {
+.avatar-command-box__thread-toggle,
+.avatar-command-box__machinery-toggle {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -1684,7 +1690,8 @@
   font-size: 0.66rem;
   text-align: left;
 }
-.avatar-command-box__thread-toggle svg {
+.avatar-command-box__thread-toggle svg,
+.avatar-command-box__machinery-toggle svg {
   width: 0.85rem;
   height: 0.85rem;
   flex: none;
@@ -1693,14 +1700,17 @@
   margin-left: auto;
 }
 .avatar-command-box__thread {
-  max-height: 11.5rem;
+  /* Part 28: the thread is the box's main face now — a normal chat
+     gets real height and readable type, not a collapsed peephole. */
+  max-height: min(38vh, 320px);
+  min-height: 5.5rem;
   overflow-y: auto;
-  padding: 0.4rem 0.5rem;
+  padding: 0.45rem 0.55rem;
   border: 1px solid var(--avatar-hud-line);
   border-radius: 0.4rem;
   background: oklch(0.08 0.02 255 / 55%);
-  font-size: 0.66rem;
-  line-height: 1.45;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 .avatar-command-box__thread-entry {
   padding: 0.3rem 0;
@@ -3069,12 +3079,20 @@
   overflow: hidden;
   background: #000;
   min-height: 180px;
+  /* Part 21: the camera opens in its NORMAL FULL FRAME — the whole
+     feed visible, letterboxed, never cover-cropped tight on his
+     face. Close framing is the analysis's internal business (the
+     forehead ROI), not the default perspective. */
+  aspect-ratio: 4 / 3;
+  max-height: 320px;
+  margin-inline: auto;
+  width: 100%;
 }
 .window-pulse__video {
   display: block;
   width: 100%;
-  max-height: 300px;
-  object-fit: cover;
+  height: 100%;
+  object-fit: contain;
   background: #000;
 }
 .window-pulse__overlay {
@@ -3082,6 +3100,10 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  /* Same contain letterbox as the video, so the face/ROI boxes the
+     canvas draws (in native video pixels) stay aligned with the
+     displayed feed. */
+  object-fit: contain;
   pointer-events: none;
 }
 .window-pulse__idle {
@@ -3509,8 +3531,8 @@
 }
 .learner-cabinets {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.8rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
   flex: 0 0 auto;
 }
 .learner-cabinet-button {
@@ -3519,8 +3541,9 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  min-height: 6.2rem;
-  padding: 0.7rem 0.4rem;
+  min-width: 0;
+  min-height: 5.6rem;
+  padding: 0.7rem 0.5rem;
   border-radius: 1.4rem;
   border: 3px solid #f4a261;
   background: #fff;
@@ -3530,9 +3553,15 @@
   font-weight: 700;
   cursor: pointer;
 }
+.learner-cabinet-button span {
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+  text-align: center;
+}
 .learner-cabinet-button svg {
   width: 2rem;
   height: 2rem;
+  flex: 0 0 auto;
   color: #ff6b9d;
 }
 .learner-cabinet-button[aria-expanded="true"] {
@@ -3544,10 +3573,20 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   border: 3px solid #f4a261;
   border-radius: 1.4rem;
   background: rgb(255 255 255 / 78%);
   padding: 1rem 1.2rem;
+}
+/* The open cabinet fills the panel and may shrink — never overflow it.
+   (Her tablet defect, 2026-11-21: fixed-height panels let a cabinet's
+   bottom row paint over its own text. Flex shrinking is what makes
+   overlap impossible at any screen size.) */
+.learner-panel > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .learner-panel h2 {
   margin: 0 0 0.5rem;
@@ -3663,6 +3702,19 @@
   text-align: left;
   margin-top: 0.6rem;
 }
+.learner-signin__forget {
+  margin-top: 0.6rem;
+  min-height: 2.8rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  border: 2px solid #b08968;
+  background: transparent;
+  color: #7a5c3e;
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+}
 .learner-signin__form label {
   display: grid;
   gap: 0.3rem;
@@ -3711,11 +3763,27 @@
   grid-template-columns: minmax(12rem, 20rem) 1fr;
   gap: 1rem;
   align-items: center;
+  flex: 1 1 auto;
   min-height: 0;
+  /* Backstop: if a diagram's words are ever taller than the space left,
+     they clip inside the viewer — they never paint over the buttons
+     below (the phone-size half of her 2026-11-21 overlap report). */
+  overflow: hidden;
+}
+.learner-viewer > div {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.learner-viewer__art {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  place-items: center;
 }
 .learner-viewer__art svg {
   width: 100%;
-  height: auto;
+  height: 100%;
   max-height: 15rem;
 }
 .learner-viewer p {
@@ -3728,7 +3796,30 @@
   gap: 0.6rem;
   margin-top: auto;
   padding-top: 0.6rem;
+  flex: 0 0 auto;
   flex-wrap: wrap;
+}
+.learner-play-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+}
+.learner-play-row .learner-play {
+  margin-bottom: 0;
+}
+.learner-play--racing {
+  background: #ef476f;
+  border-color: #ef476f;
+}
+.learner-test-badge {
+  background: #ffb703;
+  color: #3a2b20;
+  border-radius: 999px;
+  padding: 0.12rem 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 .learner-starter-button {
   min-height: 3.4rem;
@@ -3875,6 +3966,256 @@
   line-height: 1.4;
 }
 
+/* Squishy Maker cabinet */
+.learner-maker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  min-height: 0;
+}
+
+/* Augie the Flower cabinet */
+.learner-flower {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+}
+.learner-flower__head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex: 0 0 auto;
+}
+.learner-flower__face {
+  width: 4.4rem;
+  height: 4.4rem;
+  flex: 0 0 auto;
+  transform-origin: 50% 90%;
+  animation: learner-flower-sway 5s ease-in-out infinite alternate;
+}
+@keyframes learner-flower-sway {
+  from {
+    transform: rotate(-2deg);
+  }
+  to {
+    transform: rotate(2deg);
+  }
+}
+/* Part 6 — presence states: listening sways (above), thinking bobs softly,
+   speaking bounces gently. All slow and calm — no flashing, nothing frantic. */
+.learner-flower__face.is-thinking {
+  animation: learner-flower-think 1.1s ease-in-out infinite alternate;
+}
+@keyframes learner-flower-think {
+  from {
+    transform: translateY(0) rotate(-1deg);
+  }
+  to {
+    transform: translateY(-4px) rotate(1deg);
+  }
+}
+.learner-flower__face.is-speaking {
+  animation: learner-flower-speak 0.8s ease-in-out infinite alternate;
+}
+@keyframes learner-flower-speak {
+  from {
+    transform: translateY(0) scale(1);
+  }
+  to {
+    transform: translateY(-2px) scale(1.05);
+  }
+}
+.learner-flower__status {
+  margin: 0.25rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #7a3e9d;
+}
+.learner-flower__voice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.learner-flower__voice .learner-chip svg {
+  width: 1.3rem;
+  height: 1.3rem;
+  vertical-align: -0.25rem;
+}
+.learner-flower__bubble {
+  flex: 1 1 auto;
+  /* Floor: her answers live here — the bubble may shrink, but never to a
+     sliver. When space runs out, the topics area below gives way first. */
+  min-height: 4.4rem;
+  overflow: hidden;
+  border: 3px solid #c77dff;
+  border-radius: 1.4rem;
+  background: #fdf4ff;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.learner-flower__bubble p {
+  margin: 0;
+  font-size: 1.18rem;
+  line-height: 1.5;
+}
+.learner-flower__source {
+  font-size: 1rem !important;
+  font-weight: 700;
+  color: #7a3e9d;
+}
+.learner-flower__note {
+  font-size: 0.95rem !important;
+  color: #7a5c3e;
+}
+.learner-flower__ask {
+  display: flex;
+  gap: 0.7rem;
+  align-items: end;
+  flex: 0 0 auto;
+}
+.learner-flower__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.learner-flower__label input {
+  min-height: 3.6rem;
+  border: 3px solid #c77dff;
+  border-radius: 1rem;
+  background: #fff;
+  color: #3a2b20;
+  font: inherit;
+  font-size: 1.15rem;
+  padding: 0.55rem 0.9rem;
+  width: 100%;
+}
+.learner-flower__topics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.8rem;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.learner-flower__group {
+  min-width: 0;
+}
+.learner-flower__group h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.02rem;
+  color: #7a3e9d;
+}
+.learner-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.learner-chip {
+  min-height: 2.6rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 2px solid #c77dff;
+  background: #fff;
+  color: #3a2b20;
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.learner-chip:hover,
+.learner-chip:focus-visible {
+  background: #f3e8ff;
+  outline: 3px solid #ffb703;
+  outline-offset: 2px;
+}
+
+/* Art cabinet */
+.learner-art {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 0;
+}
+.learner-art__stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.learner-art__stage img {
+  /* Explicit size, not just max-: a big square picture in a grid cell
+     otherwise keeps its natural height and paints over the caption and
+     buttons below (seen at phone size, 2026-11-21). */
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border: 3px solid #f4a261;
+  border-radius: 1.2rem;
+  background: #fff;
+}
+.learner-art__caption {
+  margin: 0;
+  flex: 0 0 auto;
+  font-size: 1.08rem;
+  line-height: 1.45;
+  text-align: center;
+}
+.learner-art__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex: 0 0 auto;
+}
+.learner-art__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 3.8rem;
+  min-width: 0;
+  flex: 1 1 0;
+  padding: 0.6rem 0.7rem;
+  border-radius: 999px;
+  border: 3px solid #ff6b9d;
+  background: #fff;
+  color: #3a2b20;
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.learner-art__button svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.learner-art__button:hover,
+.learner-art__button:focus-visible {
+  background: #ffe5ec;
+  outline: 3px solid #ffb703;
+  outline-offset: 2px;
+}
+.learner-art__count {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #7a5c3e;
+  white-space: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 /* Her game room */
 .learner-game {
   display: flex;
@@ -3919,22 +4260,111 @@
   background: #000;
 }
 
+/* Tablet widths: four cabinets across (two rows) — roomier buttons and
+   a taller panel below them, so every cabinet's content fits whole. */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .learner-cabinets {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
   .learner-cabinets {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
   }
   .learner-cabinet-button {
     min-height: 4.6rem;
-    font-size: 1.02rem;
+    font-size: 0.98rem;
+    padding: 0.5rem 0.3rem;
+  }
+  .learner-cabinet-button svg {
+    width: 1.5rem;
+    height: 1.5rem;
   }
   .learner-viewer {
     grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
   .learner-viewer__art svg {
-    max-height: 9rem;
+    max-height: 4.4rem;
+  }
+  .learner-viewer p {
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+  /* Phone room-making for the Learn cabinet: the little note line goes,
+     the play button and starter buttons slim down, so the diagram and
+     its words keep real space and nothing has to overlap. */
+  .learner-learn .learner-note {
+    display: none;
+  }
+  .learner-panel h2 {
+    font-size: 1.3rem;
+    margin-bottom: 0.3rem;
+  }
+  .learner-play {
+    min-height: 3.2rem;
+    font-size: 1.05rem;
+    padding: 0.4rem 1rem;
+  }
+  .learner-starter-button {
+    min-height: 2.9rem;
+    font-size: 0.92rem;
+    padding: 0.35rem 0.7rem;
+  }
+  .learner-starter-row {
+    padding-top: 0.4rem;
   }
   .learner-homework {
     grid-template-columns: 1fr;
+  }
+  .learner-flower__face {
+    width: 3.8rem;
+    height: 3.8rem;
+  }
+  /* Phone: the Flower's long hello-note gives its room to her answers. */
+  .learner-flower__head .learner-note {
+    display: none;
+  }
+  .learner-flower__bubble p {
+    font-size: 1.05rem;
+  }
+  .learner-chip {
+    min-height: 2.2rem;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+  }
+  .learner-flower__topics {
+    gap: 0.5rem;
+  }
+  .learner-flower__group h3 {
+    font-size: 0.9rem;
+  }
+}
+
+/* Short screens (landscape phones, small tablet windows): one calm row
+   of cabinets so the panel below keeps its room. */
+@media (max-height: 560px) {
+  .learner-cabinets {
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.6rem;
+  }
+  .learner-cabinet-button {
+    min-height: 3.9rem;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.25rem;
+  }
+  .learner-cabinet-button svg {
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+  .learner-header h1 {
+    font-size: 1.6rem;
+  }
+  .learner-flower__face {
+    width: 3.4rem;
+    height: 3.4rem;
   }
 }
 
@@ -3994,3 +4424,451 @@
   color: #9fb0c9;
   font-size: 1rem;
 }
+
+/* ============ MULTIPLICATION RACING GAME (TEST, /learner/racing) ============
+   One screen at a time, no scrolling during play, big readable
+   words and big tap targets — same warm Academy world. */
+.racing {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.7rem clamp(0.7rem, 3vw, 1.6rem) 0.9rem;
+  overflow: hidden;
+}
+.racing h2 {
+  margin: 0.1rem 0 0.3rem;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+.racing h3 {
+  margin: 0.45rem 0 0.25rem;
+  font-size: 1.15rem;
+}
+.racing-test-tag {
+  display: inline-block;
+  margin: 0 0 0.2rem;
+  background: #ffb703;
+  color: #3a2b20;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.95rem;
+}
+.racing-setup {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.racing-pick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.racing-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 6.4rem;
+  padding: 0.35rem 0.5rem 0.45rem;
+  border-radius: 1.1rem;
+  border: 3px solid #f4a261;
+  background: #fff;
+  color: #3a2b20;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.racing-pick svg {
+  width: 5.6rem;
+  height: auto;
+}
+.racing-pick--driver svg {
+  width: 3rem;
+}
+.racing-pick[aria-pressed="true"] {
+  background: #ffe5ec;
+  border-color: #ff6b9d;
+  box-shadow: inset 0 0 0 2px #ff6b9d;
+}
+.racing-swatch {
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 999px;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #d9c7a7;
+  cursor: pointer;
+}
+.racing-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 4px #3a2b20;
+}
+.racing-start-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+.racing-start {
+  min-height: 4rem;
+  padding: 0.7rem 1.8rem;
+  border-radius: 999px;
+  border: 3px solid #2a9d8f;
+  background: #2a9d8f;
+  color: #fff;
+  font: inherit;
+  font-size: 1.35rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.racing-hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+  align-items: baseline;
+  font-size: 1.15rem;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.racing-hud__upgrades {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #2a9d8f;
+}
+.racing-track {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 0.3rem;
+  margin: 0.4rem 0;
+  background: linear-gradient(#a8dadc, #f1fa8c 130%);
+  border: 3px solid #f4a261;
+  border-radius: 1.2rem;
+  padding: 0.4rem 0.7rem;
+}
+.racing-lane {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.racing-lane__name {
+  flex: 0 0 5.6rem;
+  font-weight: 800;
+  font-size: 0.98rem;
+  text-align: right;
+}
+.racing-lane__road {
+  position: relative;
+  flex: 1;
+  height: 3.4rem;
+  background: #8d99ae;
+  border-radius: 0.7rem;
+  border-bottom: 4px dashed #fff7ea;
+}
+.racing-car {
+  position: absolute;
+  top: 50%;
+  transform: translate(-8%, -58%);
+  width: 5.4rem;
+  transition: left 0.12s linear;
+}
+.racing-car svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.racing-lane__flag {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 800;
+  color: #fff7ea;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 50%);
+}
+.racing-countdown {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: clamp(4rem, 18vw, 9rem);
+  font-weight: 900;
+  color: #ef476f;
+  text-shadow:
+    0 4px 0 #fff7ea,
+    0 8px 24px rgb(0 0 0 / 25%);
+  pointer-events: none;
+}
+.racing-question,
+.racing-pit {
+  flex: 0 0 auto;
+  background: #fff;
+  border: 3px solid #4361ee;
+  border-radius: 1.2rem;
+  padding: 0.55rem 0.9rem 0.7rem;
+}
+.racing-question__label {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #7a5c3e;
+}
+.racing-question__prompt {
+  margin: 0.1rem 0 0.35rem;
+  font-size: clamp(1.9rem, 6vw, 2.6rem);
+  font-weight: 900;
+  line-height: 1.1;
+}
+.racing-hud__speed {
+  background: #4361ee;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.1rem 0.8rem;
+}
+.racing-lane__lapmark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 3px dashed rgb(255 247 234 / 65%);
+  pointer-events: none;
+}
+.racing-lane__finish {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 0.75rem;
+  border-radius: 0 0.7rem 0.7rem 0;
+  background: repeating-conic-gradient(#3a2b20 0% 25%, #fff7ea 0% 50%);
+  background-size: 0.75rem 0.75rem;
+  opacity: 0.9;
+  pointer-events: none;
+}
+.racing-answers {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.55rem;
+}
+.racing-answer {
+  min-height: 3.8rem;
+  border-radius: 1rem;
+  border: 3px solid #ffb703;
+  background: #fff7ea;
+  color: #3a2b20;
+  font: inherit;
+  font-size: 1.5rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+.racing-answer:hover,
+.racing-answer:focus-visible {
+  background: #ffb703;
+}
+.racing-question__foot {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 2.6rem;
+}
+.racing-feedback {
+  margin: 0.35rem 0 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #2a9d8f;
+}
+.racing-nos {
+  margin-left: auto;
+  min-height: 3.4rem;
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  border: 3px solid #d00000;
+  background: #ef476f;
+  color: #fff;
+  font: inherit;
+  font-size: 1.3rem;
+  font-weight: 900;
+  cursor: pointer;
+  animation: racing-nos-pulse 0.7s ease-in-out infinite alternate;
+}
+@keyframes racing-nos-pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.07);
+  }
+}
+.racing-pit {
+  border-color: #2a9d8f;
+}
+.racing-pit h2 {
+  color: #2a9d8f;
+}
+.racing-pit__note {
+  margin: 0 0 0.3rem;
+  font-size: 1.02rem;
+}
+.racing-pit__trick {
+  margin: 0 0 0.3rem;
+  font-size: 1.12rem;
+  font-weight: 800;
+  background: #d8f3dc;
+  border-radius: 0.8rem;
+  padding: 0.4rem 0.7rem;
+}
+.racing-pit__parts {
+  margin: 0.4rem 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #7a5c3e;
+}
+.racing-go {
+  margin-top: 0.5rem;
+  min-height: 4rem;
+  width: 100%;
+  border-radius: 1.1rem;
+  border: 3px solid #1b7a43;
+  background: #37b24d;
+  color: #fff;
+  font: inherit;
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.racing-results {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 0;
+}
+.racing-results__big {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+.racing-results__sub {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.racing-results__list {
+  list-style: none;
+  margin: 0.2rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+.racing-results__list li {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: #fff;
+  border: 3px solid #f4a261;
+  border-radius: 1rem;
+  padding: 0.3rem 0.8rem;
+}
+.racing-results__list li.racing-results__you {
+  border-color: #ef476f;
+  background: #ffe5ec;
+}
+.racing-results__place {
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+.racing-results__kart svg {
+  width: 5rem;
+  height: auto;
+  display: block;
+}
+.racing-results__tag {
+  font-weight: 800;
+  color: #ef476f;
+}
+@media (max-width: 640px) {
+  .racing-answers {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .racing-lane__name {
+    flex-basis: 4rem;
+    font-size: 0.85rem;
+  }
+  .racing-car {
+    width: 4.2rem;
+  }
+}
+
+
+/* Office Analytics + Law Desk windows (Parts 10-11) */
+.window-analytics__list, .trusted-devices__list { display: flex; flex-direction: column; gap: 0.55rem; }
+.window-analytics__row { display: flex; align-items: flex-start; gap: 0.6rem; border: 1px solid var(--border, #d8cdb4); border-radius: 0.6rem; padding: 0.55rem 0.7rem; background: var(--panel-2, #f6efdd); }
+.window-analytics__row p { margin: 0.15rem 0 0; font-size: 0.85rem; line-height: 1.35; }
+.window-analytics__stats { font-size: 0.8rem; opacity: 0.85; }
+.window-analytics__pill { flex: 0 0 auto; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; padding: 0.15rem 0.45rem; border-radius: 999px; border: 1px solid currentColor; margin-top: 0.1rem; }
+.window-analytics__pill.is-working { color: #1c6b3a; }
+.window-analytics__pill.is-problem { color: #a33b1f; }
+.window-analytics__pill.is-unavailable { color: #6b6252; }
+.trusted-devices__row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; border: 1px solid var(--border, #d8cdb4); border-radius: 0.6rem; padding: 0.45rem 0.7rem; font-size: 0.85rem; }
+.window-law__ask { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
+.window-law__ask input { flex: 1 1 auto; min-width: 0; padding: 0.55rem 0.7rem; border-radius: 0.55rem; border: 1px solid var(--border, #d8cdb4); font-size: 0.95rem; }
+.window-law__answer { white-space: pre-wrap; line-height: 1.5; font-size: 0.95rem; }
+.window-law__sources { font-size: 0.82rem; opacity: 0.85; margin-top: 0.5rem; }
+
+/* Part 16 — the circuit (replaces the straight lanes visually) */
+.racing-circuit { position: relative; flex: 1 1 auto; min-height: 0; margin: 0.2rem 0; }
+.racing-circuit__svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.racing-car--circuit { position: absolute; width: 4.6rem; top: auto; transition: left 0.12s linear, top 0.12s linear, transform 0.12s linear; }
+.racing-car--circuit svg { width: 100%; height: auto; display: block; }
+.racing-car__name { position: absolute; left: 50%; bottom: -0.9rem; transform: translateX(-50%); font-size: 0.62rem; font-weight: 700; white-space: nowrap; color: #3c2a4d; background: rgba(255,255,255,0.75); border-radius: 999px; padding: 0 0.3rem; }
+.racing-mute { font: inherit; font-weight: 700; border: 2px solid #b08968; background: #fff7e6; border-radius: 999px; padding: 0.25rem 0.7rem; cursor: pointer; }
+
+/* Anatomy + Logs windows (Parts 17, 22) */
+.window-anatomy__map { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+.window-anatomy__box { border: 1px solid var(--border, #d8cdb4); border-radius: 0.6rem; padding: 0.5rem 0.65rem; background: var(--panel-2, #f6efdd); }
+.window-anatomy__box h3 { margin: 0 0 0.3rem; font-size: 0.88rem; }
+.window-anatomy__box ul { margin: 0; padding-left: 1rem; font-size: 0.8rem; line-height: 1.4; }
+.window-anatomy__head { margin: 0.8rem 0 0.4rem; font-size: 0.95rem; }
+.window-anatomy__slider { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin: 0.3rem 0; font-size: 0.88rem; }
+.window-anatomy__slider input[type="range"] { flex: 1 1 auto; }
+.window-anatomy__version-row { display: flex; gap: 0.5rem; }
+.window-anatomy__version-row input { flex: 1 1 auto; min-width: 0; padding: 0.45rem 0.6rem; border-radius: 0.5rem; border: 1px solid var(--border, #d8cdb4); }
+.window-anatomy__versions { list-style: none; margin: 0.4rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.window-anatomy__versions li { display: flex; justify-content: space-between; gap: 0.6rem; align-items: center; border: 1px solid var(--border, #d8cdb4); border-radius: 0.55rem; padding: 0.4rem 0.6rem; font-size: 0.84rem; }
+.window-anatomy__version-actions { display: flex; gap: 0.4rem; flex: 0 0 auto; }
+.window-anatomy__note, .window-anatomy__leftout, .window-logs__note { font-size: 0.84rem; line-height: 1.45; }
+.window-logs__row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0.4rem 0; }
+.window-logs__row input { flex: 1 1 10rem; min-width: 0; padding: 0.45rem 0.6rem; border-radius: 0.5rem; border: 1px solid var(--border, #d8cdb4); }
+.window-logs__events { margin: 0.3rem 0; padding-left: 1.1rem; font-size: 0.84rem; line-height: 1.45; }
+.window-logs__detail { opacity: 0.85; }
+.window-logs__journal { max-height: 16rem; overflow: auto; font-size: 0.72rem; line-height: 1.4; background: #10131a; color: #d7e0ee; border-radius: 0.5rem; padding: 0.55rem 0.7rem; white-space: pre-wrap; }
+.window-logs section h3, .window-picture-analysis { margin: 0.7rem 0 0.3rem; }
+
+/* Listening window (Part 12) */
+.window-listening__indicator { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; border: 1px solid #b3385e; background: #3d1420; color: #ffd7e2; border-radius: 0.6rem; padding: 0.5rem 0.7rem; }
+.window-listening__dot { width: 0.7rem; height: 0.7rem; border-radius: 999px; background: #ff4d6d; flex: 0 0 auto; animation: listening-pulse 2.4s ease-in-out infinite; }
+@keyframes listening-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.window-listening__error { color: #a33b1f; font-weight: 600; }
+.window-listening__recap { line-height: 1.55; }
+.speaker-stores__rule, .speaker-stores__empty { font-size: 0.86rem; line-height: 1.45; }
+
+/* Test Area + Phone Bridge + Pulse perception (Parts 20, 23, 24, 25) */
+.window-testarea__list { list-style: none; margin: 0.6rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.window-testarea__row { display: flex; justify-content: space-between; gap: 0.7rem; border: 1px solid var(--border, #d8cdb4); border-radius: 0.6rem; padding: 0.5rem 0.65rem; background: var(--panel-2, #f6efdd); }
+.window-testarea__main { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.window-testarea__what, .window-testarea__reason { font-size: 0.8rem; line-height: 1.4; opacity: 0.9; }
+.window-testarea__side { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-end; flex: 0 0 auto; }
+.window-testarea__verdict { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em; padding: 0.15rem 0.45rem; border-radius: 999px; border: 1px solid currentColor; }
+.window-testarea__verdict.is-works { color: #1c6b3a; }
+.window-testarea__verdict.is-fails { color: #a33b1f; }
+.window-testarea__verdict.is-stale { color: #9a6a00; }
+.window-testarea__verdict.is-never { color: #6b6252; }
+.window-pulse__perception { margin: 0.2rem 0 0; padding-left: 1.1rem; line-height: 1.5; font-size: 0.88rem; }
+.phone-bridge { max-width: 44rem; margin: 0 auto; padding: 1rem; line-height: 1.55; }
+.phone-bridge section { border: 1px solid var(--border, #d8cdb4); border-radius: 0.7rem; padding: 0.7rem 0.9rem; margin: 0.7rem 0; }
+.phone-bridge__bpm { font-size: 1.05rem; }

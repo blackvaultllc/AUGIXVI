@@ -10,8 +10,12 @@ import * as THREE from "three";
 import {
   Activity,
   ArrowUp,
+  BarChart3,
   BookOpen,
   Box,
+  Brain,
+  Ear,
+  FlaskConical,
   Bug,
   Building2,
   Camera,
@@ -26,9 +30,12 @@ import {
   Plane,
   Presentation,
   Save,
+  Scale,
   ScanSearch,
+  ScrollText,
   Shield,
   Shrink,
+  Smartphone,
   Sparkles,
   Square,
   Sun,
@@ -78,6 +85,15 @@ import { PulseWindow } from "./PulseWindow";
 import { GateLogWindow } from "./GateLogWindow";
 import { SandboxWindow } from "./SandboxWindow";
 import { LibraryWindow } from "./LibraryWindow";
+import { LawWindow } from "./LawWindow";
+import { OfficeAnalyticsWindow } from "./OfficeAnalyticsWindow";
+import { PictureAnalysisWindow } from "./PictureAnalysisWindow";
+import { AnatomyWindow } from "./AnatomyWindow";
+import { LogsWindow } from "./LogsWindow";
+import { ListeningWindow } from "./ListeningWindow";
+import { TestAreaWindow } from "./TestAreaWindow";
+import { SpeakerStoresPanel } from "./SpeakerStoresPanel";
+import { downloadCapture } from "./capture";
 import { parseRoomCommand } from "./command/roomCommands";
 import { loadBrainAddress, saveBrainAddress } from "./brain";
 import { intensityLabel } from "./stateParams";
@@ -120,6 +136,7 @@ import {
 import { createHighlight, createLocalMemory, findLocalAnswer, splitDocument } from "./localMemory";
 import { createLocalEar, type LocalEar } from "./localEar";
 import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
+import { TrustedDevicesPanel } from "./TrustedDevicesPanel";
 import {
   createVoiceGateVerifier,
   loadVoiceCalibrationPrefs,
@@ -150,7 +167,7 @@ type Settings = RenderSettings & { sensitivity: number; cooldownMs: number };
 type WorldScreen = "space" | "entering" | "live" | "returning";
 const DEFAULTS: Settings = {
   maxParticles: 120000,
-  bloom: 1.1,
+  bloom: 0.25,
   glitch: 0.4,
   theme: "cyan",
   customColor: "#22d3ee",
@@ -276,6 +293,8 @@ export function AvatarStage({
   const shaShownRef = useRef({ shown: false });
   const proactiveRef = useRef<ReturnType<typeof createProactiveEngine> | null>(null);
   const [commandTab, setCommandTab] = useState<CommandTab>("motion");
+  /** Part 28: the chat is the default face; machinery starts closed. */
+  const [machineryOpen, setMachineryOpen] = useState(false);
   // Movable windows the operator (or Osiris's idle life) can open.
   const [openWindows, setOpenWindows] = useState<Set<"notepad" | "chalkboard" | "player">>(
     new Set(),
@@ -320,6 +339,13 @@ export function AvatarStage({
   // (Knowledge Phase 2, operator order 2026-11-21). Opens from
   // Tools → Rooms and from "open the library".
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [lawOpen, setLawOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [analyzeOpen, setAnalyzeOpen] = useState(false);
+  const [anatomyOpen, setAnatomyOpen] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [listeningOpen, setListeningOpen] = useState(false);
+  const [testAreaOpen, setTestAreaOpen] = useState(false);
   // HIS OWN LAST MESSAGE: echoed in the Command box above Augie's reply
   // (operator defect 2026-11-21 — the box showed only the reply, so he
   // could not see the messages he sent, typed or spoken).
@@ -553,6 +579,7 @@ export function AvatarStage({
       // "/help" is special: it opens the full command document.
       if (/^\/help\b/i.test(commandText)) {
         setCommandTab("commands");
+        setMachineryOpen(true);
         say("Every command is in the Commands tab — nothing hidden.");
         return;
       }
@@ -666,7 +693,12 @@ export function AvatarStage({
         return;
       }
       if (room === "picture-analysis") {
-        void navigate({ to: "/avatar/analyze" });
+        // Part 27: the WINDOW is the primary face now — the full
+        // page (/avatar/analyze) is secondary.
+        setAnalyzeOpen(true);
+        say(
+          "Picture Analysis is open in its window — scan the room or pick a picture, and the findings land beside the picture.",
+        );
         return;
       }
       if (room === "game") {
@@ -705,6 +737,48 @@ export function AvatarStage({
         setLibraryOpen(true);
         say(
           "Library is open — your shelves, read from the books on this machine. No internet involved.",
+        );
+        return;
+      }
+      if (room === "law-desk") {
+        setLawOpen(true);
+        say(
+          "Law Desk is open — law answers from the books on this machine, cited. Knowledge, not a licensed attorney.",
+        );
+        return;
+      }
+      if (room === "office-analytics") {
+        setAnalyticsOpen(true);
+        say(
+          "Office Analytics is open — every department's real status, or an honest unavailable where no source exists.",
+        );
+        return;
+      }
+      if (room === "anatomy") {
+        setAnatomyOpen(true);
+        say(
+          "Anatomy is open — my core brain map and every safe tuning knob in one place, with versions you can lock and restore.",
+        );
+        return;
+      }
+      if (room === "logs") {
+        setLogsOpen(true);
+        say(
+          "Logs are open — the service journal, the gate log, and my event log with the reasons, all in one place.",
+        );
+        return;
+      }
+      if (room === "listening") {
+        setListeningOpen(true);
+        say(
+          "Listening mode is open — it records only while it is on, shows its indicator the whole time, and stays silent until you say Osiris.",
+        );
+        return;
+      }
+      if (room === "test-area") {
+        setTestAreaOpen(true);
+        say(
+          "The Test Area is open — every ability with a real run behind its verdict, and the failures carry their reasons.",
         );
         return;
       }
@@ -1338,6 +1412,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           responseSource={responseSource}
           userLine={lastUserMessage}
           history={transcript}
+          machineryOpen={machineryOpen}
+          onMachineryChange={setMachineryOpen}
         >
           {commandTab === "scene" && (
             <CommandGroup label="Avatar scale">
@@ -1417,7 +1493,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   <CommandAction
                     icon={ScanSearch}
                     label="Picture Analysis"
-                    onClick={() => void navigate({ to: "/avatar/analyze" })}
+                    onClick={() => setAnalyzeOpen(true)}
                   />
                   <CommandAction
                     icon={Gamepad2}
@@ -1445,6 +1521,68 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     icon={BookOpen}
                     label="Library"
                     onClick={() => setLibraryOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Scale}
+                    label="Law Desk"
+                    onClick={() => setLawOpen(true)}
+                  />
+                  <CommandAction
+                    icon={BarChart3}
+                    label="Office Analytics"
+                    onClick={() => setAnalyticsOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Brain}
+                    label="Augi Anatomy"
+                    onClick={() => setAnatomyOpen(true)}
+                  />
+                  <CommandAction
+                    icon={ScrollText}
+                    label="Logs"
+                    onClick={() => setLogsOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Ear}
+                    label="Listening Mode"
+                    onClick={() => setListeningOpen(true)}
+                  />
+                  <CommandAction
+                    icon={FlaskConical}
+                    label="Test Area"
+                    onClick={() => setTestAreaOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Smartphone}
+                    label="Phone Bridge — Ghost Protocol One"
+                    onClick={() => void navigate({ to: "/phone-bridge" })}
+                  />
+                  <CommandAction
+                    icon={Camera}
+                    label="Capture this moment"
+                    onClick={() => {
+                      const open: string[] = [];
+                      if (lawOpen) open.push("law-desk");
+                      if (analyticsOpen) open.push("office-analytics");
+                      if (analyzeOpen) open.push("picture-analysis");
+                      if (pulseOpen) open.push("pulse");
+                      if (gateLogOpen) open.push("gate-log");
+                      if (libraryOpen) open.push("library");
+                      const name = downloadCapture({
+                        at: Date.now(),
+                        url: window.location.href,
+                        userAgent: navigator.userAgent,
+                        lastCommand: lastUserMessage,
+                        lastAnswer: lastWords,
+                        responseSource,
+                        settings,
+                        replyHistory: transcript,
+                        openWindows: open,
+                      });
+                      say(
+                        `Capture downloaded as ${name} — it holds the last command, my answer, the settings in force, and the reply history. No images, no keys, nothing from Khadija's side.`,
+                      );
+                    }}
                   />
                 </div>
               </CommandGroup>
@@ -1623,6 +1761,12 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
               <CommandGroup label="Voice calibration — only my operator's voice">
                 <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
               </CommandGroup>
+              <CommandGroup label="Trusted devices — confirmed by full sign-in">
+                <TrustedDevicesPanel />
+              </CommandGroup>
+              <CommandGroup label="Other voices — kept separate, never merged (Part 13)">
+                <SpeakerStoresPanel />
+              </CommandGroup>
             </div>
           )}
         </CommandBox>
@@ -1647,6 +1791,30 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
       {libraryOpen && <LibraryWindow onClose={() => setLibraryOpen(false)} />}
+      {lawOpen && <LawWindow onClose={() => setLawOpen(false)} />}
+      {analyticsOpen && <OfficeAnalyticsWindow onClose={() => setAnalyticsOpen(false)} />}
+      {analyzeOpen && <PictureAnalysisWindow onClose={() => setAnalyzeOpen(false)} />}
+      {anatomyOpen && (
+        <AnatomyWindow
+          onClose={() => setAnatomyOpen(false)}
+          settings={settings}
+          onUpdate={update}
+          onRestoreAll={(next) => {
+            persistSettings(next);
+            rendRef.current?.updateSettings(next);
+            sensRef.current?.setOptions({ sensitivity: next.sensitivity, cooldownMs: next.cooldownMs });
+          }}
+        />
+      )}
+      {logsOpen && <LogsWindow onClose={() => setLogsOpen(false)} />}
+      {listeningOpen && <ListeningWindow onClose={() => setListeningOpen(false)} />}
+      {testAreaOpen && (
+        <TestAreaWindow
+          onClose={() => setTestAreaOpen(false)}
+          settings={settings}
+          replyHistory={transcript}
+        />
+      )}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />

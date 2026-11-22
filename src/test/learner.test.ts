@@ -2,10 +2,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   LEARNER_ALLOWED_PATHS,
   endLearnerSession,
+  enterWithRememberedDevice,
+  forgetLearnerDevice,
+  hasRememberedLearnerDevice,
   isLearnerSessionActive,
   isOperatorPath,
   learnerCanAccess,
   loadLearnerSession,
+  rememberLearnerDevice,
   startLearnerSession,
   validateLearnerSignIn,
 } from "@/avatar/learner/learnerProfile";
@@ -81,6 +85,75 @@ describe("the wall — learner route space", () => {
     expect(isOperatorPath("/avatar/cube")).toBe(true);
     expect(isOperatorPath("/avatar")).toBe(true);
     expect(isOperatorPath("/learner")).toBe(false);
+  });
+
+  it("allows her Squishy Maker, her art, and the Flower's ask doorway — exactly those", () => {
+    expect(learnerCanAccess("/learner/squishy")).toBe(true);
+    expect(learnerCanAccess("/games/squishy-maker/index.html")).toBe(true);
+    expect(learnerCanAccess("/games/squishy-maker/actions")).toBe(true);
+    expect(learnerCanAccess("/games/squishy-maker/assets/index-rz1jvtdr.js")).toBe(true);
+    expect(learnerCanAccess("/games/squishy-maker/assets/index-er1n5jmk.css")).toBe(true);
+    expect(learnerCanAccess("/learner-art/princess-squishy.webp")).toBe(true);
+    expect(learnerCanAccess("/api/learner/ask")).toBe(true);
+    expect(learnerCanAccess("/learner/racing")).toBe(true);
+  });
+
+  it("still denies the operator's APIs and every neighbouring path", () => {
+    const denied = [
+      "/api/transcribe",
+      "/api/library/catalog",
+      "/api/library/search",
+      "/api/library/article",
+      "/api/voiceprint/status",
+      "/api/learner",
+      "/api/learner/ask/extra",
+      "/learner/racing/extra",
+      "/learner/squishy/extra",
+      "/learner/art",
+      "/games",
+      "/games/squishy-maker",
+      "/games/squishy-maker/other.html",
+      "/learner-art/../avatar",
+      "/avatar/world",
+      "/avatar/analyze",
+    ];
+    for (const path of denied) {
+      expect(learnerCanAccess(path), path).toBe(false);
+    }
+  });
+});
+
+describe("her remembered device — one tap back in (Part 8)", () => {
+  it("a device that never enrolled her cannot fast-enter", () => {
+    expect(hasRememberedLearnerDevice()).toBe(false);
+    expect(enterWithRememberedDevice()).toBe(false);
+    expect(isLearnerSessionActive()).toBe(false);
+  });
+
+  it("after enrollment, the same device re-enters directly — same session, same wall", () => {
+    rememberLearnerDevice();
+    expect(hasRememberedLearnerDevice()).toBe(true);
+    expect(enterWithRememberedDevice()).toBe(true);
+    expect(isLearnerSessionActive()).toBe(true);
+    // The fast path changes her speed of entry, never her reach:
+    expect(learnerCanAccess("/learner")).toBe(true);
+    expect(learnerCanAccess("/learner/racing")).toBe(true);
+    expect(learnerCanAccess("/avatar")).toBe(false);
+    expect(learnerCanAccess("/api/transcribe")).toBe(false);
+  });
+
+  it("forgetting the device restores the full sign-in", () => {
+    rememberLearnerDevice();
+    forgetLearnerDevice();
+    expect(hasRememberedLearnerDevice()).toBe(false);
+    expect(enterWithRememberedDevice()).toBe(false);
+    expect(isLearnerSessionActive()).toBe(false);
+  });
+
+  it("a tampered device memory (wrong name) does not count as enrolled", () => {
+    localStorage.setItem("augi.learner.device.v1", JSON.stringify({ name: "Somebody Else" }));
+    expect(hasRememberedLearnerDevice()).toBe(false);
+    expect(enterWithRememberedDevice()).toBe(false);
   });
 });
 

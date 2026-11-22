@@ -12,12 +12,17 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AvatarRouteImport } from './routes/avatar'
 import { Route as LearnerRouteImport } from './routes/learner'
+import { Route as PhoneBridgeRouteImport } from './routes/phone-bridge'
+import { Route as ApiSayRouteImport } from './routes/api.say'
 import { Route as ApiTranscribeRouteImport } from './routes/api.transcribe'
 import { Route as AvatarAnalyzeRouteImport } from './routes/avatar_.analyze'
 import { Route as AvatarCubeRouteImport } from './routes/avatar_.cube'
 import { Route as AvatarGameRouteImport } from './routes/avatar_.game'
 import { Route as AvatarWorldRouteImport } from './routes/avatar_.world'
 import { Route as LearnerGameRouteImport } from './routes/learner_.game'
+import { Route as LearnerRacingRouteImport } from './routes/learner_.racing'
+import { Route as LearnerSquishyRouteImport } from './routes/learner_.squishy'
+import { Route as ApiLearnerAskRouteImport } from './routes/api.learner.ask'
 import { Route as ApiLibraryArticleRouteImport } from './routes/api.library.article'
 import { Route as ApiLibraryCatalogRouteImport } from './routes/api.library.catalog'
 import { Route as ApiLibrarySearchRouteImport } from './routes/api.library.search'
@@ -27,6 +32,7 @@ import { Route as ApiVoiceprintEnrollRouteImport } from './routes/api.voiceprint
 import { Route as ApiVoiceprintResetRouteImport } from './routes/api.voiceprint.reset'
 import { Route as ApiVoiceprintStatusRouteImport } from './routes/api.voiceprint.status'
 import { Route as ApiVoiceprintVerifyRouteImport } from './routes/api.voiceprint.verify'
+import { Route as GamesSquishyMakerActionsRouteImport } from './routes/games.squishy-maker.actions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -41,6 +47,16 @@ const AvatarRoute = AvatarRouteImport.update({
 const LearnerRoute = LearnerRouteImport.update({
   id: '/learner',
   path: '/learner',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PhoneBridgeRoute = PhoneBridgeRouteImport.update({
+  id: '/phone-bridge',
+  path: '/phone-bridge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSayRoute = ApiSayRouteImport.update({
+  id: '/api/say',
+  path: '/api/say',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
@@ -71,6 +87,21 @@ const AvatarWorldRoute = AvatarWorldRouteImport.update({
 const LearnerGameRoute = LearnerGameRouteImport.update({
   id: '/learner_/game',
   path: '/learner/game',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnerRacingRoute = LearnerRacingRouteImport.update({
+  id: '/learner_/racing',
+  path: '/learner/racing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnerSquishyRoute = LearnerSquishyRouteImport.update({
+  id: '/learner_/squishy',
+  path: '/learner/squishy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearnerAskRoute = ApiLearnerAskRouteImport.update({
+  id: '/api/learner/ask',
+  path: '/api/learner/ask',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLibraryArticleRoute = ApiLibraryArticleRouteImport.update({
@@ -118,17 +149,28 @@ const ApiVoiceprintVerifyRoute = ApiVoiceprintVerifyRouteImport.update({
   path: '/api/voiceprint/verify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GamesSquishyMakerActionsRoute =
+  GamesSquishyMakerActionsRouteImport.update({
+    id: '/games/squishy-maker/actions',
+    path: '/games/squishy-maker/actions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
   '/learner': typeof LearnerRoute
+  '/phone-bridge': typeof PhoneBridgeRoute
+  '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/avatar/analyze': typeof AvatarAnalyzeRoute
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
   '/avatar/world': typeof AvatarWorldRoute
   '/learner/game': typeof LearnerGameRoute
+  '/learner/racing': typeof LearnerRacingRoute
+  '/learner/squishy': typeof LearnerSquishyRoute
+  '/api/learner/ask': typeof ApiLearnerAskRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -138,17 +180,23 @@ export interface FileRoutesByFullPath {
   '/api/voiceprint/reset': typeof ApiVoiceprintResetRoute
   '/api/voiceprint/status': typeof ApiVoiceprintStatusRoute
   '/api/voiceprint/verify': typeof ApiVoiceprintVerifyRoute
+  '/games/squishy-maker/actions': typeof GamesSquishyMakerActionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
   '/learner': typeof LearnerRoute
+  '/phone-bridge': typeof PhoneBridgeRoute
+  '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/avatar/analyze': typeof AvatarAnalyzeRoute
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
   '/avatar/world': typeof AvatarWorldRoute
   '/learner/game': typeof LearnerGameRoute
+  '/learner/racing': typeof LearnerRacingRoute
+  '/learner/squishy': typeof LearnerSquishyRoute
+  '/api/learner/ask': typeof ApiLearnerAskRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -158,18 +206,24 @@ export interface FileRoutesByTo {
   '/api/voiceprint/reset': typeof ApiVoiceprintResetRoute
   '/api/voiceprint/status': typeof ApiVoiceprintStatusRoute
   '/api/voiceprint/verify': typeof ApiVoiceprintVerifyRoute
+  '/games/squishy-maker/actions': typeof GamesSquishyMakerActionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
   '/learner': typeof LearnerRoute
+  '/phone-bridge': typeof PhoneBridgeRoute
+  '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/avatar_/analyze': typeof AvatarAnalyzeRoute
   '/avatar_/cube': typeof AvatarCubeRoute
   '/avatar_/game': typeof AvatarGameRoute
   '/avatar_/world': typeof AvatarWorldRoute
   '/learner_/game': typeof LearnerGameRoute
+  '/learner_/racing': typeof LearnerRacingRoute
+  '/learner_/squishy': typeof LearnerSquishyRoute
+  '/api/learner/ask': typeof ApiLearnerAskRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -179,6 +233,7 @@ export interface FileRoutesById {
   '/api/voiceprint/reset': typeof ApiVoiceprintResetRoute
   '/api/voiceprint/status': typeof ApiVoiceprintStatusRoute
   '/api/voiceprint/verify': typeof ApiVoiceprintVerifyRoute
+  '/games/squishy-maker/actions': typeof GamesSquishyMakerActionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -186,12 +241,17 @@ export interface FileRouteTypes {
     | '/'
     | '/avatar'
     | '/learner'
+    | '/phone-bridge'
+    | '/api/say'
     | '/api/transcribe'
     | '/avatar/analyze'
     | '/avatar/cube'
     | '/avatar/game'
     | '/avatar/world'
     | '/learner/game'
+    | '/learner/racing'
+    | '/learner/squishy'
+    | '/api/learner/ask'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -201,17 +261,23 @@ export interface FileRouteTypes {
     | '/api/voiceprint/reset'
     | '/api/voiceprint/status'
     | '/api/voiceprint/verify'
+    | '/games/squishy-maker/actions'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/avatar'
     | '/learner'
+    | '/phone-bridge'
+    | '/api/say'
     | '/api/transcribe'
     | '/avatar/analyze'
     | '/avatar/cube'
     | '/avatar/game'
     | '/avatar/world'
     | '/learner/game'
+    | '/learner/racing'
+    | '/learner/squishy'
+    | '/api/learner/ask'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -221,17 +287,23 @@ export interface FileRouteTypes {
     | '/api/voiceprint/reset'
     | '/api/voiceprint/status'
     | '/api/voiceprint/verify'
+    | '/games/squishy-maker/actions'
   id:
     | '__root__'
     | '/'
     | '/avatar'
     | '/learner'
+    | '/phone-bridge'
+    | '/api/say'
     | '/api/transcribe'
     | '/avatar_/analyze'
     | '/avatar_/cube'
     | '/avatar_/game'
     | '/avatar_/world'
     | '/learner_/game'
+    | '/learner_/racing'
+    | '/learner_/squishy'
+    | '/api/learner/ask'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -241,18 +313,24 @@ export interface FileRouteTypes {
     | '/api/voiceprint/reset'
     | '/api/voiceprint/status'
     | '/api/voiceprint/verify'
+    | '/games/squishy-maker/actions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AvatarRoute: typeof AvatarRoute
   LearnerRoute: typeof LearnerRoute
+  PhoneBridgeRoute: typeof PhoneBridgeRoute
+  ApiSayRoute: typeof ApiSayRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   AvatarAnalyzeRoute: typeof AvatarAnalyzeRoute
   AvatarCubeRoute: typeof AvatarCubeRoute
   AvatarGameRoute: typeof AvatarGameRoute
   AvatarWorldRoute: typeof AvatarWorldRoute
   LearnerGameRoute: typeof LearnerGameRoute
+  LearnerRacingRoute: typeof LearnerRacingRoute
+  LearnerSquishyRoute: typeof LearnerSquishyRoute
+  ApiLearnerAskRoute: typeof ApiLearnerAskRoute
   ApiLibraryArticleRoute: typeof ApiLibraryArticleRoute
   ApiLibraryCatalogRoute: typeof ApiLibraryCatalogRoute
   ApiLibrarySearchRoute: typeof ApiLibrarySearchRoute
@@ -262,6 +340,7 @@ export interface RootRouteChildren {
   ApiVoiceprintResetRoute: typeof ApiVoiceprintResetRoute
   ApiVoiceprintStatusRoute: typeof ApiVoiceprintStatusRoute
   ApiVoiceprintVerifyRoute: typeof ApiVoiceprintVerifyRoute
+  GamesSquishyMakerActionsRoute: typeof GamesSquishyMakerActionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -285,6 +364,20 @@ declare module '@tanstack/react-router' {
       path: '/learner'
       fullPath: '/learner'
       preLoaderRoute: typeof LearnerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/phone-bridge': {
+      id: '/phone-bridge'
+      path: '/phone-bridge'
+      fullPath: '/phone-bridge'
+      preLoaderRoute: typeof PhoneBridgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/say': {
+      id: '/api/say'
+      path: '/api/say'
+      fullPath: '/api/say'
+      preLoaderRoute: typeof ApiSayRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/transcribe': {
@@ -327,6 +420,27 @@ declare module '@tanstack/react-router' {
       path: '/learner/game'
       fullPath: '/learner/game'
       preLoaderRoute: typeof LearnerGameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learner_/racing': {
+      id: '/learner_/racing'
+      path: '/learner/racing'
+      fullPath: '/learner/racing'
+      preLoaderRoute: typeof LearnerRacingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learner_/squishy': {
+      id: '/learner_/squishy'
+      path: '/learner/squishy'
+      fullPath: '/learner/squishy'
+      preLoaderRoute: typeof LearnerSquishyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learner/ask': {
+      id: '/api/learner/ask'
+      path: '/api/learner/ask'
+      fullPath: '/api/learner/ask'
+      preLoaderRoute: typeof ApiLearnerAskRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/library/article': {
@@ -392,6 +506,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVoiceprintVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/games/squishy-maker/actions': {
+      id: '/games/squishy-maker/actions'
+      path: '/games/squishy-maker/actions'
+      fullPath: '/games/squishy-maker/actions'
+      preLoaderRoute: typeof GamesSquishyMakerActionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -399,12 +520,17 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AvatarRoute: AvatarRoute,
   LearnerRoute: LearnerRoute,
+  PhoneBridgeRoute: PhoneBridgeRoute,
+  ApiSayRoute: ApiSayRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   AvatarAnalyzeRoute: AvatarAnalyzeRoute,
   AvatarCubeRoute: AvatarCubeRoute,
   AvatarGameRoute: AvatarGameRoute,
   AvatarWorldRoute: AvatarWorldRoute,
   LearnerGameRoute: LearnerGameRoute,
+  LearnerRacingRoute: LearnerRacingRoute,
+  LearnerSquishyRoute: LearnerSquishyRoute,
+  ApiLearnerAskRoute: ApiLearnerAskRoute,
   ApiLibraryArticleRoute: ApiLibraryArticleRoute,
   ApiLibraryCatalogRoute: ApiLibraryCatalogRoute,
   ApiLibrarySearchRoute: ApiLibrarySearchRoute,
@@ -414,6 +540,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVoiceprintResetRoute: ApiVoiceprintResetRoute,
   ApiVoiceprintStatusRoute: ApiVoiceprintStatusRoute,
   ApiVoiceprintVerifyRoute: ApiVoiceprintVerifyRoute,
+  GamesSquishyMakerActionsRoute: GamesSquishyMakerActionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -14,9 +14,13 @@ import {
 import {
   PeopleSim,
   buildPersonPoints,
+  gaitAdvancePerUnit,
   makeAppearance,
+  strideCycleDistance,
   type PersonDef,
 } from "@/avatar/people";
+import { OFFICE_SEATS } from "@/avatar/worldScenes";
+import { DEPARTMENTS } from "@/avatar/departments";
 import { makeObjectPoints, SceneManager } from "@/avatar/sceneManager";
 import { WorldSceneManager } from "@/avatar/worldSceneRenderer";
 
@@ -118,8 +122,10 @@ describe("beach water — the waves actually move", () => {
 describe("citizens — figures from the same particle language", () => {
   it("builds a full person: stable count, colors matched, feet on the ground", () => {
     const figure = buildPersonPoints(makeAppearance(0), { mode: "stand", gaitTime: 0, time: 0 });
-    expect(figure.count).toBeGreaterThanOrEqual(400);
-    expect(figure.count).toBeLessThanOrEqual(480);
+    // Part 18 density pass: a citizen was 454 points (a ghost); the
+    // solid figure is ~724.
+    expect(figure.count).toBeGreaterThanOrEqual(650);
+    expect(figure.count).toBeLessThanOrEqual(800);
     expect(figure.positions.length).toBe(figure.count * 3);
     expect(figure.colors.length).toBe(figure.count * 3);
     expectFinite(figure.positions);
@@ -188,7 +194,7 @@ describe("citizens — the daily round (PeopleSim)", () => {
     const startX = person.x;
     for (let i = 0; i < 10; i += 1) sim.tick(0.05);
     expect(person.x).toBeGreaterThan(startX);
-    expect(person.gaitTime).toBeGreaterThan(0.3); // the walk cycle is turning
+    expect(person.gaitTime).toBeGreaterThan(0.1); // the walk cycle is turning
     expect(person.mode).toBe("walk");
     // Tick to the moment of arrival (the round loops, so catch it there).
     for (let i = 0; i < 200 && person.walking; i += 1) sim.tick(0.05);
@@ -207,6 +213,99 @@ describe("citizens — the daily round (PeopleSim)", () => {
     expect(worker.mode).toBe("work");
     expect(worker.x).toBe(seat.x);
     expect(worker.z).toBe(seat.z);
+  });
+});
+
+describe("Part 18 — the gait is keyed to travel, not a fixed clock", () => {
+  it("advances gaitTime exactly with distance (no foot slide)", () => {
+    const appearance = makeAppearance(0);
+    const sim = new PeopleSim([
+      {
+        appearance,
+        speed: 2,
+        waypoints: [
+          { x: 0, z: 0, mode: "stand", dwell: [0.01, 0.01] },
+          { x: 6, z: 0, mode: "stand", dwell: [0.01, 0.01] },
+        ],
+      },
+    ]);
+    const person = sim.people[0]!;
+    sim.tick(0.02); // dwell expires
+    let distance = 0;
+    let lastX = person.x;
+    for (let i = 0; i < 40 && person.walking; i += 1) {
+      sim.tick(0.05);
+      distance += Math.abs(person.x - lastX);
+      lastX = person.x;
+    }
+    expect(distance).toBeGreaterThan(1);
+    // One full leg cycle per strideCycleDistance traveled — the planted
+    // foot sweeps back at body speed, so the walk cannot read reversed.
+    expect(person.gaitTime).toBeCloseTo(distance * gaitAdvancePerUnit(appearance), 2);
+    expect(strideCycleDistance(appearance)).toBeGreaterThan(2);
+  });
+
+  it("faces the way it walks (heading converges to the velocity direction)", () => {
+    const sim = new PeopleSim([
+      {
+        appearance: makeAppearance(0),
+        speed: 1,
+        waypoints: [
+          { x: 0, z: 0, mode: "stand", dwell: [0.05, 0.05] },
+          { x: 3, z: 0, mode: "stand", dwell: [0.05, 0.05] },
+        ],
+      },
+    ]);
+    const person = sim.people[0]!;
+    sim.tick(0.05);
+    for (let i = 0; i < 30; i += 1) sim.tick(0.05);
+    // Target is +x of the start: heading should settle near +x (π/2).
+    expect(Math.abs(person.heading - Math.PI / 2)).toBeLessThan(0.25);
+  });
+});
+
+describe("Part 9 — the office: departments, hallway, break room, no wandering", () => {
+  it("every citizen staffs a real department desk and works there", () => {
+    const office = buildScene("office");
+    const deptIds = new Set(DEPARTMENTS.map((d) => d.id));
+    expect(office.people.length).toBe(OFFICE_SEATS.length);
+    for (const [i, person] of office.people.entries()) {
+      expect(person.dept).toBe(OFFICE_SEATS[i]!.dept);
+      expect(deptIds.has(person.dept!)).toBe(true);
+      expect(person.waypoints[0]!.mode).toBe("work");
+    }
+    // Every named department has a desk on the floor.
+    for (const dept of DEPARTMENTS) {
+      expect(OFFICE_SEATS.some((seat) => seat.dept === dept.id)).toBe(true);
+    }
+  });
+
+  it("routes every break trip through the hallway into the break room", () => {
+    const office = buildScene("office");
+    for (const person of office.people) {
+      const wps = person.waypoints;
+      expect(wps.length).toBe(4);
+      expect(wps[1]!.z).toBe(1.25); // hallway out
+      expect(wps[3]!.z).toBe(1.25); // hallway back
+      expect(wps[2]!.x).toBeGreaterThan(3.4); // inside the break room
+      expect(wps[2]!.z).toBeLessThan(-3.0);
+      // No waypoint is an aimless floor point: seat, hall, or break room.
+      for (const wp of wps) {
+        const isSeat = wp === wps[0];
+        const isHall = wp.z === 1.25;
+        const isBreak = wp.x > 3.4 && wp.z < -3.0;
+        expect(isSeat || isHall || isBreak).toBe(true);
+      }
+    }
+  });
+
+  it("shows a problem department as a problem — its worker stands, never fake-works", () => {
+    const office = buildScene("office", { problemDepts: ["finance"] });
+    const finance = office.people.find((p) => p.dept === "finance")!;
+    expect(finance.waypoints[0]!.mode).toBe("stand");
+    const security = office.people.find((p) => p.dept === "security")!;
+    expect(security.waypoints[0]!.mode).toBe("work");
+    expect(office.totalParticles).toBeLessThanOrEqual(SCENE_PARTICLE_BUDGET);
   });
 });
 

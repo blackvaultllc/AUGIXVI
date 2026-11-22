@@ -1,21 +1,39 @@
-import { useCallback, useRef, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   BookOpen,
+  CarFront,
+  ChevronLeft,
+  ChevronRight,
   Flower2,
   Gamepad2,
   Heart,
   Lock,
   LogOut,
+  Palette,
   Pencil,
   Shapes,
+  Sparkles,
   Star,
   Sun,
   Trash2,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import {
   LEARNER_FIRST_NAME,
   endLearnerSession,
+  enterWithRememberedDevice,
+  forgetLearnerDevice,
+  hasRememberedLearnerDevice,
   isLearnerSessionActive,
+  rememberLearnerDevice,
   startLearnerSession,
   validateLearnerSignIn,
 } from "./learnerProfile";
@@ -38,23 +56,29 @@ import {
   type LearnerProject,
   type SquishyPhoto,
 } from "./learnerStore";
+import { loadFlowerNotes, recordFlowerNote, type FlowerNote } from "./flowerNotes";
 
 /**
- * KHADIJA'S GRAND PAGE — one page, four cabinets, no scrolling, big
- * words, big buttons (operator order 2026-11-21). Everything here is
- * education only: her game, her learning shelf, her private diary, her
- * squishy projects, her homework and tests. Nothing operator-side is
- * imported, rendered, or reachable from this page — the wall is that
- * this page's whole world is these four cabinets.
+ * KHADIJA'S GRAND PAGE — one page, seven cabinets, no scrolling, big
+ * words, big buttons (operator orders 2026-11-21). Everything here is
+ * education only: her learning shelf and game, her Squishy Maker,
+ * Augie the Flower (her own AI, answering from the library), her
+ * private diary, her squishy projects, her homework and tests, and
+ * her art. Nothing operator-side is imported, rendered, or reachable
+ * from this page — the wall is that this page's whole world is these
+ * cabinets.
  */
 
-type CabinetId = "learn" | "diary" | "squishy" | "homework";
+type CabinetId = "learn" | "maker" | "flower" | "diary" | "squishy" | "homework" | "art";
 
 const CABINETS: { id: CabinetId; label: string; icon: typeof BookOpen }[] = [
   { id: "learn", label: "Learn", icon: BookOpen },
+  { id: "maker", label: "Squishy Maker", icon: Sparkles },
+  { id: "flower", label: "Augie the Flower", icon: Flower2 },
   { id: "diary", label: "My Diary", icon: Lock },
   { id: "squishy", label: "Squishy Projects", icon: Shapes },
   { id: "homework", label: "Homework & Tests", icon: Pencil },
+  { id: "art", label: "My Art", icon: Palette },
 ];
 
 export function LearnerHome() {
@@ -101,9 +125,12 @@ export function LearnerHome() {
 
       <section className="learner-panel" aria-live="polite">
         {cabinet === "learn" && <LearnCabinet />}
+        {cabinet === "maker" && <MakerCabinet />}
+        {cabinet === "flower" && <FlowerCabinet />}
         {cabinet === "diary" && <DiaryCabinet />}
         {cabinet === "squishy" && <SquishyCabinet />}
         {cabinet === "homework" && <HomeworkCabinet />}
+        {cabinet === "art" && <ArtCabinet />}
       </section>
     </div>
   );
@@ -115,6 +142,7 @@ function LearnerSignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const [name, setName] = useState("");
   const [year, setYear] = useState("");
   const [message, setMessage] = useState("");
+  const [remembered, setRemembered] = useState(() => hasRememberedLearnerDevice());
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -123,7 +151,17 @@ function LearnerSignIn({ onSignedIn }: { onSignedIn: () => void }) {
       return;
     }
     startLearnerSession();
+    rememberLearnerDevice();
     onSignedIn();
+  }
+
+  function comeBackIn() {
+    if (enterWithRememberedDevice()) onSignedIn();
+  }
+
+  function forgetThisDevice() {
+    forgetLearnerDevice();
+    setRemembered(false);
   }
 
   return (
@@ -131,7 +169,20 @@ function LearnerSignIn({ onSignedIn }: { onSignedIn: () => void }) {
       <div className="learner-signin">
         <Heart className="learner-signin__heart" aria-hidden="true" fill="currentColor" />
         <h1>Khadija&apos;s Door</h1>
-        <p>This door is just for Khadija. Type your name and your birth year.</p>
+        {remembered ? (
+          <>
+            <p>Welcome back, Khadija! This is your device — tap and come right in.</p>
+            <button type="button" className="learner-big-button" onClick={comeBackIn}>
+              Come in, Khadija
+            </button>
+            <button type="button" className="learner-signin__forget" onClick={forgetThisDevice}>
+              Not Khadija? Forget this device
+            </button>
+            <p>Or type your name and birth year, like the first time:</p>
+          </>
+        ) : (
+          <p>This door is just for Khadija. Type your name and your birth year.</p>
+        )}
         <form className="learner-signin__form" onSubmit={submit}>
           <label>
             Your name
@@ -292,12 +343,21 @@ function LearnCabinet() {
   const [starter, setStarter] = useState<Starter>(STARTERS[0]!);
   return (
     <div className="learner-learn">
-      <a className="learner-play" href="/learner/game">
-        <Gamepad2 aria-hidden="true" />
-        <span>
-          Play <strong>Legend of Logic</strong>
-        </span>
-      </a>
+      <div className="learner-play-row">
+        <a className="learner-play" href="/learner/game">
+          <Gamepad2 aria-hidden="true" />
+          <span>
+            Play <strong>Legend of Logic</strong>
+          </span>
+        </a>
+        <a className="learner-play learner-play--racing" href="/learner/racing">
+          <CarFront aria-hidden="true" />
+          <span>
+            Play <strong>Multiplication Racing</strong>
+          </span>
+          <span className="learner-test-badge">TEST</span>
+        </a>
+      </div>
       <h2>Diagrams and Examples</h2>
       <p className="learner-note">Starter diagrams — more are coming.</p>
       <div className="learner-viewer">
@@ -716,6 +776,427 @@ function HomeworkCabinet() {
           ))}
           {tests.length === 0 && <li>No tests saved yet.</li>}
         </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Cabinet: Squishy Maker (her game) ---------------- */
+
+function MakerCabinet() {
+  return (
+    <div className="learner-maker">
+      <h2>Squishy Maker</h2>
+      <p className="learner-note">
+        Your game! Make squishies, open the mystery heart present, and earn pretend prize money.
+        Your squishies save right here in Augie.
+      </p>
+      <a className="learner-play" href="/learner/squishy">
+        <Sparkles aria-hidden="true" />
+        <span>
+          Play <strong>Squishy Maker</strong>
+        </span>
+      </a>
+    </div>
+  );
+}
+
+/* ---------------- Cabinet: Augie the Flower (her own AI) ---------------- */
+
+type FlowerReply = {
+  answer: string;
+  mode: "book" | "math" | "none" | "redirect" | "library-down";
+  source: { bookTitle: string; articleTitle: string } | null;
+  verified: boolean;
+};
+
+const FLOWER_EXAMPLES = [
+  "Why is the sky blue?",
+  "What is 3 + 4?",
+  "Tell me about dinosaurs",
+  "How do plants eat?",
+];
+
+/**
+ * Good-manners lessons — the Flower's own kind guidance, in simple
+ * words. These are teaching, not book facts, and they are shown as
+ * the Flower's words, never dressed up as something from a book.
+ */
+const MANNERS_LESSONS: { id: string; title: string; words: string }[] = [
+  {
+    id: "please",
+    title: "Please and Thank You",
+    words:
+      "Say “please” when you ask for something, and “thank you” when someone helps you. Those little words make people feel happy and respected.",
+  },
+  {
+    id: "listening",
+    title: "Listening with Care",
+    words:
+      "When someone is talking, look at them and listen until they finish. Then it is your turn to talk. Listening shows respect.",
+  },
+  {
+    id: "kind-words",
+    title: "Kind Words",
+    words:
+      "Say hello with a smile. Use kind words, even when you feel upset. A young lady speaks with a gentle voice and strong, kind words.",
+  },
+  {
+    id: "table",
+    title: "At the Table",
+    words:
+      "Sit up tall, chew with your mouth closed, and say “excuse me” when you need to speak or leave the table.",
+  },
+];
+
+/** Heritage topics — tapped, they ask the Flower, and the answer comes from the books. */
+const HERITAGE_TOPICS: { id: string; label: string; question: string }[] = [
+  { id: "morocco", label: "Morocco", question: "Tell me about Morocco" },
+  { id: "africa", label: "Africa", question: "Tell me about Africa" },
+  { id: "egypt", label: "Egypt", question: "Tell me about Egypt long ago" },
+  { id: "spain", label: "Spain", question: "Tell me about Spain" },
+];
+
+/**
+ * The Flower's voice — Part 6. She speaks with the same speech path the
+ * operator's Augie uses (the browser's speechSynthesis, see src/avatar/
+ * voice.ts), with a friendlier pitch for a young listener. Voice-OUT only in
+ * this pass: voice-in is NOT wired on her side — /api/transcribe is an
+ * operator route outside her wall, and the local ear is bound to the
+ * operator stage. Returns false when this device has no speech voice, so
+ * the cabinet can say so plainly instead of faking it.
+ */
+function speakFlowerWords(text: string, onState: (speaking: boolean) => void): boolean {
+  const synth = globalThis.speechSynthesis;
+  if (!synth || typeof globalThis.SpeechSynthesisUtterance !== "function") return false;
+  synth.cancel();
+  const utterance = new globalThis.SpeechSynthesisUtterance(text);
+  utterance.rate = 1;
+  utterance.pitch = 1.15;
+  utterance.onstart = () => onState(true);
+  utterance.onend = () => onState(false);
+  utterance.onerror = () => onState(false);
+  synth.speak(utterance);
+  return true;
+}
+
+function FlowerCabinet() {
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [speech, setSpeech] = useState(
+    "Hello, Khadija! I am Augie the Flower. Ask me a school question, and I will find the answer in our books.",
+  );
+  const [sourceLine, setSourceLine] = useState<string | null>(null);
+  const [notes, setNotes] = useState<FlowerNote[]>(() => loadFlowerNotes());
+  const [voiceOn, setVoiceOn] = useState(true);
+  const [speaking, setSpeaking] = useState(false);
+  const voiceAvailable =
+    typeof globalThis.speechSynthesis !== "undefined" &&
+    typeof globalThis.SpeechSynthesisUtterance === "function";
+
+  useEffect(() => {
+    return () => {
+      globalThis.speechSynthesis?.cancel();
+    };
+  }, []);
+
+  const say = useCallback(
+    (text: string) => {
+      if (!voiceOn) return;
+      speakFlowerWords(text, setSpeaking);
+    },
+    [voiceOn],
+  );
+
+  const ask = useCallback(async (raw: string) => {
+    const q = raw.trim();
+    if (!q || asking) return;
+    setAsking(true);
+    setSpeech("Let me look in our books…");
+    setSourceLine(null);
+    try {
+      const response = await fetch("/api/learner/ask", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question: q }),
+      });
+      if (!response.ok) throw new Error("ask failed");
+      const reply = (await response.json()) as FlowerReply;
+      setSpeech(reply.answer);
+      say(reply.answer);
+      if (reply.mode === "book" && reply.source) {
+        setSourceLine(`From the book: ${reply.source.bookTitle} — “${reply.source.articleTitle}”`);
+        setNotes(
+          recordFlowerNote({
+            question: q,
+            answer: reply.answer,
+            sourceBook: reply.source.bookTitle,
+            sourceArticle: reply.source.articleTitle,
+            verified: reply.verified,
+          }),
+        );
+      } else if (reply.mode === "math") {
+        setSourceLine("Worked out by counting — no book needed.");
+        setNotes(
+          recordFlowerNote({
+            question: q,
+            answer: reply.answer,
+            sourceBook: "Counting",
+            verified: reply.verified,
+          }),
+        );
+      }
+    } catch {
+      setSpeech(
+        "My books are resting right now — I could not reach them. Please ask me again in a little while!",
+      );
+    } finally {
+      setAsking(false);
+    }
+  }, [asking, say]);
+
+  function showLesson(lesson: (typeof MANNERS_LESSONS)[number]) {
+    setSpeech(lesson.words);
+    setSourceLine("A good-manners lesson from your Flower.");
+    say(lesson.words);
+  }
+
+  const flowerState = asking ? "thinking" : speaking ? "speaking" : "listening";
+  const statusText =
+    flowerState === "thinking"
+      ? "Thinking…"
+      : flowerState === "speaking"
+        ? "Speaking…"
+        : "Listening…";
+
+  const latestNote = notes[0];
+
+  return (
+    <div className="learner-flower">
+      <div className="learner-flower__head">
+        <svg
+          className={`learner-flower__face is-${flowerState}`}
+          viewBox="0 0 120 120"
+          role="img"
+          aria-label="Augie the Flower, a smiling pink flower"
+        >
+          {[0, 60, 120, 180, 240, 300].map((deg) => (
+            <ellipse
+              key={deg}
+              cx="60"
+              cy="30"
+              rx="15"
+              ry="22"
+              fill="#ff8fab"
+              transform={`rotate(${deg} 60 60)`}
+            />
+          ))}
+          {[30, 90, 150, 210, 270, 330].map((deg) => (
+            <ellipse
+              key={deg}
+              cx="60"
+              cy="34"
+              rx="11"
+              ry="17"
+              fill="#c77dff"
+              transform={`rotate(${deg} 60 60)`}
+            />
+          ))}
+          <circle cx="60" cy="60" r="24" fill="#ffb703" />
+          <circle cx="52" cy="56" r="3.4" fill="#3a2b20" />
+          <circle cx="68" cy="56" r="3.4" fill="#3a2b20" />
+          <path d="M51 66 q9 8 18 0" stroke="#3a2b20" strokeWidth="3" fill="none" strokeLinecap="round" />
+          <circle cx="45" cy="63" r="4" fill="#ff6b9d" opacity="0.65" />
+          <circle cx="75" cy="63" r="4" fill="#ff6b9d" opacity="0.65" />
+        </svg>
+        <div>
+          <h2>Augie the Flower</h2>
+          <p className="learner-note">
+            Your own flower, here to help you learn — math, science, history, words, how minds
+            and feelings work, and good manners too. Every school subject lives here.
+          </p>
+          <p className="learner-flower__status" aria-live="polite">
+            {statusText}
+          </p>
+        </div>
+      </div>
+
+      <div className="learner-flower__voice">
+        {voiceAvailable ? (
+          <>
+            <button
+              type="button"
+              className="learner-chip"
+              aria-pressed={voiceOn}
+              onClick={() => {
+                if (voiceOn) globalThis.speechSynthesis?.cancel();
+                setVoiceOn(!voiceOn);
+              }}
+            >
+              {voiceOn ? (
+                <>
+                  <Volume2 aria-hidden="true" /> Voice On
+                </>
+              ) : (
+                <>
+                  <VolumeX aria-hidden="true" /> Voice Off
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              className="learner-chip"
+              onClick={() => speakFlowerWords(speech, setSpeaking)}
+            >
+              <Volume2 aria-hidden="true" /> Hear it again
+            </button>
+          </>
+        ) : (
+          <p className="learner-note">
+            This device has no voice for me — you can still read my words.
+          </p>
+        )}
+      </div>
+
+      <div className="learner-flower__bubble" aria-live="polite">
+        <p>{speech}</p>
+        {sourceLine && <p className="learner-flower__source">{sourceLine}</p>}
+        {latestNote && (
+          <p className="learner-flower__note">
+            Saved in your learning notes · {latestNote.sourceBook} · {formatDay(latestNote.date)}
+            {latestNote.verified ? " · ✓ checked from a book" : ""}
+          </p>
+        )}
+      </div>
+
+      <form
+        className="learner-flower__ask"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void ask(question);
+          setQuestion("");
+        }}
+      >
+        <label className="learner-flower__label">
+          Ask Augie the Flower
+          <input
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder="Type your question here"
+            autoComplete="off"
+          />
+        </label>
+        <button type="submit" className="learner-big-button" disabled={asking}>
+          {asking ? "Looking…" : "Ask"}
+        </button>
+      </form>
+
+      <div className="learner-flower__topics">
+        <div className="learner-flower__group">
+          <h3>Ask me</h3>
+          <div className="learner-chip-row">
+            {FLOWER_EXAMPLES.map((example) => (
+              <button
+                key={example}
+                type="button"
+                className="learner-chip"
+                onClick={() => void ask(example)}
+              >
+                {example}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="learner-flower__group">
+          <h3>Good manners</h3>
+          <div className="learner-chip-row">
+            {MANNERS_LESSONS.map((lesson) => (
+              <button
+                key={lesson.id}
+                type="button"
+                className="learner-chip"
+                onClick={() => showLesson(lesson)}
+              >
+                {lesson.title}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="learner-flower__group">
+          <h3>My heritage</h3>
+          <div className="learner-chip-row">
+            {HERITAGE_TOPICS.map((topic) => (
+              <button
+                key={topic.id}
+                type="button"
+                className="learner-chip"
+                onClick={() => void ask(topic.question)}
+              >
+                {topic.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Cabinet: My Art ---------------- */
+
+const ARTWORKS: { src: string; title: string; words: string }[] = [
+  {
+    src: "/learner-art/princess-squishy.webp",
+    title: "The Princess and the Heart Squishy",
+    words: "A princess with her heart squishy. This picture was made for you.",
+  },
+  {
+    src: "/learner-art/artist-squishies.webp",
+    title: "The Artist Whose Drawings Come Alive",
+    words: "You draw squishies — and in this picture, they hop right off the page!",
+  },
+  {
+    src: "/learner-art/magical-friends.webp",
+    title: "The Magical Girl and Her Squishy Friends",
+    words: "A magical girl with all her squishy friends around her.",
+  },
+];
+
+function ArtCabinet() {
+  const [index, setIndex] = useState(0);
+  const artwork = ARTWORKS[index]!;
+  const go = (step: number) =>
+    setIndex((current) => (current + step + ARTWORKS.length) % ARTWORKS.length);
+
+  return (
+    <div className="learner-art">
+      <h2>My Art</h2>
+      <div className="learner-art__stage">
+        <img src={artwork.src} alt={artwork.title} />
+      </div>
+      <p className="learner-art__caption">
+        <strong>{artwork.title}.</strong> {artwork.words}
+      </p>
+      <div className="learner-art__controls">
+        <button
+          type="button"
+          className="learner-art__button"
+          aria-label="Back to the picture before"
+          onClick={() => go(-1)}
+        >
+          <ChevronLeft aria-hidden="true" /> Back
+        </button>
+        <span className="learner-art__count">
+          Picture {index + 1} of {ARTWORKS.length}
+        </span>
+        <button
+          type="button"
+          className="learner-art__button"
+          aria-label="Go to the next picture"
+          onClick={() => go(1)}
+        >
+          Next <ChevronRight aria-hidden="true" />
+        </button>
       </div>
     </div>
   );

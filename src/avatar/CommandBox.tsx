@@ -14,13 +14,13 @@ import {
   ChevronUp,
   Eye,
   GripVertical,
-  MessagesSquare,
   Mic,
   MicOff,
   Minus,
   Settings,
   Sparkles,
   Terminal,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import type { ReplyHistoryEntry } from "./replyHistory";
@@ -38,19 +38,24 @@ export type CommandTab = "scene" | "motion" | "tools" | "settings" | "commands";
 
 const BOX_POSITION_KEY = "augi.avatar.command-box.position.v1";
 const BOX_MINIMIZED_KEY = "augi.avatar.command-box.minimized.v1";
-const BOX_THREAD_KEY = "augi.avatar.command-box.thread.v1";
+const BOX_MACHINERY_KEY = "augi.avatar.command-box.machinery.v1";
 
-function loadThreadOpen(): boolean {
+/**
+ * Part 28 (owner order 2026-11-21): the box's DEFAULT face is a plain
+ * chat. The machinery (tabs, rooms, settings panels) lives behind ONE
+ * toggle — closed by default; his choice to open it sticks.
+ */
+function loadMachineryOpen(): boolean {
   try {
-    return globalThis.localStorage?.getItem(BOX_THREAD_KEY) === "true";
+    return globalThis.localStorage?.getItem(BOX_MACHINERY_KEY) === "true";
   } catch {
     return false;
   }
 }
 
-function saveThreadOpen(open: boolean) {
+function saveMachineryOpen(open: boolean) {
   try {
-    globalThis.localStorage?.setItem(BOX_THREAD_KEY, open ? "true" : "false");
+    globalThis.localStorage?.setItem(BOX_MACHINERY_KEY, open ? "true" : "false");
   } catch {
     // best effort only
   }
@@ -118,6 +123,8 @@ export function CommandBox({
   userLine,
   history,
   onMinimizeShortcut,
+  machineryOpen: machineryOpenProp,
+  onMachineryChange,
 }: {
   accent: string;
   tabs: Array<{ id: CommandTab; label: string; icon: LucideIcon }>;
@@ -147,12 +154,20 @@ export function CommandBox({
   history?: ReplyHistoryEntry[] | undefined;
   /** Lets AvatarStage ("/minimize" etc.) collapse or restore the box. */
   onMinimizeShortcut?: (controls: { minimize: () => void; restore: () => void }) => void;
+  /**
+   * Part 28: whether the machinery (tabs + panels) shows under the
+   * chat. Controlled by AvatarStage when provided (so /help can open
+   * it); otherwise the box keeps its own persisted state.
+   */
+  machineryOpen?: boolean | undefined;
+  onMachineryChange?: ((open: boolean) => void) | undefined;
   /** Slash-driven minimization from inside the box's own commands. */
   externalMinimize?: number;
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
   const [minimized, setMinimized] = useState(loadBoxMinimized);
-  const [threadOpen, setThreadOpen] = useState(loadThreadOpen);
+  const [internalMachineryOpen, setInternalMachineryOpen] = useState(loadMachineryOpen);
+  const machineryOpen = machineryOpenProp ?? internalMachineryOpen;
   const threadRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -223,18 +238,21 @@ export function CommandBox({
     });
   }, []);
 
-  const toggleThread = useCallback(() => {
-    setThreadOpen((current) => {
-      saveThreadOpen(!current);
-      return !current;
-    });
-  }, []);
+  const toggleMachinery = useCallback(() => {
+    const next = !machineryOpen;
+    if (onMachineryChange) {
+      onMachineryChange(next);
+    } else {
+      setInternalMachineryOpen(next);
+      saveMachineryOpen(next);
+    }
+  }, [machineryOpen, onMachineryChange]);
 
-  // Keep the newest exchange in view while the thread is open.
+  // The thread IS the face (Part 28): keep the newest exchange in view.
   useEffect(() => {
     const thread = threadRef.current;
-    if (threadOpen && thread) thread.scrollTop = thread.scrollHeight;
-  }, [threadOpen, history]);
+    if (thread) thread.scrollTop = thread.scrollHeight;
+  }, [history]);
 
   // Slash-menu state derived from the draft text.
   const menuOpen = !minimized && isSlashMenuActive(chat);
@@ -261,6 +279,16 @@ export function CommandBox({
     onChatChange("");
     onSubmit(text);
   };
+
+  // Part 28: the live exchange line shows only when the thread does
+  // not already carry it (no history wired, or the newest reply has
+  // not landed in the history store yet) — never a duplicate.
+  const lastEntry = history && history.length > 0 ? history[history.length - 1] : undefined;
+  const liveVisible =
+    history === undefined ||
+    !lastEntry ||
+    lastEntry.answer !== responseLine ||
+    (userLine !== undefined && lastEntry.question !== userLine);
 
   const boxStyle = position
     ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
@@ -298,93 +326,89 @@ export function CommandBox({
 
       {!minimized && (
         <>
-          <div className="avatar-command-box__response" aria-live="polite">
-            {userLine ? (
-              <p className="avatar-command-box__user-line">
-                <span className="avatar-command-box__user-label">You:</span> {userLine}
-              </p>
-            ) : null}
-            <span className="avatar-command-box__response-source">{responseSource}</span>
-            <p>{responseLine}</p>
-          </div>
-          <div className="avatar-command-box__tabs" role="tablist" aria-label="Command tabs">
-            {tabs.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                id={`avatar-cabinet-tab-${id}`}
-                className="avatar-command-box__tab"
-                type="button"
-                role="tab"
-                aria-selected={activeTab === id}
-                aria-controls="avatar-command-panel"
-                onClick={() => onTabChange(id)}
-              >
-                <Icon aria-hidden="true" />
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
-          <div
-            id="avatar-command-panel"
-            className="avatar-command-box__panel"
-            role="tabpanel"
-            aria-labelledby={`avatar-cabinet-tab-${activeTab}`}
-          >
-            {activeTab === "commands" ? <CommandsDocument highlighted={null} /> : children}
-          </div>
           {history !== undefined && (
-            <>
-              <button
-                type="button"
-                className="avatar-command-box__thread-toggle"
-                aria-expanded={threadOpen}
-                aria-controls="avatar-command-thread"
-                onClick={toggleThread}
-              >
-                <MessagesSquare aria-hidden="true" />
-                <span>
-                  Conversation{history.length > 0 ? ` (${history.length})` : ""}
-                </span>
-                {threadOpen ? (
-                  <ChevronUp aria-hidden="true" />
-                ) : (
-                  <ChevronDown aria-hidden="true" />
-                )}
-              </button>
-              {threadOpen && (
-                <div
-                  id="avatar-command-thread"
-                  className="avatar-command-box__thread"
-                  ref={threadRef}
-                  role="log"
-                  aria-label="Conversation so far"
-                >
-                  {history.length === 0 ? (
-                    <p className="avatar-command-box__thread-empty">
-                      Nothing yet — your messages and Augie&rsquo;s replies collect here, in
-                      order, so you can read back over the conversation while you type.
+            <div
+              id="avatar-command-thread"
+              className="avatar-command-box__thread"
+              ref={threadRef}
+              role="log"
+              aria-label="Conversation so far"
+            >
+              {history.length === 0 ? (
+                <p className="avatar-command-box__thread-empty">
+                  Nothing yet — say something to Augie. Your messages and his replies
+                  collect here, in order, like a normal chat.
+                </p>
+              ) : (
+                history.map((entry, index) => (
+                  <div className="avatar-command-box__thread-entry" key={`${entry.at}-${index}`}>
+                    {entry.question && (
+                      <p className="avatar-command-box__thread-q">
+                        <span className="avatar-command-box__thread-who">You:</span>{" "}
+                        {entry.question}
+                      </p>
+                    )}
+                    <p className="avatar-command-box__thread-a">
+                      <span className="avatar-command-box__thread-who">Augie:</span>{" "}
+                      {entry.answer}
                     </p>
-                  ) : (
-                    history.map((entry, index) => (
-                      <div
-                        className="avatar-command-box__thread-entry"
-                        key={`${entry.at}-${index}`}
-                      >
-                        {entry.question && (
-                          <p className="avatar-command-box__thread-q">
-                            <span className="avatar-command-box__thread-who">You:</span>{" "}
-                            {entry.question}
-                          </p>
-                        )}
-                        <p className="avatar-command-box__thread-a">
-                          <span className="avatar-command-box__thread-who">Augie:</span>{" "}
-                          {entry.answer}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
+                  </div>
+                ))
               )}
+            </div>
+          )}
+          {liveVisible && (
+            <div className="avatar-command-box__response" aria-live="polite">
+              {userLine ? (
+                <p className="avatar-command-box__user-line">
+                  <span className="avatar-command-box__user-label">You:</span> {userLine}
+                </p>
+              ) : null}
+              <span className="avatar-command-box__response-source">{responseSource}</span>
+              <p>{responseLine}</p>
+            </div>
+          )}
+          <button
+            type="button"
+            className="avatar-command-box__machinery-toggle"
+            aria-expanded={machineryOpen}
+            onClick={toggleMachinery}
+          >
+            <Wrench aria-hidden="true" />
+            <span>Tools, rooms &amp; settings</span>
+            {machineryOpen ? (
+              <ChevronUp aria-hidden="true" />
+            ) : (
+              <ChevronDown aria-hidden="true" />
+            )}
+          </button>
+          {machineryOpen && (
+            <>
+              <div className="avatar-command-box__tabs" role="tablist" aria-label="Command tabs">
+                {tabs.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    id={`avatar-cabinet-tab-${id}`}
+                    className="avatar-command-box__tab"
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === id}
+                    aria-controls="avatar-command-panel"
+                    onClick={() => onTabChange(id)}
+                  >
+                    <Icon aria-hidden="true" />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+              <div
+                id="avatar-command-panel"
+                className="avatar-command-box__panel"
+                role="tabpanel"
+                aria-labelledby={`avatar-cabinet-tab-${activeTab}`}
+              >
+                {activeTab === "commands" ? <CommandsDocument highlighted={null} /> : children}
+              </div>
             </>
           )}
         </>

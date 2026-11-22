@@ -47,7 +47,7 @@ describe("on-request camera vision", () => {
       prompt: string;
       images: string[];
     };
-    expect(body.model).toBe("llama3.2-vision");
+    expect(body.model).toBe("llava:7b");
     expect(body.images).toEqual(["frame-data"]);
     expect(body.prompt).toContain("never name or identify anyone");
     expect(body).not.toHaveProperty("api_key");

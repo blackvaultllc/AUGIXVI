@@ -88,15 +88,103 @@ export function endLearnerSession(storageOverride?: SessionStorageLike): void {
 }
 
 /**
+ * REMEMBERED DEVICE — her fast way back in (Part 8, Domenick's order
+ * 2026-11-21). Her name + birth-year sign-in is the ENROLLMENT: the
+ * first time she signs in on a device, the device remembers her in
+ * localStorage. After that, on THIS device, she taps one big button
+ * and is straight back in her world — no re-typing every visit.
+ *
+ * The fast path changes only how fast SHE gets in. It is the same
+ * learner session, the same allowlist wall below, the same reach —
+ * nothing operator-side, ever. "Forget this device" (on her sign-in
+ * screen) erases the memory and the full sign-in is required again.
+ */
+export const LEARNER_DEVICE_KEY = "augi.learner.device.v1";
+
+type LocalStorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+function localStore(override?: LocalStorageLike): LocalStorageLike | null {
+  if (override) return override;
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberLearnerDevice(
+  now: Date = new Date(),
+  storageOverride?: LocalStorageLike,
+): void {
+  localStore(storageOverride)?.setItem(
+    LEARNER_DEVICE_KEY,
+    JSON.stringify({ name: LEARNER_FULL_NAME, savedAt: now.toISOString() }),
+  );
+}
+
+export function hasRememberedLearnerDevice(storageOverride?: LocalStorageLike): boolean {
+  const store = localStore(storageOverride);
+  if (!store) return false;
+  try {
+    const raw = store.getItem(LEARNER_DEVICE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as { name?: unknown };
+    return parsed.name === LEARNER_FULL_NAME;
+  } catch {
+    return false;
+  }
+}
+
+/** One-tap re-entry on a remembered device. Returns false (and starts
+ *  nothing) when this device was never enrolled or was forgotten. */
+export function enterWithRememberedDevice(
+  localOverride?: LocalStorageLike,
+  sessionOverride?: SessionStorageLike,
+): boolean {
+  if (!hasRememberedLearnerDevice(localOverride)) return false;
+  startLearnerSession(new Date(), sessionOverride);
+  return true;
+}
+
+export function forgetLearnerDevice(storageOverride?: LocalStorageLike): void {
+  localStore(storageOverride)?.removeItem(LEARNER_DEVICE_KEY);
+}
+
+/**
  * The learner route space — the ONLY places a learner session may go.
  * Everything else in the app (every /avatar route, the transcribe API,
  * every operator room and tool) is outside the wall for her session.
+ *
+ * The exact paths: her page, her two game rooms, the two game files,
+ * her Squishy Maker's action doorway (the game's own saves, nothing
+ * else), and Augie the Flower's ask doorway (school questions,
+ * answered from the library). The prefixes cover only static files
+ * that belong to her: the Squishy Maker bundle's assets and her art
+ * pictures. No prefix reaches an operator route or an operator API —
+ * /api/learner/ask is an exact path, so /api/transcribe and the rest
+ * of /api/* stay outside.
  */
-export const LEARNER_ALLOWED_PATHS = ["/learner", "/learner/game", "/games/legend-of-logic.html"];
+export const LEARNER_ALLOWED_PATHS = [
+  "/learner",
+  "/learner/game",
+  "/learner/racing",
+  "/learner/squishy",
+  "/games/legend-of-logic.html",
+  "/games/squishy-maker/index.html",
+  "/games/squishy-maker/actions",
+  "/api/learner/ask",
+];
+
+export const LEARNER_ALLOWED_PREFIXES = ["/games/squishy-maker/assets/", "/learner-art/"];
 
 export function learnerCanAccess(rawPath: string): boolean {
   const path = rawPath.split(/[?#]/)[0]!.replace(/\/+$/, "") || "/";
-  return LEARNER_ALLOWED_PATHS.includes(path);
+  // A ".." segment is never hers to use — refuse it before any matching,
+  // so no prefix can be ridden out of her space.
+  if (path.split("/").includes("..")) return false;
+  if (LEARNER_ALLOWED_PATHS.includes(path)) return true;
+  const withSlash = `${path}/`;
+  return LEARNER_ALLOWED_PREFIXES.some((prefix) => withSlash.startsWith(prefix));
 }
 
 /** Operator route space — used by tests to prove the wall's other side. */

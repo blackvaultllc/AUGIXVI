@@ -72,11 +72,23 @@ export class WorldSceneManager {
     return this.sim?.people.length ?? 0;
   }
 
+  private problemDepts: readonly string[] = [];
+
+  /**
+   * Part 9: mark departments whose real status is a problem — the
+   * office rebuilds with those desks in the problem state (alert
+   * screen, worker standing, no fake work). Fed by Office Analytics.
+   */
+  setProblemDepts(depts: readonly string[]) {
+    this.problemDepts = depts;
+    if (this.current === "office") this.setScene("office");
+  }
+
   setScene(id: WorldSceneId) {
     this.clear();
-    this.built = buildScene(id);
+    this.built = buildScene(id, { problemDepts: this.problemDepts });
     this.current = id;
-    this.staticPoints = makePoints(this.built.staticPositions, this.built.staticColors, 0.055);
+    this.staticPoints = makePoints(this.built.staticPositions, this.built.staticColors, 0.06);
     this.staticPoints.name = `living-world-${id}`;
     this.group.add(this.staticPoints);
     if (this.built.water) {
@@ -95,7 +107,10 @@ export class WorldSceneManager {
         gaitTime: 0,
         time: 0,
       });
-      const points = makePoints(figure.positions.slice(), figure.colors, 0.05);
+      // Part 18: citizens render bigger and fully opaque — solid
+      // people, not ghosts (they were size 0.05 at 0.95 opacity).
+      const points = makePoints(figure.positions.slice(), figure.colors, 0.062);
+      (points.material as THREE.PointsMaterial).opacity = 1;
       points.position.set(person.x, 0, person.z);
       points.rotation.y = person.heading;
       this.group.add(points);

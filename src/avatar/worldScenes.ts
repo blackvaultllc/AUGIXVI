@@ -365,107 +365,180 @@ const wp = (
 
 /* ------------------------------- THE OFFICE ------------------------------- */
 
-function buildOffice(): BuiltScene {
+export interface OfficeSeat {
+  dept: string;
+  x: number;
+  z: number;
+}
+
+/**
+ * Part 9 — the office maps to Domenick's REAL departments
+ * (departments.ts). Seat order: front row, back row, front desk.
+ */
+export const OFFICE_SEATS: readonly OfficeSeat[] = [
+  { dept: "security", x: -5.2, z: -2.3 },
+  { dept: "knowledge", x: -2.6, z: -2.3 },
+  { dept: "brain", x: 0, z: -2.3 },
+  { dept: "academy", x: 2.6, z: -2.3 },
+  { dept: "systems", x: -5.2, z: -4.6 },
+  { dept: "finance", x: -2.6, z: -4.6 },
+  { dept: "social", x: 0, z: -4.6 },
+  { dept: "knowledge", x: 2.4, z: -0.5 },
+];
+
+/** Each department's screen glow — its color on the office floor. */
+export const DEPT_SCREEN_COLORS: Record<string, Rgb> = {
+  security: [0.35, 0.8, 0.95],
+  knowledge: [0.5, 0.9, 0.6],
+  brain: [0.75, 0.6, 0.95],
+  academy: [0.95, 0.75, 0.4],
+  systems: [0.4, 0.85, 0.85],
+  finance: [0.6, 0.95, 0.5],
+  social: [0.95, 0.55, 0.75],
+};
+const PROBLEM_SCREEN: Rgb = [0.95, 0.3, 0.25];
+
+function buildOffice(options?: SceneBuildOptions): BuiltScene {
   const random = createSeededRandom(101);
   const cloud = new Cloud(random);
+  const problemDepts = new Set(options?.problemDepts ?? []);
   const FLOOR: Rgb = [0.13, 0.21, 0.34];
   const FLOOR_EDGE: Rgb = [0.2, 0.6, 0.75];
-  cloud.ground(-7, 7, -6, 2, 0.58, (x, z) => ({
+  // Part 18.3 density: the floor grid steps tighter so the room reads
+  // as a shaped place, not a sparse ghost outline.
+  cloud.ground(-7, 7, -6, 2, 0.5, (x, z) => ({
     y: 0,
     color:
       Math.abs(x) > 6.6 || Math.abs(z + 2) > 3.8 ? vary(FLOOR_EDGE, 0.1, random) : vary(FLOOR, 0.16, random),
   }));
-  // Back wall: window frames glowing faint steel blue.
+  // Back wall: window frames glowing faint steel blue + side walls, so
+  // the room has depth on three sides (Part 9a — presence/depth).
   for (const wx of [-4.4, 0, 4.4]) {
-    cloud.boxEdges(wx, 2.6, -6, 3.4, 2.6, 0.1, 10, [0.3, 0.55, 0.75]);
+    cloud.boxEdges(wx, 2.6, -6, 3.4, 2.6, 0.1, 12, [0.3, 0.55, 0.75]);
+    cloud.panel(wx, 2.6, -6.08, 3.1, 2.3, 0.34, [0.1, 0.16, 0.26]);
+  }
+  for (const sx of [-7, 7]) {
+    cloud.boxEdges(sx, 2.6, -2, 0.1, 2.6, 3.4, 10, [0.26, 0.45, 0.62]);
   }
   // Ceiling light strips.
-  for (const lz of [-1.6, -4.2]) cloud.line([-5.4, 4.3, lz], [5.4, 4.3, lz], 40, [0.8, 0.92, 1.0]);
+  for (const lz of [-1.6, -4.2]) cloud.line([-5.4, 4.3, lz], [5.4, 4.3, lz], 48, [0.8, 0.92, 1.0]);
 
+  /* ------------------------- THE HALLWAY (Part 9b) ------------------------ */
+  // A real corridor along the front of the office: runner carpet, the
+  // front wall with a doorway, lamps. Every trip to the break room is
+  // routed through it (see the waypoint paths below).
+  cloud.slab(0, 0.03, 1.25, 13.4, 1.35, 0.3, [0.32, 0.2, 0.3]);
+  for (const seg of [-3.95, 3.95] as const) {
+    cloud.boxEdges(seg, 2.2, 2.05, 6.1, 2.2, 0.12, 10, [0.3, 0.42, 0.55]);
+    cloud.panel(seg, 2.2, 2.12, 5.8, 1.9, 0.4, [0.09, 0.13, 0.2]);
+  }
+  // Door frame posts at the gap (x in [-0.95, 0.95]).
+  for (const px of [-0.95, 0.95]) cloud.line([px, 0, 2.05], [px, 4.4, 2.05], 22, [0.55, 0.65, 0.75]);
+  cloud.line([-0.95, 4.4, 2.05], [0.95, 4.4, 2.05], 10, [0.55, 0.65, 0.75]);
+  for (const lx of [-5.5, -2.8, 2.8, 5.5]) {
+    cloud.ellipsoid(lx, 3.6, 1.95, 0.16, 0.1, 0.06, 14, [0.95, 0.85, 0.55]);
+  }
+
+  /* --------------------------- the desks -------------------------------- */
   const DESK_TOP: Rgb = [0.5, 0.38, 0.24];
   const DESK_EDGE: Rgb = [0.62, 0.48, 0.3];
-  const SCREEN: Rgb = [0.35, 0.8, 0.95];
-  const desk = (cx: number, cz: number) => {
+  const desk = (cx: number, cz: number, screen: Rgb, problem: boolean) => {
     cloud.slab(cx, 1.42, cz, 1.9, 0.95, 0.19, vary(DESK_TOP, 0.08, random));
     cloud.boxEdges(cx, 1.38, cz, 1.9, 0.08, 0.95, 7, DESK_EDGE);
     for (const lx of [-0.85, 0.85]) {
       for (const lz of [-0.38, 0.38]) cloud.line([cx + lx, 0, cz + lz], [cx + lx, 1.4, cz + lz], 9, DESK_EDGE);
     }
-    // Monitor + screen glow at the back of the desk.
+    // Monitor + screen glow at the back of the desk — the screen wears
+    // the department's color, or the alert color in a problem state.
     cloud.boxEdges(cx, 1.85, cz - 0.28, 0.95, 0.58, 0.06, 8, [0.4, 0.45, 0.5]);
-    cloud.panel(cx, 1.85, cz - 0.24, 0.85, 0.48, 0.16, SCREEN);
+    cloud.panel(cx, 1.85, cz - 0.24, 0.85, 0.48, 0.16, screen);
     cloud.line([cx, 1.42, cz - 0.28], [cx, 1.58, cz - 0.28], 4, [0.4, 0.45, 0.5]);
+    if (problem) {
+      // A problem marker above the screen — visible across the room.
+      cloud.ellipsoid(cx, 2.45, cz - 0.28, 0.09, 0.09, 0.09, 16, PROBLEM_SCREEN);
+    }
     // Chair on the camera side.
     cloud.slab(cx, 0.8, cz + 0.78, 0.62, 0.55, 0.15, [0.3, 0.3, 0.38]);
     cloud.panel(cx, 1.25, cz + 1.02, 0.62, 0.85, 0.15, [0.3, 0.3, 0.38]);
     for (const lx of [-0.26, 0.26]) cloud.line([cx + lx, 0, cz + 0.62], [cx + lx, 0.8, cz + 0.62], 6, [0.35, 0.35, 0.42]);
+    // A rug under each desk — part of the density pass.
+    cloud.slab(cx, 0.015, cz + 0.35, 2.3, 1.9, 0.34, [0.16, 0.24, 0.36]);
   };
-  const deskXs = [-4.8, -1.7, 1.7, 4.8];
-  const deskZs = [-2.3, -4.5];
-  for (const dz of deskZs) for (const dx of deskXs) desk(dx, dz);
+  for (const seatDef of OFFICE_SEATS) {
+    const problem = problemDepts.has(seatDef.dept);
+    desk(
+      seatDef.x,
+      seatDef.z,
+      problem ? PROBLEM_SCREEN : (DEPT_SCREEN_COLORS[seatDef.dept] ?? [0.35, 0.8, 0.95]),
+      problem,
+    );
+  }
 
-  // Water cooler in the back corner.
-  cloud.ellipsoid(6.3, 0.55, -5.3, 0.26, 0.55, 0.26, 90, [0.75, 0.8, 0.85]);
-  cloud.ellipsoid(6.3, 1.45, -5.3, 0.2, 0.35, 0.2, 60, [0.45, 0.75, 0.95]);
+  /* --------------------- COFFEE BREAK ROOM (Part 9b) ---------------------- */
+  // Partitioned room, back-right: a wall along x=3.4 with a doorway gap
+  // (z in [-3.6, -3.0]) and a half-wall rail along z=-3.0.
+  for (let z = -6; z <= -3.7; z += 0.28) {
+    cloud.line([3.4, 0, z], [3.4, 3.1, z], 4, [0.36, 0.42, 0.52]);
+  }
+  cloud.line([3.4, 3.1, -6], [3.4, 3.1, -3.6], 12, [0.45, 0.52, 0.62]);
+  for (let x = 4.7; x <= 7; x += 0.28) {
+    cloud.line([x, 0, -3.0], [x, 1.15, -3.0], 3, [0.36, 0.42, 0.52]);
+  }
+  cloud.line([3.4, 1.15, -3.0], [7, 1.15, -3.0], 14, [0.45, 0.52, 0.62]);
+  // Coffee counter along the back wall: counter slab, machine, cups.
+  cloud.slab(5.2, 0.95, -5.55, 3.2, 0.7, 0.22, [0.42, 0.3, 0.2]);
+  cloud.boxEdges(4.35, 1.45, -5.6, 0.7, 0.95, 0.5, 9, [0.55, 0.58, 0.62]);
+  cloud.panel(4.35, 1.5, -5.33, 0.5, 0.6, 0.14, [0.2, 0.16, 0.14]);
+  for (const cx of [5.3, 5.75, 6.2]) {
+    cloud.ellipsoid(cx, 1.12, -5.5, 0.07, 0.09, 0.07, 12, [0.92, 0.9, 0.86]);
+  }
+  // Steam over the machine — small warm points, the room is lived in.
+  for (let i = 0; i < 14; i += 1) {
+    cloud.ellipsoid(4.35, 2.15 + (i % 3) * 0.16, -5.6, 0.05, 0.05, 0.05, 3, [0.85, 0.88, 0.9]);
+  }
+  // Round table + two chairs + a couch along the right wall.
+  cloud.ellipsoid(5.6, 0.78, -4.3, 0.55, 0.05, 0.55, 42, [0.5, 0.38, 0.24]);
+  cloud.line([5.6, 0, -4.3], [5.6, 0.76, -4.3], 8, [0.4, 0.3, 0.2]);
+  cloud.slab(4.85, 0.62, -4.3, 0.45, 0.45, 0.14, [0.3, 0.3, 0.38]);
+  cloud.slab(6.35, 0.62, -4.3, 0.45, 0.45, 0.14, [0.3, 0.3, 0.38]);
+  cloud.slab(6.55, 0.45, -3.55, 0.75, 1.1, 0.2, [0.36, 0.3, 0.42]);
+  cloud.panel(6.9, 1.0, -3.55, 0.14, 1.1, 0.2, [0.36, 0.3, 0.42]);
+  // Water cooler stays (moved inside the break room's door side).
+  cloud.ellipsoid(3.85, 0.55, -5.5, 0.26, 0.55, 0.26, 90, [0.75, 0.8, 0.85]);
+  cloud.ellipsoid(3.85, 1.45, -5.5, 0.2, 0.35, 0.2, 60, [0.45, 0.75, 0.95]);
   // Office plants — the tree code again, desk-sized.
   stampTree(cloud, -6.4, -5.4, 0.34, 0.3, PINE_GREEN, random);
-  stampTree(cloud, 6.5, -0.7, 0.3, 0.3, PINE_GREEN, random);
+  stampTree(cloud, -6.5, 0.9, 0.3, 0.3, PINE_GREEN, random);
 
-  const seat = (dx: number, dz: number) => ({ x: dx, z: dz + 0.78 });
-  const breaks: [number, number][] = [
-    [6.0, -4.8],
-    [-3.0, -5.4],
-    [6.1, -1.2],
-    [-6.0, -4.6],
-    [0.2, -5.5],
+  /* ------------------- the citizens and their rounds --------------------- */
+  // Part 9c/d: NO aimless wandering. Every citizen works at a department
+  // desk, and the only trip is a purposeful one: desk -> HALLWAY ->
+  // break room -> HALLWAY -> desk. A department in a problem state does
+  // not fake work: its worker stands at the desk (problem state shown).
+  const breakSpots: { x: number; z: number; mode: Waypoint["mode"]; face: number }[] = [
+    { x: 4.5, z: -5.0, mode: "stand", face: Math.PI },
+    { x: 5.6, z: -4.95, mode: "sit", face: 0 },
+    { x: 6.3, z: -4.35, mode: "sit", face: -Math.PI / 2 },
+    { x: 4.1, z: -4.1, mode: "stand", face: (3 * Math.PI) / 4 },
   ];
-  const seats: [number, number][] = [
-    [-4.8, -2.3],
-    [-1.7, -2.3],
-    [1.7, -2.3],
-    [-4.8, -4.5],
-    [4.8, -4.5],
-  ];
-  const people: PersonDef[] = seats.map(([dx, dz], i) => {
-    const s = seat(dx, dz);
-    const b = breaks[i % breaks.length]!;
+  const people: PersonDef[] = OFFICE_SEATS.map((seatDef, i) => {
+    const seatPos = { x: seatDef.x, z: seatDef.z + 0.78 };
+    const hall = { x: Math.max(-6, Math.min(6, seatDef.x)), z: 1.25 };
+    const spot = breakSpots[i % breakSpots.length]!;
+    const problem = problemDepts.has(seatDef.dept);
     return {
       appearance: makeAppearance(i, 21),
+      dept: seatDef.dept,
       waypoints: [
-        wp(s.x, s.z, "work", [7, 14], Math.PI),
-        wp(b[0], b[1], "stand", [2.5, 4.5]),
+        problem
+          ? wp(seatPos.x, seatPos.z, "stand", [6, 10], Math.PI)
+          : wp(seatPos.x, seatPos.z, "work", [18, 32], Math.PI),
+        wp(hall.x, hall.z, "stand", [0.3, 0.7]),
+        wp(spot.x, spot.z, spot.mode, [6, 12], spot.face),
+        wp(hall.x, hall.z, "stand", [0.3, 0.7]),
       ],
     };
   });
-  people.push(
-    {
-      appearance: makeAppearance(5, 21),
-      waypoints: [
-        wp(-5.6, 0.9, "stand", [0.6, 1.6]),
-        wp(5.6, 0.9, "stand", [0.6, 1.6]),
-        wp(5.6, -3.3, "stand", [0.6, 1.6]),
-        wp(-5.6, -3.3, "stand", [0.6, 1.6]),
-      ],
-    },
-    {
-      appearance: makeAppearance(6, 21),
-      waypoints: [
-        wp(-5.8, -1.1, "stand", [1, 2]),
-        wp(1.7, -1.35, "stand", [3, 5], Math.PI),
-        wp(5.9, -1.1, "stand", [1, 2]),
-        wp(-1.7, -1.35, "stand", [3, 5], Math.PI),
-      ],
-    },
-    {
-      appearance: makeAppearance(7, 21),
-      waypoints: [
-        wp(-2.5, 1.5, "stand", [0.8, 2]),
-        wp(2.5, 1.5, "stand", [0.8, 2]),
-        wp(2.5, -0.5, "stand", [0.8, 2]),
-        wp(-2.5, -0.5, "stand", [0.8, 2]),
-      ],
-    },
-  );
   return finish("office", cloud, people, null);
 }
 
@@ -811,7 +884,17 @@ const BUILDERS: Record<WorldSceneId, () => BuiltScene> = {
   coffee: buildCoffee,
 };
 
-export function buildScene(id: WorldSceneId): BuiltScene {
+export interface SceneBuildOptions {
+  /**
+   * Part 9: departments (departments.ts ids) whose real status is a
+   * PROBLEM. Their office desks show the problem state — alert screen,
+   * worker standing at the desk instead of working — never fake typing.
+   */
+  problemDepts?: readonly string[];
+}
+
+export function buildScene(id: WorldSceneId, options?: SceneBuildOptions): BuiltScene {
+  if (id === "office") return buildOffice(options);
   return BUILDERS[id]();
 }
 

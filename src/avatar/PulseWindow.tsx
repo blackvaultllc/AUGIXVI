@@ -37,17 +37,19 @@ import {
   type PulseReadout,
   type RoiSample,
 } from "./pulse";
+import { expressionCues, perceptionLines } from "./perception";
 
 /**
- * FaceLandmarker model (Google's MediaPipe model bucket — the same
- * host sensors.ts uses for the hand model). NOTE: the BlazeFace
- * face_detector .task file that older MediaPipe docs point at no
- * longer exists in that bucket (verified 2026-11-21: NoSuchKey), so
- * presence runs on the landmarker: landmarks present = a face is in
- * frame, and their extent gives the box the pulse ROI is cut from.
+ * FaceLandmarker model — BUNDLED with the app (Part 19 fix,
+ * 2026-11-21): public/mediapipe/models/face_landmarker.task, served
+ * from the app's own origin in local and online builds alike, so
+ * Pulse loads with zero internet. It used to be fetched from
+ * Google's MediaPipe CDN at runtime; that fetch failing is what
+ * killed the tracker in the owner's screenshot. Presence runs on
+ * the landmarker: landmarks present = a face is in frame, and their
+ * extent gives the box the pulse ROI is cut from.
  */
-export const FACE_LANDMARKER_MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+export const FACE_LANDMARKER_MODEL_URL = "/mediapipe/models/face_landmarker.task";
 
 /** Below this mean ROI brightness (0..255) the room is too dark to read. */
 const TOO_DARK = 28;
@@ -135,6 +137,9 @@ export function PulsePanel() {
   const lastDetectRef = useRef(0);
   const lastEstimateRef = useRef(0);
   const freqDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  /** Part 25: the latest landmark set, for the perception read. */
+  const landmarksRef = useRef<{ x: number; y: number }[] | null>(null);
+  const [perception, setPerception] = useState<string[]>([]);
 
   const [running, setRunning] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -239,6 +244,7 @@ export function PulsePanel() {
       lastDetectRef.current = now;
       try {
         const res = detector.detectForVideo(video, now);
+        if (res.faceLandmarks?.[0]) landmarksRef.current = res.faceLandmarks[0];
         const box = res.faceLandmarks?.[0]
           ? landmarksBox(res.faceLandmarks[0], video.videoWidth, video.videoHeight)
           : null;
@@ -340,6 +346,7 @@ export function PulsePanel() {
       lastEstimateRef.current = now;
       setPresence(detectorRef.current ? present : null);
       setMotion(motionLabel(motionEmaRef.current));
+      let domHz: number | null = null;
       if (analyserRef.current && freqDataRef.current) {
         const dom = dominantFrequency(
           freqDataRef.current,
@@ -348,6 +355,19 @@ export function PulsePanel() {
         );
         setDomFreq(dom);
         setFreqState(dom ? "live" : "quiet");
+        domHz = dom?.hz ?? null;
+      }
+      // Part 25 — the perception read: expression cues (from the
+      // landmarks already tracked) + audio cues, labeled as estimates.
+      {
+        let energy = 0;
+        if (freqDataRef.current && freqDataRef.current.length > 0) {
+          let sum = 0;
+          for (const v of freqDataRef.current) sum += v;
+          energy = sum / freqDataRef.current.length / 255;
+        }
+        const cues = landmarksRef.current ? expressionCues(landmarksRef.current) : null;
+        setPerception(perceptionLines(cues, { dominantHz: domHz, energy }));
       }
       if (!detectorRef.current) {
         setReadout({ state: "unavailable", reason: "face tracker unavailable" });
@@ -411,7 +431,7 @@ export function PulsePanel() {
         detectorRef.current = await loadFaceDetector();
       } catch {
         setDetectorError(
-          "The face tracker could not be loaded (its model is fetched from Google's MediaPipe CDN). Presence and pulse are unavailable until it loads — motion and frequency still work.",
+          "The face tracker could not be loaded (its model is bundled with the app — no internet is involved). Presence and pulse are unavailable until it loads — motion and frequency still work.",
         );
       }
     }
@@ -501,6 +521,16 @@ export function PulsePanel() {
           </p>
         </section>
       </div>
+      {perception.length > 0 && (
+        <section className="window-pulse__pane" aria-label="Perception — what the cues suggest">
+          <h3>Perception · what the cues suggest</h3>
+          <ul className="window-pulse__perception">
+            {perception.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </section>
+      )}
       <p className="window-pulse__summary" role="status">
         {summary}
       </p>

@@ -1,3 +1,16 @@
+/**
+ * THE vision model (Part 26 unification, owner order 2026-11-21):
+ * ONE model, finished, everywhere — llava:7b. The mess this replaces:
+ * vision.ts defaulted to llama3.2-vision while the Picture Analysis
+ * room expected llava:7b, and BOTH sat half-downloaded on the Parrot,
+ * so every vision surface was dark. Every vision surface (this
+ * camera description, Picture Analysis, and the phase-2 hooks for
+ * node/beacon analysis, emergency medicine, homework photo-reading)
+ * names THIS constant. An env override can point elsewhere, but the
+ * default and the room agree.
+ */
+export const VISION_MODEL = "llava:7b";
+
 const VISION_PROMPT =
   "Describe only the visible scene in one or two brief sentences. Refer to people only as people; never name or identify anyone, infer private traits, or guess beyond visible evidence. If something is unclear, say so plainly. Do not add greetings.";
 
@@ -20,7 +33,7 @@ export async function describeCameraFrame(video: HTMLVideoElement | null): Promi
     /\/+$/,
     "",
   );
-  const model = import.meta.env["VITE_OLLAMA_VISION_MODEL"] || "llama3.2-vision";
+  const model = import.meta.env["VITE_OLLAMA_VISION_MODEL"] || VISION_MODEL;
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 20_000);
   try {

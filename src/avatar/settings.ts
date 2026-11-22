@@ -19,7 +19,11 @@ const LIMITS = {
 export function defaultSettings(): AvatarSettings {
   return {
     maxParticles: 120_000,
-    bloom: 1.1,
+    // Part 14 (Domenick, 2026-11-21): a FRESH profile starts with bloom
+    // LOW — never blasting bright. His saved value, once he sets one,
+    // always wins over this default (loadAvatarSettings merges saved
+    // over default), and nothing anywhere resets it silently.
+    bloom: 0.25,
     glitch: 0.4,
     theme: "cyan" as ThemeChoice,
     customColor: "#22d3ee",

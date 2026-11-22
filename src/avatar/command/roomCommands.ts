@@ -31,7 +31,13 @@ export type RoomTarget =
   | "pulse"
   | "gate-log"
   | "sandbox"
-  | "library";
+  | "library"
+  | "law-desk"
+  | "office-analytics"
+  | "anatomy"
+  | "logs"
+  | "listening"
+  | "test-area";
 
 /** Lowercase, single-spaced, no leading slash, no trailing punctuation. */
 function normalizeRoomPhrase(text: string): string {
@@ -103,6 +109,36 @@ const LIBRARY_PATTERNS: readonly RegExp[] = [
   /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?library$/,
 ];
 
+const LAW_DESK_PATTERNS: readonly RegExp[] = [
+  /^(?:law|law\s+desk)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?law\s+desk$/,
+];
+
+const OFFICE_ANALYTICS_PATTERNS: readonly RegExp[] = [
+  /^(?:analytics|office\s+analytics|department\s+status)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:office\s+)?analytics$/,
+];
+
+const ANATOMY_PATTERNS: readonly RegExp[] = [
+  /^(?:anatomy|augie\s+anatomy|brain\s+schema)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?(?:anatomy|brain\s+schema)$/,
+];
+
+const LOGS_PATTERNS: readonly RegExp[] = [
+  /^(?:logs|the\s+logs|all\s+logs)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+|all\s+)?logs$/,
+];
+
+const LISTENING_PATTERNS: readonly RegExp[] = [
+  /^(?:listening|listening\s+mode|wand\s+listening)$/,
+  /^(?:open|show|start)\s+(?:me\s+)?(?:the\s+)?listening(?:\s+mode)?$/,
+];
+
+const TEST_AREA_PATTERNS: readonly RegExp[] = [
+  /^(?:test\s+area|tests|test\s+board)$/,
+  /^(?:open|show)\s+(?:me\s+)?(?:the\s+)?test\s+area$/,
+];
+
 /**
  * Resolve a typed or spoken phrase to the room it opens, or null when it
  * is not a room phrase (the caller then continues its normal handling).
@@ -124,5 +160,11 @@ export function parseRoomCommand(text: string): RoomTarget | null {
   if (GATE_LOG_PATTERNS.some((p) => p.test(phrase))) return "gate-log";
   if (SANDBOX_PATTERNS.some((p) => p.test(phrase))) return "sandbox";
   if (LIBRARY_PATTERNS.some((p) => p.test(phrase))) return "library";
+  if (LAW_DESK_PATTERNS.some((p) => p.test(phrase))) return "law-desk";
+  if (OFFICE_ANALYTICS_PATTERNS.some((p) => p.test(phrase))) return "office-analytics";
+  if (ANATOMY_PATTERNS.some((p) => p.test(phrase))) return "anatomy";
+  if (LOGS_PATTERNS.some((p) => p.test(phrase))) return "logs";
+  if (LISTENING_PATTERNS.some((p) => p.test(phrase))) return "listening";
+  if (TEST_AREA_PATTERNS.some((p) => p.test(phrase))) return "test-area";
   return null;
 }

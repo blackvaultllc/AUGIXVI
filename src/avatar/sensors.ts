@@ -15,10 +15,17 @@ export type SensorOptions = {
   handModelUrl?: string | undefined;
 };
 
-export const DEFAULT_MEDIAPIPE_WASM_ROOT =
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm";
-export const DEFAULT_MEDIAPIPE_HAND_MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+/**
+ * Part 19 (owner fix order 2026-11-21): the MediaPipe wasm and models
+ * are BUNDLED with the app and served from its own origin
+ * (public/mediapipe/) — an offline-first, grid-down system cannot
+ * depend on Google's CDN at runtime. These used to point at
+ * cdn.jsdelivr.net and storage.googleapis.com; when that fetch failed,
+ * Pulse's face tracker and the hand tracker died with it. An env
+ * override (VITE_MEDIAPIPE_WASM_ROOT) can still point elsewhere.
+ */
+export const DEFAULT_MEDIAPIPE_WASM_ROOT = "/mediapipe/wasm";
+export const DEFAULT_MEDIAPIPE_HAND_MODEL_URL = "/mediapipe/models/hand_landmarker.task";
 
 export function getVisionAssetCandidates(wasmRoot?: string, handModelUrl?: string) {
   const configured = {
