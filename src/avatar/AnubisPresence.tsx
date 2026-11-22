@@ -2,15 +2,15 @@
  * ANUBIS AT COMMAND (owner order 2026-11-22).
  *
  * NAMING — the owner's system, recorded where the presence is
- * defined: ANUBIS is the command face — the one in command he speaks
- * to day to day. Anubis controls / relays to AUGIE, the robotic
- * construct of all intelligence — OSIRIS, the particle "sand code"
- * figure on the stage (osirisPosition.ts) — whom the operator
- * addresses directly only for definitely important things. This
- * component is presentation only: it renames nothing, it routes
- * nothing; it puts the command face where he asked for it — top
- * center of the screen, "just like how you are," a centered living
- * presence tied to the Command box below.
+ * defined: Captain Infinity is at the top. ANUBIS is the commander
+ * and command face — the one he speaks to day to day. Anubis controls
+ * AUGIE / OSIRIS, the construct core and particle "sand code" figure
+ * on the stage (osirisPosition.ts), whom the operator addresses
+ * directly only for definitely important things. This component is
+ * presentation only: it renames nothing, it routes nothing; it puts
+ * the command face where he asked for it — top center of the screen,
+ * "just like how you are," a centered living presence tied to the
+ * Command box below.
  *
  * THE FACE: Khadija chose the portrait on 2026-11-22 — antique gold,
  * fur mane, and a broad blue-and-gold ceremonial collar on black.
@@ -31,7 +31,9 @@
  * lives inside Anubis's medallion only; the Room around it stays
  * light.
  */
-export const ANUBIS_FACE_SRC = "/anubis-presence/face.webp";
+import { ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
+
+export const ANUBIS_FACE_SRC = ANUBIS_PORTRAIT_SRC;
 
 export function AnubisPresence({
   ready,

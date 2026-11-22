@@ -1,19 +1,27 @@
 /**
- * OSIRIS'S SPOT ON THE STAGE (owner order 2026-11-22): "I can hardly
- * see this picture of Augie in the box — make it to where I can move
- * him around the screen." The particle figure — Osiris, the sand-code
- * construct — is draggable: the operator pulls him anywhere on the
- * stage and he stays there, across reloads, until he is sent home.
+ * AUGI'S SPOT AND ANCHOR STATE ON THE STAGE (owner orders
+ * 2026-11-22): "I can hardly see this picture of Augie in the box —
+ * make it to where I can move him around the screen." The movable
+ * sand-code body is AUGI, the construct; OSIRIS is the core within
+ * him, under command. The Captain pulls AUGI anywhere on the stage
+ * and he stays there, across reloads, until he is sent home.
  *
  * This module is the plain-data half: the saved offset (world units,
  * relative to his home spot at stage center), the clamp that keeps
- * him inside the camera's frame, and the device-local storage. The
- * renderer owns the anchor the offset moves (AvatarRenderer.ts); the
- * stage owns the pointer work (AvatarStage.tsx).
+ * him inside the camera's frame, the construct's anchor state, and
+ * the device-local storage. The renderer owns the anchor the offset
+ * moves (AvatarRenderer.ts); the stage owns the pointer work
+ * (AvatarStage.tsx).
  *
- * NAMING, in the owner's system: ANUBIS is the command face he speaks
- * to day to day (AnubisPresence.tsx); AUGIE / OSIRIS is the whole
- * construct — this figure. Anubis relays to the construct.
+ * NAMING, in the owner's final structure: Captain Infinity is at the
+ * top; ANUBIS is in command, the face he speaks to day to day
+ * (AnubisPresence.tsx); OSIRIS is under Anubis; AUGI is the sand-code
+ * construct — this movable figure, with Osiris as the core within.
+ *
+ * CONSTRUCT ANCHOR LAW (owner order 2026-11-22, the reverse of a
+ * placed object): AUGI ANCHORED = set into the stage and FREE — he
+ * moves around and does his work. AUGI UNANCHORED = the Captain has
+ * lifted him out to FIX something — he holds still for adjustment.
  */
 export type FigureOffset = { x: number; y: number };
 
@@ -30,6 +38,7 @@ export const FIGURE_HOME: FigureOffset = { x: 0, y: 0 };
 export const FIGURE_OFFSET_LIMITS = { x: 6.5, up: 3.4, down: 2.4 } as const;
 
 export const OSIRIS_POSITION_STORAGE_KEY = "augi.avatar.osiris-position.v1";
+export const CONSTRUCT_ANCHOR_STORAGE_KEY = "augi.avatar.construct-anchor.v1";
 
 export function clampFigureOffset(offset: FigureOffset): FigureOffset {
   const clamp = (value: number, min: number, max: number) =>
@@ -86,5 +95,33 @@ export function clearFigureOffset(storage: StorageLike | null = defaultStorage()
     storage.removeItem(OSIRIS_POSITION_STORAGE_KEY);
   } catch {
     // Nothing to forget cleanly — the next save overwrites anyway.
+  }
+}
+
+/**
+ * The construct's anchor state. Nothing saved means ANCHORED — set
+ * into the stage and free to work, the state he has always opened in.
+ * Only an explicit saved "unanchored" starts him held for fixing.
+ */
+export function loadConstructAnchored(
+  storage: StorageLike | null = defaultStorage(),
+): boolean {
+  if (!storage) return true;
+  try {
+    return storage.getItem(CONSTRUCT_ANCHOR_STORAGE_KEY) !== "unanchored";
+  } catch {
+    return true;
+  }
+}
+
+export function saveConstructAnchored(
+  anchored: boolean,
+  storage: StorageLike | null = defaultStorage(),
+): void {
+  if (!storage) return;
+  try {
+    storage.setItem(CONSTRUCT_ANCHOR_STORAGE_KEY, anchored ? "anchored" : "unanchored");
+  } catch {
+    // Best effort only — the live stage state still holds.
   }
 }

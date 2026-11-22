@@ -1,12 +1,15 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import {
+  CONSTRUCT_ANCHOR_STORAGE_KEY,
   FIGURE_HOME,
   FIGURE_OFFSET_LIMITS,
   OSIRIS_POSITION_STORAGE_KEY,
   clampFigureOffset,
   clearFigureOffset,
+  loadConstructAnchored,
   loadFigureOffset,
+  saveConstructAnchored,
   saveFigureOffset,
 } from "@/avatar/osirisPosition";
 import { parseSceneCommand, sceneLine } from "@/avatar/worldScenes";
@@ -81,6 +84,29 @@ describe("Osiris's spot — the drag's saved offset", () => {
     expect(loadFigureOffset(null)).toBeNull();
     expect(() => saveFigureOffset({ x: 1, y: 1 }, null)).not.toThrow();
     expect(() => clearFigureOffset(null)).not.toThrow();
+  });
+});
+
+describe("AUGI's anchor — the construct law", () => {
+  it("starts anchored: set into the stage and free", () => {
+    const storage = fakeStorage();
+    expect(loadConstructAnchored(storage)).toBe(true);
+    expect(loadConstructAnchored(null)).toBe(true);
+  });
+
+  it("round-trips the held-for-fixing state", () => {
+    const storage = fakeStorage();
+    saveConstructAnchored(false, storage);
+    expect(storage.map.get(CONSTRUCT_ANCHOR_STORAGE_KEY)).toBe("unanchored");
+    expect(loadConstructAnchored(storage)).toBe(false);
+    saveConstructAnchored(true, storage);
+    expect(loadConstructAnchored(storage)).toBe(true);
+  });
+
+  it("anything but the explicit 'unanchored' reads as anchored", () => {
+    const storage = fakeStorage();
+    storage.setItem(CONSTRUCT_ANCHOR_STORAGE_KEY, "garbage");
+    expect(loadConstructAnchored(storage)).toBe(true);
   });
 });
 

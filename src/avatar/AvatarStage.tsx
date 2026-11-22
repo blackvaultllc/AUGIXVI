@@ -9,6 +9,7 @@ import {
 import * as THREE from "three";
 import {
   Activity,
+  Anchor,
   ArrowUp,
   BarChart3,
   Bluetooth,
@@ -57,9 +58,12 @@ import { AugiePresence } from "./AugiePresence";
 import { AnubisPresence } from "./AnubisPresence";
 import {
   clearFigureOffset,
+  loadConstructAnchored,
   loadFigureOffset,
+  saveConstructAnchored,
   saveFigureOffset,
 } from "./osirisPosition";
+import { ConstructControls } from "./ConstructControls";
 import { NotepadWindow, ChalkboardWindow, PlayerWindow } from "./windows/windows";
 import { BattleBox } from "./windows/BattleBox";
 import {
@@ -1132,11 +1136,14 @@ export function AvatarStage({
     const bridge = bridgeRef.current;
     const r = new AvatarRenderer(host.current!, bridge, { ...settingsRef.current });
     rendRef.current = r;
-    // OSIRIS'S SAVED SPOT (owner order 2026-11-22): if he was dragged
-    // somewhere last session, he is standing there when the stage
-    // opens — the drag persists like every other setting of his.
+    // AUGI'S SAVED SPOT AND ANCHOR (owner orders 2026-11-22): if he
+    // was dragged somewhere last session, he is standing there when
+    // the stage opens — the drag persists like every other setting
+    // of his — and his anchor state (free, or held for fixing) is
+    // the one the Captain left him in.
     const savedSpot = loadFigureOffset();
     if (savedSpot) r.setFigureOffset(savedSpot.x, savedSpot.y);
+    r.setConstructAnchored(loadConstructAnchored());
     r.onFrame = (p) => {
       setPerf(p);
       setReady(true);
@@ -1337,23 +1344,61 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     };
   }, [sendCommand, operatorFullName, operatorName, say, applyVoiceGate]);
 
-  // MOVE OSIRIS (owner order 2026-11-22): press on the figure and
-  // pull him anywhere on the stage; the spot saves when the press
-  // lets go, and he is standing there next time the stage opens.
-  // Double-press on him sends him back to his home spot. The hit
-  // test is his real screen position from the renderer, so the grab
-  // works wherever he is standing — and a press anywhere else on
-  // the stage keeps its old meaning, untouched.
+  // AUGI — ANCHOR, DRAG, AND THE CAPTAIN'S KEYS (owner orders
+  // 2026-11-22): the construct's three ways of being on the stage.
+  // ANCHORED he is set in and FREE — he roams and works. UNANCHORED
+  // the Captain has lifted him out to FIX something — he holds, and
+  // a press-and-pull drags him to his new spot (saved on release,
+  // standing there next session; double-press sends him home).
+  // A plain CLICK on him while anchored takes control: WASD drives
+  // him, SPACEBAR is his action; click again or Escape hands him
+  // back. The state is stated on the stage at all times
+  // (ConstructControls) so the two never fight over the figure.
   const [osirisDragging, setOsirisDragging] = useState(false);
+  const [constructAnchored, setConstructAnchored] = useState(loadConstructAnchored);
+  const [captainDriving, setCaptainDriving] = useState(false);
+  const anchoredRef = useRef(constructAnchored);
+  anchoredRef.current = constructAnchored;
+  const drivingRef = useRef(captainDriving);
+  drivingRef.current = captainDriving;
+
+  const applyAnchor = useCallback((next: boolean) => {
+    setConstructAnchored(next);
+    saveConstructAnchored(next);
+    rendRef.current?.setConstructAnchored(next);
+    if (!next) {
+      setCaptainDriving(false);
+      rendRef.current?.setCaptainDriving(false);
+    }
+  }, []);
+  const toggleAnchor = useCallback(() => {
+    applyAnchor(!anchoredRef.current);
+  }, [applyAnchor]);
+  const toggleControl = useCallback(() => {
+    if (!anchoredRef.current) return;
+    const next = !drivingRef.current;
+    setCaptainDriving(next);
+    rendRef.current?.setCaptainDriving(next);
+  }, []);
   const resetOsirisHome = useCallback(() => {
     rendRef.current?.resetFigureOffset();
     clearFigureOffset();
-  }, []);
+    // Home is his set-in spot: sending him home anchors him there, free.
+    applyAnchor(true);
+  }, [applyAnchor]);
   useEffect(() => {
     const hostEl = host.current;
     if (!hostEl) return;
     const GRAB_RADIUS_PX = 175;
-    let drag: { pointerId: number; lastX: number; lastY: number } | null = null;
+    let press: {
+      pointerId: number;
+      startX: number;
+      startY: number;
+      lastX: number;
+      lastY: number;
+      at: number;
+      moved: boolean;
+    } | null = null;
     const nearFigure = (clientX: number, clientY: number) => {
       const renderer = rendRef.current;
       if (!renderer) return false;
@@ -1367,29 +1412,46 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     const onDown = (e: PointerEvent) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
       if (!nearFigure(e.clientX, e.clientY)) return;
-      drag = { pointerId: e.pointerId, lastX: e.clientX, lastY: e.clientY };
+      press = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        lastX: e.clientX,
+        lastY: e.clientY,
+        at: Date.now(),
+        moved: false,
+      };
       hostEl.setPointerCapture(e.pointerId);
-      setOsirisDragging(true);
+      if (!anchoredRef.current) setOsirisDragging(true);
     };
     const onMove = (e: PointerEvent) => {
-      if (!drag || e.pointerId !== drag.pointerId) return;
+      if (!press || e.pointerId !== press.pointerId) return;
+      if (Math.hypot(e.clientX - press.startX, e.clientY - press.startY) > 7) press.moved = true;
+      if (anchoredRef.current) return; // anchored: a press is a click, never a drag
       const renderer = rendRef.current;
       if (!renderer) return;
       const scale = renderer.worldUnitsPerPixel();
       const current = renderer.figureOffset;
       renderer.setFigureOffset(
-        current.x + (e.clientX - drag.lastX) * scale,
-        current.y - (e.clientY - drag.lastY) * scale,
+        current.x + (e.clientX - press.lastX) * scale,
+        current.y - (e.clientY - press.lastY) * scale,
       );
-      drag.lastX = e.clientX;
-      drag.lastY = e.clientY;
+      press.lastX = e.clientX;
+      press.lastY = e.clientY;
     };
     const onUp = (e: PointerEvent) => {
-      if (!drag || e.pointerId !== drag.pointerId) return;
-      drag = null;
-      setOsirisDragging(false);
-      const renderer = rendRef.current;
-      if (renderer) saveFigureOffset(renderer.figureOffset);
+      if (!press || e.pointerId !== press.pointerId) return;
+      const wasPress = press;
+      press = null;
+      if (!anchoredRef.current) {
+        setOsirisDragging(false);
+        const renderer = rendRef.current;
+        if (renderer) saveFigureOffset(renderer.figureOffset);
+        return;
+      }
+      // A plain click on AUGI while he is anchored: take the keys —
+      // or hand them back, if the Captain already has them.
+      if (!wasPress.moved && Date.now() - wasPress.at < 600) toggleControl();
     };
     const onDblClick = (e: MouseEvent) => {
       if (!nearFigure(e.clientX, e.clientY)) return;
@@ -1407,7 +1469,62 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       hostEl.removeEventListener("pointercancel", onUp);
       hostEl.removeEventListener("dblclick", onDblClick);
     };
-  }, [resetOsirisHome]);
+  }, [resetOsirisHome, toggleControl]);
+
+  // THE CAPTAIN'S KEYS: while he drives, WASD moves AUGI in the stage
+  // plane and SPACEBAR is his action. Typing in any field never
+  // drives — the chat input keeps its letters.
+  useEffect(() => {
+    if (!captainDriving) return;
+    const keys = new Set<string>();
+    const applyKeys = () => {
+      rendRef.current?.setDriveVector(
+        (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0),
+        (keys.has("w") ? 1 : 0) - (keys.has("s") ? 1 : 0),
+      );
+    };
+    const isTyping = (e: KeyboardEvent) =>
+      Boolean(
+        (e.target as HTMLElement | null)?.closest?.(
+          'input, textarea, select, [contenteditable="true"]',
+        ),
+      );
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isTyping(e)) return;
+      const key = e.key.toLowerCase();
+      if (key === "escape") {
+        toggleControl();
+        return;
+      }
+      if (key === " ") {
+        e.preventDefault();
+        if (!e.repeat) rendRef.current?.captainAction();
+        return;
+      }
+      if (["w", "a", "s", "d"].includes(key)) {
+        e.preventDefault();
+        keys.add(key);
+        applyKeys();
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (keys.delete(key)) applyKeys();
+    };
+    const onBlur = () => {
+      keys.clear();
+      applyKeys();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+      rendRef.current?.setDriveVector(0, 0);
+    };
+  }, [captainDriving, toggleControl]);
 
   // Auto-enter the live world on arrival (owner order): no click needed.
   const autoEnteredRef = useRef(false);
@@ -1433,6 +1550,10 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       if (stopped) return;
       // Skip when he is mid-conversation or when the screen is cleared for me.
       if (bridgeRef.current.state === "SPEAKING" || clearScreenRef.current) return;
+      // Held states (construct law): unanchored he is lifted out for
+      // fixing, and while the Captain drives he is under the keys —
+      // idle life does not speak or act over either.
+      if (!anchoredRef.current || drivingRef.current) return;
       const action = pickIdleActivity(Math.random, lastActivityRef.current ?? undefined);
       lastActivityRef.current = action.activity;
       const line =
@@ -1634,7 +1755,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
 
   return (
     <div
-      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}${osirisDragging ? " avatar-stage--dragging-osiris" : ""}`}
+      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}${osirisDragging ? " avatar-stage--dragging-osiris" : ""}${captainDriving ? " avatar-stage--captain-driving" : ""}${!constructAnchored ? " avatar-stage--construct-held" : ""}`}
       data-scene-ready={ready ? "" : undefined}
       data-stage-look={worldScreen === "live" && worldScene === "room" ? "light" : "dark"}
       style={stageStyle}
@@ -1646,6 +1767,14 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           speaking={state === "SPEAKING"}
           listening={voiceListening}
           acting={presenting || state === "THINKING"}
+        />
+      )}
+      {!clearScreen && worldScreen === "live" && (
+        <ConstructControls
+          anchored={constructAnchored}
+          captainDriving={captainDriving}
+          onToggleAnchor={toggleAnchor}
+          onToggleControl={toggleControl}
         />
       )}
       {cubeOpen && (
@@ -1732,6 +1861,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           responseSource={responseSource}
           userLine={lastUserMessage}
           history={transcript}
+          partnerSpeaking={state === "SPEAKING"}
           presence={
             <AugiePresence
               ready={ready}
@@ -1757,10 +1887,38 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                 />
                 <CommandAction
                   icon={LocateFixed}
-                  label="Osiris · home spot"
+                  label="AUGI · home spot"
                   onClick={() => {
                     resetOsirisHome();
-                    say("Osiris is back at his home spot.");
+                    say("AUGI is back at his home spot, anchored and free.");
+                  }}
+                />
+                <CommandAction
+                  icon={Anchor}
+                  label={
+                    constructAnchored
+                      ? "AUGI · anchored — lift out to fix"
+                      : "AUGI · unanchored — set back in, free"
+                  }
+                  onClick={() => {
+                    toggleAnchor();
+                    say(
+                      constructAnchored
+                        ? "AUGI is lifted out — unanchored, held for fixing. Drag him where you want him."
+                        : "AUGI is anchored — set into the stage and free to work.",
+                    );
+                  }}
+                />
+                <CommandAction
+                  icon={Gamepad2}
+                  label={captainDriving ? "Control · Captain driving" : "Control · AUGI free"}
+                  onClick={() => {
+                    toggleControl();
+                    say(
+                      captainDriving
+                        ? "AUGI has his controls back."
+                        : "You have the keys — W A S D moves AUGI, spacebar is his action.",
+                    );
                   }}
                 />
               </div>

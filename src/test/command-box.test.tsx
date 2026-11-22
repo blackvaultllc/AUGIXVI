@@ -74,9 +74,9 @@ describe("command box grip controls", () => {
     expect(screen.getByText("panel body")).toBeInTheDocument();
   });
 
-  it("dragging still starts from the grip itself", () => {
+  it("dragging still starts from the rail itself", () => {
     renderBox();
-    pointerDown(screen.getByText("Command"));
+    pointerDown(screen.getByText("Chat"));
     expect(captureSpy).toHaveBeenCalled();
   });
 });
@@ -116,28 +116,29 @@ describe("command box message echo", () => {
     );
   }
 
-  it("shows his last message above Augie's reply", () => {
+  it("shows his last message above Anubis's reply, under his own name", () => {
     renderBoxWithEcho("open the cube");
     const mine = screen.getByText("open the cube");
     const reply = screen.getByText("Standing by.");
-    expect(screen.getByText("You:")).toBeInTheDocument();
+    expect(screen.getByText("Captain:")).toBeInTheDocument();
     expect(mine.compareDocumentPosition(reply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows no echo line before he has sent anything", () => {
     renderBoxWithEcho(undefined);
-    expect(screen.queryByText("You:")).not.toBeInTheDocument();
+    expect(screen.queryByText("Captain:")).not.toBeInTheDocument();
     expect(screen.getByText("Standing by.")).toBeInTheDocument();
   });
 });
 
 /**
- * CONVERSATION THREAD (owner order 2026-11-21): "when I'm typing I like
- * to look up the conversation." The reply-history store renders as an
- * expandable thread pinned above the input in the box itself — his
- * messages and Augie's replies in order — no trip to a separate window.
+ * THE CHAT LOG (owner orders 2026-11-21 + 2026-11-22): the reply-
+ * history store renders as the window's flowing log itself — Captain
+ * and Anubis lines in order. There is NO Conversation dropdown or
+ * thread toggle on the face anymore: he called the bar "stupid" and
+ * ordered a plain MMORPG chat window.
  */
-describe("command box conversation thread", () => {
+describe("command box chat log", () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -169,10 +170,11 @@ describe("command box conversation thread", () => {
     );
   }
 
-  it("shows the thread OPEN by default, the exchange in order (Part 28 plain chat face)", () => {
+  it("flows in order on the face — Captain and Anubis lines, no dropdown bar", () => {
     renderBoxWithHistory(true);
-    const toggle = screen.getByRole("button", { name: /Conversation \(2\)/ });
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("button", { name: /Conversation/ })).not.toBeInTheDocument();
+    const log = screen.getByRole("log", { name: "Chat log" });
+    expect(log).toBeInTheDocument();
     const first = screen.getByText("open the cube");
     const firstReply = screen.getByText("The cube is open.");
     const second = screen.getByText("now fly");
@@ -187,24 +189,102 @@ describe("command box conversation thread", () => {
     expect(
       second.compareDocumentPosition(secondReply) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-
-    // He can still collapse it himself.
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("The cube is open.")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Captain:")).toHaveLength(2);
+    expect(screen.getAllByText("Anubis:").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("respects his own saved collapse — an explicit 'false' starts the thread closed", () => {
-    localStorage.setItem("augi.avatar.command-box.thread.v1", "false");
-    renderBoxWithHistory(true);
-    const toggle = screen.getByRole("button", { name: /Conversation \(2\)/ });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("The cube is open.")).not.toBeInTheDocument();
-  });
-
-  it("offers no thread toggle when no history is wired in", () => {
+  it("offers no Conversation bar when no history is wired in — the live reply still flows", () => {
     renderBoxWithHistory(false);
     expect(screen.queryByRole("button", { name: /Conversation/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Standing by.")).toBeInTheDocument();
+  });
+});
+
+/**
+ * RESIZE (owner correction 2026-11-22): the chat window stretches
+ * from its corner/edges and the size persists, like the container
+ * windows. A drag on the corner grip grows the box and saves it.
+ */
+describe("command box resize", () => {
+  const captureSpy = vi.fn();
+
+  beforeEach(() => {
+    localStorage.clear();
+    captureSpy.mockClear();
+    Element.prototype.setPointerCapture = captureSpy;
+    Element.prototype.releasePointerCapture = vi.fn();
+  });
+
+  function pointer(node: Element, type: string, x: number, y: number) {
+    const ev = new window.MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: x,
+      clientY: y,
+    });
+    Object.defineProperty(ev, "pointerId", { value: 7 });
+    fireEvent(node, ev);
+  }
+
+  it("stretching the corner grows the window and saves the size", () => {
+    const { container } = render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+    const box = container.querySelector(".avatar-command-box") as HTMLElement;
+    expect(box.style.width).toBe("500px");
+    expect(box.style.height).toBe("430px");
+    const corner = screen.getByRole("separator", { name: "Resize the chat window" });
+    pointer(corner, "pointerdown", 100, 100);
+    expect(captureSpy).toHaveBeenCalled();
+    pointer(corner, "pointermove", 200, 150);
+    pointer(corner, "pointerup", 200, 150);
+    expect(box.style.width).toBe("600px");
+    expect(box.style.height).toBe("480px");
+    expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v1")!)).toEqual({
+      w: 600,
+      h: 480,
+    });
+  });
+
+  it("a saved size is the size the window opens at", () => {
+    localStorage.setItem("augi.avatar.command-box.size.v1", JSON.stringify({ w: 640, h: 300 }));
+    const { container } = render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+    const box = container.querySelector(".avatar-command-box") as HTMLElement;
+    expect(box.style.width).toBe("640px");
+    expect(box.style.height).toBe("300px");
   });
 });
 
@@ -271,24 +351,21 @@ describe("command box plain chat face", () => {
   const before = (a: HTMLElement, b: HTMLElement) =>
     Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-  it("default face is a plain chat: thread, latest exchange, input — no tabs, no panel", () => {
+  it("default face is a plain chat: flowing log, latest exchange, input — no tabs, no panel, no dropdown", () => {
     render(<StatefulBox />);
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Conversation/ })).not.toBeInTheDocument();
 
-    const toggle = screen.getByRole("button", { name: /Conversation \(2\)/ });
     const echo = screen.getByText("last thing I said");
     const reply = screen.getByText("Latest reply.");
-    const input = screen.getByPlaceholderText(/Type a command/);
+    const input = screen.getByPlaceholderText(/Message Anubis/);
 
-    expect(before(toggle, reply)).toBe(true);
     expect(before(echo, reply)).toBe(true);
     expect(before(reply, input)).toBe(true);
 
-    // The conversation zone groups the thread and the latest exchange;
-    // the input lives below it, outside the zone.
-    const zone = screen.getByRole("group", { name: "Conversation" });
-    expect(zone).toContainElement(toggle);
+    // The chat zone groups the log; the input lives below it, outside the zone.
+    const zone = screen.getByRole("group", { name: "Chat" });
     expect(zone).toContainElement(reply);
     expect(zone).not.toContainElement(input);
   });
@@ -302,9 +379,9 @@ describe("command box plain chat face", () => {
     expect(menu).toHaveAttribute("aria-expanded", "true");
     const tablist = screen.getByRole("tablist");
     const panel = screen.getByText("scene panel body");
-    const toggle = screen.getByRole("button", { name: /Conversation \(2\)/ });
+    const firstLine = screen.getByText("open the cube");
     expect(before(tablist, panel)).toBe(true);
-    expect(before(panel, toggle)).toBe(true);
+    expect(before(panel, firstLine)).toBe(true);
 
     fireEvent.click(menu);
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
@@ -316,7 +393,7 @@ describe("command box plain chat face", () => {
   it("every tab still switches the panel while conversation and input stay put", () => {
     render(<StatefulBox />);
     fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
-    const input = screen.getByPlaceholderText(/Type a command/);
+    const input = screen.getByPlaceholderText(/Message Anubis/);
 
     fireEvent.click(screen.getByRole("tab", { name: /Tools/ }));
     expect(screen.getByText("tools panel body")).toBeInTheDocument();
@@ -341,21 +418,21 @@ describe("command box plain chat face", () => {
     render(<StatefulBox />);
     fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
     fireEvent.click(screen.getByRole("tab", { name: /Commands/ }));
-    expect(screen.getByText(/Every command Osiris can act on/)).toBeInTheDocument();
+    expect(screen.getByText(/Every command Anubis can pass to AUGI/)).toBeInTheDocument();
     // The panel swapped; the conversation and bottom input did not move.
     expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
     expect(screen.getByText("Latest reply.")).toBeInTheDocument();
     expect(
-      before(screen.getByText("Latest reply."), screen.getByPlaceholderText(/Type a command/)),
+      before(screen.getByText("Latest reply."), screen.getByPlaceholderText(/Message Anubis/)),
     ).toBe(true);
   });
 
-  it("the open thread reads down into the latest reply, right above the input", () => {
+  it("the log reads down into the latest reply, right above the input", () => {
     render(<StatefulBox />);
     const first = screen.getByText("open the cube");
     const last = screen.getByText("Flying.");
     const reply = screen.getByText("Latest reply.");
-    const input = screen.getByPlaceholderText(/Type a command/);
+    const input = screen.getByPlaceholderText(/Message Anubis/);
     expect(before(first, last)).toBe(true);
     expect(before(last, reply)).toBe(true);
     expect(before(reply, input)).toBe(true);
@@ -368,14 +445,14 @@ describe("command box plain chat face", () => {
     fireEvent.click(screen.getByRole("button", { name: "Minimize command box" }));
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Conversation/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("log")).not.toBeInTheDocument();
     expect(screen.queryByText("Latest reply.")).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Type a command/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Message Anubis/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Expand command box" }));
     expect(screen.getByText("Latest reply.")).toBeInTheDocument();
     expect(
-      before(screen.getByText("Latest reply."), screen.getByPlaceholderText(/Type a command/)),
+      before(screen.getByText("Latest reply."), screen.getByPlaceholderText(/Message Anubis/)),
     ).toBe(true);
   });
 
@@ -383,7 +460,7 @@ describe("command box plain chat face", () => {
     const onSubmit = vi.fn();
     const onToggleVoice = vi.fn();
     render(<StatefulBox onSubmit={onSubmit} onToggleVoice={onToggleVoice} />);
-    const input = screen.getByPlaceholderText(/Type a command/);
+    const input = screen.getByPlaceholderText(/Message Anubis/);
     fireEvent.change(input, { target: { value: "open the cube" } });
     fireEvent.click(screen.getByRole("button", { name: "Send command" }));
     expect(onSubmit).toHaveBeenCalledWith("open the cube");

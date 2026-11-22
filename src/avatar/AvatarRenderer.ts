@@ -248,6 +248,18 @@ export class AvatarRenderer {
   private figureAnchor = new THREE.Group();
   private avatarRoot = new THREE.Group();
   private character = new THREE.Group();
+  /**
+   * CONSTRUCT ANCHOR + CONTROL (owner orders 2026-11-22): anchored
+   * AUGI is set into the stage and free — locomotion runs. Unanchored
+   * he is lifted out for fixing — locomotion halts and he holds.
+   * While the Captain drives (clicked control), locomotion also
+   * halts and the drive vector below moves the anchor directly, so
+   * the two never fight over the figure.
+   */
+  private constructAnchored = true;
+  private captainDriving = false;
+  private driveVector = { x: 0, y: 0 };
+  private driveJumpT = 1;
   /** True while the white Room is the stage — deep-blue/gold rendering. */
   private lightStage = false;
   private sceneManager: SceneManager;
@@ -639,6 +651,18 @@ export class AvatarRenderer {
       this.heartbeatBeat += 1;
       this.onHeartbeat?.(this.heartbeatBeat);
     }
+    // CAPTAIN DRIVING: WASD moves the anchor in the stage plane at a
+    // steady character speed; the position saves through the same
+    // clamp as a drag, so a driven spot and a dragged spot agree.
+    if (this.captainDriving && (this.driveVector.x !== 0 || this.driveVector.y !== 0)) {
+      const speed = 3.4;
+      const length = Math.hypot(this.driveVector.x, this.driveVector.y) || 1;
+      const current = this.figureOffset;
+      this.setFigureOffset(
+        current.x + (this.driveVector.x / length) * speed * dt,
+        current.y + (this.driveVector.y / length) * speed * dt,
+      );
+    }
     this.moveAvatar(dt, t);
     this.updateMorph(dt);
     this.sceneManager.tick(dt);
@@ -740,7 +764,11 @@ export class AvatarRenderer {
     }
   };
   private moveAvatar(dt: number, t: number) {
-    this.locomotion.tick(dt);
+    // Held states: unanchored (lifted out for fixing) or Captain-driven
+    // — locomotion does not run, so nothing moves him but the Captain.
+    const held = !this.constructAnchored || this.captainDriving;
+    if (!held) this.locomotion.tick(dt);
+    const driving = this.captainDriving && (this.driveVector.x !== 0 || this.driveVector.y !== 0);
     const speaking = this.bridge.state === "SPEAKING" ? this.bridge.speechLevel : 0;
     const flying = this.locomotion.currentMode === "fly";
     const inForm = this.activeTransform !== null;
@@ -754,7 +782,7 @@ export class AvatarRenderer {
     const pitchTarget = !inForm && flying ? (this.locomotion.isCruising ? 0.92 : 0.12) : 0;
     this.pitch += (pitchTarget - this.pitch) * (1 - Math.exp(-3.5 * dt));
     this.character.rotation.x = this.pitch;
-    const walking = !inForm && this.locomotion.isWalking;
+    const walking = !inForm && (this.locomotion.isWalking || driving);
     this.character.rotation.z =
       Math.sin(t * 1.2) * 0.012 +
       Math.sin(t * 3.2) * speaking * 0.025 +
@@ -768,6 +796,14 @@ export class AvatarRenderer {
       this.character.position.y = Math.abs(Math.sin(t * 7)) * 0.045;
     } else {
       this.character.position.y = 0;
+    }
+    // CAPTAIN'S ACTION KEY: a jump arc ridden on the character while
+    // he drives — the locomotion jump cannot run because locomotion
+    // is held under his hands.
+    if (this.driveJumpT < 1) {
+      this.driveJumpT = Math.min(1, this.driveJumpT + dt / 0.9);
+      const progress = this.driveJumpT;
+      this.character.position.y += 4 * 1.1 * progress * (1 - progress);
     }
     this.cape.visible = flying && !inForm;
     const capePositions = this.cape.geometry.getAttribute("position") as THREE.BufferAttribute;
@@ -788,15 +824,15 @@ export class AvatarRenderer {
     }
     if (!this.locomotion.isWalking) this.danceChecked = false;
     uniforms.uLegSwing.value.set(
-      getLegGaitAngle(this.locomotion.isWalking, t, 0, speaking, dancing),
-      getLegGaitAngle(this.locomotion.isWalking, t, 1, speaking, dancing),
+      getLegGaitAngle(walking, t, 0, speaking, dancing),
+      getLegGaitAngle(walking, t, 1, speaking, dancing),
     );
     // ARM SWING: computed here, consumed in updateProps. (This value
     // used to be stored and never read — the arms hung frozen while he
     // walked. Owner defect 2026-11-21: "his arms don't move.")
     this.armSwings = [
-      getArmSwingAngle(this.locomotion.isWalking, t, 0, dancing),
-      getArmSwingAngle(this.locomotion.isWalking, t, 1, dancing),
+      getArmSwingAngle(walking, t, 0, dancing),
+      getArmSwingAngle(walking, t, 1, dancing),
     ];
   }
   private danceUntil = -1;
@@ -943,6 +979,45 @@ export class AvatarRenderer {
   /** Back to the home spot at stage center. */
   resetFigureOffset() {
     this.figureAnchor.position.set(0, 0, 0);
+  }
+  /**
+   * The construct's anchor (owner law 2026-11-22): anchored = set
+   * into the stage and FREE; unanchored = lifted out to FIX — he
+   * holds still. Unanchoring stops locomotion where it stands and
+   * drops any Captain drive; anchoring hands him back to himself.
+   */
+  setConstructAnchored(anchored: boolean) {
+    this.constructAnchored = anchored;
+    if (!anchored) {
+      this.captainDriving = false;
+      this.driveVector = { x: 0, y: 0 };
+      this.locomotion.stop();
+    }
+  }
+  get isConstructAnchored(): boolean {
+    return this.constructAnchored;
+  }
+  /**
+   * Captain control (owner order 2026-11-22): click takes the keys,
+   * WASD drives, SPACEBAR acts. Taking control stops locomotion so
+   * the Captain and AUGI never fight over the figure; releasing it
+   * leaves him idle at the spot the Captain drove him to.
+   */
+  setCaptainDriving(driving: boolean) {
+    this.captainDriving = driving && this.constructAnchored;
+    if (this.captainDriving) this.locomotion.stop();
+    if (!this.captainDriving) this.driveVector = { x: 0, y: 0 };
+  }
+  get isCaptainDriving(): boolean {
+    return this.captainDriving;
+  }
+  /** Screen-plane drive direction from the held WASD keys. */
+  setDriveVector(x: number, y: number) {
+    this.driveVector = { x, y };
+  }
+  /** SPACEBAR while driving: his action — a jump. */
+  captainAction() {
+    if (this.captainDriving && this.driveJumpT >= 1) this.driveJumpT = 0;
   }
   /**
    * Where his center stands on the host element, in pixels — the

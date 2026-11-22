@@ -152,7 +152,7 @@ describe("AugiePresence component", () => {
 });
 
 describe("CommandBox presence slot", () => {
-  it("renders the supplied presence inside the grip, ahead of the title", () => {
+  it("renders the supplied presence inside the rail, ahead of the title", () => {
     const { container } = render(
       <CommandBox
         accent="#d4af37"
@@ -172,13 +172,13 @@ describe("CommandBox presence slot", () => {
         <div />
       </CommandBox>,
     );
-    const grip = container.querySelector(".avatar-command-box__grip");
+    const rail = container.querySelector(".avatar-command-box__rail");
     const slot = container.querySelector('[data-testid="presence-slot"]');
     const title = container.querySelector(".avatar-command-box__title");
-    expect(grip).not.toBeNull();
+    expect(rail).not.toBeNull();
     expect(slot).not.toBeNull();
-    expect(grip!.contains(slot)).toBe(true);
-    // The face sits at the head of the grip, before the "Command" title.
+    expect(rail!.contains(slot)).toBe(true);
+    // The face sits at the head of the rail, before the "Chat" title.
     expect(slot!.compareDocumentPosition(title!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

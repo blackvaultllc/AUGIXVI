@@ -11,11 +11,9 @@ import {
   Activity,
   BookOpen,
   ChevronDown,
-  ChevronUp,
   Eye,
   GripVertical,
   Menu,
-  MessagesSquare,
   Mic,
   MicOff,
   Minus,
@@ -24,6 +22,7 @@ import {
   Terminal,
   type LucideIcon,
 } from "lucide-react";
+import { clampWindowSize } from "./windows/windowGeometry";
 import type { ReplyHistoryEntry } from "./replyHistory";
 import {
   CATEGORY_LABELS,
@@ -39,24 +38,36 @@ export type CommandTab = "scene" | "motion" | "tools" | "settings" | "commands";
 
 const BOX_POSITION_KEY = "augi.avatar.command-box.position.v1";
 const BOX_MINIMIZED_KEY = "augi.avatar.command-box.minimized.v1";
-const BOX_THREAD_KEY = "augi.avatar.command-box.thread.v1";
+const BOX_SIZE_KEY = "augi.avatar.command-box.size.v1";
 
-function loadThreadOpen(): boolean {
+/** The chat window's opening size; his stretched size replaces it. */
+export const COMMAND_BOX_DEFAULT_SIZE = { w: 500, h: 430 } as const;
+
+function loadBoxSize(): { w: number; h: number } {
+  let parsed: { w: number; h: number } = { ...COMMAND_BOX_DEFAULT_SIZE };
   try {
-    const stored = globalThis.localStorage?.getItem(BOX_THREAD_KEY);
-    // Part 28 (owner order 2026-11-21): the default face is a plain
-    // chat, so the thread is OPEN by default — only an explicit saved
-    // "false" (he collapsed it himself) starts it closed.
-    if (stored === null || stored === undefined) return true;
-    return stored === "true";
+    const raw = globalThis.localStorage?.getItem(BOX_SIZE_KEY);
+    if (raw) {
+      const value: unknown = JSON.parse(raw);
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        typeof (value as { w?: unknown }).w === "number" &&
+        typeof (value as { h?: unknown }).h === "number"
+      ) {
+        parsed = value as { w: number; h: number };
+      }
+    }
   } catch {
-    return true;
+    // fall through to the default size
   }
+  if (typeof window === "undefined") return parsed;
+  return clampWindowSize(parsed.w, parsed.h, window.innerWidth, window.innerHeight);
 }
 
-function saveThreadOpen(open: boolean) {
+function saveBoxSize(size: { w: number; h: number }) {
   try {
-    globalThis.localStorage?.setItem(BOX_THREAD_KEY, open ? "true" : "false");
+    globalThis.localStorage?.setItem(BOX_SIZE_KEY, JSON.stringify(size));
   } catch {
     // best effort only
   }
@@ -125,6 +136,7 @@ export function CommandBox({
   history,
   onMinimizeShortcut,
   presence,
+  partnerSpeaking,
 }: {
   accent: string;
   tabs: Array<{ id: CommandTab; label: string; icon: LucideIcon }>;
@@ -146,10 +158,10 @@ export function CommandBox({
    */
   userLine?: string | undefined;
   /**
-   * The full conversation (the reply-history store), shown as an
-   * expandable thread pinned directly above the input — the operator
-   * reads back over the exchange WHILE he types (owner order
-   * 2026-11-21) instead of opening the separate history window.
+   * The full conversation (the reply-history store), rendered as the
+   * chat log itself — flowing lines, Captain / Anubis / System, in
+   * order. There is no thread picker or dropdown on the face (owner
+   * order 2026-11-22); the log simply IS the window.
    */
   history?: ReplyHistoryEntry[] | undefined;
   /** Lets AvatarStage ("/minimize" etc.) collapse or restore the box. */
@@ -158,14 +170,22 @@ export function CommandBox({
   externalMinimize?: number;
   /**
    * Augie's living presence (owner order 2026-11-22): the circular
-   * animated face rendered at the head of the grip, beside the title.
+   * animated face rendered at the head of the rail, beside the title.
    * Supplied by AvatarStage; the box itself stays a dumb container.
    */
   presence?: ReactNode;
+  /**
+   * True while Anubis is actually speaking (bridge state SPEAKING):
+   * the chat panel carries the speaking glow so the conversation is
+   * visibly tied to the medallion at top-center.
+   */
+  partnerSpeaking?: boolean;
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
   const [minimized, setMinimized] = useState(loadBoxMinimized);
-  const [threadOpen, setThreadOpen] = useState(loadThreadOpen);
+  const [boxSize, setBoxSize] = useState(loadBoxSize);
+  const sizeRef = useRef(boxSize);
+  sizeRef.current = boxSize;
   // Part 28: the tab machinery (Scene / Motion / Tools / Settings /
   // Commands panels) lives behind ONE Menu button. The default face is
   // the chat alone; the menu opens only when he asks for it and is not
@@ -174,18 +194,28 @@ export function CommandBox({
   const threadRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
+  const resizing = useRef<{
+    mode: "corner" | "right" | "bottom";
+    startX: number;
+    startY: number;
+    w: number;
+    h: number;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLElement>(null);
 
   // Clamp a candidate position into the viewport.
-  const clamp = useCallback((x: number, y: number) => {
-    const width = boxRef.current?.offsetWidth ?? 380;
-    const height = boxRef.current?.offsetHeight ?? 200;
-    return {
-      x: Math.min(Math.max(x, 8), Math.max(8, window.innerWidth - width - 8)),
-      y: Math.min(Math.max(y, 8), Math.max(8, window.innerHeight - height - 8)),
-    };
-  }, []);
+  const clamp = useCallback(
+    (x: number, y: number) => {
+      const width = boxRef.current?.offsetWidth ?? sizeRef.current.w;
+      const height = boxRef.current?.offsetHeight ?? sizeRef.current.h;
+      return {
+        x: Math.min(Math.max(x, 8), Math.max(8, window.innerWidth - width - 8)),
+        y: Math.min(Math.max(y, 8), Math.max(8, window.innerHeight - height - 8)),
+      };
+    },
+    [],
+  );
 
   const minimizeNow = useCallback(() => {
     setMinimized(true);
@@ -241,18 +271,44 @@ export function CommandBox({
     });
   }, []);
 
-  const toggleThread = useCallback(() => {
-    setThreadOpen((current) => {
-      saveThreadOpen(!current);
-      return !current;
-    });
+  // RESIZE (owner correction 2026-11-22): the chat window stretches
+  // from its right edge, bottom edge, or corner grip, and the size he
+  // leaves it at persists — the same discipline as the container
+  // windows (windowGeometry clamps it inside the viewport).
+  const startResize =
+    (mode: "corner" | "right" | "bottom") => (event: ReactPointerEvent<HTMLDivElement>) => {
+      if ("button" in event && event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = boxRef.current?.getBoundingClientRect();
+      resizing.current = {
+        mode,
+        startX: event.clientX,
+        startY: event.clientY,
+        w: rect && rect.width > 0 ? rect.width : sizeRef.current.w,
+        h: rect && rect.height > 0 ? rect.height : sizeRef.current.h,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    };
+  const moveResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const active = resizing.current;
+    if (!active) return;
+    const nextW = active.mode === "bottom" ? active.w : active.w + (event.clientX - active.startX);
+    const nextH = active.mode === "right" ? active.h : active.h + (event.clientY - active.startY);
+    setBoxSize(clampWindowSize(nextW, nextH, window.innerWidth, window.innerHeight));
+  }, []);
+  const endResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!resizing.current) return;
+    resizing.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    saveBoxSize(sizeRef.current);
   }, []);
 
-  // Keep the newest exchange in view while the thread is open.
+  // Keep the newest line in view as the conversation flows.
   useEffect(() => {
     const thread = threadRef.current;
-    if (threadOpen && thread) thread.scrollTop = thread.scrollHeight;
-  }, [threadOpen, history]);
+    if (!minimized && thread) thread.scrollTop = thread.scrollHeight;
+  }, [minimized, history, responseLine, userLine]);
 
   // Slash-menu state derived from the draft text.
   const menuOpen = !minimized && isSlashMenuActive(chat);
@@ -280,38 +336,52 @@ export function CommandBox({
     onSubmit(text);
   };
 
-  const boxStyle = position
-    ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
-    : undefined;
+  const boxStyle = {
+    ...(position
+      ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
+      : {}),
+    width: boxSize.w,
+    height: minimized ? undefined : boxSize.h,
+  } as const;
 
-  // PLAIN CHAT FACE (Part 28, owner order 2026-11-21 — supersedes the
-  // MMORPG tab-first layout): the default face is a regular chat box —
-  // the conversation thread (open by default) plus the latest exchange,
-  // and the input pinned at the bottom. ALL machinery — the tabs and
-  // their panels — sits behind the one Menu button in the grip and
-  // renders only while the menu is open. The grip stays the window's
-  // drag/title bar; when minimized it and the input are all that show.
+  // THE MMORPG CHAT PANEL (owner orders 2026-11-21 Part 28, and
+  // 2026-11-22 — the picked Drakensang-style reference): a slim rail
+  // of round controls down the left edge, a flowing chat log whose
+  // lines lead with the speaker's name (Captain / Anubis / System),
+  // and one clean input bar at the bottom. NO conversation dropdown,
+  // no thread machinery on the face — the log simply flows. All other
+  // machinery stays behind the rail's one Menu button. The window
+  // drags by its rail and stretches from its edges/corner; position
+  // and size both persist.
+
+  const lastEntry = history && history.length > 0 ? history[history.length - 1] : undefined;
+  const showLiveUser = Boolean(userLine) && userLine !== lastEntry?.question;
+  const liveSpeaker =
+    responseSource === "microphone" || responseSource === "awaiting response"
+      ? "System"
+      : "Anubis";
+  const showLiveResponse = Boolean(responseLine) && responseLine !== lastEntry?.answer;
 
   return (
     <section
       ref={boxRef}
-      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}`}
+      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}`}
       style={boxStyle}
-      aria-label="Command box"
+      aria-label="Chat with Anubis"
     >
       <div
-        className="avatar-command-box__grip"
+        className="avatar-command-box__rail avatar-command-box__grip"
         onPointerDown={startDrag}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         role="separator"
-        aria-label="Drag to move the command box"
+        aria-label="Drag to move the chat window"
         title="Drag to move"
       >
         <GripVertical aria-hidden="true" />
         {presence}
-        <span className="avatar-command-box__title">Command</span>
+        <span className="avatar-command-box__title">Chat</span>
         <button
           type="button"
           className="avatar-command-box__window-button avatar-command-box__menu-button"
@@ -322,10 +392,10 @@ export function CommandBox({
           aria-expanded={machineryOpen}
           aria-controls="avatar-command-machinery"
           aria-label={machineryOpen ? "Close the tools menu" : "Open the tools menu"}
-          title="Tools, rooms and settings"
+          title="Menu — tools, rooms and settings"
         >
           <Menu aria-hidden="true" />
-          <span>Menu</span>
+          <span className="sr-only">Menu</span>
         </button>
         <button
           type="button"
@@ -369,72 +439,56 @@ export function CommandBox({
       )}
 
       {!minimized && (
-        <>
-          <div className="avatar-command-box__conversation" role="group" aria-label="Conversation">
-            {history !== undefined && (
-              <>
-                <button
-                  type="button"
-                  className="avatar-command-box__thread-toggle"
-                  aria-expanded={threadOpen}
-                  aria-controls="avatar-command-thread"
-                  onClick={toggleThread}
-                >
-                  <MessagesSquare aria-hidden="true" />
-                  <span>Conversation{history.length > 0 ? ` (${history.length})` : ""}</span>
-                  {threadOpen ? (
-                    <ChevronUp aria-hidden="true" />
-                  ) : (
-                    <ChevronDown aria-hidden="true" />
-                  )}
-                </button>
-                {threadOpen && (
-                  <div
-                    id="avatar-command-thread"
-                    className="avatar-command-box__thread"
-                    ref={threadRef}
-                    role="log"
-                    aria-label="Conversation so far"
-                  >
-                    {history.length === 0 ? (
-                      <p className="avatar-command-box__thread-empty">
-                        Nothing yet — your messages and Augie&rsquo;s replies collect here, in
-                        order, so you can read back over the conversation while you type.
-                      </p>
-                    ) : (
-                      history.map((entry, index) => (
-                        <div
-                          className="avatar-command-box__thread-entry"
-                          key={`${entry.at}-${index}`}
-                        >
-                          {entry.question && (
-                            <p className="avatar-command-box__thread-q">
-                              <span className="avatar-command-box__thread-who">You:</span>{" "}
-                              {entry.question}
-                            </p>
-                          )}
-                          <p className="avatar-command-box__thread-a">
-                            <span className="avatar-command-box__thread-who">Augie:</span>{" "}
-                            {entry.answer}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
+        <div className="avatar-command-box__conversation" role="group" aria-label="Chat">
+          <div
+            id="avatar-command-thread"
+            className="avatar-command-box__thread"
+            ref={threadRef}
+            role="log"
+            aria-label="Chat log"
+            aria-live="polite"
+          >
+            {history?.map((entry, index) => (
+              <div className="avatar-command-box__thread-entry" key={`${entry.at}-${index}`}>
+                {entry.question && (
+                  <p className="avatar-command-box__thread-q">
+                    <span className="avatar-command-box__thread-who">Captain:</span>{" "}
+                    {entry.question}
+                  </p>
                 )}
-              </>
-            )}
-            <div className="avatar-command-box__response" aria-live="polite">
-              {userLine ? (
-                <p className="avatar-command-box__user-line">
-                  <span className="avatar-command-box__user-label">You:</span> {userLine}
+                <p className="avatar-command-box__thread-a">
+                  <span className="avatar-command-box__thread-who">Anubis:</span> {entry.answer}
                 </p>
-              ) : null}
-              <span className="avatar-command-box__response-source">{responseSource}</span>
-              <p>{responseLine}</p>
-            </div>
+              </div>
+            ))}
+            {showLiveUser && (
+              <p className="avatar-command-box__thread-q avatar-command-box__user-line">
+                <span className="avatar-command-box__thread-who">Captain:</span> {userLine}
+              </p>
+            )}
+            {showLiveResponse && (
+              <p
+                className={
+                  liveSpeaker === "System"
+                    ? "avatar-command-box__thread-system"
+                    : "avatar-command-box__thread-a"
+                }
+              >
+                <span className="avatar-command-box__thread-who">{liveSpeaker}:</span>{" "}
+                {responseLine}
+              </p>
+            )}
+            {showLiveResponse && liveSpeaker === "Anubis" && responseSource && (
+              <p className="avatar-command-box__response-source">Answered by {responseSource}</p>
+            )}
+            {!history?.length && !showLiveUser && !showLiveResponse && (
+              <p className="avatar-command-box__thread-system">
+                <span className="avatar-command-box__thread-who">System:</span> Standing by —
+                talk to Anubis here.
+              </p>
+            )}
           </div>
-        </>
+        </div>
       )}
 
       {menuOpen && suggestions.length > 0 && (
@@ -459,13 +513,13 @@ export function CommandBox({
 
       <form className="avatar-command-box__form" onSubmit={submit}>
         <label className="sr-only" htmlFor="avatar-command-input">
-          Command for Osiris
+          Message for Anubis
         </label>
         <input
           id="avatar-command-input"
           ref={inputRef}
           className="avatar-command-box__input"
-          placeholder="Type a command — / for everything he can do"
+          placeholder="Message Anubis — / for commands"
           value={chat}
           onChange={(event) => onChatChange(event.target.value)}
           onKeyDown={(event) => {
@@ -506,6 +560,38 @@ export function CommandBox({
           <Sparkles aria-hidden="true" />
         </button>
       </form>
+      {!minimized && (
+        <>
+          <div
+            className="avatar-command-box__resize avatar-command-box__resize--right"
+            onPointerDown={startResize("right")}
+            onPointerMove={moveResize}
+            onPointerUp={endResize}
+            onPointerCancel={endResize}
+            aria-hidden="true"
+            title="Drag to stretch the chat window"
+          />
+          <div
+            className="avatar-command-box__resize avatar-command-box__resize--bottom"
+            onPointerDown={startResize("bottom")}
+            onPointerMove={moveResize}
+            onPointerUp={endResize}
+            onPointerCancel={endResize}
+            aria-hidden="true"
+            title="Drag to stretch the chat window"
+          />
+          <div
+            className="avatar-command-box__resize avatar-command-box__resize--corner"
+            onPointerDown={startResize("corner")}
+            onPointerMove={moveResize}
+            onPointerUp={endResize}
+            onPointerCancel={endResize}
+            role="separator"
+            aria-label="Resize the chat window"
+            title="Drag to stretch the chat window"
+          />
+        </>
+      )}
       <style>{`--augi-command-accent:${accent}`}</style>
     </section>
   );
@@ -516,8 +602,8 @@ export function CommandsDocument({ highlighted }: { highlighted: string | null }
   return (
     <div className="avatar-command-doc">
       <p className="avatar-command-doc__intro">
-        Every command Osiris can act on — nothing hidden. Most work typed or spoken; slash forms
-        always work typed.
+        Every command Anubis can pass to AUGI — nothing hidden. Most work typed or spoken; slash
+        forms always work typed.
       </p>
       {CATEGORY_ORDER.map((category) => {
         const items = SLASH_COMMANDS.filter((c) => c.category === category);

@@ -2383,6 +2383,211 @@
   font-size: 0.68rem;
 }
 
+/* THE MMO PANEL LAYOUT (owner orders 2026-11-22, the picked
+   Drakensang-style reference): the chat window sits at the stage's
+   bottom-left like an MMO chat panel — the world and the character
+   keep the middle of the screen. Inside: a slim rail of round
+   controls down the left edge, the flowing log, one input bar at
+   the bottom, and stretch handles on the right/bottom edges and
+   corner. While Anubis speaks, the panel's frame carries the same
+   gold pulse as his medallion — the conversation visibly lives here. */
+.avatar-command-box {
+  left: 1rem;
+  transform: none;
+  display: grid;
+  grid-template-columns: 3.4rem minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  column-gap: 0.6rem;
+}
+.avatar-command-box__rail {
+  grid-row: 1 / -1;
+  grid-column: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  padding: 0.25rem 0;
+  cursor: grab;
+}
+.avatar-command-box__rail:active {
+  cursor: grabbing;
+}
+.avatar-command-box__rail .avatar-command-box__title {
+  writing-mode: vertical-rl;
+  letter-spacing: 0.34em;
+  font-size: 0.72rem;
+}
+.avatar-command-box__rail .avatar-command-box__window-button,
+.avatar-command-box__rail .avatar-command-box__menu-button {
+  width: 2.6rem;
+  min-width: 2.6rem;
+  height: 2.6rem;
+  min-height: 2.6rem;
+  padding: 0;
+  border-radius: 9999px;
+  margin-left: 0;
+}
+.avatar-command-box__machinery {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.avatar-command-box__conversation {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+  display: flex;
+}
+.avatar-command-box__thread {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  background: rgb(9 17 32 / 94%);
+}
+.avatar-command-box__thread-entry {
+  border-bottom: none;
+  padding: 0.14rem 0;
+}
+.avatar-command-box__thread-q,
+.avatar-command-box__thread-a,
+.avatar-command-box__thread-system {
+  margin: 0.14rem 0;
+  overflow-wrap: anywhere;
+}
+.avatar-command-box__thread-system {
+  color: #ffd75e;
+}
+.avatar-command-box__response-source {
+  margin: 0.1rem 0 0.2rem;
+  color: #9fc0ee;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.avatar-command-box__form {
+  grid-column: 2;
+  grid-row: 3;
+}
+.avatar-command-box--minimized {
+  grid-template-rows: auto;
+  height: auto;
+}
+.avatar-command-box--minimized .avatar-command-box__form {
+  grid-row: 1;
+  align-self: center;
+}
+.avatar-command-box--partner-speaking {
+  animation: command-box-speaking 1.1s ease-in-out infinite alternate;
+}
+@keyframes command-box-speaking {
+  from {
+    box-shadow:
+      0 16px 44px rgb(0 0 0 / 42%),
+      0 0 0 0 rgb(255 215 94 / 0%);
+  }
+  to {
+    box-shadow:
+      0 16px 44px rgb(0 0 0 / 42%),
+      0 0 22px 2px rgb(255 215 94 / 45%);
+  }
+}
+.avatar-command-box__resize {
+  position: absolute;
+  z-index: 8;
+  touch-action: none;
+}
+.avatar-command-box__resize--right {
+  top: 0;
+  right: -2px;
+  width: 10px;
+  height: 100%;
+  cursor: ew-resize;
+}
+.avatar-command-box__resize--bottom {
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 10px;
+  cursor: ns-resize;
+}
+.avatar-command-box__resize--corner {
+  right: -2px;
+  bottom: -2px;
+  width: 24px;
+  height: 24px;
+  cursor: nwse-resize;
+  border-radius: 0 0 0.55rem 0;
+  background: linear-gradient(
+    135deg,
+    transparent 52%,
+    #ffd75e 52%,
+    #ffd75e 60%,
+    transparent 60%,
+    transparent 72%,
+    #ffd75e 72%,
+    #ffd75e 80%,
+    transparent 80%
+  );
+}
+
+/* CONSTRUCT CONTROLS (owner orders 2026-11-22): AUGI's anchor and
+   control state, bottom-right of the stage, stated in plain words —
+   who has the figure is never a guess. */
+.construct-controls {
+  position: absolute;
+  right: 1rem;
+  bottom: 1.25rem;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+.construct-controls__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #8fb2e8;
+  border-radius: 0.5rem;
+  background: rgb(8 17 31 / 94%);
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  text-align: left;
+}
+.construct-controls__button svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: none;
+  color: #ffd75e;
+  stroke-width: 2.4;
+}
+.construct-controls__button:hover:not(:disabled) {
+  border-color: #ffd75e;
+  background: #20365f;
+}
+.construct-controls__button.is-unanchored {
+  border-color: #ff9d5c;
+  color: #ffd2ae;
+}
+.construct-controls__button.is-unanchored svg {
+  color: #ff9d5c;
+}
+.construct-controls__button.is-driving {
+  border-color: #ffd75e;
+  background: #2b4a7d;
+  color: #ffd75e;
+}
+.construct-controls__button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* ==========================================================================
    FLOATING WINDOWS — movable / resizable / minimizable operator windows.
    ========================================================================== */
