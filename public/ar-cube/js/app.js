@@ -40,6 +40,29 @@
 //    the cube's center, standing on its floor — so where the printed
 //    cube was, there is now a small 3D stage holding the item, viewable
 //    in the round as the cube turns. See "Takeover shell" below.
+// 7. v2.4 SPEED + RAINBOW BALL (2026-11-22, Domenick's live test: the
+//    cube works — "it needs to be faster" — and "the circular cube
+//    should be the one to work as well"). SPEED: the render loop used
+//    to step EVERY anchor's animation mixer every frame — six live
+//    mixers for the Wolf — while maxTrack is 1, so at most one model
+//    is ever on screen. Now only the locked face's instance animates;
+//    with nothing locked, none do. MindAR's renderer also pins
+//    window.devicePixelRatio; on a hi-DPI screen that quadruples the
+//    fragment load for a camera-resolution picture, so the ratio is
+//    capped at 1 (his Parrot desktop is 1:1 already — no change
+//    there, the win lands on hi-DPI screens). A live FPS readout sits
+//    beside the load note so the speed is visible, never claimed.
+//    BALL: the Rainbow Ball — his own round puzzle ball, the marker
+//    he chose to replace the MERGE cube long-term — is a second
+//    marker beside the cube, picked with the Marker switch. Its
+//    target file (assets/ball-targets.mind) is compiled from photos
+//    of HIS ball with the same MindAR compiler as the cube faces;
+//    until those photos exist the slot stays empty ON PURPOSE: the
+//    page probes for the file, and Ball mode states exactly which
+//    photos are needed instead of inventing a pattern and calling it
+//    his ball. On the ball the model rides the tracked patch
+//    standing on the surface (the face seat) — a ball has no cube
+//    volume, so there is no takeover shell in Ball mode.
 import * as THREE from 'three';
 import { MindARThree } from 'mindar-image-three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -61,6 +84,53 @@ const container = document.getElementById('ar-container');
 const filterInput = document.getElementById('modelFilter');
 const matchesEl = document.getElementById('filterMatches');
 const loadNoteEl = document.getElementById('loadNote');
+const fpsEl = document.getElementById('fps');
+const markerBtns = {
+  cube: document.getElementById('markerCubeBtn'),
+  ball: document.getElementById('markerBallBtn'),
+};
+
+// ---------------------------------------------------------------------------
+// MARKERS (v2.4). Two tracked objects, one AR window: the MERGE cube
+// (six compiled face targets, models staged inside its volume behind
+// the takeover shell) and the Rainbow Ball (one target compiled from
+// photos of Domenick's own ball; models stand on the tracked patch —
+// the face seat — because a ball has no cube volume to take over).
+// The ball target is probed at load: assets/ball-targets.mind exists
+// only after his photos are compiled in, and Ball mode says so in
+// plain words until then. Nothing about the ball is ever fabricated.
+// ---------------------------------------------------------------------------
+const BALL_PHOTO_ASK =
+  'The Rainbow Ball target is not built yet — it is compiled from photos of YOUR ball, ' +
+  'never an invented pattern. What it needs: 6 straight-on photos of the ball — front, back, ' +
+  'left, right, top, bottom — each one filling the frame, sharp, in good even light, ' +
+  'no hands in the way. Send those and the ball gets its target.';
+const MARKERS = {
+  cube: {
+    label: 'Cube',
+    targetsSrc: './assets/targets.mind',
+    faceNames: FACE_NAMES,
+    staging: 'volume',
+    lookingLabel: 'Looking for cube…',
+    lostLabel: 'Tracking lost — looking for cube…',
+    runningLabel: 'Camera running — show it the cube',
+  },
+  ball: {
+    label: 'Rainbow Ball',
+    targetsSrc: './assets/ball-targets.mind',
+    // One anchor per photo view (see assets/ball/README.md): the
+    // compiled file may carry one target or all six views — anchors
+    // past the file's target count simply never fire, and whichever
+    // view the camera catches is "the ball" (maxTrack stays 1).
+    faceNames: ['Rainbow Ball', 'Rainbow Ball', 'Rainbow Ball', 'Rainbow Ball', 'Rainbow Ball', 'Rainbow Ball'],
+    staging: 'surface',
+    lookingLabel: 'Looking for the ball…',
+    lostLabel: 'Tracking lost — looking for the ball…',
+    runningLabel: 'Camera running — show it the ball',
+  },
+};
+let activeMarker = 'cube';
+let ballTargetReady = false; // set by probeBallTarget() at load
 
 function setStatus(text, cls = '') {
   statusEl.textContent = text;
@@ -716,7 +786,12 @@ function applyToAnchors(makeInstance) {
       }
     }
     const built = makeInstance();
-    const stage = makeStageGroup(built, stageScale);
+    // Cube: the model is staged inside the cube's volume (takeover).
+    // Ball: it stands on the tracked patch at its face seat — there is
+    // no volume to shift into and no shell to hide behind.
+    const stage = MARKERS[activeMarker].staging === 'volume'
+      ? makeStageGroup(built, stageScale)
+      : built.group;
     anchorRoots[i].add(stage);
     modelInstances[i] = built;
     modelStages[i] = stage;
@@ -838,8 +913,14 @@ function fixCameraLayering() {
 }
 
 buildModelButtons();
+buildMarkerButtons();
+void probeBallTarget();
 
-startBtn.addEventListener('click', async () => {
+// One tracking session for the ACTIVE marker. MindAR binds its target
+// file at construction, so switching markers means tearing the session
+// down (stop the tracker, release the camera, drop the old renderer's
+// canvases and GL context) and building a fresh one — see setMarker.
+async function startSession() {
   if (started) return;
   started = true;
   startBtn.disabled = true;
@@ -848,7 +929,7 @@ startBtn.addEventListener('click', async () => {
   try {
     mindarThree = new MindARThree({
       container,
-      imageTargetSrc: './assets/targets.mind',
+      imageTargetSrc: MARKERS[activeMarker].targetsSrc,
       maxTrack: 1,
       // LOCK TUNING (v2.3, see the header note): counts are in
       // tracking-loop iterations, not frames of camera video. Coast
@@ -866,29 +947,39 @@ startBtn.addEventListener('click', async () => {
       uiLoading: 'no', uiScanning: 'no', uiError: 'no',
     });
     const { renderer, scene, camera } = mindarThree;
+    // SPEED (v2.4): MindAR's constructor pins the renderer's pixel
+    // ratio to window.devicePixelRatio. The camera picture is
+    // camera-resolution; rendering the overlay at DPR 2 quadruples
+    // the fragment work for no visible gain, so the ratio is capped
+    // at 1. (On a 1:1 desktop like the Parrot's this changes nothing;
+    // on hi-DPI screens it is the single biggest render saving.)
+    renderer.setPixelRatio(1);
     scene.add(new THREE.AmbientLight(0xffffff, 0.95));
     const dir = new THREE.DirectionalLight(0xffffff, 1.1);
     dir.position.set(0.5, 1, 2);
     scene.add(dir);
 
-    for (let i = 0; i < FACE_NAMES.length; i++) {
+    const marker = MARKERS[activeMarker];
+    for (let i = 0; i < marker.faceNames.length; i++) {
       const anchor = mindarThree.addAnchor(i);
       const root = new THREE.Group();
       anchor.group.add(root);
       anchorRoots.push(root);
-      const shell = buildTakeoverShell();
-      root.add(shell);
-      shellGroups.push(shell);
+      if (marker.staging === 'volume') {
+        const shell = buildTakeoverShell();
+        root.add(shell);
+        shellGroups.push(shell);
+      }
       anchor.onTargetFound = () => {
         lockedFace = i;
         refreshShells();
-        setStatus('Locked on: ' + FACE_NAMES[i], 'locked');
+        setStatus('Locked on: ' + marker.faceNames[i], 'locked');
       };
       anchor.onTargetLost = () => {
         if (lockedFace === i) {
           lockedFace = -1;
           refreshShells();
-          setStatus('Tracking lost — looking for cube…', 'scanning');
+          setStatus(marker.lostLabel, 'scanning');
         }
       };
     }
@@ -898,15 +989,32 @@ startBtn.addEventListener('click', async () => {
 
     await mindarThree.start();
     fixCameraLayering();
-    setStatus('Looking for cube…', 'scanning');
-    startBtn.textContent = 'Camera running — show it the cube';
+    setStatus(marker.lookingLabel, 'scanning');
+    startBtn.textContent = marker.runningLabel;
 
     const clock = new THREE.Clock();
+    let fpsFrames = 0;
+    let fpsWindowStart = performance.now();
     renderer.setAnimationLoop(() => {
       const delta = clock.getDelta();
       const t = clock.elapsedTime;
-      for (const inst of modelInstances) if (inst && inst.update) inst.update(t, delta);
+      // SPEED (v2.4): only the locked face's model is ever on screen
+      // (maxTrack is 1), so only that instance animates. The old loop
+      // stepped all six anchors' mixers every frame — for a GLB pick
+      // that was six skinned-animation updates per frame to show one
+      // model — and with nothing locked it now steps none.
+      const inst = lockedFace >= 0 ? modelInstances[lockedFace] : null;
+      if (inst && inst.update) inst.update(t, delta);
       renderer.render(scene, camera);
+      // Live FPS readout: frames counted over a real one-second
+      // window — measured on the machine showing it, never estimated.
+      fpsFrames++;
+      const now = performance.now();
+      if (now - fpsWindowStart >= 1000) {
+        if (fpsEl) fpsEl.textContent = Math.round(fpsFrames * 1000 / (now - fpsWindowStart)) + ' FPS';
+        fpsFrames = 0;
+        fpsWindowStart = now;
+      }
     });
   } catch (e) {
     console.error(e);
@@ -914,5 +1022,106 @@ startBtn.addEventListener('click', async () => {
     startBtn.disabled = false;
     startBtn.textContent = '▶ Start Camera';
     started = false;
+    mindarThree = null;
+    anchorRoots.length = 0;
+    modelInstances.length = 0;
+    modelStages.length = 0;
+    shellGroups.length = 0;
+    lockedFace = -1;
   }
+}
+
+// Tear a live session all the way down: tracker stopped, camera
+// released (facade stop), the old renderer's canvases removed from
+// the container and its GL context released — browsers cap live
+// WebGL contexts, and a marker switch must not leak one per switch.
+function teardownSession() {
+  if (!mindarThree) { started = false; return; }
+  const session = mindarThree;
+  mindarThree = null;
+  started = false;
+  lockedFace = -1;
+  anchorRoots.length = 0;
+  modelInstances.length = 0;
+  modelStages.length = 0;
+  shellGroups.length = 0;
+  try { session.stop(); } catch (e) { /* a half-started session may have no controller yet */ }
+  const renderer = session.renderer;
+  if (renderer) {
+    renderer.setAnimationLoop(null);
+    if (renderer.domElement && renderer.domElement.parentElement) {
+      renderer.domElement.parentElement.removeChild(renderer.domElement);
+    }
+    if (renderer.forceContextLoss) renderer.forceContextLoss();
+    renderer.dispose();
+  }
+  const cssEl = session.cssRenderer && session.cssRenderer.domElement;
+  if (cssEl && cssEl.parentElement) cssEl.parentElement.removeChild(cssEl);
+  if (fpsEl) fpsEl.textContent = '';
+}
+
+// ---------------------------------------------------------------------------
+// Marker switch (v2.4) — Cube or Rainbow Ball. The pick is one tap;
+// if the camera is already running, the session restarts on the new
+// marker. Ball mode without its compiled target does not pretend:
+// it shows the photo ask and does not start.
+// ---------------------------------------------------------------------------
+function refreshMarkerButtons() {
+  for (const key of Object.keys(markerBtns)) {
+    if (markerBtns[key]) markerBtns[key].classList.toggle('active', key === activeMarker);
+  }
+}
+
+function buildMarkerButtons() {
+  for (const key of Object.keys(markerBtns)) {
+    if (markerBtns[key]) markerBtns[key].addEventListener('click', () => setMarker(key));
+  }
+  refreshMarkerButtons();
+}
+
+function setMarker(key) {
+  if (!MARKERS[key]) return;
+  const wasStarted = started;
+  if (key !== activeMarker) {
+    activeMarker = key;
+    refreshMarkerButtons();
+  }
+  if (key === 'ball' && !ballTargetReady) {
+    if (wasStarted) teardownSession();
+    startBtn.disabled = false;
+    startBtn.textContent = '▶ Start Camera';
+    setStatus('Rainbow Ball — target not built yet', '');
+    setLoadNote(BALL_PHOTO_ASK);
+    return;
+  }
+  setLoadNote('');
+  if (wasStarted) {
+    teardownSession();
+    void startSession();
+  }
+}
+
+// The ball target exists only once Domenick's ball photos have been
+// compiled into assets/ball-targets.mind. Probe for the file itself —
+// the answer comes from the server, never from a guess.
+async function probeBallTarget() {
+  try {
+    let res = await fetch(MARKERS.ball.targetsSrc, { method: 'HEAD' });
+    if (res.status === 405) {
+      res = await fetch(MARKERS.ball.targetsSrc, { headers: { Range: 'bytes=0-0' } });
+    }
+    ballTargetReady = res.ok;
+  } catch (e) {
+    ballTargetReady = false;
+  }
+  if (activeMarker === 'ball' && !ballTargetReady) setLoadNote(BALL_PHOTO_ASK);
+}
+
+startBtn.addEventListener('click', () => {
+  if (activeMarker === 'ball' && !ballTargetReady) {
+    setStatus('Rainbow Ball — target not built yet', '');
+    setLoadNote(BALL_PHOTO_ASK);
+    return;
+  }
+  void startSession();
 });

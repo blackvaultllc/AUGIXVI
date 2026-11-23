@@ -51,6 +51,13 @@
     border-radius: 9px; border: 1px solid #3a4763; background: #1a2336; color: #eef2f7; cursor: pointer; }
   .modelBtn small { display: block; font-weight: 400; font-size: 11px; color: #8fa1bd; }
   .modelBtn.active { border-color: #d4af37; background: #2a2410; color: #ffd95e; }
+  .markerBtn { flex: 1 1 0; min-width: 64px; font-size: 14px; font-weight: 600; padding: 8px 4px;
+    border-radius: 9px; border: 1px solid #3a4763; background: #1a2336; color: #eef2f7; cursor: pointer; }
+  .markerBtn.active { border-color: #d4af37; background: #2a2410; color: #ffd95e; }
+  .noteRow { display: flex; gap: 8px; align-items: baseline; }
+  .noteRow #loadNote { flex: 1 1 auto; }
+  #fps { font-size: 12.5px; font-weight: 600; color: #8fa1bd; white-space: nowrap; }
+  #fps:empty { display: none; }
   #loadNote { font-size: 13.5px; min-height: 1.2em; color: #9fb0c9; }
   #loadNote:empty { display: none; }
   #loadNote.error { color: #f0a3a3; }
@@ -80,6 +87,13 @@
   <div id="ar-container"></div>
 
   <div id="controls">
+    <div class="modelRow">
+      <span class="lbl">Marker:</span>
+      <span class="btnWrap">
+        <button class="markerBtn active" id="markerCubeBtn" type="button">Cube</button>
+        <button class="markerBtn" id="markerBallBtn" type="button">Rainbow Ball</button>
+      </span>
+    </div>
     <button id="startBtn">▶ Start Camera</button>
     <div class="filterRow">
       <label for="modelFilter">Find a model:</label>
@@ -95,7 +109,10 @@
       <span class="lbl">Library:</span>
       <span class="btnWrap" id="libraryRow"></span>
     </div>
-    <div id="loadNote" role="status"></div>
+    <div class="noteRow">
+      <div id="loadNote" role="status"></div>
+      <span id="fps" title="Frames per second, measured live"></span>
+    </div>
     <div id="howto">
       <b>How to use it</b>
       <ol>
@@ -103,6 +120,7 @@
         <li>Hold the cube in front of the camera, <b>one face pointing at the camera</b>, about 1–2 feet away.</li>
         <li>Keep <b>good light</b> on the cube. When a face locks on, the model <b>takes over the cube</b> — the printed cube disappears and the model stands inside its space, in 3D. Turn the cube and it turns with it.</li>
         <li>Pick a model with the buttons, keys <b>1–4</b>, or <b>type what you want</b> in the filter — try <i>wolf</i>, <i>brain</i>, <i>skull</i>, <i>scanner</i>. Built-in models are instant. Library models download once, only the one you pick (a few MB), then they are ready.</li>
+        <li><b>Rainbow Ball:</b> switch <b>Marker</b> to Rainbow Ball and show it the ball — the model rides the ball the same way. The ball's target is built from photos of your own ball; until those photos are in, this page says exactly which photos it needs instead of guessing.</li>
       </ol>
     </div>
   </div>
