@@ -22,7 +22,7 @@ import { WorldSceneManager } from "@/avatar/worldSceneRenderer";
  * THE STAGE REDESIGN (owner order 2026-11-22): the white Room as the
  * default stage, Anubis at command, and Osiris movable. These tests
  * pin the plain-data half — his saved spot, its clamp, the Room's
- * command words, and the Room's grid set on the stage.
+ * command words, and the Room's surface set on the stage.
  */
 
 function fakeStorage() {
@@ -148,7 +148,7 @@ describe("the Room — command words", () => {
 });
 
 describe("the Room — on the stage", () => {
-  it("stands a grid set and no citizens, and leaves cleanly", () => {
+  it("stands its surfaces and no citizens, and leaves cleanly", () => {
     const scene = new THREE.Scene();
     const manager = new WorldSceneManager(scene);
     manager.setScene("room");
@@ -157,10 +157,19 @@ describe("the Room — on the stage", () => {
     expect(manager.particleCount).toBe(0);
     const set = scene.getObjectByName("living-world-room");
     expect(set).toBeDefined();
-    // Floor tint plane (Environment Builder surfaces, 2026-11-22) +
-    // floor grid + back-wall grid — and no citizens, ever.
-    expect(set!.children.length).toBe(3);
-    expect(scene.getObjectByName("living-world-room-floor")).toBeDefined();
+    // The Room's surfaces (Environment Builder surfaces, 2026-11-22):
+    // the solid floor plane + the plain back wall — and NO GRID
+    // LINES anywhere in the set (owner decision, same day: "Remove
+    // the grid entirely"). No citizens, ever.
+    expect(set!.children.length).toBe(2);
+    expect(scene.getObjectByName("living-world-room-floor-solid")).toBeDefined();
+    expect(scene.getObjectByName("living-world-room-wall")).toBeDefined();
+    expect(scene.getObjectByName("living-world-room-floor-grid")).toBeUndefined();
+    let gridHelpers = 0;
+    set!.traverse((child) => {
+      if (child.type === "GridHelper") gridHelpers += 1;
+    });
+    expect(gridHelpers).toBe(0);
 
     manager.setScene("office");
     expect(scene.getObjectByName("living-world-room")).toBeUndefined();

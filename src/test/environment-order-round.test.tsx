@@ -6,7 +6,6 @@ import {
   DEFAULT_SURFACES,
   defaultLayoutStore,
   emptyRoom,
-  floorGridVisible,
   sanitizeSurfaces,
   standingFloorImage,
 } from "@/avatar/builder/room";
@@ -30,9 +29,12 @@ import { GodReportPopUp } from "@/avatar/GodReportPopUp";
  * THE ENVIRONMENT + ORDER ROUND (owner orders 2026-11-22, from his
  * live screen): the backdrop is the picture itself (no wash), the
  * floor covers when a color/picture is chosen (the grid defect
- * dies), panels are categories + subcategories, the gods pop up to
- * report without overlapping anyone, and the Connections area
- * holds honest open slots.
+ * dies) — and then, his final word the same day, THE GRID ASPECT IS
+ * REMOVED ENTIRELY: no grid floor choice, no grid lines in the
+ * room; legacy grid layouts migrate to a solid color floor. Panels
+ * are categories + subcategories, the gods pop up to report
+ * without overlapping anyone, and the Connections area holds
+ * honest open slots.
  */
 
 describe("the backdrop is the picture itself", () => {
@@ -41,36 +43,40 @@ describe("the backdrop is the picture itself", () => {
   });
 });
 
-describe("the floor-cover rule", () => {
-  it("the grid shows only when the grid is the chosen floor", () => {
-    expect(floorGridVisible({ ...DEFAULT_SURFACES, floorStyle: "grid" })).toBe(true);
-    expect(floorGridVisible({ ...DEFAULT_SURFACES, floorStyle: "color" })).toBe(false);
-    expect(
-      floorGridVisible({ ...DEFAULT_SURFACES, floorStyle: "picture", floorImage: "egypt-throne" }),
-    ).toBe(false);
+describe("the floor — no grid, ever (owner decision: remove the grid entirely)", () => {
+  it("there is no grid floor: the shipped default is a solid color floor", () => {
+    expect(DEFAULT_SURFACES.floorStyle).toBe("color");
+    const anyStyle: string = DEFAULT_SURFACES.floorStyle;
+    expect(anyStyle).not.toBe("grid");
   });
 
   it("a color floor and a picture floor are chosen explicitly, never by tint alone", () => {
     const colored = sanitizeSurfaces({ floor: "#224466", floorStyle: "color" });
     expect(colored.floorStyle).toBe("color");
-    expect(floorGridVisible(colored)).toBe(false);
     const pictured = sanitizeSurfaces({ floorStyle: "picture", floorImage: "map-matrix" });
     expect(pictured.floorStyle).toBe("picture");
     expect(standingFloorImage(pictured)).toBe("map-matrix");
   });
 
-  it("a picture style with no picture falls back to the grid — never a hole in the floor", () => {
+  it("a picture style with no picture falls back to the solid color — never a hole in the floor", () => {
     const broken = sanitizeSurfaces({ floorStyle: "picture", floorImage: "not-his-picture" });
-    expect(broken.floorStyle).toBe("grid");
+    expect(broken.floorStyle).toBe("color");
     expect(broken.floorImage).toBeNull();
     expect(standingFloorImage(broken)).toBeNull();
   });
 
-  it("a layout saved before the floor choice existed reads as the shipped grid floor", () => {
+  it("MIGRATION: a layout saved with the grid floor loads as a solid color in its saved tint", () => {
+    const saved = sanitizeSurfaces({ floor: "#2a4a7a", floorStyle: "grid" });
+    expect(saved.floorStyle).toBe("color");
+    expect(saved.floor).toBe("#2a4a7a");
+    expect(saved.floorImage).toBeNull();
+  });
+
+  it("a layout saved before the floor choice existed loads as a solid color floor", () => {
     const legacy = sanitizeSurfaces({ backdrop: "#101018", floor: "#2a4a7a", wall: "#3a3f4a" });
-    expect(legacy.floorStyle).toBe("grid");
+    expect(legacy.floorStyle).toBe("color");
+    expect(legacy.floor).toBe("#2a4a7a");
     expect(legacy.floorImage).toBeNull();
-    expect(floorGridVisible(legacy)).toBe(true);
   });
 });
 
@@ -122,9 +128,10 @@ describe("the builder is categories + subcategories", () => {
     expect(screen.getByRole("button", { name: /Export this room/ })).toBeInTheDocument();
   });
 
-  it("the floor kind is a choice: solid color covers, picture covers", () => {
+  it("the floor kind is a choice: solid color covers, picture covers — and no grid kind exists", () => {
     const props = panelProps();
     render(<BuilderPanel {...props} />);
+    expect(screen.queryByRole("button", { name: "Grid floor" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Solid color" }));
     expect(props.onSurfaces).toHaveBeenCalledWith(
       expect.objectContaining({ floorStyle: "color" }),

@@ -73,7 +73,6 @@ const CATEGORY_TITLES: Record<(typeof CATEGORIES)[number], string> = {
 };
 
 const FLOOR_STYLES: readonly { id: FloorStyle; label: string }[] = [
-  { id: "grid", label: "Grid floor" },
   { id: "color", label: "Solid color" },
   { id: "picture", label: "Picture floor" },
 ];
@@ -305,23 +304,16 @@ export function BuilderPanel(props: BuilderPanelProps) {
               />
             </label>
           )}
-          {room.surfaces.floorStyle === "grid" && (
-            <p className="builder-panel__hint">
-              The grid floor: grid lines over your floor color. Pick Solid color or Picture floor
-              and the floor covers whole — no grid shows through.
-            </p>
-          )}
           {room.surfaces.floorStyle === "color" && (
             <p className="builder-panel__hint">
-              Your color covers the whole floor, edge to edge. The grid is gone — it only shows
-              on the grid floor.
+              Your color covers the whole floor, edge to edge — the room's surfaces are all
+              there is. (The grid is gone from the room entirely, by your order.)
             </p>
           )}
           {room.surfaces.floorStyle === "picture" && (
             <>
               <p className="builder-panel__hint">
-                Your picture covers the whole floor, fitted across it. The grid is gone — it
-                only shows on the grid floor.
+                Your picture covers the whole floor, fitted across it, edge to edge.
               </p>
               <BackdropPicker
                 label="Floor picture — Egyptian themes"

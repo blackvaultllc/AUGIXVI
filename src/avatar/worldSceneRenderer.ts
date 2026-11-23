@@ -22,7 +22,7 @@ import {
   backdropById,
   backdropPlaneSize,
 } from "./builder/backdrops";
-import { floorGridVisible, standingFloorImage, type RoomSurfaces } from "./builder/room";
+import { standingFloorImage, type RoomSurfaces } from "./builder/room";
 
 /** Same ground line the SceneManager builds on. */
 const GROUND_Y = -3.2;
@@ -246,7 +246,7 @@ export class WorldSceneManager {
     backdrop: "#f6f2e9",
     backdropImage: null,
     floor: "#93a9c9",
-    floorStyle: "grid",
+    floorStyle: "color",
     floorImage: null,
     wall: "#aebfd8",
   };
@@ -313,9 +313,11 @@ export class WorldSceneManager {
     this.current = id;
     if (id === "room") {
       // THE ROOM (owner order 2026-11-22): no point set at all — the
-      // room is drawn as faint grid lines, floor and back wall, in the
-      // house gold and a pale blue-gray over the renderer's warm-white
-      // clear color. A development room: bright, quiet, and empty on
+      // room is drawn as its SURFACES: a floor plane in his color or
+      // his picture, a plain back wall in his wall color, and his
+      // backdrop picture at full strength when he picks one. No grid
+      // aspect anywhere (his decision, same day: "Remove the grid
+      // entirely"). A development room: bright, quiet, and empty on
       // purpose, so anything can be brought up in it.
       this.roomSet = this.buildRoomSet();
       this.group.add(this.roomSet);
@@ -346,12 +348,14 @@ export class WorldSceneManager {
   }
 
   /**
-   * The Room's only furniture: its surfaces. The back wall carries
-   * the grid's faint "matrixy" character or his chosen backdrop
-   * picture at full strength; the floor is the grid, a solid color,
-   * or a picture — his choice, and a chosen color/picture covers
-   * the grid whole (his cover rule). Lines and planes, not points —
-   * the one scene in the world not made of sand.
+   * The Room's only furniture: its surfaces. The back wall is a
+   * plain wall in his wall color carrying his chosen backdrop
+   * picture at full strength; the floor is a solid color or a
+   * picture — his choice, and either one covers whole. NO GRID
+   * ASPECT ANYWHERE (owner decision 2026-11-22: "Remove the grid
+   * entirely" — the floor grid and the back-wall grid lines that
+   * used to draw this room are gone). Planes, not points — the one
+   * scene in the world not made of sand.
    */
   private buildRoomSet(): THREE.Group {
     const set = new THREE.Group();
@@ -393,39 +397,25 @@ export class WorldSceneManager {
         // the picture simply never lands.
       }
     }
-    // THE FLOOR (owner order 2026-11-22): the floor is what he
-    // chose — the grid, a solid color, or a picture — and a chosen
-    // color or picture COVERS. His defect, in his words: he set a
-    // floor color and "still saw the grid there — I shouldn't have
-    // saw the grid." So the grid is built only when the grid is the
-    // chosen floor (floorGridVisible); the color floor is an opaque
-    // plane; the picture floor is an opaque cover-fit plane. No
-    // grid lines bleed through either.
-    if (floorGridVisible(surfaces)) {
-      // The grid floor: a quiet tint plane under the grid lines, so
-      // his floor color reads as a floor and not only as lines.
-      const floorPlane = new THREE.Mesh(
-        new THREE.PlaneGeometry(36, 36),
-        new THREE.MeshBasicMaterial({
-          color: new THREE.Color(surfaces.floor),
-          transparent: true,
-          opacity: 0.3,
-          depthWrite: false,
-        }),
-      );
-      floorPlane.rotation.x = -Math.PI / 2;
-      floorPlane.position.y = 0.01;
-      floorPlane.name = "living-world-room-floor";
-      set.add(floorPlane);
-      const floor = new THREE.GridHelper(36, 36, 0xc9a227, new THREE.Color(surfaces.floor));
-      const floorMaterial = floor.material as THREE.Material;
-      floorMaterial.transparent = true;
-      floorMaterial.opacity = 0.32;
-      floorMaterial.depthWrite = false;
-      floor.position.y = 0.02;
-      floor.name = "living-world-room-floor-grid";
-      set.add(floor);
-    } else if (surfaces.floorStyle === "picture" && standingFloorImage(surfaces)) {
+    // THE BACK WALL (owner decision 2026-11-22): a plain wall in
+    // his wall color. The grid lines that used to draw it are gone;
+    // his backdrop picture (above) hangs in front of it, and where
+    // no picture is picked the wall itself is the room's back.
+    const wallPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(60, 14),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color(surfaces.wall),
+        depthWrite: false,
+      }),
+    );
+    wallPlane.position.set(0, 5.2, -10.7);
+    wallPlane.name = "living-world-room-wall";
+    set.add(wallPlane);
+    // THE FLOOR (owner orders 2026-11-22): the floor is what he
+    // chose — a solid color or a picture — and either one COVERS,
+    // whole and opaque. The grid floor is gone entirely (his
+    // decision); there are no grid lines to bleed through anything.
+    if (surfaces.floorStyle === "picture" && standingFloorImage(surfaces)) {
       // The picture floor: cover-fit across the framed floor (the
       // room's bounds, ROOM_BOUNDS: x ±10.5, z −8.5…2.5), opaque.
       const floorArt = backdropById(standingFloorImage(surfaces));
@@ -462,15 +452,6 @@ export class WorldSceneManager {
       floorPlane.name = "living-world-room-floor-solid";
       set.add(floorPlane);
     }
-    const wall = new THREE.GridHelper(18, 18, 0xd8b84a, new THREE.Color(surfaces.wall));
-    const wallMaterial = wall.material as THREE.Material;
-    wallMaterial.transparent = true;
-    wallMaterial.opacity = 0.16;
-    wallMaterial.depthWrite = false;
-    wall.rotation.x = Math.PI / 2;
-    // Bottom edge rests exactly on the floor line (local y 0).
-    wall.position.set(0, 9, -10);
-    set.add(wall);
     return set;
   }
 

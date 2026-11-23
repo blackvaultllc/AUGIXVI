@@ -24,15 +24,17 @@ import { LIBRARY, libraryItem, type ItemSizeId } from "./library";
 import { backdropById } from "./backdrops";
 
 /**
- * WHAT THE FLOOR IS (owner order 2026-11-22): the floor is ONE of
- * three things, and he picks which — the grid, a solid color, or a
- * picture. THE COVER RULE (his defect report, same day): he set a
- * floor color and still saw the grid bleeding through — "I
- * shouldn't have saw the grid." So a chosen color or picture
- * COVERS: opaque, whole, no grid lines over it. The grid shows
- * only when the grid itself is the chosen floor.
+ * WHAT THE FLOOR IS (owner orders 2026-11-22): the floor is ONE of
+ * two things, and he picks which — a solid color, or a picture.
+ * THE COVER RULE (his defect report, same day): he set a floor
+ * color and still saw the grid bleeding through — "I shouldn't
+ * have saw the grid." So a chosen color or picture COVERS: opaque,
+ * whole. THE GRID REMOVAL (his decision, same day, final): "Remove
+ * the grid entirely." There is no grid floor anymore — a layout
+ * saved with one migrates to a solid color floor on load (see
+ * sanitizeSurfaces).
  */
-export type FloorStyle = "grid" | "color" | "picture";
+export type FloorStyle = "color" | "picture";
 
 export type RoomSurfaces = {
   /** The room's backdrop color — the renderer's clear color in the Room. */
@@ -44,38 +46,29 @@ export type RoomSurfaces = {
    * full strength, no veil (his correction 2026-11-22).
    */
   backdropImage: string | null;
-  /** The floor tint — read by the grid floor and the solid floor. */
+  /** The floor tint — the solid floor's color. */
   floor: string;
-  /** Which floor stands in the Room: the grid, the color, or a picture. */
+  /** Which floor stands in the Room: the solid color, or a picture. */
   floorStyle: FloorStyle;
   /**
    * The floor PICTURE, from the same theme sets as the backdrop —
    * read when floorStyle is "picture". Cover-fit across the framed
-   * floor, opaque: it covers, grid and all.
+   * floor, opaque: it covers, whole.
    */
   floorImage: string | null;
-  /** The back-wall grid tint. */
+  /** The back-wall color. */
   wall: string;
 };
 
-/** The shipped Room: warm white, pale blue-gray grid floor, soft wall. */
+/** The shipped Room: warm white, pale blue-gray solid floor, soft wall. */
 export const DEFAULT_SURFACES: RoomSurfaces = {
   backdrop: "#f6f2e9",
   backdropImage: null,
   floor: "#93a9c9",
-  floorStyle: "grid",
+  floorStyle: "color",
   floorImage: null,
   wall: "#aebfd8",
 };
-
-/**
- * THE FLOOR-COVER RULE as one testable sentence: the grid is on
- * the floor only when the grid is the chosen floor. A color floor
- * and a picture floor cover — the grid never bleeds through them.
- */
-export function floorGridVisible(surfaces: RoomSurfaces): boolean {
-  return surfaces.floorStyle === "grid";
-}
 
 /** The floor picture that actually stands, or null when none can. */
 export function standingFloorImage(surfaces: RoomSurfaces): string | null {
@@ -223,16 +216,16 @@ export function sanitizeSurfaces(raw: unknown): RoomSurfaces {
   const pick = (candidate: unknown, fallback: string) =>
     typeof candidate === "string" && HEX.test(candidate) ? candidate : fallback;
   const floorImage = backdropById(value.floorImage)?.id ?? null;
-  // A layout saved before the floor-style choice existed carries no
-  // floorStyle: it reads as the shipped grid floor, exactly the
-  // look it was saved with. A style that names a picture it does
-  // not have falls back to the grid rather than a hole in the room.
+  // THE GRID IS GONE (owner decision 2026-11-22, "Remove the grid
+  // entirely"): the floor is a solid color or a picture, nothing
+  // else. THE MIGRATION: a layout saved with floorStyle "grid" —
+  // or saved before the floor choice existed at all — loads as a
+  // SOLID COLOR floor in its saved floor tint: the color he
+  // picked, no hole, no error. A picture style that names a
+  // picture it does not have falls back to the solid color rather
+  // than a hole in the room.
   const floorStyle: FloorStyle =
-    value.floorStyle === "color"
-      ? "color"
-      : value.floorStyle === "picture" && floorImage
-        ? "picture"
-        : "grid";
+    value.floorStyle === "picture" && floorImage ? "picture" : "color";
   return {
     backdrop: pick(value.backdrop, DEFAULT_SURFACES.backdrop),
     // Only a picture from his own theme registry may ride a layout —
