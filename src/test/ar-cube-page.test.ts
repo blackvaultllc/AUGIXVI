@@ -74,3 +74,50 @@ describe("AR Cube page — markers (v2.4)", () => {
     expect(appJs).toContain("forceContextLoss");
   });
 });
+
+describe("AR Cube page — takeover truth (v2.5, Domenick's 2026-11-23 live test)", () => {
+  it("never overrides the video's position — MindAR centers it to match its projection", () => {
+    // v2's layering fix pinned the video to top/left 0; MindAR's
+    // resize() centers the video with negative offsets (cover-crop)
+    // and computes the projection for that placement, so the pin
+    // displaced the whole overlay from the real cube — the model
+    // rendered above the cube, in a box of its own. The pin is gone;
+    // the layering function asserts stacking only.
+    expect(appJs).toContain("fixCameraLayering");
+    expect(appJs).not.toContain("video.style.top");
+    expect(appJs).not.toContain("video.style.left");
+    expect(appJs).not.toContain("video.style.position");
+  });
+
+  it("seats every staged model by the computed volume seat, not a hand shift", () => {
+    expect(appJs).toContain("from './volumeSeat.js'");
+    expect(appJs).toContain("computeVolumeSeat(bounds)");
+    expect(appJs).toContain("makeStageGroup(built)");
+    // The v2.2 hand shift and hand-tuned per-model scales are gone.
+    expect(appJs).not.toContain("stagePos:");
+    expect(appJs).not.toContain("stageScale:");
+  });
+
+  it("carries GLB bounds from the measured silhouette seat into the staging", () => {
+    expect(appJs).toContain("rotatedBounds: rb");
+    expect(appJs).toContain("volumeBounds");
+  });
+});
+
+describe("AR Cube page — the Ball tap answers where he tapped (v2.5)", () => {
+  it("renders the photo ask in a notice directly under the Marker row", () => {
+    expect(pageHtml).toContain('id="ballNote"');
+    expect(appJs).toContain("ballNoteEl");
+    expect(appJs).toContain("showBallAsk()");
+    expect(appJs).toContain("hideBallAsk()");
+  });
+
+  it("labels the Ball button itself while the target is missing", () => {
+    expect(appJs).toContain("needs your photos");
+  });
+
+  it("does not trust a bare 200 for the ball target — an HTML fallback is not a target", () => {
+    expect(appJs).toContain("content-type");
+    expect(appJs).toContain("text/html");
+  });
+});

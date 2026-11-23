@@ -63,10 +63,45 @@
 //    his ball. On the ball the model rides the tracked patch
 //    standing on the surface (the face seat) — a ball has no cube
 //    volume, so there is no takeover shell in Ball mode.
+// 8. v2.5 TAKEOVER TRUTH + BALL ANSWER (2026-11-23, Domenick's live
+//    test): the cube "kind of worked" but the model rendered ABOVE
+//    the cube, inside a box of its own, with the real cube still
+//    visible below — and the Rainbow Ball button "didn't even work
+//    at all". Two root causes, both found in the code, neither in
+//    the tracking:
+//    a) fixCameraLayering pinned the camera <video> to top/left 0.
+//       MindAR's resize() CENTERS the video in the container with
+//       negative offsets (cover-crop) and computes its projection
+//       matrix for exactly that placement; forcing the video to 0,0
+//       shifted the feed by half the crop on every overflowing axis
+//       while the overlay stayed put, so the whole staged volume —
+//       model and shell together — rendered displaced from the real
+//       cube (a full cube-height up when the video is taller than
+//       the container, e.g. the full room on a desktop monitor).
+//       The layering fix now touches stacking ONLY (the page CSS
+//       already pins it with !important rules); the video's position
+//       is MindAR's, never overridden.
+//    b) The volume seat was one hand shift (TAKEOVER.stagePos) plus
+//       hand-tuned per-model stageScale values, and they were off:
+//       the Squishy at 1.3x measured WIDER than the face it was
+//       supposed to cover, with its base sunk below the volume
+//       floor. The seat is now COMPUTED per model from its measured
+//       bounds (js/volumeSeat.js): base exactly on the volume
+//       floor, centered in the volume, scaled until its footprint
+//       covers the face — the item becomes the cube, at the cube's
+//       own size, for every model in the library.
+//    And the Ball tap now answers WHERE HE TAPPED: the photo ask
+//    renders in a notice directly under the Marker row (the old
+//    note lived in the last controls row, clipped out of sight in
+//    the contained window), the Ball button itself carries a
+//    "needs your photos" sub-label while the target is missing,
+//    and the target probe no longer trusts a bare 200 — a text/html
+//    answer is a fallback page, not a compiled target.
 import * as THREE from 'three';
 import { MindARThree } from 'mindar-image-three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { computeVolumeSeat } from './volumeSeat.js';
 
 // Target index order in targets.mind (see README.md / assets/faces/):
 const FACE_NAMES = [
@@ -89,6 +124,7 @@ const markerBtns = {
   cube: document.getElementById('markerCubeBtn'),
   ball: document.getElementById('markerBallBtn'),
 };
+const ballNoteEl = document.getElementById('ballNote');
 
 // ---------------------------------------------------------------------------
 // MARKERS (v2.4). Two tracked objects, one AR window: the MERGE cube
@@ -267,13 +303,13 @@ function buildCastle() {
 // ---------------------------------------------------------------------------
 const MODELS_BASE = '../models/';
 const MODEL_CATALOG = [
-  { key: 'squishy',   label: 'Squishy',   kind: 'primitive', build: buildSquishy, hint: 'key 1', stageScale: 1.3,
+  { key: 'squishy',   label: 'Squishy',   kind: 'primitive', build: buildSquishy, hint: 'key 1',
     keywords: ['squishy', 'blob', 'cute', 'pink'] },
-  { key: 'goldcube',  label: 'Gold Cube', kind: 'primitive', build: buildGoldCube, hint: 'key 2', stageScale: 1.45,
+  { key: 'goldcube',  label: 'Gold Cube', kind: 'primitive', build: buildGoldCube, hint: 'key 2',
     keywords: ['gold', 'cube', 'gold cube', 'pharaoh', 'pyramid'] },
-  { key: 'heart',     label: 'Heart',     kind: 'primitive', build: buildHeart, hint: 'key 3', stageScale: 1.05,
+  { key: 'heart',     label: 'Heart',     kind: 'primitive', build: buildHeart, hint: 'key 3',
     keywords: ['heart', 'love'] },
-  { key: 'castle',    label: 'Castle',    kind: 'primitive', build: buildCastle, hint: 'key 4', stageScale: 1.0,
+  { key: 'castle',    label: 'Castle',    kind: 'primitive', build: buildCastle, hint: 'key 4',
     keywords: ['castle', 'fort', 'kingdom', 'tower'] },
   { key: 'wolf',      label: 'Wolf',      kind: 'glb', file: 'wolf_with_animations.glb',
     keywords: ['wolf', 'wolves', 'dog', 'animated wolf'] },
@@ -613,7 +649,7 @@ function computeGlbSeat(gltf, turn) {
     const rc = rb.getCenter(new THREE.Vector3());
     const s = Math.min(0.92 / (rs.x || 1), 0.85 / (rs.y || 1));
     return {
-      basis, scale: s, holderZ: 0.30, stripFigureMax,
+      basis, scale: s, holderZ: 0.30, stripFigureMax, rotatedBounds: rb,
       innerPos: new THREE.Vector3(-rc.x * s, -rb.min.y * s - 0.38, -rc.z * s),
     };
   }
@@ -626,7 +662,7 @@ function computeGlbSeat(gltf, turn) {
   const rc = rb.getCenter(new THREE.Vector3());
   const s = 0.85 / (size.y || 1);
   return {
-    basis, scale: s, holderZ: 0.30, stripFigureMax,
+    basis, scale: s, holderZ: 0.30, stripFigureMax, rotatedBounds: rb,
     innerPos: new THREE.Vector3(-rc.x * s, -rb.min.y * s - 0.38, -rc.z * s),
   };
 }
@@ -644,13 +680,29 @@ function instantiateGlb(gltf, turn) {
   holder.position.z = seat.holderZ;
   holder.add(inner);
   g.add(holder);
+  // The instance's bounds in anchor (face-seat) space, carried from
+  // the same measured silhouette the seat came from: innerPos +
+  // scale * rotatedBounds, lifted by the holder. The volume staging
+  // seats the model from these numbers (see makeStageGroup) — never
+  // from a CPU bounding box, which lies about skinned figures (v2.1).
+  const rb = seat.rotatedBounds;
+  const volumeBounds = {
+    min: new THREE.Vector3(
+      seat.innerPos.x + seat.scale * rb.min.x,
+      seat.innerPos.y + seat.scale * rb.min.y,
+      seat.holderZ + seat.innerPos.z + seat.scale * rb.min.z),
+    max: new THREE.Vector3(
+      seat.innerPos.x + seat.scale * rb.max.x,
+      seat.innerPos.y + seat.scale * rb.max.y,
+      seat.holderZ + seat.innerPos.z + seat.scale * rb.max.z),
+  };
   let mixer = null;
   const clip = pickGlbClip(gltf);
   if (clip) {
     mixer = new THREE.AnimationMixer(inner);
     mixer.clipAction(pinClipInPlace(clip, inner)).play();
   }
-  return { group: g, update(t, delta) { if (mixer) mixer.update(delta || 0); } };
+  return { group: g, volumeBounds, update(t, delta) { if (mixer) mixer.update(delta || 0); } };
 }
 
 function disposeInstance(inst) {
@@ -698,17 +750,17 @@ function disposeInstance(inst) {
 //    this loop's cadence, not the filter — its at-rest cutoff is
 //    already the steadiest setting MindAR ships.
 //
-// The model is re-staged into the volume by makeStageGroup: the seat the
-// v2.1 fix measured (model standing on the face plane, holder pushed
-// +0.30 out of the face) is shifted to the volume's center — base/paws
-// land on the volume's floor (y = -0.5), the body centers on z = -0.5.
-// Small primitives carry a catalog stageScale so they grow toward the
-// cube's size: the item becomes the cube.
+// The model is re-staged into the volume by makeStageGroup, which
+// seats it from its MEASURED bounds under one rule for every model
+// (js/volumeSeat.js): base on the volume's floor (y = -0.5), centered
+// in the volume, scaled until its footprint covers the face — the
+// item becomes the cube, at the cube's own size. (v2.2 used one hand
+// shift for all models plus hand-tuned primitive scales; v2.5
+// measured them wrong — see the header note.)
 // ---------------------------------------------------------------------------
 const TAKEOVER = {
   size: 1.05,                                  // shell edge length (anchor units)
   frontLip: 0.02,                              // how far the shell reaches in front of the face plane
-  stagePos: new THREE.Vector3(0, -0.12, -0.80), // face seat -> volume seat
 };
 
 function buildTakeoverShell() {
@@ -733,14 +785,22 @@ function buildTakeoverShell() {
   return g;
 }
 
-// Wrap a built model instance in its stage: shifted from the face seat
-// into the cube's volume and (for the small primitives) scaled up toward
-// the cube's size. GLB seats already target the full face, so their
-// stageScale is 1 — only the shift applies.
-function makeStageGroup(inst, stageScale) {
+// Wrap a built model instance in its stage: the computed volume
+// seat (js/volumeSeat.js) applied to the model's measured bounds.
+// Primitives are rigid — their Box3 is true, so it is measured off
+// the built group directly. GLB instances carry their bounds from
+// the rendered-silhouette seat (inst.volumeBounds), because a CPU
+// bounding box lies about skinned figures (v2.1).
+function makeStageGroup(inst) {
   const stage = new THREE.Group();
-  stage.position.copy(TAKEOVER.stagePos);
-  if (stageScale && stageScale !== 1) stage.scale.setScalar(stageScale);
+  let bounds = inst.volumeBounds;
+  if (!bounds) {
+    const box = new THREE.Box3().setFromObject(inst.group);
+    bounds = { min: box.min, max: box.max };
+  }
+  const seat = computeVolumeSeat(bounds);
+  stage.scale.setScalar(seat.scale);
+  stage.position.set(seat.position.x, seat.position.y, seat.position.z);
   stage.add(inst.group);
   return stage;
 }
@@ -775,7 +835,6 @@ function refreshModelButtons() {
 }
 
 function applyToAnchors(makeInstance) {
-  const stageScale = (CATALOG_BY_KEY[currentModel] || {}).stageScale || 1;
   for (let i = 0; i < anchorRoots.length; i++) {
     if (modelInstances[i]) {
       if (modelStages[i]) anchorRoots[i].remove(modelStages[i]);
@@ -790,7 +849,7 @@ function applyToAnchors(makeInstance) {
     // Ball: it stands on the tracked patch at its face seat — there is
     // no volume to shift into and no shell to hide behind.
     const stage = MARKERS[activeMarker].staging === 'volume'
-      ? makeStageGroup(built, stageScale)
+      ? makeStageGroup(built)
       : built.group;
     anchorRoots[i].add(stage);
     modelInstances[i] = built;
@@ -893,14 +952,25 @@ window.addEventListener('keydown', (e) => {
 // any ancestor/sibling paint above it (v1's opaque container background)
 // hides the feed while tracking keeps running — the black viewport. Pin
 // the real stacking here: video at 0, canvases above it, clear alpha 0.
+// (The page CSS pins the same stacking with !important rules; this is
+// the belt to its suspenders.)
+//
+// POSITION IS NEVER TOUCHED HERE (v2.5 — the costliest line in v2):
+// MindAR's resize() CENTERS the video in the container with negative
+// top/left offsets (cover-crop: the video is larger than the container
+// on the overflowing axis and is shifted by half the overflow), and
+// its projection matrix is computed for exactly that placement.
+// Pinning the video to top/left 0 — as this function did until v2.5 —
+// shifts the feed by half the crop while the overlay stays put, so
+// the model and its shell render displaced from the real cube by up
+// to a full cube height: the model floats above the cube, inside a
+// box of its own, and the printed cube stays visible below. The
+// video's position belongs to MindAR's resize(), on every axis.
 // ---------------------------------------------------------------------------
 function fixCameraLayering() {
   const video = container.querySelector('video');
   if (video) {
     video.style.zIndex = '0';
-    video.style.position = 'absolute';
-    video.style.top = '0px';
-    video.style.left = '0px';
     video.style.pointerEvents = 'none';
   }
   container.querySelectorAll('canvas').forEach((c, i) => {
@@ -1072,6 +1142,29 @@ function refreshMarkerButtons() {
   }
 }
 
+// The Ball tap answers WHERE HE TAPPED (v2.5): the photo ask renders
+// in the notice directly under the Marker row — impossible to miss
+// from the button he just pressed — as well as in the load note at
+// the bottom of the controls (the old behavior, whose row is the
+// last one in the column and clips out of sight in the contained
+// AR window: the tap looked dead). The Ball button also carries a
+// "needs your photos" sub-label while the target is missing, so the
+// state is visible before the tap, not only after it.
+function showBallAsk() {
+  if (ballNoteEl) {
+    ballNoteEl.textContent = BALL_PHOTO_ASK;
+    ballNoteEl.hidden = false;
+  }
+  setLoadNote(BALL_PHOTO_ASK);
+}
+
+function hideBallAsk() {
+  if (ballNoteEl) {
+    ballNoteEl.textContent = '';
+    ballNoteEl.hidden = true;
+  }
+}
+
 function buildMarkerButtons() {
   for (const key of Object.keys(markerBtns)) {
     if (markerBtns[key]) markerBtns[key].addEventListener('click', () => setMarker(key));
@@ -1091,9 +1184,10 @@ function setMarker(key) {
     startBtn.disabled = false;
     startBtn.textContent = '▶ Start Camera';
     setStatus('Rainbow Ball — target not built yet', '');
-    setLoadNote(BALL_PHOTO_ASK);
+    showBallAsk();
     return;
   }
+  hideBallAsk();
   setLoadNote('');
   if (wasStarted) {
     teardownSession();
@@ -1110,17 +1204,33 @@ async function probeBallTarget() {
     if (res.status === 405) {
       res = await fetch(MARKERS.ball.targetsSrc, { headers: { Range: 'bytes=0-0' } });
     }
-    ballTargetReady = res.ok;
+    // A bare 200 is not proof: a static host's SPA fallback answers a
+    // missing .mind with the app's HTML page, and an HTML page is not
+    // a compiled target. The answer must be ok AND not text/html.
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    ballTargetReady = res.ok && !contentType.includes('text/html');
   } catch (e) {
     ballTargetReady = false;
   }
-  if (activeMarker === 'ball' && !ballTargetReady) setLoadNote(BALL_PHOTO_ASK);
+  // The button itself carries the state while the target is missing.
+  if (markerBtns.ball) {
+    let sub = markerBtns.ball.querySelector('small');
+    if (!ballTargetReady && !sub) {
+      sub = document.createElement('small');
+      sub.textContent = 'needs your photos';
+      markerBtns.ball.appendChild(sub);
+    } else if (ballTargetReady && sub) {
+      sub.remove();
+    }
+  }
+  if (activeMarker === 'ball' && !ballTargetReady) showBallAsk();
+  if (activeMarker === 'ball' && ballTargetReady) hideBallAsk();
 }
 
 startBtn.addEventListener('click', () => {
   if (activeMarker === 'ball' && !ballTargetReady) {
     setStatus('Rainbow Ball — target not built yet', '');
-    setLoadNote(BALL_PHOTO_ASK);
+    showBallAsk();
     return;
   }
   void startSession();

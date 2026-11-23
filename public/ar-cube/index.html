@@ -54,6 +54,12 @@
   .markerBtn { flex: 1 1 0; min-width: 64px; font-size: 14px; font-weight: 600; padding: 8px 4px;
     border-radius: 9px; border: 1px solid #3a4763; background: #1a2336; color: #eef2f7; cursor: pointer; }
   .markerBtn.active { border-color: #d4af37; background: #2a2410; color: #ffd95e; }
+  .markerBtn small { display: block; font-weight: 400; font-size: 11px; color: #8fa1bd; }
+  /* The Ball answer lives HERE, directly under the Marker row — where
+     he tapped (v2.5). The old answer sat in the last controls row,
+     which clips out of sight in the contained window. */
+  #ballNote { font-size: 14.5px; line-height: 1.45; padding: 9px 11px; border-radius: 10px;
+    border: 1px solid #d4af37; background: #2a2410; color: #ffe9a8; }
   .noteRow { display: flex; gap: 8px; align-items: baseline; }
   .noteRow #loadNote { flex: 1 1 auto; }
   #fps { font-size: 12.5px; font-weight: 600; color: #8fa1bd; white-space: nowrap; }
@@ -94,6 +100,7 @@
         <button class="markerBtn" id="markerBallBtn" type="button">Rainbow Ball</button>
       </span>
     </div>
+    <div id="ballNote" role="status" hidden></div>
     <button id="startBtn">▶ Start Camera</button>
     <div class="filterRow">
       <label for="modelFilter">Find a model:</label>
