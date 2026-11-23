@@ -4507,6 +4507,156 @@
    Form controls are dark end to end (operator order 2026-11-21):
    color-scheme dark + explicit dark fields and option lists, so a
    dropdown never flashes white against the stage. */
+/* CAMERAS (operator order 2026-11-23): his own cameras in one
+   window — both lenses, PTZ pad, add-a-camera form. Type follows
+   the bifocal standard set by the devices window: nothing small,
+   nothing crowded. */
+.window-cameras {
+  color-scheme: dark;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  height: 100%;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.window-cameras__intro {
+  opacity: 0.85;
+  margin: 0;
+}
+.window-cameras__card {
+  background: rgba(6, 16, 26, 0.55);
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 0.6rem;
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.window-cameras__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
+  align-items: baseline;
+  font-size: 1.05rem;
+}
+.window-cameras__head span {
+  opacity: 0.75;
+  font-size: 0.85rem;
+}
+.window-cameras__fingerprint,
+.window-cameras__grant,
+.window-cameras__probe,
+.window-cameras__transport {
+  margin: 0;
+  opacity: 0.85;
+}
+.window-cameras__lens {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.window-cameras__lens-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
+  align-items: baseline;
+}
+.window-cameras__lens-state {
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+.window-cameras__video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: #000;
+  border-radius: 0.4rem;
+}
+.window-cameras__novideo {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  opacity: 0.9;
+}
+.window-cameras__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+.window-cameras__ptz {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.window-cameras__pad {
+  display: grid;
+  grid-template-columns: repeat(3, 3rem);
+  gap: 0.35rem;
+  justify-content: center;
+}
+.window-cameras__pad .window-btn {
+  height: 2.6rem;
+  font-size: 1.1rem;
+}
+.window-cameras__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  background: rgba(6, 16, 26, 0.55);
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 0.6rem;
+  padding: 0.7rem;
+}
+.window-cameras__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+.window-cameras__form input,
+.window-cameras__form select {
+  background: #08131d;
+  color: #e6f9ff;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.95rem;
+}
+.window-cameras__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.window-cameras__row label {
+  flex: 1 1 9rem;
+}
+.window-cameras__check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  font-size: 0.95rem !important;
+}
+.window-cameras__check input {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.window-cameras__steps {
+  margin: 0;
+  padding-left: 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 .window-devices {
   --dev-fs-title: 1rem;
   --dev-fs-body: 0.9rem;
