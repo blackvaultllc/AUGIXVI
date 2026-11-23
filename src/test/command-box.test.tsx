@@ -255,6 +255,62 @@ describe("command box chat log", () => {
 });
 
 /**
+ * THE SPEAKER'S NAME (routing law, owner order 2026-11-23): the
+ * thread's label is read from the same addressee state the reply
+ * prompt carried — label and words can never disagree again. The
+ * live line wears the CURRENT addressee's name; a kept entry wears
+ * the name it was recorded under; an entry from before routing
+ * wears Anubis, as it always did.
+ */
+describe("command box routed speaker label", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  function renderRouted(speakerName: string, entries?: ReplyHistoryEntry[]) {
+    return render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="I hear you, Captain."
+        responseSource="test"
+        speakerName={speakerName}
+        history={entries}
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+  }
+
+  it("the live reply is labeled with the addressee's name — and the box addresses him too", () => {
+    renderRouted("Osiris");
+    expect(screen.getByText("Osiris:")).toBeInTheDocument();
+    expect(screen.queryByText("Anubis:")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Message Osiris — / for commands")).toBeInTheDocument();
+  });
+
+  it("a kept entry renders under the name it was recorded with", () => {
+    renderRouted("Osiris", [
+      { at: 1, question: "Anubis, can you hear me?", answer: "I hear you, Captain.", speaker: "Anubis" },
+      { at: 2, question: "Osiris, report", answer: "Watching, Captain.", speaker: "Osiris" },
+      { at: 3, question: "old line", answer: "From before routing." },
+    ]);
+    // One Anubis label (the routed entry), one Osiris entry label,
+    // the pre-routing entry under Anubis — plus the live Osiris line.
+    expect(screen.getAllByText("Anubis:")).toHaveLength(2);
+    expect(screen.getAllByText("Osiris:")).toHaveLength(2);
+  });
+});
+
+/**
  * RESIZE (owner correction 2026-11-22): the chat window stretches
  * from its corner/edges and the size persists, like the container
  * windows. A drag on the corner grip grows the box and saves it.

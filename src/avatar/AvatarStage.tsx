@@ -128,6 +128,13 @@ import {
   type StageResidency,
 } from "./presenceDoctrine";
 import {
+  ADDRESSEE_NAMES,
+  DEFAULT_ADDRESSEE,
+  detectAddressee,
+  speakerDirective,
+  type Addressee,
+} from "./addressee";
+import {
   besideMedallionGeometry,
   clearMedallionSpot,
   loadOrDefaultMedallionGeometry,
@@ -603,6 +610,21 @@ export function AvatarStage({
   // commander; a station takes the focus when he turns to it, and
   // the perspective returns to Anubis when it closes.
   const [perspective, setPerspective] = useState<StagePerspective>(DEFAULT_STAGE_PERSPECTIVE);
+  // THE ADDRESSEE — A ROUTING STATE (owner order 2026-11-23;
+  // rules in addressee.ts): who the Captain is talking to. Anubis
+  // by default; naming a god in address switches the conversation
+  // to him until another is addressed. THREE readers, one state:
+  // the reply prompt carries it per message (speakerDirective),
+  // the thread's speaker label renders it, and the reply pop-up
+  // rises on the addressed god's face — so the label and the words
+  // can never disagree again (the 2026-11-23 screenshots: a reply
+  // labeled ANUBIS whose words denied being Anubis).
+  const [addressee, setAddressee] = useState<Addressee>(DEFAULT_ADDRESSEE);
+  const addresseeRef = useRef<Addressee>(DEFAULT_ADDRESSEE);
+  const applyAddressee = useCallback((next: Addressee) => {
+    addresseeRef.current = next;
+    setAddressee(next);
+  }, []);
   // PRESENCE DOCTRINE (owner order 2026-11-22; rules in
   // presenceDoctrine.ts): Anubis is resident — alone on the stage by
   // default. The Black Hatter is PUT AWAY until the Owner seat
@@ -682,6 +704,9 @@ export function AvatarStage({
   const conversationView = conversationViewFor(perspective, council);
   const selectGod = useCallback(
     (god: GodPerspective) => {
+      // Turning to a god turns the CONVERSATION to him too
+      // (routing law): his name tapped is his name addressed.
+      applyAddressee(god);
       // Residency first: a non-resident god tapped by name is
       // SUMMONED onto the stage; returning to Anubis puts the
       // Black Hatter away again — the resident holds the stage.
@@ -706,7 +731,7 @@ export function AvatarStage({
       }
       setPerspective(god);
     },
-    [perspective, council, summonGod, seatBesideAnubis],
+    [perspective, council, summonGod, seatBesideAnubis, applyAddressee],
   );
   const selectOwner = useCallback(() => {
     // The Owner seat brings the Black Hatter BACK onto the stage
@@ -891,10 +916,19 @@ export function AvatarStage({
       return;
     }
     if (lastResponsePopRef.current === lastWords) return;
+    // OSIRIS'S PLACE (routing law): the core speaks from the chat
+    // window — his lines never borrow a god's face for a pop-up.
+    if (addressee === "osiris") return;
     lastResponsePopRef.current = lastWords;
     notificationIdRef.current += 1;
-    setGodPopUp({ id: notificationIdRef.current, god: "anubis", text: lastWords });
-  }, [state, lastWords, responseSource, worldScreen, clearScreen]);
+    // The reply is delivered by the ADDRESSED god's face (routing
+    // law): Montu's words rise on Montu, Anubis's on Anubis.
+    setGodPopUp({
+      id: notificationIdRef.current,
+      god: addressee === "montu" ? "montu" : "anubis",
+      text: lastWords,
+    });
+  }, [state, lastWords, responseSource, worldScreen, clearScreen, addressee]);
   const recordReply = useCallback((text: string) => {
     setTranscript((prev) =>
       appendReplyHistory(prev, {
@@ -902,6 +936,10 @@ export function AvatarStage({
         question: lastQuestionRef.current,
         answer: text,
         source: lastUserSourceRef.current,
+        // The speaker of record (routing law): the addressee at
+        // this reply's moment — the same state the reply prompt
+        // carried — so the log's label is the name that spoke.
+        speaker: ADDRESSEE_NAMES[addresseeRef.current],
       }),
     );
     // Every exchange also goes to the CORE's durable memory (Part 30):
@@ -1772,6 +1810,9 @@ export function AvatarStage({
   const dismissGod = useCallback(
     (god: GodPerspective) => {
       const name = god === "montu" ? MONTU_BINDING.name : ANUBIS_BINDING.name;
+      // A dismissed god leaves the conversation too (routing law):
+      // the address falls back to the resident commander.
+      if (addresseeRef.current === god) applyAddressee(DEFAULT_ADDRESSEE);
       setBowingGod(god);
       say(closeWithBlessing(`As you command, Captain — ${name} bows and returns to his work`));
       if (bowTimerRef.current !== null) window.clearTimeout(bowTimerRef.current);
@@ -1784,7 +1825,7 @@ export function AvatarStage({
         setPerspective((current) => (current === god ? DEFAULT_STAGE_PERSPECTIVE : current));
       }, 1600);
     },
-    [say],
+    [say, applyAddressee],
   );
 
   function togglePresent() {
@@ -1810,6 +1851,27 @@ export function AvatarStage({
           setHatterSpeaking(false);
           hatterSpeechTimer.current = null;
         }, speakingMsForText(text));
+      }
+      // ROUTING (owner order 2026-11-23; rules in addressee.ts):
+      // an explicit address — a god named at the head of the line,
+      // typed or spoken — turns the conversation to that god BEFORE
+      // anything answers, so the prompt, the label, and the pop-up
+      // all read the new addressee for this very message. A stage
+      // god not yet up is pulled up (the pop-in doctrine) through
+      // the same seat a tap takes. Osiris is addressed in place:
+      // his seat is the chat window, and nothing on the stage moves
+      // for him. A passing mention never routes (detectAddressee is
+      // conservative by design).
+      const addressedGod = detectAddressee(text);
+      if (addressedGod && addressedGod !== addresseeRef.current) {
+        applyAddressee(addressedGod);
+        if (
+          addressedGod === "montu" &&
+          perspectiveRef.current !== "montu" &&
+          !residencyRef.current.summoned.includes("montu")
+        ) {
+          selectGodRef.current("montu");
+        }
       }
       const applyInterfaceCommand = (type: "clear-screen" | "show-screen" | "silence") => {
         if (type === "clear-screen") {
@@ -2443,6 +2505,11 @@ export function AvatarStage({
       system: `${DEFAULT_SYSTEM_PROMPT}${CORE_LAW_PROMPT}
 ${PERSONALITY_PROMPT}
 ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
+      // The speaker directive, read fresh per message from the
+      // routing state (routing law): this reply speaks as the
+      // addressee, under his name — the same name the thread label
+      // shows for it.
+      getSpeakerDirective: () => speakerDirective(addresseeRef.current),
       onSpeak: (text) => {
         setLastWords(text);
         recordReply(text);
@@ -2462,7 +2529,9 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       // above simulated.) When it answers, its provider name —
       // "On-phone brain (small)" — is what the reply is labeled with.
       onPhoneFallback: async (text) => {
-        const answer = await askPhoneBrain(text);
+        // The small brain gets the same routing (routing law):
+        // it speaks as the addressed presence, under the same name.
+        const answer = await askPhoneBrain(text, [], addresseeRef.current);
         return answer ? { answer, provider: PHONE_BRAIN_PROVIDER } : null;
       },
       findOfflineAnswer: (text) => {
@@ -3267,7 +3336,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             can only move on his measured voice. */}
         <VoiceIndicator
           ear={earRef.current}
-          addressee={perspective === "montu" ? MONTU_BINDING.name : ANUBIS_BINDING.name}
+          addressee={ADDRESSEE_NAMES[addressee]}
         />
       </div>
       <div className="avatar-hud avatar-hud--tl" style={frameStyle("hud-core")} {...frameDragProps("hud-core", true)}>
@@ -3317,6 +3386,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onToggleVoice={() => earRef.current?.toggle()}
           responseLine={lastWords}
           responseSource={responseSource}
+          speakerName={ADDRESSEE_NAMES[addressee]}
           userLine={lastUserMessage}
           userSource={lastUserSource}
           history={transcript}

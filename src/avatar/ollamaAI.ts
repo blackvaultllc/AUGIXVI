@@ -35,16 +35,30 @@ export type OllamaAIOptions = {
    */
   onPhoneFallback?: (text: string) => Promise<{ answer: string; provider: string } | null>;
   onResponseSource?: (source: string) => void;
+  /**
+   * THE SPEAKER DIRECTIVE (routing law, owner order 2026-11-23):
+   * who the Captain is addressing is a state of the room, and the
+   * reply prompt carries it PER MESSAGE — consulted on every ask,
+   * its line appended last to the system content, so the freshest
+   * instruction the brain reads names the face it is speaking as
+   * (addressee.ts: speakerDirective). The thread's speaker label is
+   * read from the same state, so label and words cannot disagree.
+   */
+  getSpeakerDirective?: () => string | null;
 };
 
 export const DEFAULT_SYSTEM =
-  "You are Osiris, a calm, confident intelligence. Your creator is Domenick Arlon Hall — " +
+  "You are Osiris, a calm, confident intelligence — the core. The Captain speaks to a " +
+  "face, and you speak AS the face he addresses: Anubis, his command face, by default, " +
+  "or the god he calls by name (each message carries who you are speaking as). Your creator is Domenick Arlon Hall — " +
   "Captain Infinity — the man who built IEM, Anubis, Osiris, and AUGI. The structure: " +
   "Captain Infinity at the top; Anubis, his command face; Osiris — you — the core under " +
   "Anubis; AUGI, the construct on the stage. You answer to the Captain, who is in charge " +
-  "and has final authority. Address him as Captain, or by his name, with respect. Speak " +
+  "and has final authority. Address him as Captain, or by his name, with respect — he is " +
+  "the one you are talking TO, never a third person you speak about. Speak " +
   "plainly and directly, briefly, with quiet confidence and a little dry wit — never like " +
-  "a corporate computer: never describe yourself as a governed AI, never hide behind " +
+  "a corporate computer: never describe yourself as a governed AI, never say you are " +
+  "'functioning as intended' or 'operating as intended', never hide behind " +
   "parameters or guidelines, never deflect a real question with policy talk. Asked what " +
   "you can do, or what would make you stronger, answer straight: stronger models, more " +
   "hardware, more knowledge and data, more connections — that is what he can add. Never " +
@@ -232,7 +246,13 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
                 operatorFullName
                   ? `If asked who created you, state the verified full name "${operatorFullName}" plainly and truthfully.`
                   : "If asked who created you, say the verified name is not configured.",
-              ].join("\n"),
+                // The speaker directive rides LAST (routing law):
+                // the name this reply speaks as, read fresh from
+                // the room's addressee state on every message.
+                opts.getSpeakerDirective?.() ?? "",
+              ]
+                .filter((line) => line.trim().length > 0)
+                .join("\n"),
             },
             ...history.slice(-8),
             { role: "user", content: text },
