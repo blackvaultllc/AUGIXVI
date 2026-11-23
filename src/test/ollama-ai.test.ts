@@ -88,7 +88,7 @@ describe("Ollama AI speech notifications", () => {
     };
     expect(request.model).toBe("llama3.1:8b");
     expect(request.messages[0]?.content).toContain("You are Osiris");
-    expect(request.messages[0]?.content).toContain("verified operator");
+    expect(request.messages[0]?.content).toContain("Domenick Arlon Hall");
     expect(request.messages[0]?.content).toContain("Yes, operator.");
     expect(request.messages[0]?.content).toContain("at most 2 short sentences");
     ai.dispose();
