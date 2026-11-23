@@ -28,6 +28,10 @@
  * UNAVAILABLE in words and nothing is faked. A Parrot-side serial
  * bridge is the documented alternative for a browser that cannot —
  * it is NOT built in this round and nothing here pretends it is.
+ * The broadcast transport (the Wepwawet dog) is the same shape: a
+ * browser cannot emit BLE advertising sets, so its live channel is
+ * the Parrot-side sender (~/augie-tools/wepwawet on the Parrot);
+ * in the browser the channel is absent and sends read UNAVAILABLE.
  */
 import {
   canControl,
@@ -44,6 +48,12 @@ import {
   type DeviceCommand,
   type DeviceCommandProfile,
 } from "./commandProfiles";
+import {
+  AUGIE_APP_ID,
+  framesForBroadcastCommand,
+  parseAppId,
+  payloadHex,
+} from "./wepwawetFrame";
 
 /* ------------------------------ bindings ------------------------------ */
 
@@ -279,7 +289,22 @@ export type HttpChannel = {
   }) => Promise<{ status: number; body: string }>;
 };
 
-export type CommandChannel = LineChannel | HttpChannel;
+/**
+ * A broadcast channel: one-way BLE advertising. It puts one binary
+ * payload on air as manufacturer data for a held burst. There is no
+ * reply — the device family on this transport (the Wepwawet dog)
+ * never answers, and the channel shape says so: advertise() resolves
+ * when the burst is done, with nothing coming back.
+ */
+export type BroadcastChannel = {
+  kind: "broadcast";
+  transportLabel: string;
+  /** The manufacturer company ID the payload rides under. */
+  companyId: number;
+  advertise: (payload: Uint8Array, holdMs: number) => Promise<void>;
+};
+
+export type CommandChannel = LineChannel | HttpChannel | BroadcastChannel;
 
 /**
  * THE SIMULATED PRINTER — a fake Marlin peer for tests and demos.
@@ -353,6 +378,27 @@ export function createSimulatedHttpChannel(
     request: async (req) => {
       requests.push(req);
       return handler(req);
+    },
+  };
+}
+
+/**
+ * A simulated broadcast peer: records every payload put "on air"
+ * with its hold time, so a test can prove the exact bytes a send
+ * produced — and that a refused send produced NONE. It models the
+ * air, not a dog: nothing here claims a dog obeyed.
+ */
+export function createSimulatedBroadcastChannel(companyId: number): BroadcastChannel & {
+  aired: { payload: Uint8Array; hex: string; holdMs: number }[];
+} {
+  const aired: { payload: Uint8Array; hex: string; holdMs: number }[] = [];
+  return {
+    kind: "broadcast",
+    transportLabel: "Simulated broadcast (test peer)",
+    companyId,
+    aired,
+    advertise: async (payload, holdMs) => {
+      aired.push({ payload, hex: payloadHex(payload), holdMs });
     },
   };
 }
@@ -601,11 +647,36 @@ export async function sendDeviceCommand(req: SendRequest): Promise<SendOutcome> 
   }
 
   try {
+    if (command.payload.kind === "ble-broadcast") {
+      if (req.channel.kind !== "broadcast") {
+        return finish({
+          result: "failed",
+          note: "This command needs the Bluetooth broadcast path — the Parrot-side sender — but the open channel is a different kind. Nothing was sent.",
+          detail: "",
+          replies: [],
+        });
+      }
+      const channel = req.channel;
+      // The binding address carries Augie's AppID for the dog when
+      // the operator set one there; otherwise Augie's own kept AppID.
+      const appId = parseAppId(req.address) ?? [...AUGIE_APP_ID];
+      const frames = framesForBroadcastCommand(command.payload, appId);
+      for (const frame of frames) {
+        await channel.advertise(frame.payload, frame.holdMs);
+      }
+      return finish({
+        result: "sent",
+        note: "Broadcast on air. This protocol is one-way — the dog never answers back, so 'sent' means the frames were transmitted, never that the dog obeyed. The dog itself, watched, is the only confirmation.",
+        detail: frames.map((f) => `${f.role}: ${payloadHex(f.payload)} (${f.holdMs} ms)`).join("\n"),
+        replies: [],
+      });
+    }
+
     if (command.payload.kind === "http") {
       if (req.channel.kind !== "http") {
         return finish({
           result: "failed",
-          note: "This command needs a network (HTTP) path, but the open channel is a line channel. Nothing was sent.",
+          note: "This command needs a network (HTTP) path, but the open channel is a different kind. Nothing was sent.",
           detail: "",
           replies: [],
         });
@@ -646,7 +717,7 @@ export async function sendDeviceCommand(req: SendRequest): Promise<SendOutcome> 
     if (req.channel.kind !== "lines") {
       return finish({
         result: "failed",
-        note: "This command needs a line channel (serial), but the open channel is a network channel. Nothing was sent.",
+        note: "This command needs a line channel (serial), but the open channel is a different kind. Nothing was sent.",
         detail: "",
         replies: [],
       });

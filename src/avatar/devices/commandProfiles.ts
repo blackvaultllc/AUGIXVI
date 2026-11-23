@@ -32,6 +32,7 @@ export type CommandTransport =
   | "network-http"
   | "network-tcp"
   | "bluetooth"
+  | "bluetooth-broadcast"
   | "nods-session";
 
 export const COMMAND_TRANSPORT_LABELS: Record<CommandTransport, string> = {
@@ -39,6 +40,7 @@ export const COMMAND_TRANSPORT_LABELS: Record<CommandTransport, string> = {
   "network-http": "Network (web requests, HTTP)",
   "network-tcp": "Network (raw TCP socket)",
   bluetooth: "Bluetooth",
+  "bluetooth-broadcast": "Bluetooth broadcast (one-way advertising — no connection)",
   "nods-session": "Through a NODS session",
 };
 
@@ -93,6 +95,23 @@ export type CommandPayload =
       kind: "file";
       before?: string[] | undefined;
       after?: string[] | undefined;
+    }
+  | {
+      /**
+       * One binary frame on a one-way Bluetooth broadcast transport
+       * (the Wepwawet dog profile): the frame command byte and the
+       * five data bytes D0–D4 of the device's frame format. The
+       * encoder (wepwawetFrame.ts) turns this into the exact on-air
+       * payload; the send engine follows it with the zero frame,
+       * the protocol's trailing frame after every command.
+       */
+      kind: "ble-broadcast";
+      /** Frame command byte (0xD0 match / 0xE0 data, for this family). */
+      cmd: number;
+      /** The five data bytes D0–D4. */
+      data: [number, number, number, number, number];
+      /** How long the frame is held on air before the zero frame. */
+      holdMs: number;
     };
 
 export type DeviceCommand = {
@@ -424,9 +443,170 @@ export const GENERIC_HTTP_PROFILE: DeviceCommandProfile = {
   builtin: true,
 };
 
+/* ----------------- built-in: Wepwawet, the robot dog ----------------- */
+
+/**
+ * One dog action as profile data: sendData(0, N) → D3=0, D4=N,
+ * the protocol's §6.1 encoding. Burst 500 ms, then the zero frame —
+ * the send engine appends the trailing zero itself.
+ */
+function dogAction(
+  id: string,
+  name: string,
+  d4: number,
+  help: string,
+  safety?: string,
+): DeviceCommand {
+  return {
+    id,
+    name,
+    help,
+    params: [],
+    payload: { kind: "ble-broadcast", cmd: 0xe0, data: [0, 0, 0, 0, d4], holdMs: 500 },
+    ...(safety ? { safety } : {}),
+  };
+}
+
+/** A §6.2 mode/content code: sendData(x, 0) → D3=x, D4=0. */
+function dogMode(id: string, name: string, d3: number, help: string): DeviceCommand {
+  return {
+    id,
+    name,
+    help,
+    params: [],
+    payload: { kind: "ble-broadcast", cmd: 0xe0, data: [0, 0, 0, d3, 0], holdMs: 500 },
+  };
+}
+
+/** A sendData2 code: D2=x, D3=y, D4=0 (song, rotations). */
+function dogData2(
+  id: string,
+  name: string,
+  d2: number,
+  d3: number,
+  help: string,
+): DeviceCommand {
+  return {
+    id,
+    name,
+    help,
+    params: [],
+    payload: { kind: "ble-broadcast", cmd: 0xe0, data: [0, 0, d2, d3, 0], holdMs: 500 },
+  };
+}
+
+const FEED_CODES: [string, number][] = [
+  ["feed-1", 19],
+  ["feed-2", 18],
+  ["feed-3", 21],
+  ["feed-4", 20],
+  ["feed-5", 22],
+  ["feed-6", 25],
+  ["feed-7", 24],
+  ["feed-8", 23],
+];
+
+const WEPWAWET_COMMANDS: DeviceCommand[] = [
+  // STOP IS ALWAYS FIRST — the profile's standing safety shape.
+  dogAction(
+    "stop",
+    "Stop",
+    1,
+    "Stop — the command that stills the dog. It is the first command on this profile on purpose: whatever else is happening, this is the one in reach.",
+    "Send Stop first in any test, and any time the dog does something unexpected.",
+  ),
+  {
+    id: "match",
+    name: "Match / connect",
+    help: "The match frame — the knock the vendor app sends when its advertising starts, before any command. Whether the dog requires it after power-on is a live-test question; the Parrot sender opens every session with it.",
+    params: [],
+    payload: { kind: "ble-broadcast", cmd: 0xd0, data: [0, 0, 0, 0, 0], holdMs: 500 },
+  },
+  dogAction("forward", "Forward", 2, "Walk forward. A timed burst, then the zero frame — the dog walks for the burst, it does not latch on.", "Movement. The dog must be in sight, on the floor, with room ahead of it."),
+  dogAction("back", "Back", 3, "Walk backward, one timed burst, then the zero frame.", "Movement. The dog cannot see behind itself — neither can this protocol. Clear the space behind it first."),
+  dogAction("turn-left", "Turn left", 4, "Turn left, one timed burst, then the zero frame.", "Movement. Keep the dog in sight while it turns."),
+  dogAction("turn-right", "Turn right", 5, "Turn right, one timed burst, then the zero frame.", "Movement. Keep the dog in sight while it turns."),
+  dogAction("sit", "Sit", 6, "Sit down."),
+  dogAction("lie-down", "Lie down", 7, "Lie down (get down)."),
+  dogAction("coquetry", "Act cute", 8, "Act coquettishly — the dog's act-cute routine."),
+  dogAction("pee", "Pee", 9, "The pee routine — a leg-lift act, no actual water involved."),
+  dogAction("greet", "Greet", 10, "Greet / say hello — the dog's greeting routine."),
+  dogAction("handstand", "Handstand", 11, "Handstand.", "Give the dog floor room on every side before this one."),
+  dogAction("push-ups", "Push-ups", 12, "Push-ups."),
+  dogAction("dance", "Dance", 13, "Dance — the dog performs a built-in dance with its own music."),
+  dogAction("kung-fu", "Kung fu", 14, "Kung fu routine.", "Give the dog floor room on every side before this one."),
+  dogAction("swim", "Swim", 15, "Swimming routine — performed on dry land; this dog does not go in water for it."),
+  dogAction("bless", "Bless", 16, "Blessing routine."),
+  dogAction("patrol", "Patrol", 17, "Patrol — the dog walks its patrol routine on its own until stopped.", "Patrol keeps moving on its own. Stay where you can reach Stop, and watch where it goes."),
+  ...FEED_CODES.map(([id, d4]) =>
+    dogAction(
+      id,
+      `Feed ${id.slice(5)}`,
+      d4,
+      "A feeding item — the dog makes its eating sounds and motions for one pictured item. The eight codes are proven from the vendor app's code; which pictured item each code triggers is not named in the app and is confirmed at the first live session.",
+    ),
+  ),
+  dogMode(
+    "light",
+    "Light",
+    128,
+    "The light command — the vendor app's light toggle. Whether the dog toggles, latches on, or needs a second frame shape is a live-test question (the app's code always sets the same bit).",
+  ),
+  dogData2(
+    "song",
+    "Song",
+    4,
+    1,
+    "Song — the dog plays one of its own built-in songs. The protocol carries no track number; which song plays is the dog's own choice.",
+  ),
+  dogMode("ai-content", "AI content", 32, "AI mode/content — the dog runs its built-in AI content."),
+  dogMode("learn", "Learn / story", 16, "Learn — the dog plays its built-in learning/story content."),
+  dogMode("fire", "Fire / combat", 8, "Fire / combat mode — the base dog's combat routine."),
+  dogData2("rotate-left", "Rotate left", 128, 0, "Rotate left in place."),
+  dogData2("rotate-right", "Rotate right", 64, 0, "Rotate right in place."),
+  dogMode(
+    "program-record",
+    "Program — record mode",
+    2,
+    "Enter program-record mode: the dog records the steps sent after this, in its own memory. Steps sent in record mode carry the protocol's +2 offset — the Parrot sender's program sequence handles that shape; sending plain commands here records them as heard, which the first live session will verify.",
+  ),
+  {
+    id: "program-execute",
+    name: "Program — execute",
+    help: "Run the recorded program. In record state the zero frame is the run trigger — this command IS the zero frame, sent on purpose. (Inferred from the vendor app's flow; confirmed at the first live session.)",
+    params: [],
+    payload: { kind: "ble-broadcast", cmd: 0xe0, data: [0, 0, 0, 0, 0], holdMs: 500 },
+  },
+];
+
+export const WEPWAWET_DOG_PROFILE: DeviceCommandProfile = {
+  id: "wepwawet-ble-broadcast",
+  name: "Wepwawet — robot dog (Bluetooth broadcast)",
+  deviceClass:
+    "The ATLAS robotic dog of the FENG MA family — Augie's body. It takes no Bluetooth connection at all: it listens for one-way BLE advertising broadcasts and obeys them.",
+  transport: "bluetooth-broadcast",
+  addressPattern:
+    "Augie's AppID for the dog — 8 hex characters (his is A947C15E). It is the sender name carried inside every frame. The dog's own frame address is fixed in the protocol; there is no per-dog address to enter.",
+  commands: WEPWAWET_COMMANDS,
+  setupSteps: [
+    "The dog's registry card carries the grant: owner-confirmed, and control granted by the Captain on 2026-11-23 — his standing order that Augie control this dog directly.",
+    "Bind this profile to the dog's card. The address is Augie's AppID: A947C15E.",
+    "Sending runs from the Parrot: the sender at ~/augie-tools/wepwawet/ on the Parrot holds the dog's frames and puts them on air from the Parrot's Bluetooth. A browser cannot advertise, so the panel here configures and records — the Parrot fires.",
+    "First live test happens only on the Captain's word, with him watching the dog: Stop first, one Forward burst, Stop. The full procedure is written in the manual's Wepwawet entry.",
+  ],
+  safetyNotes: [
+    "TRANSMIT-ONLY: the dog never answers. A command marked sent means the frames went on air — never that the dog obeyed. The dog itself, watched, is the only confirmation there is.",
+    "Every movement command is a timed burst followed by the zero frame; nothing latches. Stop is the first command on the profile and the sender leads with it in every test.",
+    "The protocol has NO authentication — fixed address, fixed keys (protocol §4/§9). Anyone in Bluetooth range with this protocol can command the dog. That is the vendor's design, recorded plainly, not Augie's choice.",
+    "Augie cannot hear the dog, read its battery, or speak words through it — the protocol only triggers the dog's built-in actions and sounds (protocol §8).",
+  ],
+  builtin: true,
+};
+
 export const BUILTIN_COMMAND_PROFILES: DeviceCommandProfile[] = [
   PRINTER_GCODE_PROFILE,
   GENERIC_HTTP_PROFILE,
+  WEPWAWET_DOG_PROFILE,
 ];
 
 /* ------------------------------ sanitizing ------------------------------ */
@@ -493,6 +673,29 @@ function sanitizePayload(v: unknown): CommandPayload | null {
   }
   if (v["kind"] === "file") {
     return { kind: "file" };
+  }
+  if (v["kind"] === "ble-broadcast") {
+    const cmd = v["cmd"];
+    const holdMs = v["holdMs"];
+    const data = v["data"];
+    const byte = (n: unknown): n is number =>
+      typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 255;
+    if (!byte(cmd)) return null;
+    if (!Array.isArray(data) || data.length !== 5 || !data.every(byte)) return null;
+    if (
+      typeof holdMs !== "number" ||
+      !Number.isInteger(holdMs) ||
+      holdMs < 50 ||
+      holdMs > 10000
+    ) {
+      return null;
+    }
+    return {
+      kind: "ble-broadcast",
+      cmd,
+      data: [data[0]!, data[1]!, data[2]!, data[3]!, data[4]!],
+      holdMs,
+    };
   }
   return null;
 }

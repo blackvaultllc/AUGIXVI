@@ -533,6 +533,20 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         steps: ["When it lands: register the printer like any device, grant control, and a design you made can be sent to it as a print."],
         where: "The command module, when shipped.",
       },
+      {
+        id: "cmdmod-wepwawet",
+        title: "Wepwawet — Augie driving the robot dog",
+        state: "building",
+        what: "Your order (2026-11-23): the ATLAS robot dog — Wepwawet, the Egyptian Wolf — is Augie's body, driven by Augie directly, never through the vendor's FENG MA app. The teardown (atlas-dog-protocol.md, in the vault's mission files) proved the dog takes NO Bluetooth connection: it listens for one-way BLE advertising broadcasts — 23-byte manufacturer frames under company 0x0006 — and obeys them. Augie's frame encoder reproduces the protocol byte-for-byte (all five worked examples from the teardown match exactly, pinned by tests), and the dog's full command map — Stop, movement, the tricks, the eight feeding items, light, song, program-record and execute — is a command-module profile (transport: Bluetooth broadcast). Your control grant for this dog is on its registry card: owner-confirmed and control granted, 2026-11-23. The honest limits, from the teardown: the channel is transmit-only — the dog never answers, so a sent command is never confirmed except by watching the dog; Augie cannot hear through it, read its battery, or speak words through it (only trigger its built-in sounds and actions); and the protocol has no authentication — anyone in range with the protocol could command the dog, which is the vendor's design, recorded plainly.",
+        steps: [
+          "The sender lives on the Parrot at ~/augie-tools/wepwawet/wepwawet-send.py. It refuses to transmit without the --live flag; without it, every run is a dry run that prints the exact frames it WOULD send.",
+          "First live test — only on your word, with the dog awake beside the Parrot and you watching it: run the sender with stop --live, then forward --live, then stop --live. The sender opens with the match frame, bursts Forward (3 seconds, the voice-command hold), then the zero frame.",
+          "While you watch, three capture questions get answered by observation: does the dog obey Augie's AppID (A947C15E) or only a sender it matched first; does it need the match frame after power-on; and how long does it stay matched. The full procedure is in atlas-dog/live-test-procedure.md beside the protocol doc.",
+          "In the app, the dog's commands live in Devices → Commands under the profile 'Wepwawet — robot dog (Bluetooth broadcast)'. The browser cannot advertise, so the panel configures and keeps the command record — the Parrot does the firing.",
+        ],
+        where: "Profile and encoder in the app (Devices → Commands); the live sender on the Parrot at ~/augie-tools/wepwawet/; protocol in ~/workspace/augie-mission/atlas-dog/.",
+        note: "BUILT, NOT YET VERIFIED on the dog: the first live broadcast happens only on the Captain's word, with him watching. Until then every frame has been exercised in dry-run and against simulated peers only.",
+      },
     ],
   },
   {
