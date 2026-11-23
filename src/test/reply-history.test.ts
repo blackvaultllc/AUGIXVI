@@ -23,6 +23,25 @@ describe("reply history", () => {
     expect(loadReplyHistory()).toEqual(entries);
   });
 
+  it("keeps the speaker of record — the addressee who answered (routing law)", () => {
+    let entries: ReplyHistoryEntry[] = appendReplyHistory([], {
+      at: 1,
+      question: "Anubis, can you hear me?",
+      answer: "I hear you, Captain.",
+      speaker: "Anubis",
+    });
+    entries = appendReplyHistory(entries, {
+      at: 2,
+      question: "Osiris, what is the core doing?",
+      answer: "Watching over everything, Captain.",
+      speaker: "Osiris",
+    });
+    // The label is part of the record: it survives the round-trip
+    // to storage, so a kept line can never be re-labeled later.
+    expect(loadReplyHistory()).toEqual(entries);
+    expect(loadReplyHistory().map((e) => e.speaker)).toEqual(["Anubis", "Osiris"]);
+  });
+
   it("caps at 100 entries, keeping the newest", () => {
     let entries: ReplyHistoryEntry[] = [];
     for (let i = 0; i < 105; i++) {

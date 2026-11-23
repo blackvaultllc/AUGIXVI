@@ -11,10 +11,15 @@
  * personal sound library on this device; next time it's known, and
  * reported under HIS name.
  *
- * ENGINE TRUTH (v1): this build ships without a built-in neural
- * classifier (see soundWatch.ts), so the only names a sound can earn
- * here are the Captain's own library names. The panel says so in
- * plain words — it never borrows a label it did not measure or learn.
+ * ENGINE TRUTH (v2): the built-in classifier is YAMNet, running
+ * on-device from files vendored into the app (model + wasm under
+ * public/mediapipe/) — no network at runtime. It labels a detected
+ * sound's own segment once, when the event closes; the label feeds
+ * the same decideLabel law as v1 (library outranks, under-threshold
+ * is UNCLASSIFIED). A confident human-class label raises an alert
+ * through the stage (notify + the reporting god's pop-up). If the
+ * classifier cannot load on a device, the panel says so and the
+ * v1 behavior — library + UNCLASSIFIED — carries on.
  *
  * THE MIC IS SHARED, NEVER FOUGHT OVER: the voice ear (LocalEar) is
  * push-to-talk and owns the microphone while it listens. Sound Watch
@@ -47,12 +52,18 @@ import {
   recordLibraryHit,
   saveSoundLibrary,
   setLibraryAlert,
+  soundAlertLine,
   teachSound,
   unknownSoundLine,
   type SoundEventEntry,
   type SoundLibraryEntry,
   type StorageLike,
 } from "./soundWatch";
+import {
+  SoundSegmentRecorder,
+  YamnetClassifier,
+  type ClassifierState,
+} from "./soundClassifier";
 
 const TICK_MS = 100;
 const MAX_LOG_ENTRIES = 80;
@@ -76,10 +87,13 @@ function nextId(prefix: string): string {
 export function SoundWatchWindow({
   onClose,
   voiceEarBusy,
+  onAlert,
 }: {
   onClose: () => void;
   /** True while the voice ear holds the microphone (its turn). */
   voiceEarBusy?: () => boolean;
+  /** Raised for alert entries (a person sound, or a flagged library sound). */
+  onAlert?: (text: string) => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState("");
@@ -93,12 +107,34 @@ export function SoundWatchWindow({
   const streamRef = useRef<MediaStream | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const scriptRef = useRef<ScriptProcessorNode | null>(null);
   const timerRef = useRef<unknown>(null);
   const detectorRef = useRef(new SoundEventDetector());
   const wantWatchRef = useRef(false);
   const startingRef = useRef(false);
   const libraryRef = useRef(library);
   const meterRef = useRef<HTMLCanvasElement>(null);
+  const onAlertRef = useRef(onAlert);
+  onAlertRef.current = onAlert;
+
+  // The YAMNet engine + the in-memory segment recorder. The engine
+  // loads once when the window opens (vendored files, no network);
+  // the recorder only ever holds the last seconds, in memory.
+  const classifierRef = useRef<YamnetClassifier | null>(null);
+  const recorderRef = useRef<SoundSegmentRecorder | null>(null);
+  const [classifierState, setClassifierState] = useState<ClassifierState>("idle");
+  const [lastClassifyMs, setLastClassifyMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    const engine = new YamnetClassifier();
+    classifierRef.current = engine;
+    setClassifierState("loading");
+    void engine.load().then((ok) => setClassifierState(ok ? "ready" : "failed"));
+    return () => {
+      engine.dispose();
+      classifierRef.current = null;
+    };
+  }, []);
 
   const applyLibrary = useCallback((next: SoundLibraryEntry[]) => {
     libraryRef.current = next;
@@ -107,6 +143,16 @@ export function SoundWatchWindow({
   }, []);
 
   const releaseCapture = useCallback(() => {
+    if (scriptRef.current) {
+      scriptRef.current.onaudioprocess = null;
+      try {
+        scriptRef.current.disconnect();
+      } catch {
+        /* already disconnected */
+      }
+      scriptRef.current = null;
+    }
+    recorderRef.current?.reset();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     void ctxRef.current?.close().catch(() => undefined);
@@ -129,13 +175,34 @@ export function SoundWatchWindow({
 
   const handleDetected = useCallback(
     (sound: Parameters<typeof buildEntry>[1]) => {
-      // v1 engine: no built-in classifier hit — library or UNCLASSIFIED.
-      const decision = decideLabel(null, sound.fingerprint, libraryRef.current);
+      // Classify the event's OWN segment, once, now that it closed.
+      // The segment is sliced from the in-memory recorder (a small
+      // tail is included — the detector closes after ~500 ms of
+      // quiet) and resampled inside the engine. Library matching
+      // runs on the measured fingerprint exactly as before, and
+      // decideLabel keeps the law: his names outrank YAMNet, and a
+      // hit under the threshold is UNCLASSIFIED.
+      const engine = classifierRef.current;
+      const recorder = recorderRef.current;
+      const ctx = ctxRef.current;
+      let hit: Parameters<typeof decideLabel>[0] = null;
+      if (engine && recorder && ctx && engine.state === "ready") {
+        const segment = recorder.segment(sound.at, sound.at + sound.durationMs + 600);
+        if (segment) {
+          const result = engine.classifySegment(segment, ctx.sampleRate);
+          if (result) {
+            hit = result.hit;
+            setLastClassifyMs(Math.round(result.ms));
+          }
+        }
+      }
+      const decision = decideLabel(hit, sound.fingerprint, libraryRef.current);
       const entry = buildEntry(nextId("sound"), sound, decision);
       if (decision.libraryId) {
         applyLibrary(recordLibraryHit(libraryRef.current, decision.libraryId));
       }
       setEntries((prev) => [entry, ...prev].slice(0, MAX_LOG_ENTRIES));
+      if (entry.alert) onAlertRef.current?.(soundAlertLine(entry));
     },
     [applyLibrary],
   );
@@ -170,8 +237,25 @@ export function SoundWatchWindow({
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
       analyser.smoothingTimeConstant = 0.35;
-      ctx.createMediaStreamSource(stream).connect(analyser);
+      const source = ctx.createMediaStreamSource(stream);
+      source.connect(analyser);
       analyserRef.current = analyser;
+      // Segment tap: a script processor copies the mic stream into
+      // the in-memory recorder so a closed event's own audio can be
+      // classified. Routed through a zero gain — nothing is played
+      // back, and nothing is stored beyond the rolling seconds.
+      const recorder = new SoundSegmentRecorder(ctx.sampleRate);
+      recorderRef.current = recorder;
+      const script = ctx.createScriptProcessor(4096, 1, 1);
+      const mute = ctx.createGain();
+      mute.gain.value = 0;
+      script.onaudioprocess = (event) => {
+        recorder.push(event.inputBuffer.getChannelData(0), Date.now());
+      };
+      source.connect(script);
+      script.connect(mute);
+      mute.connect(ctx.destination);
+      scriptRef.current = script;
       detectorRef.current.reset();
       setError("");
       setPhase("watching");
@@ -283,6 +367,24 @@ export function SoundWatchWindow({
         {phase === "idle" && (
           <p className="window-soundwatch__status" role="status">
             Sound Watch is off. Start it and it listens from this device&apos;s microphone.
+          </p>
+        )}
+        {classifierState === "loading" && (
+          <p className="window-soundwatch__status" role="status">
+            Built-in classifier (YAMNet) is loading from inside the app — a few seconds, no
+            internet needed.
+          </p>
+        )}
+        {classifierState === "ready" && (
+          <p className="window-soundwatch__status" role="status">
+            Built-in classifier (YAMNet) is on — sounds it reads confidently get their label;
+            the rest stay UNCLASSIFIED for you to name.
+          </p>
+        )}
+        {classifierState === "failed" && (
+          <p className="window-soundwatch__status" role="status">
+            The built-in classifier could not load on this device — your library and
+            UNCLASSIFIED still work exactly as before.
           </p>
         )}
         {error && (
@@ -424,6 +526,12 @@ export function SoundWatchWindow({
         </section>
 
         <p className="window-soundwatch__note">{SOUND_WATCH_ENGINE_NOTE}</p>
+        {lastClassifyMs !== null && (
+          <p className="window-soundwatch__note">
+            Last classification took {lastClassifyMs} ms — it runs once per sound, on that
+            sound&apos;s own segment, never in a loop.
+          </p>
+        )}
         <p className="window-soundwatch__note">{DISTANCE_ESTIMATE_NOTE}</p>
         <p className="window-soundwatch__note">{DIRECTION_NOTE}</p>
         <p className="window-soundwatch__note">{SOUND_WATCH_PRIVACY_NOTE}</p>

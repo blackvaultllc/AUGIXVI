@@ -34,6 +34,7 @@ import {
   Hammer,
   History,
   Home,
+  LandPlot,
   Map as MapIcon,
   Network,
   Laptop,
@@ -66,20 +67,27 @@ import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
 import "./stage-fix-round.css";
 import { BuilderPanel } from "./builder/BuilderPanel";
 import { MapPanel } from "./builder/MapPanel";
+import { BuiltWorldMapPanel } from "./builder/BuiltWorldMapPanel";
+import { BuilderSelectionCluster } from "./builder/SelectionCluster";
+import type { WorldInhabitant } from "./builder/worldMap";
 import {
   activeLayout,
   addItem,
+  claimPlot,
   emptyRoom,
   exportRoomPackage,
   loadLayoutStore,
   makePlacedItem,
   moveItem,
   parseRoomPackage,
+  plotAtPoint,
+  plotClaimed,
   removeItem,
   rotateItem,
   saveLayoutStore,
   setItemAnchored,
   setSurfaces as setRoomSurfaces,
+  unclaimPlot,
   updateItemVariant,
   withLayoutRoom,
   type LayoutStore,
@@ -119,6 +127,13 @@ import {
   summonTarget,
   type StageResidency,
 } from "./presenceDoctrine";
+import {
+  ADDRESSEE_NAMES,
+  DEFAULT_ADDRESSEE,
+  detectAddressee,
+  speakerDirective,
+  type Addressee,
+} from "./addressee";
 import {
   besideMedallionGeometry,
   clearMedallionSpot,
@@ -546,6 +561,18 @@ export function AvatarStage({
   // system, like the command box.
   const [builderOpen, setBuilderOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  // THE BUILT WORLD (owner order 2026-11-23): the map of his own
+  // built world, where the stage view stands over it, the
+  // ground-laying hand, and where the selected piece's control
+  // cluster sits on screen.
+  const [builtWorldMapOpen, setBuiltWorldMapOpen] = useState(false);
+  const [worldPan, setWorldPan] = useState<{ x: number; z: number }>({ x: 0, z: 0 });
+  const worldPanRef = useRef(worldPan);
+  worldPanRef.current = worldPan;
+  const [layGroundArmed, setLayGroundArmed] = useState(false);
+  const layGroundArmedRef = useRef(layGroundArmed);
+  layGroundArmedRef.current = layGroundArmed;
+  const [selectionPoint, setSelectionPoint] = useState<{ x: number; y: number } | null>(null);
   const [layoutStore, setLayoutStore] = useState<LayoutStore>(() => loadLayoutStore());
   const layoutStoreRef = useRef(layoutStore);
   layoutStoreRef.current = layoutStore;
@@ -583,6 +610,21 @@ export function AvatarStage({
   // commander; a station takes the focus when he turns to it, and
   // the perspective returns to Anubis when it closes.
   const [perspective, setPerspective] = useState<StagePerspective>(DEFAULT_STAGE_PERSPECTIVE);
+  // THE ADDRESSEE — A ROUTING STATE (owner order 2026-11-23;
+  // rules in addressee.ts): who the Captain is talking to. Anubis
+  // by default; naming a god in address switches the conversation
+  // to him until another is addressed. THREE readers, one state:
+  // the reply prompt carries it per message (speakerDirective),
+  // the thread's speaker label renders it, and the reply pop-up
+  // rises on the addressed god's face — so the label and the words
+  // can never disagree again (the 2026-11-23 screenshots: a reply
+  // labeled ANUBIS whose words denied being Anubis).
+  const [addressee, setAddressee] = useState<Addressee>(DEFAULT_ADDRESSEE);
+  const addresseeRef = useRef<Addressee>(DEFAULT_ADDRESSEE);
+  const applyAddressee = useCallback((next: Addressee) => {
+    addresseeRef.current = next;
+    setAddressee(next);
+  }, []);
   // PRESENCE DOCTRINE (owner order 2026-11-22; rules in
   // presenceDoctrine.ts): Anubis is resident — alone on the stage by
   // default. The Black Hatter is PUT AWAY until the Owner seat
@@ -662,6 +704,9 @@ export function AvatarStage({
   const conversationView = conversationViewFor(perspective, council);
   const selectGod = useCallback(
     (god: GodPerspective) => {
+      // Turning to a god turns the CONVERSATION to him too
+      // (routing law): his name tapped is his name addressed.
+      applyAddressee(god);
       // Residency first: a non-resident god tapped by name is
       // SUMMONED onto the stage; returning to Anubis puts the
       // Black Hatter away again — the resident holds the stage.
@@ -686,7 +731,7 @@ export function AvatarStage({
       }
       setPerspective(god);
     },
-    [perspective, council, summonGod, seatBesideAnubis],
+    [perspective, council, summonGod, seatBesideAnubis, applyAddressee],
   );
   const selectOwner = useCallback(() => {
     // The Owner seat brings the Black Hatter BACK onto the stage
@@ -871,10 +916,19 @@ export function AvatarStage({
       return;
     }
     if (lastResponsePopRef.current === lastWords) return;
+    // OSIRIS'S PLACE (routing law): the core speaks from the chat
+    // window — his lines never borrow a god's face for a pop-up.
+    if (addressee === "osiris") return;
     lastResponsePopRef.current = lastWords;
     notificationIdRef.current += 1;
-    setGodPopUp({ id: notificationIdRef.current, god: "anubis", text: lastWords });
-  }, [state, lastWords, responseSource, worldScreen, clearScreen]);
+    // The reply is delivered by the ADDRESSED god's face (routing
+    // law): Montu's words rise on Montu, Anubis's on Anubis.
+    setGodPopUp({
+      id: notificationIdRef.current,
+      god: addressee === "montu" ? "montu" : "anubis",
+      text: lastWords,
+    });
+  }, [state, lastWords, responseSource, worldScreen, clearScreen, addressee]);
   const recordReply = useCallback((text: string) => {
     setTranscript((prev) =>
       appendReplyHistory(prev, {
@@ -882,6 +936,10 @@ export function AvatarStage({
         question: lastQuestionRef.current,
         answer: text,
         source: lastUserSourceRef.current,
+        // The speaker of record (routing law): the addressee at
+        // this reply's moment — the same state the reply prompt
+        // carried — so the log's label is the name that spoke.
+        speaker: ADDRESSEE_NAMES[addresseeRef.current],
       }),
     );
     // Every exchange also goes to the CORE's durable memory (Part 30):
@@ -1048,11 +1106,48 @@ export function AvatarStage({
         spot ??= { x: 0, z: -1 };
       }
       const item = makePlacedItem(newBuilderItemId(), baseId, defaultVariant(base), spot.x, spot.z);
-      updateRoom(addItem(current, item));
+      const placed = addItem(current, item);
+      // A piece dropped on dark ground claims its plot and covers
+      // it (owner order 2026-11-23) — nothing he builds floats on
+      // the void. Home plots are the room's own ground already.
+      const landed = placed.items.find((entry) => entry.id === item.id);
+      updateRoom(landed ? claimPlot(placed, plotAtPoint(landed.x, landed.z)) : placed);
       setBuilderSelection(item.id);
     },
     [newBuilderItemId, updateRoom],
   );
+
+  /* ------------------- travelling the built world ------------------- */
+
+  // Stand the stage view over a point of the built world; the
+  // renderer clamps to the world's edge and the state mirrors its
+  // ruling, so the panel and the map read the true view center.
+  const panWorldTo = useCallback((x: number, z: number) => {
+    const renderer = rendRef.current;
+    if (!renderer) return;
+    renderer.setWorldPan(x, z);
+    setWorldPan(renderer.getWorldPan());
+  }, []);
+
+  // Who stands in the built world, for its map: the gods at the
+  // command seat on the home plot (where their medallions stand),
+  // and AUGI at his true floor spot, read from the renderer.
+  const getWorldInhabitants = useCallback((): WorldInhabitant[] => {
+    const souls: WorldInhabitant[] = [];
+    if (worldScreenRef.current === "live") {
+      souls.push({ id: "anubis", name: "Anubis", x: 0, z: -3, kind: "god" });
+      if (godOnStage(residencyRef.current, "montu"))
+        souls.push({ id: "montu", name: "Montu", x: -2.6, z: -3, kind: "god" });
+      if (residencyRef.current.ownerPresent)
+        souls.push({ id: "black-hatter", name: "Black Hatter", x: 2.6, z: -3, kind: "god" });
+    }
+    const renderer = rendRef.current;
+    if (renderer?.constructVisible) {
+      const spot = renderer.figureWorldPosition();
+      souls.push({ id: "augi", name: "AUGI", x: spot.x, z: spot.z, kind: "construct" });
+    }
+    return souls;
+  }, []);
 
   // Dragging pieces on the stage itself: capture-phase on the stage
   // root, so a press that lands on a placed piece is the builder's
@@ -1062,6 +1157,12 @@ export function AvatarStage({
     const root = stageRootRef.current;
     if (!root || !builderOpen || worldScene !== "room") return;
     let drag: { id: string; dx: number; dz: number } | null = null;
+    // A press on empty ground is either a click (clears the pick)
+    // or a travel drag (pans the world view) — decided by how far
+    // the hand actually moves (owner order 2026-11-23: drag the
+    // ground to go somewhere else in the world and build there).
+    let groundPress: { startX: number; startY: number; panX: number; panZ: number; moved: boolean } | null =
+      null;
     const onDown = (event: PointerEvent) => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       if (!(event.target as HTMLElement | null)?.closest?.("canvas")) return;
@@ -1088,7 +1189,31 @@ export function AvatarStage({
       }
       const id = renderer.builderPick(event.clientX, event.clientY);
       if (!id) {
-        setBuilderSelection(null);
+        // LAYING GROUND (owner order 2026-11-23): with the
+        // ground-laying hand armed, a tap on the world floor
+        // covers that plot — or takes the cover back up. Home
+        // plots are the room's own ground and never toggle.
+        if (layGroundArmedRef.current) {
+          const floor = renderer.builderFloorPoint(event.clientX, event.clientY);
+          if (floor) {
+            const plot = plotAtPoint(floor.x, floor.z);
+            const current = activeLayout(layoutStoreRef.current).room;
+            if (current.plots.some((entry) => entry.x === plot.x && entry.z === plot.z)) {
+              updateRoom(unclaimPlot(current, plot));
+            } else if (!plotClaimed(current, plot)) {
+              updateRoom(claimPlot(current, plot));
+            }
+          }
+          return;
+        }
+        const pan = renderer.getWorldPan();
+        groundPress = {
+          startX: event.clientX,
+          startY: event.clientY,
+          panX: pan.x,
+          panZ: pan.z,
+          moved: false,
+        };
         return;
       }
       event.stopPropagation();
@@ -1100,15 +1225,35 @@ export function AvatarStage({
       drag = { id, dx: floor ? item.x - floor.x : 0, dz: floor ? item.z - floor.z : 0 };
     };
     const onMove = (event: PointerEvent) => {
-      if (!drag) return;
       const renderer = rendRef.current;
       if (!renderer) return;
+      if (groundPress) {
+        const dx = event.clientX - groundPress.startX;
+        const dy = event.clientY - groundPress.startY;
+        if (Math.hypot(dx, dy) > 4) groundPress.moved = true;
+        if (groundPress.moved) {
+          // The ground follows the hand: drag right, the view
+          // travels west; drag down, it travels north.
+          const perPixel = renderer.worldUnitsPerPixel();
+          panWorldTo(groundPress.panX - dx * perPixel, groundPress.panZ - dy * perPixel * 1.6);
+        }
+        return;
+      }
+      if (!drag) return;
       const floor = renderer.builderFloorPoint(event.clientX, event.clientY);
       if (!floor) return;
       const current = activeLayout(layoutStoreRef.current).room;
       updateRoom(moveItem(current, drag.id, floor.x + drag.dx, floor.z + drag.dz));
     };
     const onUp = () => {
+      if (groundPress && !groundPress.moved) setBuilderSelection(null);
+      groundPress = null;
+      if (drag) {
+        // A piece set down on dark ground claims its plot.
+        const current = activeLayout(layoutStoreRef.current).room;
+        const landed = current.items.find((entry) => entry.id === drag!.id);
+        if (landed) updateRoom(claimPlot(current, plotAtPoint(landed.x, landed.z)));
+      }
       drag = null;
     };
     root.addEventListener("pointerdown", onDown, true);
@@ -1121,7 +1266,65 @@ export function AvatarStage({
       root.removeEventListener("pointerup", onUp, true);
       root.removeEventListener("pointercancel", onUp, true);
     };
-  }, [builderOpen, worldScene, updateRoom]);
+  }, [builderOpen, worldScene, updateRoom, panWorldTo]);
+
+  // TRAVEL BY KEY (owner order 2026-11-23): the arrow keys move
+  // the view one plot at a time while the builder is open — hold
+  // to travel. Never while he is typing somewhere.
+  useEffect(() => {
+    if (!builderOpen || worldScene !== "room") return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      )
+        return;
+      const step = 11; // one plot
+      const pan = worldPanRef.current;
+      if (event.key === "ArrowLeft") panWorldTo(pan.x - step, pan.z);
+      else if (event.key === "ArrowRight") panWorldTo(pan.x + step, pan.z);
+      else if (event.key === "ArrowUp") panWorldTo(pan.x, pan.z - step);
+      else if (event.key === "ArrowDown") panWorldTo(pan.x, pan.z + step);
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [builderOpen, worldScene, panWorldTo]);
+
+  // THE SELECTED PIECE'S CONTROL CLUSTER (owner order 2026-11-23):
+  // while a piece is picked, track where it stands on screen so
+  // its controls can sit beside it — move, turn, delete, done,
+  // right at the piece, no hunting through the panel.
+  useEffect(() => {
+    if (!builderOpen || !builderSelection) {
+      setSelectionPoint(null);
+      return;
+    }
+    const track = () => {
+      const renderer = rendRef.current;
+      const root = stageRootRef.current;
+      if (!renderer || !root) return;
+      const point = renderer.builderItemScreenPoint(builderSelection);
+      if (!point) {
+        setSelectionPoint(null);
+        return;
+      }
+      const w = root.clientWidth || 1;
+      const h = root.clientHeight || 1;
+      setSelectionPoint({
+        x: Math.min(Math.max(point.x, 110), Math.max(110, w - 110)),
+        y: Math.min(Math.max(point.y, 70), Math.max(70, h - 40)),
+      });
+    };
+    track();
+    const timer = window.setInterval(track, 120);
+    return () => window.clearInterval(timer);
+  }, [builderOpen, builderSelection]);
 
   const builderLayoutOps = useMemo(
     () => ({
@@ -1607,6 +1810,9 @@ export function AvatarStage({
   const dismissGod = useCallback(
     (god: GodPerspective) => {
       const name = god === "montu" ? MONTU_BINDING.name : ANUBIS_BINDING.name;
+      // A dismissed god leaves the conversation too (routing law):
+      // the address falls back to the resident commander.
+      if (addresseeRef.current === god) applyAddressee(DEFAULT_ADDRESSEE);
       setBowingGod(god);
       say(closeWithBlessing(`As you command, Captain — ${name} bows and returns to his work`));
       if (bowTimerRef.current !== null) window.clearTimeout(bowTimerRef.current);
@@ -1619,7 +1825,7 @@ export function AvatarStage({
         setPerspective((current) => (current === god ? DEFAULT_STAGE_PERSPECTIVE : current));
       }, 1600);
     },
-    [say],
+    [say, applyAddressee],
   );
 
   function togglePresent() {
@@ -1645,6 +1851,27 @@ export function AvatarStage({
           setHatterSpeaking(false);
           hatterSpeechTimer.current = null;
         }, speakingMsForText(text));
+      }
+      // ROUTING (owner order 2026-11-23; rules in addressee.ts):
+      // an explicit address — a god named at the head of the line,
+      // typed or spoken — turns the conversation to that god BEFORE
+      // anything answers, so the prompt, the label, and the pop-up
+      // all read the new addressee for this very message. A stage
+      // god not yet up is pulled up (the pop-in doctrine) through
+      // the same seat a tap takes. Osiris is addressed in place:
+      // his seat is the chat window, and nothing on the stage moves
+      // for him. A passing mention never routes (detectAddressee is
+      // conservative by design).
+      const addressedGod = detectAddressee(text);
+      if (addressedGod && addressedGod !== addresseeRef.current) {
+        applyAddressee(addressedGod);
+        if (
+          addressedGod === "montu" &&
+          perspectiveRef.current !== "montu" &&
+          !residencyRef.current.summoned.includes("montu")
+        ) {
+          selectGodRef.current("montu");
+        }
       }
       const applyInterfaceCommand = (type: "clear-screen" | "show-screen" | "silence") => {
         if (type === "clear-screen") {
@@ -1673,6 +1900,14 @@ export function AvatarStage({
       if (/^(open|show|start)?\s*(the\s+)?(environment\s+)?builder$/i.test(commandText.trim())) {
         setBuilderOpen(true);
         say("The Environment Builder is open, Captain. Design the Room your way.");
+        return;
+      }
+      if (
+        /^(open|show)?\s*(the\s+)?(my|built)\s+world(\s+map)?$/i.test(commandText.trim()) ||
+        /^(open|show)\s+my\s+world$/i.test(commandText.trim())
+      ) {
+        setBuiltWorldMapOpen(true);
+        say("Your built world, Captain — every plot and piece, and where everyone stands.");
         return;
       }
       if (/^(open|show)?\s*(the\s+)?(world\s+)?map$/i.test(commandText.trim())) {
@@ -2270,6 +2505,11 @@ export function AvatarStage({
       system: `${DEFAULT_SYSTEM_PROMPT}${CORE_LAW_PROMPT}
 ${PERSONALITY_PROMPT}
 ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
+      // The speaker directive, read fresh per message from the
+      // routing state (routing law): this reply speaks as the
+      // addressee, under his name — the same name the thread label
+      // shows for it.
+      getSpeakerDirective: () => speakerDirective(addresseeRef.current),
       onSpeak: (text) => {
         setLastWords(text);
         recordReply(text);
@@ -2289,7 +2529,9 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       // above simulated.) When it answers, its provider name —
       // "On-phone brain (small)" — is what the reply is labeled with.
       onPhoneFallback: async (text) => {
-        const answer = await askPhoneBrain(text);
+        // The small brain gets the same routing (routing law):
+        // it speaks as the addressed presence, under the same name.
+        const answer = await askPhoneBrain(text, [], addresseeRef.current);
         return answer ? { answer, provider: PHONE_BRAIN_PROVIDER } : null;
       },
       findOfflineAnswer: (text) => {
@@ -3094,7 +3336,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             can only move on his measured voice. */}
         <VoiceIndicator
           ear={earRef.current}
-          addressee={perspective === "montu" ? MONTU_BINDING.name : ANUBIS_BINDING.name}
+          addressee={ADDRESSEE_NAMES[addressee]}
         />
       </div>
       <div className="avatar-hud avatar-hud--tl" style={frameStyle("hud-core")} {...frameDragProps("hud-core", true)}>
@@ -3144,6 +3386,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onToggleVoice={() => earRef.current?.toggle()}
           responseLine={lastWords}
           responseSource={responseSource}
+          speakerName={ADDRESSEE_NAMES[addressee]}
           userLine={lastUserMessage}
           userSource={lastUserSource}
           history={transcript}
@@ -3395,6 +3638,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setMapOpen((open) => !open)}
                   />
                   <CommandAction
+                    icon={LandPlot}
+                    label={builtWorldMapOpen ? "Built World · open" : "Built World"}
+                    onClick={() => setBuiltWorldMapOpen((open) => !open)}
+                  />
+                  <CommandAction
                     icon={Building2}
                     label="Departments"
                     onClick={() => setDepartmentsOpen(true)}
@@ -3403,6 +3651,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     icon={Smartphone}
                     label="Phone Bridge — Ghost Protocol One"
                     onClick={() => void navigate({ to: "/phone-bridge" })}
+                  />
+                  <CommandAction
+                    icon={BookOpen}
+                    label="Master Manual"
+                    onClick={() => void navigate({ to: "/manual" })}
                   />
                 </div>
               </CommandGroup>
@@ -3743,6 +3996,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             const state = earRef.current?.currentState;
             return state === "starting" || state === "listening" || state === "transcribing";
           }}
+          onAlert={(text) => notify("sound-watch security", text)}
         />
       )}
       {analyzeOpen && <AnalyticWindow onClose={() => setAnalyzeOpen(false)} />}
@@ -3830,8 +4084,30 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             onToggleFramesArmed={() => setFramesArmed((armed) => !armed)}
             onResetFrame={(id) => setFrameStore((store) => withoutFrame(store, id))}
             onResetAllFrames={() => setFrameStore({})}
+            worldView={worldPan}
+            onGoHome={() => panWorldTo(0, 0)}
+            layGroundArmed={layGroundArmed}
+            onToggleLayGround={() => setLayGroundArmed((armed) => !armed)}
           />
         </FloatingWindow>
+      )}
+      {builderOpen && builderSelection && selectionPoint && (
+        <BuilderSelectionCluster
+          room={activeLayout(layoutStore).room}
+          selectedId={builderSelection}
+          point={selectionPoint}
+          onRotate={(id, rotation) =>
+            updateRoom(rotateItem(activeLayout(layoutStoreRef.current).room, id, rotation))
+          }
+          onToggleAnchor={(id, anchored) =>
+            updateRoom(setItemAnchored(activeLayout(layoutStoreRef.current).room, id, anchored))
+          }
+          onRemove={(id) => {
+            updateRoom(removeItem(activeLayout(layoutStoreRef.current).room, id));
+            if (builderSelection === id) setBuilderSelection(null);
+          }}
+          onDone={() => setBuilderSelection(null)}
+        />
       )}
       {mapOpen && (
         <FloatingWindow
@@ -3842,6 +4118,22 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           initialHeight={600}
         >
           <MapPanel />
+        </FloatingWindow>
+      )}
+      {builtWorldMapOpen && (
+        <FloatingWindow
+          id="built-world-map"
+          title="Built World — your world, mapped"
+          onClose={() => setBuiltWorldMapOpen(false)}
+          initialWidth={560}
+          initialHeight={580}
+        >
+          <BuiltWorldMapPanel
+            room={activeLayout(layoutStore).room}
+            getInhabitants={getWorldInhabitants}
+            viewCenter={worldPan}
+            onGoTo={panWorldTo}
+          />
         </FloatingWindow>
       )}
       {snapGuides?.vertical !== undefined && (

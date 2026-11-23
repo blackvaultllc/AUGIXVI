@@ -3121,6 +3121,87 @@
 }
 
 /* THE COMMAND MAP */
+/* THE PICKED PIECE'S CONTROL CLUSTER (owner order 2026-11-23):
+   the controls ride beside the piece itself on the stage — a
+   small solid card (text always on its own ground), clear of the
+   medallion, following the piece as the view travels. */
+.builder-selection-cluster {
+  position: absolute;
+  z-index: 30;
+  transform: translate(-50%, calc(-100% - 14px));
+  min-width: 13rem;
+  max-width: 17rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #d4af37;
+  border-radius: 0.5rem;
+  background: rgba(10, 12, 16, 0.92);
+  color: #f2f6ff;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  pointer-events: auto;
+}
+.builder-selection-cluster__name {
+  margin: 0 0 0.15rem;
+  color: #ffd75e;
+  font-weight: 700;
+}
+.builder-selection-cluster__line {
+  margin: 0 0 0.45rem;
+  color: #cfe1ff;
+  font-size: 0.8rem;
+}
+.builder-selection-cluster__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* THE BUILT-WORLD MAP (owner order 2026-11-23): his world as a
+   map — darkness, claimed ground, pieces, inhabitants. */
+.built-world-map {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #f2f6ff;
+}
+.built-world-map__svg {
+  width: 100%;
+  height: auto;
+  border: 1px solid #3d5a85;
+  border-radius: 0.45rem;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+.built-world-map__label {
+  fill: #ffd75e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.built-world-map__soul {
+  fill: #f2f6ff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.built-world-map__row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+.built-world-map__where {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #cfe1ff;
+}
+.built-world-map__where svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .map-panel {
   display: flex;
   flex-direction: column;

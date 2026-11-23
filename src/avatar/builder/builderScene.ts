@@ -20,7 +20,15 @@
  */
 import * as THREE from "three";
 import { colorHex, libraryItem, sizeScale } from "./library";
-import type { PlacedItem, RoomContent } from "./room";
+import { backdropById } from "./backdrops";
+import {
+  PLOT_SIZE,
+  plotCenter,
+  standingFloorImage,
+  type GroundPlot,
+  type PlacedItem,
+  type RoomContent,
+} from "./room";
 
 /** Same ground line the SceneManager and the living world build on. */
 const GROUND_Y = -3.2;
@@ -537,6 +545,8 @@ function disposeGroup(group: THREE.Group) {
 export class BuilderSceneManager {
   private group = new THREE.Group();
   private entries = new Map<string, { group: THREE.Group; signature: string; ring: THREE.Mesh }>();
+  private plotMeshes = new Map<string, THREE.Mesh>();
+  private plotSignature = "";
   private selectionRing: THREE.Mesh;
   private selectedId: string | null = null;
 
@@ -570,6 +580,7 @@ export class BuilderSceneManager {
 
   /** Reconcile the rendered items with the room data. */
   setRoom(room: RoomContent) {
+    this.setPlots(room);
     const seen = new Set<string>();
     for (const item of room.items) {
       seen.add(item.id);
@@ -643,12 +654,87 @@ export class BuilderSceneManager {
     return [...this.entries.values()].map((entry) => entry.group);
   }
 
+  /** A placed item's floor spot in room coordinates, or null. */
+  itemWorldPoint(id: string): { x: number; z: number } | null {
+    const entry = this.entries.get(id);
+    if (!entry) return null;
+    const p = entry.group.position;
+    return { x: p.x, z: p.z };
+  }
+
+  /**
+   * THE CLAIMED PLOTS (owner order 2026-11-23): each claimed plot
+   * in the wider world gets the room's floor laid over the
+   * darkness — his solid color, or his floor picture — one plane
+   * per plot, reconciled like the items. A change of floor choice
+   * re-lays every plot (the signature carries the choice).
+   */
+  private setPlots(room: RoomContent) {
+    const surfaces = room.surfaces;
+    const signature = `${surfaces.floorStyle}|${surfaces.floor}|${surfaces.floorImage ?? ""}`;
+    if (signature !== this.plotSignature) {
+      for (const mesh of this.plotMeshes.values()) {
+        this.group.remove(mesh);
+        disposeGroup(mesh as unknown as THREE.Group);
+      }
+      this.plotMeshes.clear();
+      this.plotSignature = signature;
+    }
+    const seen = new Set<string>();
+    for (const plot of room.plots) {
+      const key = `${plot.x},${plot.z}`;
+      seen.add(key);
+      if (this.plotMeshes.has(key)) continue;
+      const mesh = this.buildPlotMesh(plot, room);
+      this.plotMeshes.set(key, mesh);
+      this.group.add(mesh);
+    }
+    for (const [key, mesh] of this.plotMeshes) {
+      if (seen.has(key)) continue;
+      this.group.remove(mesh);
+      disposeGroup(mesh as unknown as THREE.Group);
+      this.plotMeshes.delete(key);
+    }
+  }
+
+  private buildPlotMesh(plot: GroundPlot, room: RoomContent): THREE.Mesh {
+    const center = plotCenter(plot);
+    const surfaces = room.surfaces;
+    const floorArt =
+      surfaces.floorStyle === "picture" ? backdropById(standingFloorImage(surfaces)) : null;
+    const material = new THREE.MeshBasicMaterial({ depthWrite: false });
+    if (floorArt) {
+      try {
+        new THREE.TextureLoader().load(floorArt.src, (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          material.map = texture;
+          material.needsUpdate = true;
+        });
+      } catch {
+        // No image loading here (test DOMs): the plot keeps the
+        // floor color rather than pretending to be the picture.
+        material.color = new THREE.Color(surfaces.floor);
+      }
+    } else {
+      material.color = new THREE.Color(surfaces.floor);
+    }
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(PLOT_SIZE, PLOT_SIZE), material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(center.x, 0.006, center.z);
+    mesh.name = `builder-plot-${plot.x}-${plot.z}`;
+    return mesh;
+  }
+
   dispose() {
     for (const entry of this.entries.values()) {
       disposeGroup(entry.group);
       disposeGroup(entry.ring as unknown as THREE.Group);
     }
     this.entries.clear();
+    for (const mesh of this.plotMeshes.values()) {
+      disposeGroup(mesh as unknown as THREE.Group);
+    }
+    this.plotMeshes.clear();
     this.group.removeFromParent();
   }
 }

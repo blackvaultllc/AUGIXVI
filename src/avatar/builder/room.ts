@@ -58,6 +58,16 @@ export type RoomSurfaces = {
   floorImage: string | null;
   /** The back-wall color. */
   wall: string;
+  /**
+   * THE WORLD SKY (owner order 2026-11-23): a picture standing
+   * far behind the built world — stars and space above, earth
+   * below, the horizon he looks at from out in his world. A
+   * backdrop asset id, or null for plain darkness. DISTINCT from
+   * the room's backdrop: the backdrop hangs on the home wall; the
+   * sky belongs to the open world and follows the view as he
+   * travels, the way a real sky does.
+   */
+  skyImage: string | null;
 };
 
 /** The shipped Room: warm white, pale blue-gray solid floor, soft wall. */
@@ -68,6 +78,7 @@ export const DEFAULT_SURFACES: RoomSurfaces = {
   floorStyle: "color",
   floorImage: null,
   wall: "#aebfd8",
+  skyImage: null,
 };
 
 /** The floor picture that actually stands, or null when none can. */
@@ -93,6 +104,8 @@ export type PlacedItem = {
 export type RoomContent = {
   surfaces: RoomSurfaces;
   items: PlacedItem[];
+  /** Claimed ground plots in the wider world (never home plots). */
+  plots: GroundPlot[];
 };
 
 export type RoomLayout = {
@@ -101,20 +114,82 @@ export type RoomLayout = {
   room: RoomContent;
 };
 
-/** Where items may stand: the framed floor of the Room. */
+/** Where the home plot is: the framed floor of the Room. The home
+ * plot's coordinates NEVER move — the wider world (below) extends
+ * AROUND this origin, so every saved layout loads exactly as it
+ * was saved (owner order 2026-11-23: build a world, piece by
+ * piece, around the home he already has). */
 export const ROOM_BOUNDS = { x: 10.5, zBack: -8.5, zFront: 2.5 } as const;
+
+/**
+ * THE WIDER WORLD (owner order 2026-11-23): the ground runs far
+ * past the home plot in every direction, and pieces may stand
+ * anywhere in it. Beyond the home plot the unbuilt world is
+ * darkness — no fake terrain — until he claims a plot and lays
+ * ground cover on it (see GroundPlot below). Item positions clamp
+ * to the world's edge, not the home plot's frame: that widening is
+ * the whole point of this round, and the old home-frame clamp pin
+ * in the tests was updated to say so.
+ */
+export const WORLD_BOUNDS = { x: 120, zBack: -120, zFront: 120 } as const;
 
 export function clampRoomPoint(x: number, z: number): { x: number; z: number } {
   const clamp = (value: number, min: number, max: number) =>
     Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : 0;
   return {
-    x: clamp(x, -ROOM_BOUNDS.x, ROOM_BOUNDS.x),
-    z: clamp(z, ROOM_BOUNDS.zBack, ROOM_BOUNDS.zFront),
+    x: clamp(x, -WORLD_BOUNDS.x, WORLD_BOUNDS.x),
+    z: clamp(z, WORLD_BOUNDS.zBack, WORLD_BOUNDS.zFront),
   };
 }
 
+/* --------------------------- ground plots ----------------------------- */
+/**
+ * A claimed piece of the wider world. The world is read as a grid
+ * of square plots, PLOT_SIZE world units on a side, indexed from
+ * the home origin — plot (0, 0) covers x 0…11, z 0…11; plot
+ * (-1, -1) covers x −11…0, z −11…0. A claimed plot renders with
+ * the room's floor choice (his color — grass green included — or
+ * his floor picture) laid over the darkness. The four plots the
+ * home floor already covers are HOME plots: always covered by the
+ * room itself, never stored in the claimed list.
+ */
+export const PLOT_SIZE = 11;
+
+export type GroundPlot = { x: number; z: number };
+
+export function plotAtPoint(x: number, z: number): GroundPlot {
+  return { x: Math.floor(x / PLOT_SIZE), z: Math.floor(z / PLOT_SIZE) };
+}
+
+export function plotCenter(plot: GroundPlot): { x: number; z: number } {
+  return { x: (plot.x + 0.5) * PLOT_SIZE, z: (plot.z + 0.5) * PLOT_SIZE };
+}
+
+export function isHomePlot(plot: GroundPlot): boolean {
+  return plot.x >= -1 && plot.x <= 0 && plot.z >= -1 && plot.z <= 0;
+}
+
+export function samePlot(a: GroundPlot, b: GroundPlot): boolean {
+  return a.x === b.x && a.z === b.z;
+}
+
+export function claimPlot(room: RoomContent, plot: GroundPlot): RoomContent {
+  if (isHomePlot(plot)) return room;
+  if (room.plots.some((entry) => samePlot(entry, plot))) return room;
+  return { ...room, plots: [...room.plots, plot] };
+}
+
+export function unclaimPlot(room: RoomContent, plot: GroundPlot): RoomContent {
+  if (!room.plots.some((entry) => samePlot(entry, plot))) return room;
+  return { ...room, plots: room.plots.filter((entry) => !samePlot(entry, plot)) };
+}
+
+export function plotClaimed(room: RoomContent, plot: GroundPlot): boolean {
+  return isHomePlot(plot) || room.plots.some((entry) => samePlot(entry, plot));
+}
+
 export function emptyRoom(): RoomContent {
-  return { surfaces: { ...DEFAULT_SURFACES }, items: [] };
+  return { surfaces: { ...DEFAULT_SURFACES }, items: [], plots: [] };
 }
 
 /* ------------------------------ item ops ------------------------------ */
@@ -235,6 +310,9 @@ export function sanitizeSurfaces(raw: unknown): RoomSurfaces {
     floorStyle,
     floorImage,
     wall: pick(value.wall, DEFAULT_SURFACES.wall),
+    // The world sky: only a picture from his own registry may
+    // stand over the world — an unknown id reads as no sky.
+    skyImage: backdropById(value.skyImage)?.id ?? null,
   };
 }
 
@@ -271,12 +349,29 @@ export function sanitizeItem(raw: unknown): PlacedItem | null {
   };
 }
 
+export function sanitizePlot(raw: unknown): GroundPlot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Partial<GroundPlot>;
+  if (typeof value.x !== "number" || typeof value.z !== "number") return null;
+  if (!Number.isFinite(value.x) || !Number.isFinite(value.z)) return null;
+  const plot = { x: Math.trunc(value.x), z: Math.trunc(value.z) };
+  // Home plots are the room's own ground — never stored as claims.
+  return isHomePlot(plot) ? null : plot;
+}
+
 export function sanitizeRoom(raw: unknown): RoomContent {
   const value = (raw ?? {}) as Partial<RoomContent>;
   const items = Array.isArray(value.items)
     ? value.items.map(sanitizeItem).filter((item): item is PlacedItem => item !== null)
     : [];
-  return { surfaces: sanitizeSurfaces(value.surfaces), items };
+  const plots: GroundPlot[] = [];
+  if (Array.isArray(value.plots)) {
+    for (const rawPlot of value.plots) {
+      const plot = sanitizePlot(rawPlot);
+      if (plot && !plots.some((entry) => samePlot(entry, plot))) plots.push(plot);
+    }
+  }
+  return { surfaces: sanitizeSurfaces(value.surfaces), items, plots };
 }
 
 /* ------------------------- the portable package ------------------------ */
@@ -297,6 +392,7 @@ export function exportRoomPackage(layout: RoomLayout): string {
       name: layout.name,
       surfaces: layout.room.surfaces,
       items: layout.room.items,
+      plots: layout.room.plots,
     },
     null,
     2,

@@ -52,6 +52,7 @@ vi.mock("@/avatar/watchVitals.server", () => ({
 }));
 
 import { Route as PhoneBridgeRoute } from "@/routes/phone-bridge";
+import { Route as ManualRoute } from "@/routes/manual";
 import { Route as AnalyzeRoute } from "@/routes/avatar_.analyze";
 import { Route as CubeRoute } from "@/routes/avatar_.cube";
 import { Route as WorldRoute } from "@/routes/avatar_.world";
@@ -63,6 +64,7 @@ function pageComponent(route: unknown): ComponentType {
 
 const PAGES: Array<{ path: string; route: unknown; title: string }> = [
   { path: "/phone-bridge", route: PhoneBridgeRoute, title: "Ghost Protocol One — Phone Bridge" },
+  { path: "/manual", route: ManualRoute, title: "Master Manual" },
   { path: "/avatar/analyze", route: AnalyzeRoute, title: "Picture Analysis — Analytic Window" },
   { path: "/avatar/cube", route: CubeRoute, title: "AR Cube" },
   { path: "/avatar/world", route: WorldRoute, title: "World of Logic" },
