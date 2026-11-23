@@ -19,11 +19,24 @@
  * like chat, an honest working line names the model and counts the
  * seconds from the first second, and any failure lands as a labeled
  * error on the surface — never a silent blank.
+ *
+ * MARKS + ORIENTATION (owner order 2026-11-23): the result picture
+ * renders LARGE and hugging its frame (the old 40vh cap left a
+ * small picture beside a void), every finding is NUMBERED and the
+ * same number is drawn on the picture at the finding's place —
+ * from a real second placement pass (analysisAnnotations), never
+ * invented coordinates; a finding the model cannot place stays
+ * unmarked and says so. Uploaded photos are turned upright from
+ * their own EXIF orientation mark before they are shown OR read,
+ * so the operator and the model see the same upright picture.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadBrainAddress } from "./brain";
 import { parseAnalysis } from "./analysisParsing";
 import { CANONICAL_VISION_MODEL } from "./visionModel";
+import { PLACEMENT_FALLBACK_NOTE, placeFindings, type PlacedFinding } from "./analysisAnnotations";
+import { normalizeImageOrientation } from "./imageOrientation";
+import { AnnotatedAnalysis } from "./AnnotatedAnalysis";
 
 const ANALYZE_PROMPT = [
   "You are the analytic window of Augie, a local AI assistant.",
@@ -137,9 +150,7 @@ export async function analyzeImageBase64(args: {
     const res = await fetchFn(`${args.brain}/api/tags`);
     if (!res.ok) throw new Error(`Ollama answered ${res.status}`);
     const data = (await res.json()) as { models?: { name?: string }[] };
-    installed = (data.models ?? [])
-      .map((m) => m.name)
-      .filter((n): n is string => Boolean(n));
+    installed = (data.models ?? []).map((m) => m.name).filter((n): n is string => Boolean(n));
   } catch {
     throw new Error(`the vision model is not answering at ${args.brain}`);
   }
@@ -192,6 +203,16 @@ type Analysis = {
   model: string;
   at: number;
   source: string;
+  /** The exact picture that was read (already turned upright). */
+  image: string;
+  /** The numbered marks on the picture: pending while the
+   *  placement pass runs, placed with per-finding points, failed
+   *  with a plain-words note — never silently absent. */
+  marks:
+    | { kind: "none" }
+    | { kind: "pending" }
+    | { kind: "placed"; items: PlacedFinding[] }
+    | { kind: "failed"; note: string };
 };
 
 const panelStyle: React.CSSProperties = {
@@ -217,11 +238,44 @@ const primaryButtonStyle: React.CSSProperties = {
   color: "#141414",
 };
 
+/**
+ * The picture being read, shown LARGE while the reading streams —
+ * same hugging figure as the annotated result (width capped by the
+ * panel and by a 68vh height cap converted through the picture's
+ * own aspect), never a small picture beside a void.
+ */
+function LargePicture({ src, alt }: { src: string; alt: string }) {
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  return (
+    <figure
+      className="analyzer-figure"
+      style={
+        natural ? { width: `min(100%, ${(68 * natural.w) / natural.h}vh)` } : { width: "100%" }
+      }
+    >
+      <img
+        className="analyzer-figure__img"
+        src={src}
+        alt={alt}
+        onLoad={(event) => {
+          const img = event.currentTarget;
+          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+            setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+          }
+        }}
+      />
+    </figure>
+  );
+}
+
 export function PictureAnalysis() {
   const [brain] = useState(() => loadBrainAddress());
   const [modelState, setModelState] = useState<ModelState>({ status: "checking" });
   const [cameraOn, setCameraOn] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** Which pass is running: the reading itself, or the marker
+   *  placement pass that follows it. */
+  const [phase, setPhase] = useState<"reading" | "placing">("reading");
   /** Streaming state (defect fix 2026-11-22): the answer so far and
    * the seconds on the clock, both live from the first second. */
   const [streamText, setStreamText] = useState("");
@@ -311,6 +365,7 @@ export function PictureAnalysis() {
     if (modelState.status !== "ready" || !base64) return;
     const model = modelState.model;
     setBusy(true);
+    setPhase("reading");
     setError("");
     setPreview(dataUrl);
     setStreamText("");
@@ -344,13 +399,35 @@ export function PictureAnalysis() {
       ).trim();
       if (!text) throw new Error("the vision model returned an empty answer");
       const parsed = parseAnalysis(text);
+      const at = Date.now();
       setAnalysis({
         text: parsed.summary || text,
         findings: parsed.findings,
         model,
-        at: Date.now(),
+        at,
         source,
+        image: dataUrl,
+        marks: parsed.findings.length > 0 ? { kind: "pending" } : { kind: "none" },
       });
+      if (parsed.findings.length > 0) {
+        // The marker pass: the same model looks at the same picture
+        // again and places each finding on the 0–1000 grid. A failed
+        // pass falls back to the plain list and SAYS so — the marks
+        // are never faked and never silently missing.
+        setPhase("placing");
+        const outcome = await placeFindings({ brain, base64, findings: parsed.findings });
+        setAnalysis((prev) =>
+          prev && prev.at === at
+            ? {
+                ...prev,
+                marks:
+                  outcome.status === "placed"
+                    ? { kind: "placed", items: outcome.items }
+                    : { kind: "failed", note: PLACEMENT_FALLBACK_NOTE },
+              }
+            : prev,
+        );
+      }
     } catch (err) {
       const timedOut = err instanceof Error && err.name === "AbortError";
       if (partial.trim()) {
@@ -364,6 +441,14 @@ export function PictureAnalysis() {
           model,
           at: Date.now(),
           source: `${source} — PARTIAL (timed out at ${Math.round(ANALYZE_TIMEOUT_MS / 1000)}s)`,
+          image: dataUrl,
+          marks:
+            parsed.findings.length > 0
+              ? {
+                  kind: "failed",
+                  note: "The reading was cut off partway, so nothing is marked on the picture — this is the plain list.",
+                }
+              : { kind: "none" },
         });
         setError(
           `The vision model timed out at ${Math.round(ANALYZE_TIMEOUT_MS / 1000)} seconds — the answer above is what it produced before the cut-off, labeled partial. Nothing was invented.`,
@@ -426,7 +511,21 @@ export function PictureAnalysis() {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = String(reader.result ?? "");
-      void analyze(dataUrl.split(",")[1] ?? "", `picture file (${file.name})`, dataUrl);
+      const [head, payload] = dataUrl.split(",", 2);
+      const mime = /data:([^;]+)/.exec(head ?? "")?.[1] ?? file.type ?? "image/jpeg";
+      void (async () => {
+        // Turn the photo upright from its own EXIF mark BEFORE it is
+        // shown or read — a sideways photo reads sideways (the model
+        // itself reported a rotated frame, 2026-11-23).
+        const normalized = await normalizeImageOrientation({
+          base64: payload ?? "",
+          mime,
+        });
+        const source = normalized.corrected
+          ? `picture file (${file.name}) — turned upright from the photo's own orientation mark`
+          : `picture file (${file.name})`;
+        await analyze(normalized.base64, source, normalized.dataUrl);
+      })();
     };
     reader.onerror = () => setError("That picture could not be read.");
     reader.readAsDataURL(file);
@@ -435,7 +534,9 @@ export function PictureAnalysis() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       <section style={panelStyle} aria-label="Vision model status">
-        {modelState.status === "checking" && <p style={{ margin: 0 }}>Checking the local vision model…</p>}
+        {modelState.status === "checking" && (
+          <p style={{ margin: 0 }}>Checking the local vision model…</p>
+        )}
         {modelState.status === "ready" && (
           <p style={{ margin: 0 }}>
             Vision model ready: <b>{modelState.model}</b> — running locally on this machine at{" "}
@@ -447,9 +548,7 @@ export function PictureAnalysis() {
             {modelState.reason}
           </p>
         )}
-        <div
-          style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "8px" }}
-        >
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "8px" }}>
           <button
             type="button"
             style={buttonStyle}
@@ -507,7 +606,11 @@ export function PictureAnalysis() {
             onClick={scanRoom}
             disabled={!cameraOn || busy}
           >
-            {busy ? `Analyzing… ${elapsed}s` : "Scan the room"}
+            {busy
+              ? phase === "placing"
+                ? `Marking… ${elapsed}s`
+                : `Analyzing… ${elapsed}s`
+              : "Scan the room"}
           </button>
         </div>
       </section>
@@ -526,12 +629,13 @@ export function PictureAnalysis() {
         />
       </section>
 
-      {busy && (
+      {busy && phase === "reading" && (
         <section style={panelStyle} aria-label="Analysis in progress">
           <p style={{ margin: "0 0 8px" }} role="status">
-            Analyzing with <b>{modelState.status === "ready" ? modelState.model : "the vision model"}</b>
-            … {elapsed}s — running locally on this machine (CPU), so a full answer takes a
-            while. The words appear below as the model writes them.
+            Analyzing with{" "}
+            <b>{modelState.status === "ready" ? modelState.model : "the vision model"}</b>…{" "}
+            {elapsed}s — running locally on this machine (CPU), so a full answer takes a while. The
+            words appear below as the model writes them.
           </p>
           {streamText ? (
             (() => {
@@ -566,32 +670,42 @@ export function PictureAnalysis() {
         </p>
       )}
 
-      {preview && (
+      {preview && !analysis && (
         <section style={panelStyle} aria-label="Analyzed image">
           <h2 style={{ margin: "0 0 8px", fontSize: "17px" }}>Analyzed image</h2>
-          <img
-            src={preview}
-            alt="The picture that was analyzed"
-            style={{ maxWidth: "100%", maxHeight: "40vh", borderRadius: "8px" }}
-          />
+          <LargePicture src={preview} alt="The picture being analyzed" />
         </section>
       )}
 
       {analysis && (
         <section style={panelStyle} aria-label="Analysis result">
           <h2 style={{ margin: "0 0 8px", fontSize: "17px" }}>Analysis</h2>
-          <p style={{ margin: "0 0 8px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{analysis.text}</p>
-          {analysis.findings.length > 0 && (
+          <p style={{ margin: "0 0 8px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+            {analysis.text}
+          </p>
+          {analysis.findings.length > 0 && analysis.marks.kind !== "none" && (
             <>
               <h3 style={{ margin: "0 0 6px", fontSize: "15px" }}>Things found</h3>
-              <ul style={{ margin: "0 0 8px", paddingLeft: "20px", lineHeight: 1.5 }}>
-                {analysis.findings.map((finding, index) => (
-                  <li key={`${index}-${finding}`}>{finding}</li>
-                ))}
-              </ul>
+              <AnnotatedAnalysis
+                src={analysis.image}
+                alt="The picture that was analyzed, with the things found marked on it"
+                items={
+                  analysis.marks.kind === "placed"
+                    ? analysis.marks.items
+                    : analysis.findings.map((text) => ({ text, point: null }))
+                }
+                marksMode={
+                  analysis.marks.kind === "placed"
+                    ? "placed"
+                    : analysis.marks.kind === "failed"
+                      ? "failed"
+                      : "pending"
+                }
+                {...(analysis.marks.kind === "failed" ? { failureNote: analysis.marks.note } : {})}
+              />
             </>
           )}
-          <p style={{ margin: 0, fontSize: "13px", color: "#9fb0c9" }}>
+          <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#9fb0c9" }}>
             Source: {analysis.source} · Model: {analysis.model} ·{" "}
             {new Date(analysis.at).toLocaleTimeString()} · Analyzed locally on the Parrot.
           </p>

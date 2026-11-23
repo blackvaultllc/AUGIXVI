@@ -8414,3 +8414,129 @@
   line-height: 1.45;
   opacity: 0.65;
 }
+
+/* ANALYZER ROUND (Captain, 2026-11-23): the analyzed picture is the
+   main feature of its result — LARGE, hugging its frame, with the
+   numbered marks drawn on it. The old face capped the picture at
+   40vh tall inside a full-width panel, so a wide room showed a
+   small picture at the left and a void of dark panel beside it.
+   The figure's width is set inline as min(100%, 68vh × aspect) so
+   the box IS the picture — no void beside it, none below it. */
+.analyzer-annotated {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  align-items: flex-start;
+}
+.analyzer-figure {
+  position: relative;
+  flex: 0 1 auto;
+  margin: 0;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  line-height: 0;
+}
+.analyzer-figure__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.analyzer-figure__lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.analyzer-figure__leader line {
+  stroke: #d4af37;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.9;
+}
+.analyzer-figure__leader circle {
+  fill: none;
+  stroke: #d4af37;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.9;
+}
+.analyzer-figure__leader--active line,
+.analyzer-figure__leader--active circle {
+  stroke: #7dd3fc;
+  opacity: 1;
+}
+.analyzer-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #141414;
+  background: #d4af37;
+  color: #141414;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 60%);
+}
+.analyzer-marker--active {
+  background: #7dd3fc;
+  outline: 2px solid #eef2f7;
+  outline-offset: 1px;
+}
+.analyzer-findings {
+  flex: 1 1 260px;
+  min-width: min(260px, 100%);
+}
+.analyzer-draft-label {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: #f5c542;
+}
+.analyzer-findings__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.analyzer-findings__item {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 5px 8px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+.analyzer-findings__item--active {
+  background: #1a2336;
+  outline: 1px solid #7dd3fc;
+}
+.analyzer-findings__num {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #d4af37;
+  color: #141414;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+}
+.analyzer-findings__unplaced {
+  color: #9fb0c9;
+  font-size: 0.9em;
+}

@@ -866,6 +866,18 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         ],
         where: "Picture Analysis window.",
       },
+      {
+        id: "ts-analyzer-marks",
+        title: "The analyzer's numbered marks — and upright pictures",
+        state: "live",
+        what: "When a reading finishes, the analyzer takes a second look at the same picture and marks what it found: every item in the Things found list carries a number, and the same number sits on the picture beside the item, with a line drawn to the item itself. Hovering a list item lights its mark, and the other way around. The marks are a DRAFT — the model can invent details and misplace a mark, and the label on the page says so; trust the picture, not the words. An item the model cannot place gets NO mark and a plain note in the list — a mark is never faked. If the marker pass does not answer, the page shows the plain list and says that is what happened. The picture itself now fills its frame — no small picture beside a void. Uploaded photos are turned upright from their own EXIF orientation mark before they are shown or read, so a sideways phone photo reads upright; camera snapshots need no turning — their frames carry no orientation mark and already stand true.",
+        steps: [
+          "Analyze a picture and let both passes finish — the reading, then the marking.",
+          "Check the numbers: each list number should match the number drawn by its item on the picture.",
+          "If a mark sits on the wrong object, that is the draft being wrong — the picture is the truth; report it with a screenshot.",
+        ],
+        where: "Picture Analysis window and the /avatar/analyze page.",
+      },
     ],
   },
   {
