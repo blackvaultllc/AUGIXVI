@@ -7982,3 +7982,96 @@
     width: min(19rem, calc(100vw - 1.2rem));
   }
 }
+
+/* Sound Watch window (2026-11-23) — the room's ear: sound events,
+   distance estimates, and the Captain's learned sound library. */
+.window-soundwatch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+  font-size: 0.82rem;
+}
+.window-soundwatch h3 {
+  margin: 0.2rem 0 0.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.window-soundwatch__status {
+  margin: 0;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: rgba(52, 211, 153, 0.08);
+}
+.window-soundwatch__error {
+  margin: 0;
+  color: #f87171;
+  font-weight: 600;
+}
+.window-soundwatch__meter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.window-soundwatch__meter {
+  border-radius: 0.3rem;
+  flex: 0 0 auto;
+}
+.window-soundwatch__db {
+  font-variant-numeric: tabular-nums;
+  min-width: 3.2rem;
+}
+.window-soundwatch__log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.window-soundwatch__entry {
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+}
+.window-soundwatch__entry.is-alert {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+.window-soundwatch__tag {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
+}
+.window-soundwatch__char {
+  opacity: 0.8;
+  font-size: 0.76rem;
+  margin-top: 0.15rem;
+}
+.window-soundwatch__teach {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.4rem;
+  flex-wrap: wrap;
+}
+.window-soundwatch__teach input[type="text"] {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.window-soundwatch__alerts h3 {
+  color: #f87171;
+}
+.window-soundwatch__note {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.45;
+  opacity: 0.65;
+}
