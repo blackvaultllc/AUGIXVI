@@ -104,6 +104,26 @@ describe("local ear", () => {
     expect(events.states).toEqual(["starting", "error"]);
     expect(ear.currentState).toBe("error");
     expect(events.transcripts).toEqual([]);
+    // The indicator's snapshot carries the same plain-words reason.
+    const snapshot = ear.hearingSnapshot();
+    expect(snapshot.state).toBe("error");
+    expect(snapshot.lastError).toContain("permission was denied");
+  });
+
+  it("feeds the indicator the real measured level — and a true zero when the mic closes", async () => {
+    const levels = [0.1, 0.7, 0.2];
+    const { ear, tick } = makeHarness({}, levels);
+    const seen: number[] = [];
+    const unsubscribe = ear.subscribeLevel((level) => seen.push(level));
+    await ear.start();
+    tick();
+    tick();
+    tick();
+    expect(seen).toEqual([0.1, 0.7, 0.2]);
+    expect(ear.hearingSnapshot().state).toBe("listening");
+    ear.dispose(); // mic closes → the feed settles on a true zero
+    expect(seen[seen.length - 1]).toBe(0);
+    unsubscribe();
   });
 
   it("keeps listening through silence — no instant flip-off", async () => {

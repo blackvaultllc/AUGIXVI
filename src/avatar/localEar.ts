@@ -57,6 +57,21 @@ export interface EarEvents {
   onState?: (state: EarState) => void;
   /** A voice clip was blocked by the calibration gate (see above). */
   onVoiceRejected?: (rejection: VoiceRejection) => void;
+  /**
+   * The REAL microphone level (RMS, roughly 0..1), fired on every
+   * listening tick and with 0 whenever the mic closes — the feed for
+   * the stage's voice indicator graph (owner order 2026-11-22). It
+   * only ever carries measured input; nothing here animates itself.
+   */
+  onLevel?: (level: number) => void;
+}
+
+/** What the ear can honestly say about whether it is hearing him. */
+export interface HearingSnapshot {
+  state: EarState;
+  supported: boolean;
+  /** The last failure in plain words, or null when nothing failed. */
+  lastError: string | null;
 }
 
 /** The slice of MediaRecorder the ear relies on (fakeable in tests). */
@@ -225,6 +240,8 @@ export class LocalEar {
   private cancelRequested = false;
   private disposed = false;
   private voiceVerifier: VoiceVerifier | null = null;
+  private levelCbs = new Set<(level: number) => void>();
+  private lastErrorMessage: string | null = null;
 
   constructor(events: EarEvents, deps?: EarDeps) {
     this.events = events;
@@ -234,6 +251,33 @@ export class LocalEar {
 
   get currentState(): EarState {
     return this.state;
+  }
+
+  /**
+   * Subscribe to the real microphone level (see EarEvents.onLevel).
+   * Returns the unsubscribe. Subscribers are also told 0 the moment
+   * the mic closes, so an indicator fed from here settles flat on
+   * the truth instead of freezing on the last loud frame.
+   */
+  subscribeLevel(cb: (level: number) => void): () => void {
+    this.levelCbs.add(cb);
+    return () => {
+      this.levelCbs.delete(cb);
+    };
+  }
+
+  /** The ear's honest hearing state, for the stage indicator. */
+  hearingSnapshot(): HearingSnapshot {
+    return {
+      state: this.state,
+      supported: this.supported,
+      lastError: this.lastErrorMessage,
+    };
+  }
+
+  private emitLevel(level: number): void {
+    this.events.onLevel?.(level);
+    this.levelCbs.forEach((cb) => cb(level));
   }
 
   /**
@@ -263,6 +307,7 @@ export class LocalEar {
     }
     this.setState("starting");
     this.cancelRequested = false;
+    this.lastErrorMessage = null;
     let stream: MediaStream;
     try {
       stream = await this.deps.getUserMedia({ audio: true });
@@ -336,7 +381,9 @@ export class LocalEar {
   private tick(): void {
     if (this.state !== "listening" || !this.monitor) return;
     const now = this.deps.now();
-    if (this.monitor.level() >= SPEECH_RMS) {
+    const level = this.monitor.level();
+    this.emitLevel(level);
+    if (level >= SPEECH_RMS) {
       this.heardSpeech = true;
       this.speechMs += TICK_MS;
       this.lastSpeechAt = now;
@@ -431,6 +478,7 @@ export class LocalEar {
   }
 
   private fail(message: string): void {
+    this.lastErrorMessage = message;
     this.releaseHardware();
     if (this.timer !== null) {
       this.deps.clearIntervalFn(this.timer);
@@ -449,6 +497,8 @@ export class LocalEar {
   }
 
   private releaseHardware(): void {
+    // The mic is closing: the level feed reads a true zero from here.
+    this.emitLevel(0);
     if (this.recorder) {
       this.recorder.ondataavailable = null;
       this.recorder.onstop = null;
