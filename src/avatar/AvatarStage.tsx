@@ -13,6 +13,7 @@ import {
   Activity,
   Anchor,
   ArrowUp,
+  AudioLines,
   BarChart3,
   Bluetooth,
   BookOpen,
@@ -197,6 +198,7 @@ import { attachOllamaAI, type OllamaAIOptions } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
 import { ArCubeWindow } from "./ArCubeWindow";
 import { PulseWindow } from "./PulseWindow";
+import { SoundWatchWindow } from "./SoundWatchWindow";
 import { AnalyticWindow } from "./AnalyticWindow";
 import { GateLogWindow } from "./GateLogWindow";
 import { SignalMapWindow } from "./SignalMapWindow";
@@ -699,6 +701,11 @@ export function AvatarStage({
   // the room-frequency readout in a small floating box (operator order
   // 2026-11-21). Opens from Tools → Rooms and from "open pulse".
   const [pulseOpen, setPulseOpen] = useState(false);
+  // SOUND WATCH WINDOW: the room's ear — environmental sound events,
+  // distance estimates, and the Captain's learned sound library
+  // (owner order 2026-11-23). Shares the microphone with the voice
+  // ear by taking turns; never runs a second capture against it.
+  const [soundWatchOpen, setSoundWatchOpen] = useState(false);
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
   // GATE LOG WINDOW: every recorded knock on the gate (trap-path
   // probes), read server-side under the operator session (operator
@@ -3407,6 +3414,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   />
                   <CommandAction icon={Activity} label="Pulse" onClick={() => setPulseOpen(true)} />
                   <CommandAction
+                    icon={AudioLines}
+                    label="Sound Watch"
+                    onClick={() => setSoundWatchOpen(true)}
+                  />
+                  <CommandAction
                     icon={Waves}
                     label="Signal Map"
                     onClick={() => setSignalMapOpen(true)}
@@ -3723,6 +3735,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
       {arCubeOpen && <ArCubeWindow onClose={() => setArCubeOpen(false)} />}
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
+      {soundWatchOpen && (
+        <SoundWatchWindow
+          onClose={() => setSoundWatchOpen(false)}
+          voiceEarBusy={() => {
+            const state = earRef.current?.currentState;
+            return state === "starting" || state === "listening" || state === "transcribing";
+          }}
+        />
+      )}
       {analyzeOpen && <AnalyticWindow onClose={() => setAnalyzeOpen(false)} />}
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
       {signalMapOpen && <SignalMapWindow onClose={() => setSignalMapOpen(false)} />}
