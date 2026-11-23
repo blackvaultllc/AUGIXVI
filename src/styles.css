@@ -7405,11 +7405,29 @@
    rest swept up (scaleY 0, origin at the eye's top edge) and sweep
    down for a blink; the mouth is a dark ellipse over the portrait's
    own mouth, opening on a speech rhythm while its face speaks.
-   The portrait files themselves are never altered. */
+   The portrait files themselves are never altered.
+   LIVING PARITY (2026-11-23): a third layer — the jaw, a masked
+   copy of the portrait itself — hinges under the mouth on the
+   same rhythm. Every layer is the face's own pixels or its own
+   sampled tones; nothing is regenerated. */
 .anubis-presence__face,
 .black-hatter-presence__face,
 .montu-presence__face {
   position: relative;
+}
+.living-face__jaw {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-mask-image: var(--jaw-mask);
+  mask-image: var(--jaw-mask);
+  pointer-events: none;
+  contain: paint;
+  will-change: transform;
+  transition: transform 95ms linear;
+  z-index: 1;
 }
 .living-face__lid {
   position: absolute;
@@ -7418,7 +7436,10 @@
   transform-origin: 50% 0%;
   transition: transform 150ms ease-out;
   pointer-events: none;
-  z-index: 2;
+  z-index: 3;
+  /* A hair of seam shadow at the lid's lower edge, so the closed
+     lid reads as an eyelid lying on the eye, not a flat patch. */
+  box-shadow: inset 0 -2px 3px rgb(0 0 0 / 35%);
 }
 .living-face__lid.is-closed {
   transform: scaleY(1);
@@ -7435,6 +7456,41 @@
   pointer-events: none;
   z-index: 2;
 }
+/* THE SCEPTER (owner order 2026-11-23): Anubis's was-scepter, its
+   own asset standing at the medallion's right side. Put away —
+   sunk and faded — at every ordinary moment; DRAWN (is-drawn)
+   while a significant delivery is live. The asset is a black-
+   ground photograph, so its edges are feather-masked to melt
+   into the stage; the portrait underneath is never touched. */
+.anubis-presence__scepter {
+  position: absolute;
+  right: -3%;
+  bottom: 1%;
+  height: 97%;
+  width: auto;
+  -webkit-mask-image: radial-gradient(
+    ellipse 46% 49% at 50% 50%,
+    rgb(0 0 0 / 100%) 72%,
+    rgb(0 0 0 / 0%) 94%
+  );
+  mask-image: radial-gradient(
+    ellipse 46% 49% at 50% 50%,
+    rgb(0 0 0 / 100%) 72%,
+    rgb(0 0 0 / 0%) 94%
+  );
+  opacity: 0;
+  transform: translateY(9%) rotate(3deg);
+  transform-origin: 50% 100%;
+  transition:
+    opacity 280ms ease,
+    transform 380ms cubic-bezier(0.2, 0.8, 0.25, 1.12);
+  pointer-events: none;
+  z-index: 3;
+}
+.anubis-presence__scepter.is-drawn {
+  opacity: 1;
+  transform: translateY(0) rotate(0deg);
+}
 .black-hatter-presence--speaking .black-hatter-presence__face {
   box-shadow:
     0 18px 48px rgb(10 20 40 / 35%),
@@ -7443,7 +7499,9 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .living-face__lid,
-  .living-face__mouth {
+  .living-face__jaw,
+  .living-face__mouth,
+  .anubis-presence__scepter {
     transition: none;
   }
 }
