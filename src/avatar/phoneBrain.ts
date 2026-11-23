@@ -33,6 +33,7 @@
  * code only loads when the leg is actually used.
  */
 import { speakerDirective, type Addressee } from "./addressee";
+import { capabilitiesBrief } from "./capabilities";
 
 export const PHONE_BRAIN_PROVIDER = "On-phone brain (small)";
 
@@ -329,9 +330,18 @@ export async function askPhoneBrain(
           messages: [
             {
               role: "system",
-              content: addressee
-                ? `${PHONE_BRAIN_SYSTEM}\n${speakerDirective(addressee)}`
-                : PHONE_BRAIN_SYSTEM,
+              // The capability brief rides here too (owner defect
+              // 2026-11-23) — the short form, for this brain's small
+              // context — ahead of the speaker directive, which
+              // stays last (routing law). A capability question gets
+              // the same true answer from every brain.
+              content: [
+                PHONE_BRAIN_SYSTEM,
+                capabilitiesBrief("short"),
+                addressee ? speakerDirective(addressee) : "",
+              ]
+                .filter((line) => line.trim().length > 0)
+                .join("\n"),
             },
             ...history.slice(-4).map((h) => ({
               role: h.role === "assistant" ? "assistant" : "user",

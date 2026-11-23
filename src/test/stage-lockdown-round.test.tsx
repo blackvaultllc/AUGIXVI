@@ -12,7 +12,6 @@ import {
 } from "@/avatar/medallionAnchor";
 import { DEFAULT_SURFACES, sanitizeSurfaces, surfaceIsLight } from "@/avatar/builder/room";
 import { clearRespectAsks } from "@/avatar/useMedallionAnchor";
-import { notificationLaneRect } from "@/avatar/AvatarStage";
 import { sanitizeAvatarSettings } from "@/avatar/settings";
 import {
   loadStageView,
@@ -454,34 +453,26 @@ describe("the 07:22 additions — lane, fit, respect, sync, comic", () => {
     expect(onRespectAsk).toHaveBeenCalledTimes(1);
   });
 
-  it("THE NOTIFICATION LANE: its ground clears the medallion, the chat, and both clusters", () => {
-    // Owner screenshot 2026-11-23 ~07:22 EST: a BUSINESS card ON
-    // TOP of the STATUS panel. The lane's rect (notificationLaneRect
-    // mirrors the section-20 CSS) is checked against every named
-    // element at desktop and phone sizes, with cards raised.
-    const anubis1920: PopUpStageRect = { x: 680, y: 260, w: 560, h: 560 };
-    const chat1920: PopUpStageRect = { x: 16, y: 704, w: 420, h: 360 };
-    const laneDesktop = notificationLaneRect(1920, 1080, 4)!;
-    expect(laneDesktop).not.toBeNull();
-    expect(rectsOverlap(laneDesktop, anubis1920, 0)).toBe(false);
-    expect(rectsOverlap(laneDesktop, chat1920, 0)).toBe(false);
-    expect(laneDesktop.y).toBeGreaterThan(400); // far below both top clusters
-    expect(notificationLaneRect(1920, 1080, 0)).toBeNull();
-    // Phone portrait: the band above the chat bar clears the big
-    // centered face (seat bottom = 243 + 358 = 601 at 390×844).
-    const seatPortrait = defaultMedallionGeometry("anubis", 390, 844);
-    const lanePortrait = notificationLaneRect(390, 844, 2)!;
-    expect(lanePortrait.y).toBeGreaterThanOrEqual(seatPortrait.y + seatPortrait.size);
-    // Phone landscape: the narrowed right column clears the face
-    // (seat right edge = 243 + 358 = 601 at 844×390).
-    const seatLandscape = defaultMedallionGeometry("anubis", 844, 390);
-    const laneLandscape = notificationLaneRect(844, 390, 1)!;
-    expect(laneLandscape.x).toBeGreaterThanOrEqual(seatLandscape.x + seatLandscape.size);
-    // The CSS lane lives at the bottom, never at the top-right.
-    const laneStart = stageCss.indexOf(".avatar-stage .stage-notifications {");
-    const lane = stageCss.slice(laneStart, stageCss.indexOf("}", laneStart));
-    expect(lane).toContain("bottom: 1rem");
-    expect(lane).toContain("top: auto");
+  it("THE NOTIFICATION LANE IS DEAD: no corner card carries a god's report (Captain's verdict 2026-11-23)", () => {
+    // His live screenshot ~15:43 EST: a BUSINESS report rendered as
+    // a card in the bottom-right corner. His words: "whenever he
+    // pops up and his face comes to the bottom right corner, it
+    // looks stupid. Stop doing that." The lane this test used to
+    // pin (section 20) is deleted outright: the stage source mounts
+    // no card lane, notify() feeds no card stack, and neither CSS
+    // file carries the lane's rules. A report is the god's
+    // medallion + the comic box beside it (GodReportPopUp) — the
+    // dedicated pins live in stage-report-round.test.tsx.
+    const stageSource = readFileSync(
+      resolve(process.cwd(), "src/avatar/AvatarStage.tsx"),
+      "utf8",
+    );
+    expect(stageSource).not.toContain("StageNotifications");
+    expect(stageSource).not.toContain("setNotifications");
+    expect(stageSource).not.toContain("notificationLaneRect");
+    expect(stageCss).not.toContain("stage-notifications");
+    const baseCss = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+    expect(baseCss).not.toContain("stage-notifications");
   });
 
   it("BACKDROP FIT: Whole picture is the default; Fill screen survives the sanitize", () => {

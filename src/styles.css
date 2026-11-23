@@ -2768,13 +2768,21 @@
   flex: none;
 }
 .god-popup__face {
+  /* THE MEDALLION (Captain's spec, 2026-11-23): the reporting god
+     appears in a circular medallion — the same round circumference
+     and gold-ring dress as the stage medallions: a dark rim, a
+     heavy gold ring, and the glow the big medallions carry. */
   width: 104px;
   height: 104px;
   border-radius: 50%;
   overflow: hidden;
-  border: 3px solid #d4af37;
+  border: 4px solid #d4af37;
+  outline: 2px solid #14100a;
   background: #05070c;
-  box-shadow: 0 10px 30px rgb(0 0 0 / 45%);
+  box-shadow:
+    0 0 0 3px rgb(212 175 55 / 35%),
+    0 0 26px rgb(212 175 55 / 30%),
+    0 10px 30px rgb(0 0 0 / 45%);
 }
 .god-popup__img {
   width: 100%;
@@ -2793,21 +2801,12 @@
     transform: scale(1.045);
   }
 }
-.god-popup__name {
-  padding: 0.14rem 0.6rem;
-  border-radius: 999px;
-  background: rgb(5 7 12 / 88%);
-  border: 1px solid #d4af37;
-  color: #ffd75e;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
 .god-popup__bubble {
   position: relative;
-  /* The bubble flexes inside the placed block (GodReportPopUp
+  /* THE COMIC BOX (Captain's spec, 2026-11-23): the report rides
+     in a comic-style chat box beside the medallion — cream box,
+     the name on a tag inside it, the words typed under the tag.
+     The box flexes inside the placed block (GodReportPopUp
      renders the block at the placement's width): at full size it
      lands on its 300px, on a narrow stage it takes what the
      block leaves — the block never outgrows its placement. */
@@ -2815,13 +2814,28 @@
   min-width: 0;
   margin-top: 0.9rem;
   padding: 0.65rem 0.8rem;
-  border-radius: 1rem;
+  border-radius: 10px;
   background: #fffbe8;
   color: #1a2a33;
   font-size: 0.94rem;
   line-height: 1.45;
   box-shadow: 0 10px 28px rgb(0 0 0 / 35%);
   pointer-events: auto;
+}
+.god-popup__tag {
+  /* The comic name tag — the same dress as the chat thread's
+     speaker tag on a god's line: ink chip, gold letters, bold. */
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  padding: 0 0.35rem;
+  border: 2px solid #14100a;
+  border-radius: 6px;
+  background: #14100a;
+  color: #ffd94d;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .god-popup__bubble p {
   margin: 0;
@@ -8171,75 +8185,6 @@
   margin: 0;
 }
 
-/* REPORTS AS NOTIFICATIONS (owner order 2026-11-22): completions
-   surface on the stage, stacked under the top-right HUD — read at
-   a glance, dismissed with one tap, never buried in the thread. */
-.stage-notifications {
-  position: absolute;
-  top: 5.2rem;
-  right: 1rem;
-  z-index: 24;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: min(21rem, calc(100vw - 2rem));
-}
-.stage-notifications__item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.6rem;
-  border: 1px solid rgb(212 175 55 / 65%);
-  background: rgb(8 12 22 / 92%);
-  box-shadow: 0 14px 30px rgb(0 0 0 / 45%);
-  color: #e8eefc;
-}
-.stage-notifications__topic {
-  flex: none;
-  margin-top: 0.1rem;
-  padding: 0.1rem 0.45rem;
-  border-radius: 9999px;
-  border: 1px solid rgb(212 175 55 / 55%);
-  color: #f3d27a;
-  font-size: 0.6rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-.stage-notifications__god {
-  flex: none;
-  margin-top: 0.1rem;
-  padding: 0.1rem 0.45rem;
-  border-radius: 9999px;
-  background: rgb(212 175 55 / 88%);
-  color: #14100a;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-.stage-notifications__text {
-  margin: 0;
-  font-size: 0.84rem;
-  line-height: 1.45;
-}
-.stage-notifications__dismiss {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 9999px;
-  border: 1px solid #8fb2e8;
-  background: #20365f;
-  color: #ffffff;
-  cursor: pointer;
-}
-.stage-notifications__dismiss svg {
-  width: 0.85rem;
-  height: 0.85rem;
-}
-
 /* THE TOOLBAR AREA IS RETIRED (owner order 2026-11-22 —
    consolidation): the standalone bottom-center bar is gone from
    the stage. Its seats and construct-position orders live inside
@@ -8357,12 +8302,6 @@
     max-width: 25vw;
     overflow-wrap: anywhere;
     text-align: right;
-  }
-  .stage-notifications {
-    top: auto;
-    bottom: 0.6rem;
-    right: 0.6rem;
-    width: min(19rem, calc(100vw - 1.2rem));
   }
 }
 

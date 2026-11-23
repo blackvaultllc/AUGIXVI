@@ -127,12 +127,23 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         id: "gods-bubble",
         title: "The speech bubble — the pop-up when a god speaks",
         state: "live",
-        what: "When a god answers out loud, he pops up on the stage and his words appear in a speech bubble beside his head, typed as he speaks. The popped-up god always renders fully inside the stage, at a sane size.",
+        what: "When a god answers or comes in to make a report, he appears in his circular medallion — the same round circumference as Anubis's medallion — and immediately beside the circle sits the comic-style chat box, his name on a tag inside it, his words typed in the box as he speaks. That is the whole presentation, for replies and reports alike. There is NO notification card and NO corner stack: a report rendered as a card in the bottom-right corner was killed on your verdict (2026-11-23 — “it looks stupid”). The popped-up god always renders fully inside the stage, at a sane size.",
         steps: [
-          "Ask something — the answering god rises and speaks, bubble beside his head.",
+          "Ask something — the answering god rises in his medallion and speaks, the comic box beside his circle.",
           "To turn the bubble off: in the chat box Menu, or in the god's own menu, set “Speech bubble” to Off. Replies then come as voice + the thread only. The setting is remembered.",
         ],
-        where: "The stage, beside the speaking god's head.",
+        where: "The stage, at the speaking god's place — medallion and comic box as one unit.",
+      },
+      {
+        id: "gods-capabilities",
+        title: "What he can do — and an answer that fails",
+        state: "live",
+        what: "Ask him what he can access — the camera, the dog, a device — and he answers from a capability brief carried in his reply context: the same facts this manual keeps (each line of the brief names the manual entry it mirrors, and a test fails if the two drift apart). Built-but-unproven things are stated exactly that way — Wepwawet's control is “built and ready, not yet proven live” until the first live test is fired. And an answer can no longer die silently: if the brain fails, times out, or returns nothing, the failure is logged and a plain-words line is spoken and recorded in the thread saying so — your question always gets an answer, even when the answer is the failure itself.",
+        steps: [
+          "Ask “can you access the camera?” or “can you drive the dog?” — he answers from the brief, with the true state.",
+          "If a reply ever fails, read the thread: the failure line is recorded there with the exchange.",
+        ],
+        where: "The reply context of every brain (local and on-phone); the brief lives in src/avatar/capabilities.ts.",
       },
       {
         id: "gods-respect",

@@ -155,9 +155,9 @@ import {
   saveNotificationPrefs,
   shouldNotify,
 } from "./notificationPrefs";
-import { StageNotifications, type StageNotification } from "./StageNotifications";
 import { GodReportPopUp, type GodPopUpRequest } from "./GodReportPopUp";
 import { godForReportTopic, type StageRect } from "./godPopUp";
+import { capabilitiesBrief } from "./capabilities";
 import { MEDALLION_UNDER_FACE_HEIGHT } from "./medallionAnchor";
 import { loadSpeechVolume, saveSpeechVolume } from "./speechVoice";
 import {
@@ -870,17 +870,24 @@ export function AvatarStage({
   // and no presence speaks or echoes for him.
   const [lastUserSource, setLastUserSource] = useState<"typed" | "voice">("typed");
   const lastUserSourceRef = useRef<"typed" | "voice">("typed");
-  // REPORTS AS NOTIFICATIONS (owner order 2026-11-22): completions
-  // surface on the stage as notifications, gated by his standing
+  // REPORTS (owner order 2026-11-22; PRESENTATION RESTATED by the
+  // Captain 2026-11-23 ~14:47 CST, from his live screen): a report
+  // is delivered by its god IN PERSON — his circular medallion,
+  // the same round circumference as Anubis's, with the comic-style
+  // chat box immediately beside the circle carrying the typed
+  // report (GodReportPopUp). The report is gated by his standing
   // notification rules (notificationPrefs.ts) at raise time.
-  const [notifications, setNotifications] = useState<StageNotification[]>([]);
+  //
+  // THE CORNER CARD IS DEAD (his verdict, same day: "whenever he
+  // pops up and his face comes to the bottom right corner, it looks
+  // stupid. Stop doing that."): notify() used to ALSO stack the
+  // report text into a notification-card lane — and the lock-down
+  // round had parked that lane in the bottom-right corner, so every
+  // god's report landed there as a card. That lane no longer
+  // exists. Nothing of a god's renders in any corner: the medallion
+  // and its comic box, at the god's place on the stage, are the
+  // whole presentation.
   const notificationIdRef = useRef(0);
-  // A GOD POPS UP TO REPORT (owner order 2026-11-22): a report also
-  // brings its god to the stage — his face pops up at a clear edge
-  // with the anime bubble beside his head, he speaks the line, and
-  // he goes. One at a time: a newer report steps up in his place.
-  // The notification card stays as the record; the pop-up is the
-  // god himself delivering it.
   const [godPopUp, setGodPopUp] = useState<GodPopUpRequest | null>(null);
   const dismissGodPopUp = useCallback((id: number) => {
     setGodPopUp((current) => (current && current.id === id ? null : current));
@@ -889,17 +896,11 @@ export function AvatarStage({
     if (!shouldNotify(loadNotificationPrefs(), topic, Date.now())) return;
     notificationIdRef.current += 1;
     const id = notificationIdRef.current;
-    setNotifications((current) => [
-      ...current.slice(-3),
-      { id, topic, text, at: Date.now(), ...(god ? { god } : {}) },
-    ]);
-    // The reporting god delivers the line himself in the bubble: an
-    // explicitly attributed god wins; otherwise the topic decides
-    // (Montu for defense and security, Anubis in command for the rest).
+    // The reporting god delivers the line himself, in the comic box
+    // beside his medallion: an explicitly attributed god wins;
+    // otherwise the topic decides (Montu for defense and security,
+    // Anubis in command for the rest).
     setGodPopUp({ id, god: god ?? godForReportTopic(topic), text });
-    window.setTimeout(() => {
-      setNotifications((current) => current.filter((item) => item.id !== id));
-    }, 14_000);
     // REPORT POP-IN (presence doctrine): a report attributed to a
     // non-resident god brings HIM onto the stage with it — portrait
     // up like the message itself — and he goes away on his own when
@@ -913,9 +914,6 @@ export function AvatarStage({
         setReportGod((current) => (current === god ? null : current));
       }, 14_000);
     }
-  }, []);
-  const dismissNotification = useCallback((id: number) => {
-    setNotifications((current) => current.filter((item) => item.id !== id));
   }, []);
   /**
    * THE RESPONSE MODEL (owner order 2026-11-22 ~20:02 EST): "the
@@ -2602,6 +2600,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       // addressee, under his name — the same name the thread label
       // shows for it.
       getSpeakerDirective: () => speakerDirective(addresseeRef.current),
+      // The capability brief (owner defect 2026-11-23): what Augie
+      // can actually access and do, read fresh per message beside
+      // the directive — a "can you access the camera / the dog?"
+      // question is answered from these facts, never dodged.
+      getCapabilitiesBrief: () => capabilitiesBrief(),
       onSpeak: (text) => {
         setLastWords(text);
         recordReply(text);
@@ -2700,7 +2703,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     // report is NOT a reply, so it never travels the reply channel
     // (ai.speak → onSpeak → the conversation thread, where reports
     // landed as "answers" to whatever he last typed). Reports
-    // surface as stage notifications with their god's pop-up — the
+    // surface through their god's medallion pop-up (notify) — the
     // report channel idle reports already use (notify). And the
     // Sha offer is day-gated: it surfaces once a day at most, never
     // again on every page load.
@@ -3356,9 +3359,10 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           position orders it fires are the WALK orders of this round
           (walkConstructAside / bringConstructIn), passed down to the
           CommandBox below. */}
-      {!clearScreen && worldScreen === "live" && (
-        <StageNotifications items={notifications} onDismiss={dismissNotification} />
-      )}
+      {/* NO NOTIFICATION LANE (Captain's verdict 2026-11-23): the
+          corner card stack that used to render here is gone — a
+          god's report is his medallion + comic box (GodReportPopUp,
+          below), never a card in a corner. */}
       {/* THE QUIET ACTIVITY LINE lives INSIDE the top-left box
           now (owner desk photos 2026-11-23 ~07:11 EST: "the
           activity on the side could be put up in one of the
@@ -3389,17 +3393,6 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                 h: geometry.size + MEDALLION_UNDER_FACE_HEIGHT,
               };
             }),
-            // The notification lane is occupied ground too while
-            // cards are up (owner order 2026-11-23: nothing
-            // overlaps anything).
-            ...((): StageRect[] => {
-              const lane = notificationLaneRect(
-                stageRootRef.current?.clientWidth ?? 1440,
-                stageRootRef.current?.clientHeight ?? 900,
-                notifications.length,
-              );
-              return lane ? [lane] : [];
-            })(),
           ]}
           onDone={dismissGodPopUp}
         />
@@ -4314,40 +4307,6 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
     </div>
   );
-}
-
-/**
- * THE NOTIFICATION LANE'S GROUND (owner order 2026-11-23 ~07:22
- * EST — notifications never overlap anything): the god pop-up's
- * placement treats the lane as occupied ground while cards are
- * up, so a bubble picks another spot instead of landing on a
- * card. The numbers mirror the lane's CSS in stage-fix-round.css
- * (section 20): desktop — bottom-right lane, 21rem wide, cards
- * ~76px + 8px gap stacking upward from 1rem off the bottom;
- * phone — a band above the chat bar, 5rem off the bottom.
- */
-export function notificationLaneRect(
-  stageW: number,
-  stageH: number,
-  count: number,
-): StageRect | null {
-  if (count <= 0) return null;
-  const stackH = Math.min(count * 84, stageW > 700 ? 384 : 152);
-  // Short screens (landscape phones, short windows): the CSS
-  // narrows the lane to a 12.5rem right-hand column so it never
-  // sits on the big centered face — at phone widths it still
-  // rides above the chat bar, at desktop widths on the floor.
-  if (stageH <= 500 && stageW > stageH) {
-    const h = Math.min(stackH, 128);
-    return stageW > 700
-      ? { x: stageW - 24 - 200, y: stageH - 16 - h, w: 200, h }
-      : { x: stageW - 10 - 200, y: stageH - 80 - h, w: 200, h };
-  }
-  if (stageW > 700) {
-    const w = Math.min(336, stageW - 32);
-    return { x: stageW - 24 - w, y: stageH - 16 - stackH, w, h: stackH };
-  }
-  return { x: 0, y: stageH - 80 - stackH, w: stageW, h: stackH };
 }
 
 function CommandAction({

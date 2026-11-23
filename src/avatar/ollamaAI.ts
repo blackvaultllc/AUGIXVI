@@ -45,6 +45,17 @@ export type OllamaAIOptions = {
    * read from the same state, so label and words cannot disagree.
    */
   getSpeakerDirective?: () => string | null;
+  /**
+   * THE CAPABILITY BRIEF (owner defect 2026-11-23): what Augie can
+   * actually access and do — camera, the dog, Sound Watch, the
+   * Permission Law — consulted per message like the speaker
+   * directive and carried in the system content just BEFORE it (the
+   * directive stays last, per the routing law). A capability
+   * question is a factual question about this system; without these
+   * facts in the prompt the brain either dodges it or invents an
+   * answer, and the Captain gets neither.
+   */
+  getCapabilitiesBrief?: () => string | null;
 };
 
 export const DEFAULT_SYSTEM =
@@ -199,11 +210,26 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       reply = OFFLINE_NOTICE;
     }
     // Same text twice in a row → do NOT send it again (dup check).
+    // NO SILENT DEATHS (owner defect 2026-11-23): the dup case used
+    // to return "" — the Captain's question vanished without a word.
+    // The anti-loop law stands (never the same line twice in a row),
+    // but every question is answered: a shorter still-offline line
+    // is spoken and recorded instead of silence.
     if (reply === lastOfflineReplyText && !isFirstNotice) {
-      return ""; // silent: he waits for the next real message
+      const stillLine =
+        "Still offline, Captain — and that one is not in my saved memory either.";
+      lastOfflineReplyAt = now;
+      lastOfflineReplyText = stillLine;
+      onResponseSource?.("offline notice");
+      speak(stillLine, listen);
+      return stillLine;
     }
     if (now - lastOfflineReplyAt < OFFLINE_REPLY_COOLDOWN_MS) {
-      // Inside the cooldown, queue at most one reply — it speaks when it opens.
+      // Inside the cooldown, queue at most one reply — it speaks
+      // when the gate opens (clearOfflineCooldown speaks it and it
+      // lands in the thread then). The question is never dropped:
+      // its answer is queued, not silenced. The "" return here
+      // only tells the caller "not spoken yet".
       if (offlinePending !== reply) offlinePending = reply;
       return "";
     }
@@ -246,6 +272,10 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
                 operatorFullName
                   ? `If asked who created you, state the verified full name "${operatorFullName}" plainly and truthfully.`
                   : "If asked who created you, say the verified name is not configured.",
+                // The capability brief (owner defect 2026-11-23):
+                // the facts a "can you access…?" question is answered
+                // from — refreshed per message like the directive.
+                opts.getCapabilitiesBrief?.() ?? "",
                 // The speaker directive rides LAST (routing law):
                 // the name this reply speaks as, read fresh from
                 // the room's addressee state on every message.
@@ -266,7 +296,15 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       }
       const reply = (data.message?.content ?? "").trim();
       // qwen3-style thinking models wrap reasoning in  — strip it.
-      return reply.replace(/<think>[\s\S]*?<\/think>/g, "").trim() || reply.trim();
+      const cleaned = reply.replace(/<think>[\s\S]*?<\/think>/g, "").trim() || reply.trim();
+      // NO SILENT DEATHS (owner defect 2026-11-23): an empty reply
+      // is a FAILED reply. It used to flow back as "" and the
+      // Captain's question simply vanished — nothing spoken, nothing
+      // in the thread. Throwing routes it through the same failover
+      // chain as any other failure, and when no leg produces words
+      // the failure line is spoken and recorded (handleText).
+      if (!cleaned) throw new Error("The brain returned an empty reply.");
+      return cleaned;
     } catch (error) {
       if (controller.signal.aborted && !timedOut) {
         throw new DOMException("Ollama request cancelled.", "AbortError");
@@ -361,6 +399,12 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       return reply;
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return "";
+      // The failure is LOGGED, never swallowed (owner defect
+      // 2026-11-23): the reason lands in the console record, and
+      // the Captain hears/sees the plain-words line the failover
+      // chain ends with — a failed answer is a spoken, recorded
+      // answer about the failure, never silence.
+      console.error("Reply generation failed.", error);
       setOffline(true);
       scheduleRetry();
       // FAILOVER PIPE: cloud brains next (server-side keys; its client

@@ -772,50 +772,14 @@
   flex: none;
 }
 
-/* 20. THE NOTIFICATION LANE (owner order 2026-11-23 ~07:22 EST —
-   "that overlapage notification"): his screenshot showed a
-   BUSINESS card rendered ON TOP of the top-right STATUS/hearing
-   panel, text bleeding through. Notifications keep their cards,
-   their auto-dismiss and their X — but they live in their own
-   lane now, ground no HUD cluster, medallion, or chat box ever
-   uses: the bottom-right on desktop (the stack grows upward from
-   the corner, capped and scrollable past four cards), and on the
-   phone a band just above the chat bar. The god pop-up treats
-   the lane as occupied ground while cards are up
-   (notificationLaneRect in AvatarStage). */
-.avatar-stage .stage-notifications {
-  top: auto;
-  bottom: 1rem;
-  right: 1.5rem;
-  width: min(21rem, calc(100vw - 2rem));
-  max-height: min(24rem, calc(100vh - 2rem));
-  overflow-y: auto;
-}
-@media (max-width: 700px) {
-  .avatar-stage .stage-notifications {
-    bottom: 5rem;
-    left: 0.6rem;
-    right: 0.6rem;
-    width: auto;
-    max-height: 9.5rem;
-  }
-}
-@media (max-width: 700px) and (max-height: 500px) {
-  .avatar-stage .stage-notifications {
-    left: auto;
-    width: 12.5rem;
-    max-height: 8rem;
-  }
-}
-/* Short screens at desktop widths — a landscape phone above the
-   700px breakpoint, or a short window: the lane narrows to the
-   same right-hand column instead of sitting on the big face. */
-@media (min-width: 701px) and (max-height: 500px) {
-  .avatar-stage .stage-notifications {
-    width: 12.5rem;
-    max-height: 8rem;
-  }
-}
+/* 20. THE NOTIFICATION LANE — RETIRED (Captain's verdict
+   2026-11-23 ~14:47 CST): the lane this section built parked a
+   god's report as a CARD in the bottom-right corner, and his
+   word on it was final: "whenever he pops up and his face comes
+   to the bottom right corner, it looks stupid. Stop doing
+   that." The lane, its cards, and its CSS are deleted. A report
+   is the god's medallion + the comic box beside it (section 23),
+   and nothing of a god's renders in any corner ever again. */
 
 /* 21. FULL COMIC STYLE — THE CONVERSATION SURFACES (the Captain's
    tap, 2026-11-23 ~06:31 CST): "Go full comic style on the chat
@@ -904,8 +868,31 @@
   border: 3px solid #14100a;
   box-shadow: 5px 5px 0 rgb(0 0 0 / 50%);
 }
-.avatar-stage .god-popup__name {
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+
+/* 22. THE CORE BOX KEEPS ITS MEASURE (owner defect 2026-11-23
+   ~15:43 EST): "activity is way too long, it's making the box go
+   longer across the screen — that's ugly." The top clusters are
+   fit-to-content panels (the No Empty Gaps law), and fit-to-
+   content with no cap means ONE long line — the Activity musing
+   — stretches the whole CORE box halfway across the stage. The
+   law now: the box has a fixed, sensible measure and the words
+   wrap inside it. The type does NOT shrink to fit (bifocal law
+   outranks the fit) and the box does not grow to fit the line.
+   34rem holds every standing readout on one line at the panel's
+   1rem type; the Activity line wraps to two or three lines
+   inside it, and a long warning line (sensor, knowledge) wraps
+   the same way instead of stretching its panel. Both top
+   clusters carry the cap — the failure mode is the same in
+   either. The phone keeps its own 62vw cap below. */
+@media (min-width: 701px) {
+  .avatar-stage .avatar-hud--tl,
+  .avatar-stage .avatar-hud--tr {
+    max-width: min(34rem, calc(100vw - 3rem));
+  }
+}
+.avatar-stage .avatar-hud__activity {
+  overflow-wrap: break-word;
+}
+.avatar-stage .avatar-hud__warning {
+  overflow-wrap: break-word;
 }

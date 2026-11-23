@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { capabilitiesBrief } from "@/avatar/capabilities";
 import {
   PHONE_BRAIN_MODELS,
   PHONE_BRAIN_PROVIDER,
@@ -134,11 +135,20 @@ describe("phone brain runtime (WebLLM faked at the boundary)", () => {
     // the small brain speaks as the addressed presence, by name.
     expect(request?.messages[0]?.content).toContain(PHONE_BRAIN_SYSTEM);
     expect(request?.messages[0]?.content).toContain("You are speaking as Osiris");
-    // Without an addressee, the base prompt's default (Anubis) holds alone.
+    // The capability brief rides every message (owner defect
+    // 2026-11-23) — ahead of the directive, which stays last.
+    expect(request?.messages[0]?.content).toContain("WHAT YOU CAN ACCESS AND DO");
+    expect(request?.messages[0]?.content.indexOf("WHAT YOU CAN ACCESS AND DO")).toBeLessThan(
+      request?.messages[0]?.content.indexOf("You are speaking as Osiris") ?? -1,
+    );
+    // Without an addressee: system + the short brief, no directive —
+    // the base prompt's default (Anubis) holds.
     create.mockClear();
     await expect(askPhoneBrain("ping")).resolves.toBe("ready");
     const plain = create.mock.calls.at(-1)?.[0];
-    expect(plain?.messages[0]?.content).toBe(PHONE_BRAIN_SYSTEM);
+    expect(plain?.messages[0]?.content).toBe(
+      `${PHONE_BRAIN_SYSTEM}\n${capabilitiesBrief("short")}`,
+    );
   });
 
   it("will not run the f16 3B on a device that reports no f16", async () => {
