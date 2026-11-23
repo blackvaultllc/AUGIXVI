@@ -3652,6 +3652,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Phone Bridge — Ghost Protocol One"
                     onClick={() => void navigate({ to: "/phone-bridge" })}
                   />
+                  <CommandAction
+                    icon={BookOpen}
+                    label="Master Manual"
+                    onClick={() => void navigate({ to: "/manual" })}
+                  />
                 </div>
               </CommandGroup>
               <CommandGroup label="Senses & analysis">
@@ -3991,6 +3996,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             const state = earRef.current?.currentState;
             return state === "starting" || state === "listening" || state === "transcribing";
           }}
+          onAlert={(text) => notify("sound-watch security", text)}
         />
       )}
       {analyzeOpen && <AnalyticWindow onClose={() => setAnalyzeOpen(false)} />}
