@@ -4822,6 +4822,70 @@
   border-radius: 8px;
   padding: 0.6rem;
 }
+/* Universal Command Module — the per-device commands panel */
+.window-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.window-commands__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.window-commands__item {
+  background: var(--dev-field);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.window-commands__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--dev-fs-body);
+}
+.window-commands__param {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: var(--dev-fs-body);
+}
+.window-commands__param input,
+.window-commands__param select,
+.window-commands__param textarea {
+  background: var(--dev-panel);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  font-size: var(--dev-fs-body);
+  padding: 0.35rem 0.45rem;
+}
+.window-commands__custom {
+  grid-column: 1 / -1;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+}
+.window-commands__customrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--dev-fs-body);
+  margin: 0;
+  flex-wrap: wrap;
+}
 .window-devices__formtitle {
   grid-column: 1 / -1;
   font-size: var(--dev-fs-title);

@@ -39,6 +39,7 @@ import {
   type MeasuredConstraints,
 } from "./devices/deviceRegistry";
 import { profileBleDevice, webBluetoothAvailable } from "./devices/bleProfiler";
+import { DeviceCommandsPanel } from "./devices/DeviceCommandsPanel";
 import {
   HEARTBEAT_CHECK_DIVIDER,
   WAND_GREETING,
@@ -1108,6 +1109,8 @@ export function DevicesWindow({
                   </p>
                 )}
               </section>
+
+              <DeviceCommandsPanel device={selected} />
             </article>
           )}
         </div>
