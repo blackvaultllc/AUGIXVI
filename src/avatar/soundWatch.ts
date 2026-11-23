@@ -25,13 +25,16 @@
  *   - A classifier hit under the confidence threshold is treated as
  *     no hit at all — UNCLASSIFIED, not the nearest label.
  *
- * ENGINE NOTE (v1): the browser build ships WITHOUT a built-in neural
- * classifier — YAMNet's web runtime could not be vendored under the
- * current approvals, so v1's engine is measured-feature detection:
- * it hears and measures every sound, recognizes the Captain's library,
- * and marks everything else UNCLASSIFIED for him to name. The label
- * decision below already accepts a classifier hit (see ClassifierHit)
- * so the neural engine drops in without changing the log's shape.
+ * ENGINE NOTE (v2): the built-in classifier is YAMNet (Google's
+ * audio model, 521 AudioSet classes) via the Captain-approved
+ * @mediapipe/tasks-audio runtime. Model + wasm are vendored into
+ * the app bundle (public/mediapipe/), so it classifies ON-DEVICE
+ * with no network at runtime. Its labels feed ClassifierHit into
+ * the same label decision below; the Captain's library still
+ * outranks it, and under the confidence threshold a hit is no hit.
+ * Measured-feature detection and fingerprints are unchanged: the
+ * detector finds the events, YAMNet names what it can, the library
+ * names what he taught, the rest stays UNCLASSIFIED.
  */
 
 export type DistanceBand = "NEAR" | "MID" | "FAR";
@@ -49,7 +52,7 @@ export const SOUND_WATCH_PRIVACY_NOTE =
   "Sound is analyzed on this device, in this window. Nothing is recorded and no audio is stored — the log keeps labels, levels, times, and sound fingerprints (numbers), never sound itself.";
 
 export const SOUND_WATCH_ENGINE_NOTE =
-  "Built-in classifier: not loaded in this build. Sound Watch measures every sound it hears, recognizes the ones in your library, and marks the rest UNCLASSIFIED — it never guesses a name.";
+  "Built-in classifier: YAMNet — Google's audio model (521 sound classes), running on this device from files inside the app, so it works with no internet. A sound it reads confidently gets its label and the confidence is shown; under the line it stays UNCLASSIFIED — it never guesses a name. Your library names still outrank its labels.";
 
 /** The Captain's script for an unknown, in his own framing. */
 export function unknownSoundLine(count: number): string {
@@ -618,4 +621,18 @@ export function buildEntry(
 export function entryTitle(entry: SoundEventEntry): string {
   if (entry.source === "unclassified") return "UNCLASSIFIED";
   return entry.label ?? "UNCLASSIFIED";
+}
+
+/**
+ * The line a raised alert speaks/shows through the stage's notify +
+ * god pop-up path. Names the sound, says person when the classifier
+ * placed it in a human class, and keeps the distance an estimate.
+ */
+export function soundAlertLine(entry: SoundEventEntry): string {
+  const title = entryTitle(entry);
+  const kind =
+    entry.source === "classifier"
+      ? "Sound Watch — a person sound"
+      : "Sound Watch — a sound you flagged";
+  return `${kind}: ${title} · ${distanceBandText(entry.distanceBand)} · ${entry.character}`;
 }
