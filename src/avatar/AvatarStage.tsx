@@ -261,7 +261,8 @@ import {
   saveSilentModePreference,
 } from "./interactionControls";
 import { createHighlight, createLocalMemory, findLocalAnswer, splitDocument } from "./localMemory";
-import { createLocalEar, type LocalEar } from "./localEar";
+import { createLocalEar, type EarState, type LocalEar } from "./localEar";
+import { stageStatusLabel } from "./voiceHearing";
 import { VoiceIndicator } from "./VoiceIndicator";
 import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
 import { TrustedDevicesPanel } from "./TrustedDevicesPanel";
@@ -289,7 +290,12 @@ import { gatherDailyBriefing } from "./liveFeeds";
 import { parseWolfCommand, evaluateWolfCommand, wolfDispatchLine } from "./familiars";
 import { PERSONALITY_PROMPT, isFellowAITurn, livingWordGreeting } from "./personality";
 import { parseHandIntent } from "./bodyCapabilities";
-import { createProactiveEngine, EventQueueWatcher, shaWatcher } from "./proactive";
+import {
+  createProactiveEngine,
+  EventQueueWatcher,
+  shaWatcher,
+  withDailyOfferGate,
+} from "./proactive";
 import { loadAvatarSettings, saveAvatarSettings } from "./settings";
 import {
   createSettingsSync,
@@ -394,6 +400,10 @@ export function AvatarStage({
   const [perf, setPerf] = useState({ fps: 0, particles: 0 });
   const [sensor, setSensor] = useState<SensorStatus | null>(null);
   const [voiceListening, setVoiceListening] = useState(false);
+  // THE EAR'S REAL CONDITION (owner eye-check 2026-11-23): the
+  // STATUS readout derives from this, never from the bridge's
+  // resting state alone — mic off must read MIC OFF everywhere.
+  const [earState, setEarState] = useState<EarState>("idle");
   const [voiceAvailable, setVoiceAvailable] = useState(false);
   // VOICE CALIBRATION: while ON, the ear checks every spoken phrase
   // against the operator's voiceprint before it may run (localEar
@@ -438,6 +448,12 @@ export function AvatarStage({
   const [presenting, setPresenting] = useState(false);
   const [chat, setChat] = useState("");
   const [lastWords, setLastWords] = useState("No response yet.");
+  // THE QUIET ACTIVITY LINE (owner eye-check 2026-11-23): idle
+  // musings surface HERE — a small status line outside the
+  // conversation — and nowhere else. They never enter the thread,
+  // never wear the reply's clothes, and are never spoken as if
+  // they answered something he said.
+  const [activityLine, setActivityLine] = useState<string | null>(null);
   const [responseSource, setResponseSource] = useState("awaiting response");
   const [aiOffline, setAiOffline] = useState(false);
   const [clearScreen, setClearScreen] = useState(loadClearScreenPreference);
@@ -2316,25 +2332,38 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         setResponseSource("microphone");
         setLastWords(message);
       },
-      onState: (earState) => {
-        setVoiceListening(earState === "starting" || earState === "listening");
-        if (earState === "listening") {
+      onState: (nextEarState) => {
+        setEarState(nextEarState);
+        setVoiceListening(nextEarState === "starting" || nextEarState === "listening");
+        if (nextEarState === "listening") {
           setResponseSource("microphone");
           setLastWords("Listening — speak now. Click the mic again to stop.");
-        } else if (earState === "transcribing") {
+        } else if (nextEarState === "transcribing") {
           setResponseSource("microphone");
           setLastWords("Transcribing what you said…");
         }
       },
     });
     earRef.current = ear;
+    setEarState(ear.currentState);
     applyVoiceGate();
     setVoiceAvailable(ear.supported);
     bridge.setState("LISTENING");
     // Proactive watch: he tells ME — suggests, never auto-acts.
+    // THREAD PURITY (owner eye-check 2026-11-23): a proactive
+    // report is NOT a reply, so it never travels the reply channel
+    // (ai.speak → onSpeak → the conversation thread, where reports
+    // landed as "answers" to whatever he last typed). Reports
+    // surface as stage notifications with their god's pop-up — the
+    // report channel idle reports already use (notify). And the
+    // Sha offer is day-gated: it surfaces once a day at most, never
+    // again on every page load.
     const proactive = createProactiveEngine(
-      [eventQueueRef.current, shaWatcher(shaShownRef.current)],
-      (line) => aiRef.current?.speak(line),
+      [
+        eventQueueRef.current,
+        withDailyOfferGate(shaWatcher(shaShownRef.current), "augi.proactive.sha-offer-day.v1"),
+      ],
+      (line) => notify("proactive", line),
     );
     proactive.start();
     proactiveRef.current = proactive;
@@ -2632,7 +2661,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     const tick = () => {
       if (stopped) return;
       // Skip when he is mid-conversation or when the screen is cleared for me.
-      if (bridgeRef.current.state === "SPEAKING" || clearScreenRef.current) return;
+      // THINKING counts as mid-conversation (owner eye-check
+      // 2026-11-23): a reply is being composed — idle life does not
+      // step into its place.
+      if (
+        bridgeRef.current.state === "SPEAKING" ||
+        bridgeRef.current.state === "THINKING" ||
+        clearScreenRef.current
+      )
+        return;
       // Held states (construct law): unanchored he is lifted out for
       // fixing, and while the Captain drives he is under the keys —
       // idle life does not speak or act over either.
@@ -2643,9 +2680,14 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         action.activity === "write-chalkboard"
           ? `${action.line} ${idleChalkboardThought()}`
           : action.line;
-      setLastWords(line);
-      setResponseSource("idle life");
-      aiRef.current?.speak(line);
+      // THREAD PURITY (owner eye-check 2026-11-23): the musing
+      // goes to the quiet activity line ONLY. It used to ride
+      // ai.speak() — the reply channel — so onSpeak recorded it in
+      // the conversation thread as the "answer" to whatever he
+      // last typed, and its voice.stop() could cut a real reply
+      // off mid-sentence. That path is cut: no speech, no thread,
+      // no history — a status line, nothing more.
+      setActivityLine(line);
       // REPORTS AS NOTIFICATIONS (owner order 2026-11-22): a
       // finished check reports as a stage notification — the same
       // report pattern as the sub-category constructs — gated by
@@ -2940,6 +2982,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {!clearScreen && worldScreen === "live" && (
         <StageNotifications items={notifications} onDismiss={dismissNotification} />
       )}
+      {/* THE QUIET ACTIVITY LINE (owner eye-check 2026-11-23):
+          idle life's latest musing, as a status line in the
+          stage's bottom-right — outside the conversation thread,
+          unspoken, and never dressed as a reply. */}
+      {!clearScreen && worldScreen === "live" && activityLine && (
+        <div className="avatar-activity-line" role="status" aria-label="Construct activity">
+          <span className="avatar-activity-line__label">Activity</span> {activityLine}
+        </div>
+      )}
       {!clearScreen && worldScreen === "live" && godPopUp && (
         <GodReportPopUp
           request={godPopUp}
@@ -3013,7 +3064,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           STATUS:{" "}
           <span className="avatar-hud__value">
             <span className={`avatar-hud__listening-flash${listeningFlash ? " is-active" : ""}`} />
-            {state}
+            {stageStatusLabel(state, earState)}
             {aiOffline ? " · OFFLINE" : silent ? " · SILENT" : ""}
           </span>
         </div>
@@ -3046,11 +3097,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         <div className="avatar-hud__db-status">
           VOICE CAL: {voiceCalPrefs.enabled ? "ON" : "OFF"}
         </div>
-        <div>
+        <div className="avatar-hud__db-status">
           {perf.fps} FPS {!clearScreen && `· ${(perf.particles / 1000).toFixed(0)}K PTS`}
         </div>
         {!clearScreen && (
-          <div>
+          <div className="avatar-hud__db-status">
             CAM {sensor?.camera ? "ON" : "OFF"} · MIC {sensor?.mic ? "ON" : "OFF"} · HANDS{" "}
             {sensor?.hands ? "ON" : "OFF"}
           </div>

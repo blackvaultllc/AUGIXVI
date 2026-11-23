@@ -12,7 +12,13 @@ import {
   parseRememberRequest,
   createOperatorMemory,
 } from "@/avatar/operatorMemory";
-import { createProactiveEngine, EventQueueWatcher, shaWatcher } from "@/avatar/proactive";
+import {
+  createProactiveEngine,
+  EventQueueWatcher,
+  shaWatcher,
+  withDailyOfferGate,
+  type DayGateStorage,
+} from "@/avatar/proactive";
 import { buildCubeReport, reportSpoken, parseCommits } from "@/avatar/selfUpdate";
 import { parseWolfCommand, evaluateWolfCommand, wolfDispatchLine } from "@/avatar/familiars";
 import {
@@ -160,6 +166,33 @@ describe("proactive, not just reactive", () => {
     expect(observation?.suggestion).toContain("Captain");
     expect(observation?.suggestion).toContain("Ankh, wedja, seneb");
     expect(observation?.suggestion).not.toContain("if you say so");
+  });
+
+  it("the Sha offer surfaces ONCE A DAY at most — never again on every page load", () => {
+    // Owner eye-check 2026-11-23: the offer looped at him across
+    // sessions because the watcher's quiet period is in-memory and
+    // every reload reset it. The day gate stamps the delivery day
+    // in persistent storage; a fresh watcher (a fresh page load)
+    // on the same day stays silent, and the next day may offer
+    // again.
+    const store = new Map<string, string>();
+    const storage: DayGateStorage = {
+      get: (key) => store.get(key) ?? null,
+      set: (key, value) => {
+        store.set(key, value);
+      },
+    };
+    const key = "augi.proactive.sha-offer-day.v1";
+    const morning = new Date(2026, 10, 23, 8, 0, 0).getTime();
+    const firstLoad = withDailyOfferGate(shaWatcher({ shown: false }, 1000), key, storage);
+    expect(firstLoad.check(morning)?.message).toContain("Sha hasn't shown");
+    // A reload an hour later: a brand-new watcher, the same day —
+    // the gate holds it silent even past the quiet period.
+    const reload = withDailyOfferGate(shaWatcher({ shown: false }, 1000), key, storage);
+    expect(reload.check(morning + 60 * 60 * 1000)).toBeNull();
+    // The next day the offer may surface again.
+    const nextDay = withDailyOfferGate(shaWatcher({ shown: false }, 1000), key, storage);
+    expect(nextDay.check(morning + 24 * 60 * 60 * 1000)?.message).toContain("Sha hasn't shown");
   });
 });
 

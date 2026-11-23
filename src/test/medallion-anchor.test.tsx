@@ -57,11 +57,13 @@ describe("medallion anchor geometry", () => {
   });
 
   it("Anubis's home is CENTER stage (presence doctrine); Montu's is the right flank", () => {
-    // The resident commander stands in the middle: 264px face,
-    // centered both ways. Montu's flank home is the face's own
-    // center too, since the plate/controls heights went to zero
-    // with the face-only order.
-    expect(defaultMedallionGeometry("anubis", 1200, 800)).toEqual({ x: 468, y: 268, size: 264 });
+    // The resident commander stands in the middle — BIG by
+    // default (owner eye-check 2026-11-23: the large size he
+    // stretched it to himself is the factory home now), centered
+    // both ways. Montu's flank home is the face's own center too,
+    // since the plate/controls heights went to zero with the
+    // face-only order.
+    expect(defaultMedallionGeometry("anubis", 1200, 800)).toEqual({ x: 320, y: 120, size: 560 });
     expect(defaultMedallionGeometry("montu", 1200, 800)).toEqual({ x: 1028, y: 322, size: 156 });
   });
 
@@ -167,12 +169,11 @@ describe("BlackHatterPresence — the anchor at work", () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
-  it("stretches from its corner handle and persists the size", () => {
+  it("sizes from its box menu and persists the size (no stretch tab on the circle)", () => {
     const { container } = render(<BlackHatterPresence inPerspective onSelect={vi.fn()} />);
-    const handle = screen.getByLabelText("Stretch the Black Hatter medallion");
-    pointer(handle, "pointerdown", 700, 550);
-    pointer(handle, "pointermove", 740, 590);
-    pointer(handle, "pointerup", 740, 590);
+    expect(screen.queryByLabelText("Stretch the Black Hatter medallion")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Open The Black Hatter's menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Make The Black Hatter bigger" }));
     const face = container.querySelector(".black-hatter-presence__face") as HTMLElement;
     expect(face.style.width).toBe("420px");
     expect(

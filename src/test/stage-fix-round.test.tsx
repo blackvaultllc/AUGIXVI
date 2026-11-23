@@ -118,28 +118,38 @@ describe("medallion controls — inside the box menu (owner eye-check 2026-11-22
       <AnubisPresence ready speaking={false} listening={false} acting={false} onSelect={vi.fn()} />,
     );
     const root = container.querySelector(".anubis-presence") as HTMLElement;
-    // Factory home on the jsdom stage (1024×768): CENTER stage at
-    // his resident size — the presence doctrine (owner order
-    // 2026-11-22); face only, so the face's own box centers.
-    expect(root.style.left).toBe("380px");
-    expect(root.style.top).toBe("252px");
+    // Factory home on the jsdom stage (1024×768): CENTER stage,
+    // BIG by default — the large size is the factory home now
+    // (owner eye-check 2026-11-23); face only, so the face's own
+    // box centers: (1024−560)/2 = 232, 768/2−280 = 104.
+    expect(root.style.left).toBe("232px");
+    expect(root.style.top).toBe("104px");
     fireEvent.click(screen.getByRole("button", { name: "Open Anubis's menu" }));
     const handle = screen.getByRole("button", { name: /^Move Anubis/ });
     pointer(handle, "pointerdown", 500, 100);
     expect(screen.getByText("Free — drag to place")).not.toBeNull();
     pointer(handle, "pointermove", 560, 160);
     pointer(handle, "pointerup", 560, 160);
-    expect(root.style.left).toBe("440px");
-    expect(root.style.top).toBe("312px");
+    expect(root.style.left).toBe("292px");
+    expect(root.style.top).toBe("164px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.medallion.anubis.v1") ?? "{}")).toEqual({
-      x: 440,
-      y: 312,
-      size: 264,
+      x: 292,
+      y: 164,
+      size: 560,
     });
     expect(screen.getByText("Anchored")).not.toBeNull();
   });
 
   it("one click on Center puts a god dead-center — and never on the Captain's face", () => {
+    // Anubis at a saved 264 on this stage: at his new BIG factory
+    // size (560) no flank spot fits beside the Captain inside the
+    // small jsdom stage at all, so the flank law is exercised at a
+    // size the stage can seat — his saved size outranks the
+    // factory default, as always.
+    localStorage.setItem(
+      "augi.avatar.medallion.anubis.v1",
+      JSON.stringify({ x: 100, y: 100, size: 264 }),
+    );
     const { container } = render(
       <>
         <BlackHatterPresence inPerspective onSelect={vi.fn()} />
@@ -175,21 +185,26 @@ describe("medallion controls — inside the box menu (owner eye-check 2026-11-22
     expect(root.style.top).toBe("194px");
   });
 
-  it("the stretch handle grows Anubis's face and persists the size (the dead-arrow repair)", () => {
+  it("the menu's size steppers grow and shrink Anubis's face and persist the size (the stretch tab is gone)", () => {
     const { container } = render(
       <AnubisPresence ready speaking={false} listening={false} acting={false} onSelect={vi.fn()} />,
     );
-    const handle = screen.getByLabelText("Stretch the Anubis medallion");
-    pointer(handle, "pointerdown", 640, 510);
-    pointer(handle, "pointermove", 680, 550);
-    pointer(handle, "pointerup", 680, 550);
+    // No tab is drawn on the circle anymore (owner eye-check
+    // 2026-11-23 — a clean circle); the size lives in the menu.
+    expect(screen.queryByLabelText("Stretch the Anubis medallion")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Open Anubis's menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Make Anubis smaller" }));
     const face = container.querySelector(".anubis-presence__face") as HTMLElement;
-    expect(face.style.width).toBe("304px");
+    // 560 (the big factory default) steps down 40, center held:
+    // (232+20, 104+20).
+    expect(face.style.width).toBe("520px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.medallion.anubis.v1") ?? "{}")).toEqual({
-      x: 380,
-      y: 252,
-      size: 304,
+      x: 252,
+      y: 124,
+      size: 520,
     });
+    fireEvent.click(screen.getByRole("button", { name: "Make Anubis bigger" }));
+    expect(face.style.width).toBe("560px");
   });
 });
 

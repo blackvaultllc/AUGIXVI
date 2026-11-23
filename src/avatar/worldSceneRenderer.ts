@@ -409,10 +409,16 @@ export class WorldSceneManager {
     // his wall color. The grid lines that used to draw it are gone;
     // his backdrop picture (above) hangs in front of it, and where
     // no picture is picked the wall itself is the room's back.
+    // THE HOLDER GOES BLACK (owner eye-check 2026-11-23): "make
+    // the white background holder black so that way the picture
+    // sticks out better." While a backdrop picture is up, the wall
+    // it hangs on renders BLACK — one composition: black around a
+    // whole, centered picture. A room with no picture picked keeps
+    // his chosen wall color exactly as before.
     const wallPlane = new THREE.Mesh(
       new THREE.PlaneGeometry(60, 14),
       new THREE.MeshBasicMaterial({
-        color: new THREE.Color(surfaces.wall),
+        color: new THREE.Color(backdrop ? "#000000" : surfaces.wall),
         depthWrite: false,
       }),
     );

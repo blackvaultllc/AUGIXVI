@@ -58,9 +58,62 @@ export function shaWatcher(
   };
 }
 
+/**
+ * THE ONCE-A-DAY GATE (owner eye-check 2026-11-23): the Sha offer
+ * fired on the first poll of EVERY page load — the watcher's quiet
+ * period is in-memory, so every reload reset it and the same canned
+ * offer looped at him across sessions. An offer surfaces ONCE, not
+ * every load: this wrapper stamps the day an observation is
+ * delivered (in localStorage, so the stamp survives reloads) and
+ * holds the watcher silent for the rest of that day. The watcher's
+ * own rules (presence, quiet period) still apply inside the day.
+ */
+export interface DayGateStorage {
+  get: (key: string) => string | null;
+  set: (key: string, value: string) => void;
+}
+
+const localDayGateStorage: DayGateStorage = {
+  get: (key) => {
+    try {
+      return globalThis.localStorage?.getItem(key) ?? null;
+    } catch {
+      return null;
+    }
+  },
+  set: (key, value) => {
+    try {
+      globalThis.localStorage?.setItem(key, value);
+    } catch {
+      // best effort — a storage failure never breaks the watcher
+    }
+  },
+};
+
+/** The local calendar day a timestamp falls on, as a stable stamp. */
+export function dayStamp(nowMs: number): string {
+  const date = new Date(nowMs);
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+export function withDailyOfferGate(
+  watcher: ProactiveWatcher,
+  storageKey: string,
+  storage: DayGateStorage = localDayGateStorage,
+): ProactiveWatcher {
+  return {
+    ...watcher,
+    check: (nowMs) => {
+      if (storage.get(storageKey) === dayStamp(nowMs)) return null;
+      const observation = watcher.check(nowMs);
+      if (observation) storage.set(storageKey, dayStamp(nowMs));
+      return observation;
+    },
+  };
+}
+
 /** Deal/inbox events arrive from the outside; each one is reported once. */
-export class EventQueueWatcher implements ProactiveWatcher {
-  id = "event-queue";
+export class EventQueueWatcher implements ProactiveWatcher {  id = "event-queue";
   label = "events";
   quietPeriodMs = 0;
   private pending: Array<{ text: string; suggestion: string | null }> = [];

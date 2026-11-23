@@ -7,8 +7,9 @@
  * - GRAB: press the medallion and drag — it lifts (the lifted state)
  *   and follows the hand; release sets it down anchored at the drop
  *   point, and the placement is saved.
- * - STRETCH: the corner handle at the medallion's lower right drags
- *   its size; the size he leaves is saved with the placement.
+ * - SIZE: set from the medallion's box menu (owner eye-check
+ *   2026-11-23 — the stretch tab drawn on the circle is gone; the
+ *   circle stays clean). setSize below is the menu's one door.
  * - TAP: a press that does not travel still counts as a tap — the
  *   wrapped select handler fires the medallion's own action (taking
  *   the perspective), while a real drag's trailing click is eaten so
@@ -55,7 +56,6 @@ export function useMedallionAnchor(id: string) {
   const geometryRef = useRef(geometry);
   geometryRef.current = geometry;
   const drag = useRef<{
-    mode: "move" | "stretch";
     startX: number;
     startY: number;
     geometry: MedallionGeometry;
@@ -82,16 +82,12 @@ export function useMedallionAnchor(id: string) {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const beginDrag = (
-    mode: "move" | "stretch",
-    event: ReactPointerEvent<HTMLElement>,
-  ) => {
+  const beginDrag = (event: ReactPointerEvent<HTMLElement>) => {
     if ("button" in event && event.button !== 0) return false;
     // A fresh press clears any stale suppression — the flag only ever
     // eats the one click that trails THIS drag.
     suppressClick.current = false;
     drag.current = {
-      mode,
       startX: event.clientX,
       startY: event.clientY,
       geometry: geometryRef.current,
@@ -107,21 +103,13 @@ export function useMedallionAnchor(id: string) {
   };
 
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    // The stretch handle runs its own drag; the medallion's press
-    // never starts a move from the handle. A press on one of the
-    // medallion's own buttons (the head/body view switch) keeps its
-    // click too — a captured pointer would retarget the click to
-    // the medallion and the button would never receive it (the same
-    // rule the windows follow).
-    if ((event.target as HTMLElement).closest?.("[data-medallion-stretch]")) return;
+    // A press on one of the medallion's own buttons (the menu, the
+    // head/body view switch) keeps its click — a captured pointer
+    // would retarget the click to the medallion and the button
+    // would never receive it (the same rule the windows follow).
     if ((event.target as HTMLElement).closest?.("[data-medallion-menu]")) return;
     if ((event.target as HTMLElement).closest?.("button")) return;
-    beginDrag("move", event);
-  }, []);
-
-  const onStretchPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    event.stopPropagation();
-    beginDrag("stretch", event);
+    beginDrag(event);
   }, []);
 
   /**
@@ -134,7 +122,7 @@ export function useMedallionAnchor(id: string) {
    */
   const onMoveHandlePointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     event.stopPropagation();
-    beginDrag("move", event);
+    beginDrag(event);
   }, []);
 
   /**
@@ -156,6 +144,31 @@ export function useMedallionAnchor(id: string) {
     saveMedallionGeometry(id, next);
   }, [id]);
 
+  /**
+   * SET THE SIZE FROM THE MENU (owner eye-check 2026-11-23): the
+   * yellow stretch tab drawn on the circle is GONE — "It needs to
+   * be a nice clean circle." Sizing now lives in the medallion's
+   * box menu (Smaller / Bigger), through this one door: clamp into
+   * the stage, keep the medallion's center where it was, save.
+   */
+  const setSize = useCallback(
+    (size: number) => {
+      const current = geometryRef.current;
+      const next = clampMedallionGeometry(
+        {
+          x: current.x + (current.size - size) / 2,
+          y: current.y + (current.size - size) / 2,
+          size,
+        },
+        stageWidth(),
+        stageHeight(),
+      );
+      setGeometry(next);
+      saveMedallionGeometry(id, next);
+    },
+    [id],
+  );
+
   const onPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     const active = drag.current;
     if (!active) return;
@@ -165,26 +178,13 @@ export function useMedallionAnchor(id: string) {
     const dx = event.clientX - active.startX;
     const dy = event.clientY - active.startY;
     if (Math.abs(dx) + Math.abs(dy) > TAP_TRAVEL) active.moved = true;
-    if (active.mode === "move") {
-      setGeometry(
-        clampMedallionGeometry(
-          { ...active.geometry, x: active.geometry.x + dx, y: active.geometry.y + dy },
-          window.innerWidth,
-          window.innerHeight,
-        ),
-      );
-    } else {
-      // Stretch from the lower-right corner: the larger axis rules,
-      // so a drag in any outward direction grows the face evenly.
-      const delta = Math.max(dx, dy);
-      setGeometry(
-        clampMedallionGeometry(
-          { ...active.geometry, size: active.geometry.size + delta },
-          window.innerWidth,
-          window.innerHeight,
-        ),
-      );
-    }
+    setGeometry(
+      clampMedallionGeometry(
+        { ...active.geometry, x: active.geometry.x + dx, y: active.geometry.y + dy },
+        window.innerWidth,
+        window.innerHeight,
+      ),
+    );
   }, []);
 
   const onPointerUp = useCallback((event: ReactPointerEvent<HTMLElement>) => {
@@ -225,6 +225,7 @@ export function useMedallionAnchor(id: string) {
     geometry,
     lifted,
     center,
+    setSize,
     rootProps: {
       style: rootStyle,
       onPointerDown,
@@ -233,13 +234,6 @@ export function useMedallionAnchor(id: string) {
       onPointerCancel: onPointerUp,
     },
     faceStyle,
-    stretchProps: {
-      "data-medallion-stretch": "true",
-      onPointerDown: onStretchPointerDown,
-      onPointerMove,
-      onPointerUp,
-      onPointerCancel: onPointerUp,
-    },
     moveHandleProps: {
       "data-medallion-move": "true",
       onPointerDown: onMoveHandlePointerDown,

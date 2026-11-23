@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { deriveHearingStatus, pushLevel, LEVEL_HISTORY_MAX } from "@/avatar/voiceHearing";
+import {
+  deriveHearingStatus,
+  pushLevel,
+  stageStatusLabel,
+  LEVEL_HISTORY_MAX,
+} from "@/avatar/voiceHearing";
 import type { HearingSnapshot } from "@/avatar/localEar";
 
 /**
@@ -72,5 +77,25 @@ describe("level history", () => {
       history = pushLevel(history, 0.5);
     }
     expect(history).toHaveLength(LEVEL_HISTORY_MAX);
+  });
+});
+
+describe("stage STATUS — one truth on screen (owner eye-check 2026-11-23)", () => {
+  it("a resting bridge with the mic off reads MIC OFF, never LISTENING", () => {
+    expect(stageStatusLabel("LISTENING", "idle")).toBe("MIC OFF");
+    expect(stageStatusLabel("LISTENING", "error")).toBe("MIC OFF");
+    expect(stageStatusLabel("LISTENING", null)).toBe("MIC OFF");
+  });
+
+  it("an ear that is actually capturing keeps the LISTENING readout", () => {
+    expect(stageStatusLabel("LISTENING", "starting")).toBe("LISTENING");
+    expect(stageStatusLabel("LISTENING", "listening")).toBe("LISTENING");
+    expect(stageStatusLabel("LISTENING", "transcribing")).toBe("LISTENING");
+  });
+
+  it("every other bridge state passes through untouched", () => {
+    expect(stageStatusLabel("SPEAKING", "idle")).toBe("SPEAKING");
+    expect(stageStatusLabel("THINKING", "idle")).toBe("THINKING");
+    expect(stageStatusLabel("IDLE", "idle")).toBe("IDLE");
   });
 });

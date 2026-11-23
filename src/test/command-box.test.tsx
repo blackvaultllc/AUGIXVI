@@ -76,17 +76,17 @@ describe("command box grip controls", () => {
     expect(screen.getByText("panel body")).toBeInTheDocument();
   });
 
-  it("dragging still starts from the rail itself — once unanchored", () => {
+  it("dragging starts from the rail itself — a genuine grab unanchors and moves", () => {
     renderBox();
-    // The box opens ANCHORED (owner order 2026-11-22): locked at its
-    // home corner, the rail does not drag. Unanchor first — then the
-    // rail drags exactly as it always did.
-    fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
+    // The box opens ANCHORED (owner order 2026-11-22) at its home
+    // corner — but a genuine grab on the rail lifts the lock in
+    // place and drags (owner eye-check 2026-11-23: "I click it and
+    // I can't move it" was the defect this replaces).
     pointerDown(screen.getByText("Chat"));
     expect(captureSpy).toHaveBeenCalled();
   });
 
-  it("opens anchored at the bottom-left — locked, fully on screen, and the state persists", () => {
+  it("opens anchored at the bottom-left — fully on screen, and the state persists", () => {
     const { container } = renderBox();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
     expect(box.dataset["anchored"]).toBe("true");
@@ -96,9 +96,10 @@ describe("command box grip controls", () => {
     // x=16, y=768−400−16.
     expect(box.style.left).toBe("16px");
     expect(box.style.top).toBe("352px");
+    // A grab on the rail unanchors the box in place (eye-check
+    // 2026-11-23) and the unanchored state persists.
     pointerDown(screen.getByText("Chat"));
-    expect(captureSpy).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
+    expect(captureSpy).toHaveBeenCalled();
     expect(box.dataset["anchored"]).toBe("false");
     expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("unanchored");
     fireEvent.click(screen.getByRole("button", { name: "Anchor the chat window at its home corner" }));

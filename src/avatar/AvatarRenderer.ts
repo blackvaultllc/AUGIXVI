@@ -17,6 +17,7 @@ import { SceneManager } from "./sceneManager";
 import { WorldSceneManager } from "./worldSceneRenderer";
 import { BuilderSceneManager } from "./builder/builderScene";
 import type { RoomContent } from "./builder/room";
+import { backdropById } from "./builder/backdrops";
 import {
   DEFAULT_WORLD_SCENE,
   type PortalKind,
@@ -277,6 +278,15 @@ export class AvatarRenderer {
   private builderScenes: BuilderSceneManager;
   /** His backdrop color for the Room — the light stage clears to it. */
   private builderBackdrop: string | null = null;
+  /**
+   * True while one of his backdrop PICTURES is up in the Room.
+   * THE HOLDER GOES BLACK (owner eye-check 2026-11-23): with a
+   * picture up, the canvas clears BLACK around it — never the
+   * light backdrop color — so the picture stands out and every
+   * HUD readout sits on black. No picture: his chosen backdrop
+   * color clears, exactly as before.
+   */
+  private builderBackdropPicture = false;
   private locomotion: AvatarLocomotion;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
@@ -965,7 +975,13 @@ export class AvatarRenderer {
     this.builderScenes.setRoom(room);
     this.worldScenes.setRoomSurfaces(room.surfaces);
     this.builderBackdrop = room.surfaces.backdrop;
-    if (this.lightStage) this.renderer.setClearColor(room.surfaces.backdrop, 1);
+    this.builderBackdropPicture = backdropById(room.surfaces.backdropImage) != null;
+    if (this.lightStage) this.renderer.setClearColor(this.roomClearColor(), 1);
+  }
+
+  /** The Room's clear color: black while a backdrop picture is up. */
+  private roomClearColor(): string | number {
+    return this.builderBackdropPicture ? 0x000000 : (this.builderBackdrop ?? 0xf6f2e9);
   }
 
   /** The builder's selection ring follows the stage's pick. */
@@ -1030,7 +1046,7 @@ export class AvatarRenderer {
   private applyStageLook(id: WorldSceneId) {
     const light = id === "room";
     this.lightStage = light;
-    this.renderer.setClearColor(light ? (this.builderBackdrop ?? 0xf6f2e9) : 0x02040a, 1);
+    this.renderer.setClearColor(light ? this.roomClearColor() : 0x02040a, 1);
     this.bloom.enabled = !light;
     const blending = light ? THREE.NormalBlending : THREE.AdditiveBlending;
     const setMaterial = (material: THREE.ShaderMaterial) => {

@@ -2438,12 +2438,20 @@
 }
 .avatar-command-box__rail {
   flex: none;
-  width: 5.9rem;
+  /* CONTAINED (owner eye-check 2026-11-23): the rail was 5.9rem
+     (94px) wide while Osiris's presence inside it is 104px — the
+     avatar itself was wider than its rail and hung outside the
+     box. The rail is 7.5rem now: the face sits fully inside with
+     margin to spare. The stack is tightened to match (gap and
+     padding below, the buttons and title in their rules): grip +
+     face + title + four buttons now fit the box's inner height
+     at its standard size, so nothing spills past the border. */
+  width: 7.5rem;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.6rem;
-  padding: 0.25rem 0;
+  gap: 0.32rem;
+  padding: 0.15rem 0;
   cursor: grab;
 }
 .avatar-command-box__rail:active {
@@ -2451,15 +2459,15 @@
 }
 .avatar-command-box__rail .avatar-command-box__title {
   writing-mode: vertical-rl;
-  letter-spacing: 0.34em;
+  letter-spacing: 0.2em;
   font-size: 0.72rem;
 }
 .avatar-command-box__rail .avatar-command-box__window-button,
 .avatar-command-box__rail .avatar-command-box__menu-button {
-  width: 2.6rem;
-  min-width: 2.6rem;
-  height: 2.6rem;
-  min-height: 2.6rem;
+  width: 2.25rem;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  min-height: 2.25rem;
   padding: 0;
   border-radius: 9999px;
   margin-left: 0;
@@ -2561,7 +2569,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.2rem;
 }
 .avatar-command-box .augie-presence {
   width: 76px;
@@ -7519,31 +7527,9 @@
 .medallion-anchor--lifted {
   cursor: grabbing !important;
 }
-.medallion-anchor__stretch {
-  position: absolute;
-  right: -4px;
-  bottom: 1.6rem;
-  width: 22px;
-  height: 22px;
-  border-radius: 0 0 0.4rem 0;
-  cursor: nwse-resize;
-  touch-action: none;
-  opacity: 0.55;
-  background: linear-gradient(
-    135deg,
-    transparent 52%,
-    rgb(212 175 55 / 85%) 53%,
-    rgb(212 175 55 / 85%) 68%,
-    transparent 69%,
-    transparent 78%,
-    rgb(212 175 55 / 85%) 79%
-  );
-}
-.medallion-anchor:hover .medallion-anchor__stretch,
-.medallion-anchor:focus-within .medallion-anchor__stretch,
-.medallion-anchor--lifted .medallion-anchor__stretch {
-  opacity: 1;
-}
+/* (The stretch corner that used to be styled here is REMOVED —
+   owner eye-check 2026-11-23: a clean circle, nothing drawn on
+   it. Size lives in the medallion's box menu.) */
 .medallion-anchor__view-toggle {
   padding: 0.18rem 0.7rem;
   border-radius: 9999px;
@@ -7692,7 +7678,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.15rem 0;
+  padding: 0;
   background: transparent;
   border: none;
   color: #9fc0ee;

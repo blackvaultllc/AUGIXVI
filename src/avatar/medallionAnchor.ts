@@ -121,7 +121,13 @@ export function defaultMedallionGeometry(
   stageH: number,
 ): MedallionGeometry {
   if (id === "anubis") {
-    const size = 264;
+    // BIG BY DEFAULT (owner eye-check 2026-11-23): he had stretched
+    // Anubis to the large size himself and ordered it kept —
+    // "Leave it big like that — default, centered." The factory
+    // home is now the medallion maximum, dead-center; the clamp
+    // still pulls it inside smaller stages, and his own saved
+    // placement outranks the home as always.
+    const size = MEDALLION_MAX_SIZE;
     return clampMedallionGeometry(
       {
         x: (stageW - size) / 2,

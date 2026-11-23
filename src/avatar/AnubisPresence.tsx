@@ -195,6 +195,8 @@ export function AnubisPresence({
         moveHandleProps={anchor.moveHandleProps}
         eatClick={anchor.eatClick}
         onCenter={anchor.center}
+        size={anchor.geometry.size}
+        onSizeChange={anchor.setSize}
       >
         {views.length > 1 && (
           <button
@@ -212,13 +214,6 @@ export function AnubisPresence({
           </button>
         )}
       </MedallionMenu>
-      <div
-        className="medallion-anchor__stretch"
-        role="separator"
-        aria-label="Stretch the Anubis medallion"
-        title="Drag to stretch the medallion"
-        {...anchor.stretchProps}
-      />
     </div>
   );
 }

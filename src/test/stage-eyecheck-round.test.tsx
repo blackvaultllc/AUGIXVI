@@ -86,12 +86,10 @@ describe("the backdrop fit — the whole picture, centered", () => {
   });
 });
 
-describe("the stretch handle — repaired", () => {
-  it("the handle re-enables its own pointer events and sits at the face's corner", () => {
-    const body = ruleBody(stageCss, ".avatar-stage .medallion-anchor__stretch");
-    expect(body).toContain("pointer-events: auto");
-    expect(body).toContain("bottom: -6px");
-    expect(body).toContain("width: 28px");
+describe("the stretch handle — REMOVED (owner eye-check 2026-11-23)", () => {
+  it("no stretch tab is drawn on any god's circle — the CSS rule is gone", () => {
+    expect(stageCss).not.toContain(".medallion-anchor__stretch");
+    expect(styles).not.toContain(".medallion-anchor__stretch {");
   });
 
   it("the selectable god medallions take presses at stage specificity", () => {
@@ -158,16 +156,20 @@ describe("Osiris in the panel — bigger, on black", () => {
 });
 
 describe("the HUD readouts — bright", () => {
-  it("bright text on a dark backing, and the top-left column at full strength", () => {
+  it("bright text on the indicator's dark panel, and the top-left column at full strength", () => {
+    // The panel language is the top-right indicator box's (owner
+    // eye-check 2026-11-23): near-solid dark, soft light border,
+    // bright text — both clusters wear it and spread out.
     const body = ruleBody(stageCss, ".avatar-stage div.avatar-hud");
-    expect(body).toContain("color: #eef4ff");
-    expect(body).toContain("background: rgb(3 6 14 / 62%)");
+    expect(body).toContain("color: #eef2f6");
+    expect(body).toContain("background: rgb(10 12 16 / 88%)");
     const tl = ruleBody(stageCss, ".avatar-stage .avatar-hud--tl");
     expect(tl).toContain("opacity: 1");
+    expect(tl).toContain("min-width: 19rem");
   });
 });
 
-describe("idle life — the face looks around", () => {  beforeEach(() => {
+describe("idle life — the face stays still (owner eye-check 2026-11-23)", () => {  beforeEach(() => {
     vi.useFakeTimers();
   });
   afterEach(() => {
@@ -190,7 +192,7 @@ describe("idle life — the face looks around", () => {  beforeEach(() => {
     expect(face!.querySelector("img.living-face__portrait")).not.toBeNull();
   });
 
-  it("every several seconds the head turns to look to one side, then returns", () => {
+  it("the circle does NOT move — no look-around, ever (owner eye-check 2026-11-23)", () => {
     const { container } = render(
       <LivingPortrait
         src="/anubis-presence/face.webp"
@@ -200,17 +202,16 @@ describe("idle life — the face looks around", () => {  beforeEach(() => {
       />,
     );
     const face = () => container.querySelector('[data-testid="living-face"]')!;
-    expect(face().className).not.toContain("is-looking-");
-    let sawLook = false;
-    // The first look lands 8–16s in and holds 1.5–2.2s; step
-    // through 30 seconds of stage time and catch it mid-hold.
-    for (let i = 0; i < 60 && !sawLook; i += 1) {
+    expect(face().className).toBe("living-face");
+    // Thirty seconds of stage time: the wrapper never turns,
+    // sways, or picks up a looking class — motion lives inside
+    // the portrait only (lids, mouth).
+    for (let i = 0; i < 60; i += 1) {
       act(() => {
         vi.advanceTimersByTime(500);
       });
-      if (/is-looking-(left|right)/.test(face().className)) sawLook = true;
+      expect(face().className).toBe("living-face");
     }
-    expect(sawLook).toBe(true);
   });
 });
 

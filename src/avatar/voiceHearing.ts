@@ -11,7 +11,7 @@
  * Nothing here can paint a false green: a state this module does
  * not recognize also reads NOT HEARING.
  */
-import type { HearingSnapshot } from "./localEar";
+import type { EarState, HearingSnapshot } from "./localEar";
 
 export interface HearingStatus {
   hearing: boolean;
@@ -47,9 +47,27 @@ export function deriveHearingStatus(snapshot: HearingSnapshot): HearingStatus {
   }
 }
 
+/**
+ * ONE TRUTH ON SCREEN (owner eye-check 2026-11-23): his HUD read
+ * "STATUS: LISTENING" in the same moment the indicator read "NOT
+ * HEARING — THE MICROPHONE IS OFF" and the sensor column read MIC
+ * OFF. The bridge's LISTENING is its resting state — it was set at
+ * mount and after every reply, with no regard for the ear. The
+ * STATUS readout now answers to the ear's real condition: the ear
+ * is push-to-talk, so unless it is actually capturing (starting,
+ * listening, or writing down a captured phrase), a resting bridge
+ * reads MIC OFF — plainly — and every readout on the screen
+ * agrees. Every other bridge state passes through untouched.
+ */
+export function stageStatusLabel(bridgeState: string, earState: EarState | null): string {
+  if (bridgeState !== "LISTENING") return bridgeState;
+  const capturing =
+    earState === "starting" || earState === "listening" || earState === "transcribing";
+  return capturing ? bridgeState : "MIC OFF";
+}
+
 /** Samples kept in the indicator's scrolling history. */
 export const LEVEL_HISTORY_MAX = 56;
-
 /**
  * Append one measured level to the graph history, capped at the
  * window size. Pure: the graph shows only samples that were really

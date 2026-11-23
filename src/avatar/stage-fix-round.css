@@ -23,7 +23,19 @@
    6) the HUD readouts BRIGHTENED: solid bright text on a dark
       backing, readable over any backdrop picture;
    7) Osiris in the chat strip stays slim (his bigger sizes live in
-      the shared stylesheet's command-box rules). */
+      the shared stylesheet's command-box rules).
+
+   MORNING EYE-CHECK ROUND (owner, 2026-11-23 ~06:15 EST) — this
+   file also carries:
+   8) the stretch handle REMOVED (clean circle — size lives in the
+      medallion's box menu now);
+   9) the circle does not move: the look-around / breathing wrapper
+      transforms are out; motion lives inside the portrait only
+      (lids, mouth);
+   10) both top HUD clusters wear the indicator box's panel style
+       and spread out across the top;
+   11) the quiet activity line — idle musings as a status line,
+       never in the conversation thread. */
 
 /* ---- 4) THE MEDALLION'S BOX MENU -------------------------------- */
 .medallion-menu {
@@ -119,34 +131,52 @@
   white-space: nowrap;
 }
 
-/* ---- 4) THE STRETCH HANDLE — REPAIRED ----------------------------
-   THE DEFECT (his screenshot, 2026-11-22 ~19:38 EST): the little
-   orange arrow at Anubis's bottom-right did NOTHING when clicked.
-   Root cause: the Anubis and Montu medallion roots are
-   pointer-events:none (only children that re-enable it can be
-   pressed), the selectable override that was meant to re-enable
-   the root loses on specificity to the stage rule — and this
-   handle never re-enabled pointer events at all, so presses fell
-   straight through it to the stage. The Move/Center row worked
-   only because it carries its own pointer-events:auto.
-   THE FIX: the handle re-enables pointer events itself, sits at
-   the FACE's own lower-right corner (the plate and controls row
-   that used to push it 3.6rem up the root are gone), and is a
-   bigger, always-clearly-visible target. The selectable roots are
-   re-enabled at stage specificity too, so the face itself takes
-   presses and drags the way the Black Hatter's always did. */
-.avatar-stage .medallion-anchor__stretch {
-  right: -6px;
-  bottom: -6px;
-  width: 28px;
-  height: 28px;
-  opacity: 0.9;
-  pointer-events: auto;
-  z-index: 4;
-}
+/* ---- 4) THE STRETCH HANDLE — REMOVED (owner eye-check
+   2026-11-23) -------------------------------------------------------
+   The yellow tab drawn on the circle is GONE: "I don't need to see
+   that. It needs to be a nice clean circle." Nothing is drawn on
+   the face; the medallion's SIZE now lives in its box menu
+   (Smaller / Bigger — MedallionMenu), and the hook's setSize is
+   the one door. What stays from the repair below it: the
+   selectable medallion roots re-enable pointer events at stage
+   specificity, so the face itself still takes presses and drags. */
 .avatar-stage .anubis-presence--selectable,
 .avatar-stage .montu-presence--selectable {
   pointer-events: auto;
+}
+
+/* The menu's size row (MedallionMenu): two plain steppers and the
+   face's diameter between them. */
+.medallion-menu__size {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  pointer-events: auto;
+}
+.medallion-menu__size-button {
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 65%);
+  background: rgb(8 12 22 / 85%);
+  color: #f3d27a;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.medallion-menu__size-button:hover,
+.medallion-menu__size-button:focus-visible {
+  background: rgb(24 32 52 / 92%);
+  border-color: rgb(212 175 55 / 95%);
+  outline: none;
+}
+.medallion-menu__size-readout {
+  color: #cfd8e6;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  min-width: 3.2em;
+  text-align: center;
 }
 
 /* ---- 3+5) THE BLINK, ISOLATED — AND THE FACE'S IDLE LIFE --------- */
@@ -167,44 +197,18 @@
   will-change: transform;
   contain: paint;
 }
-/* The living face's wrapper: the whole head — portrait, lids,
-   mouth together — carries the look-around shift, turning from
-   the neck (origin low-center), slow glides both ways. */
+/* THE CIRCLE DOES NOT MOVE (owner eye-check 2026-11-23): "Why is
+   the whole circle moving? It shouldn't be rocking." The wrapper
+   transforms are OUT — no look-around turn, no breathing sway on
+   the medallion as a whole, for any god. The wrapper is a static
+   positioning layer now; motion lives INSIDE the portrait only —
+   the lids (above) and the mouth. Removing the wrapper motion
+   also removes the lid drift he saw: the lids ride the portrait's
+   own layer, which no longer shifts under them. */
 .avatar-stage .living-face {
   position: absolute;
   inset: 0;
   display: block;
-  transform-origin: 50% 68%;
-  transition: transform 950ms ease-in-out;
-}
-.avatar-stage .living-face.is-looking-left {
-  transform: translateX(-1.5%) rotate(-0.9deg);
-}
-.avatar-stage .living-face.is-looking-right {
-  transform: translateX(1.5%) rotate(0.9deg);
-}
-/* Breathing and the slow head sway ride the portrait alone, at
-   amplitudes too small to drift the feature map (the lids sit a
-   layer above, unmoved): a living stillness, not a cartoon. */
-.avatar-stage .living-face__portrait {
-  animation: living-face-breathe 6.5s ease-in-out infinite;
-}
-@keyframes living-face-breathe {
-  0%,
-  100% {
-    transform: scale(1) rotate(0deg);
-  }
-  50% {
-    transform: scale(1.012) rotate(0.35deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .avatar-stage .living-face {
-    transition: none;
-  }
-  .avatar-stage .living-face__portrait {
-    animation: none;
-  }
 }
 
 /* ---- 6) THE HUD READOUTS — BRIGHT (owner eye-check 2026-11-22) ---
@@ -214,24 +218,67 @@
    backdrop picture. Now: full-strength near-white text, a bright
    accent for the values, a dark backing panel behind each column
    so the words read over ANY picture, and a step up in size. The
-   room, the black floor, and the screen background are untouched. */
+   room, the black floor, and the screen background are untouched.
+
+   ---- TOP BOXES, ONE STYLE, SPREAD OUT (owner eye-check
+   2026-11-23) -----------------------------------------------------
+   The top-right indicator box is his reference: "looks good, I can
+   read it" — a near-solid dark panel, a soft light border, bright
+   text. Both top clusters now wear THAT panel language exactly,
+   and they spread out: each cluster carries a real width and
+   roomier padding, so the readouts lay out across the top instead
+   of cramming into the corners. With the backdrop holder black
+   (item 3), every line reads bright-on-black; nothing readable
+   depends on the picture behind it. */
 .avatar-stage div.avatar-hud {
-  color: #eef4ff;
+  color: #eef2f6;
   font-size: 12.5px;
-  background: rgb(3 6 14 / 62%);
-  border: 1px solid rgb(147 180 240 / 28%);
-  border-radius: 0.55rem;
-  padding: 0.5rem 0.7rem;
+  background: rgb(10 12 16 / 88%);
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 10px;
+  padding: 0.65rem 0.95rem;
   text-shadow: 0 1px 3px rgb(0 0 0 / 80%);
 }
 .avatar-stage .avatar-hud--tl {
   opacity: 1;
+  min-width: 19rem;
+}
+.avatar-stage .avatar-hud--tr {
+  min-width: 19rem;
 }
 .avatar-stage .avatar-hud__value {
   color: #8fd0ff;
 }
 .avatar-stage .avatar-hud__db-status {
-  color: #eef4ff;
+  color: #eef2f6;
+}
+
+/* ---- THE QUIET ACTIVITY LINE (owner eye-check 2026-11-23) --------
+   Idle life's latest musing, as a status line in the stage's
+   bottom-right — outside the conversation thread, unspoken, and
+   never dressed as a reply. Muted on purpose: it is background
+   life, not a message. */
+.avatar-stage .avatar-activity-line {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.25rem;
+  z-index: 6;
+  max-width: 26rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  background: rgb(10 12 16 / 72%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  color: #b9c6d4;
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-align: right;
+  pointer-events: none;
+}
+.avatar-stage .avatar-activity-line__label {
+  color: #7f8fa3;
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
 
 /* ---- 10) ANUBIS STAYS FIXED IN HIS PLACE (owner order

@@ -76,6 +76,14 @@ export const COMMAND_BOX_HOME_MARGIN = 16;
  * reads as anchored, so the box opens at home for everyone who has
  * never touched the control.
  *
+ * A GENUINE GRAB UNANCHORS (owner eye-check 2026-11-23): he
+ * grabbed the box and it would not move — "I click it and I can't
+ * move it" — because the lock refused every drag until he found
+ * the rail's anchor toggle. The anchor still seats the box at
+ * home on load and still re-seats it from the rail button, but a
+ * real grab on the grip (or a stretch on an edge) lifts the lock
+ * in place and moves the box. The box never refuses his hand.
+ *
  * THE ANCHOR HOME IS THE LEFT SIDE (owner refinement 2026-11-22,
  * superseding the same day's center placement): at regular,
  * non-maximized window sizes the centered box overlapped other
@@ -450,9 +458,6 @@ export function CommandBox({
 
   const startDrag = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      // Anchored means locked in place (his anchor law) — no drag
-      // until he unanchors the box from the rail's anchor button.
-      if (anchored) return;
       if ("button" in event && event.button !== 0) return;
     // The grip's own minimize/expand button keeps its click: starting a
     // drag here captures the pointer to the grip, and a captured pointer
@@ -463,6 +468,20 @@ export function CommandBox({
     const box = boxRef.current;
     if (!box) return;
     const rect = box.getBoundingClientRect();
+    // A GENUINE GRAB MOVES THE BOX (owner eye-check 2026-11-23:
+    // "I click it and I can't move it"). The box used to ship
+    // anchored and refuse every drag until he found the rail's
+    // anchor toggle — a dead mover from his seat. Now a grab on
+    // the grip unanchors the box IN PLACE (the anchored spot
+    // becomes the free position, so nothing jumps) and the drag
+    // proceeds. The anchor button still re-anchors it home.
+    if (anchored) {
+      const free = { x: Math.round(rect.left), y: Math.round(rect.top) };
+      setPosition(free);
+      saveBoxPosition(free);
+      setAnchored(false);
+      saveBoxAnchored(false);
+    }
     dragging.current = true;
     dragOffset.current = { x: event.clientX - rect.left, y: event.clientY - rect.top };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -527,12 +546,20 @@ export function CommandBox({
   // windows (windowGeometry clamps it inside the viewport).
   const startResize =
     (mode: "corner" | "right" | "bottom") => (event: ReactPointerEvent<HTMLDivElement>) => {
-      // Anchored = locked: no stretching until he unanchors.
-      if (anchored) return;
       if ("button" in event && event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
       const rect = boxRef.current?.getBoundingClientRect();
+      // A genuine stretch unanchors in place too (owner eye-check
+      // 2026-11-23) — the same grab law as the drag: the box never
+      // refuses a hand that's actually on it.
+      if (anchored && rect) {
+        const free = { x: Math.round(rect.left), y: Math.round(rect.top) };
+        setPosition(free);
+        saveBoxPosition(free);
+        setAnchored(false);
+        saveBoxAnchored(false);
+      }
       resizing.current = {
         mode,
         startX: event.clientX,
@@ -900,8 +927,8 @@ export function CommandBox({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         role="separator"
-        aria-label={anchored ? "Chat window anchored at its home corner" : "Drag to move the chat window"}
-        title={anchored ? "Anchored at the bottom-left home corner — unanchor to move" : "Drag to move"}
+        aria-label="Drag to move the chat window"
+        title="Drag to move the chat window"
       >
         <button
           type="button"

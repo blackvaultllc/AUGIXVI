@@ -31,6 +31,8 @@ export function MedallionMenu({
   moveHandleProps,
   eatClick,
   onCenter,
+  size,
+  onSizeChange,
   children,
 }: {
   /** The medallion's display name, for the menu's labels. */
@@ -45,6 +47,10 @@ export function MedallionMenu({
   };
   eatClick: (event: ReactMouseEvent<HTMLElement>) => void;
   onCenter: () => void;
+  /** The face's current diameter (px) — the size row's readout. */
+  size?: number;
+  /** Step the face's size — the menu's Smaller / Bigger buttons. */
+  onSizeChange?: (size: number) => void;
   /** Extra rows for the menu (the head/body view switch, when a
    *  medallion's binding carries body artwork). */
   children?: ReactNode;
@@ -99,6 +105,37 @@ export function MedallionMenu({
             eatClick={eatClick}
             onCenter={onCenter}
           />
+          {/* SIZE LIVES HERE NOW (owner eye-check 2026-11-23):
+              the stretch tab drawn on the circle is gone — the
+              circle stays clean — and the face's size is set from
+              this row instead, in plain steps. */}
+          {size !== undefined && onSizeChange && (
+            <div className="medallion-menu__size" role="group" aria-label={`${name}'s size`}>
+              <button
+                type="button"
+                className="medallion-menu__size-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSizeChange(size - 40);
+                }}
+                aria-label={`Make ${name} smaller`}
+              >
+                Smaller
+              </button>
+              <span className="medallion-menu__size-readout">{Math.round(size)}px</span>
+              <button
+                type="button"
+                className="medallion-menu__size-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSizeChange(size + 40);
+                }}
+                aria-label={`Make ${name} bigger`}
+              >
+                Bigger
+              </button>
+            </div>
+          )}
           {children}
         </div>
       )}
