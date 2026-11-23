@@ -1,6 +1,18 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PulseWindow } from "@/avatar/PulseWindow";
+
+const baseCss = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+
+/** One CSS rule block (selector through its closing brace). */
+function cssRule(selector: string): string {
+  const start = baseCss.indexOf(`${selector} {`);
+  expect(start, `rule for ${selector}`).toBeGreaterThanOrEqual(0);
+  const end = baseCss.indexOf("}", start);
+  return baseCss.slice(start, end);
+}
 
 /**
  * PULSE WINDOW (2026-11-21) — the pulse sense as a small floating box
@@ -54,6 +66,38 @@ describe("Pulse window", () => {
     expect(screen.queryByText(/BPM/)).toBeNull();
     fireEvent.click(camera);
     expect(screen.getByRole("button", { name: "Start sensing" })).toBeTruthy();
+  });
+
+  it("layout (2026-11-23): the camera stage is the dominant region — it flexes into the frame, uncapped", () => {
+    const stage = cssRule(".window-pulse__stage");
+    // The stage grows to fill the panel (the wasted black opening IS
+    // the camera now) — no height cap holds it small.
+    expect(stage).toContain("flex: 1 1 auto");
+    expect(stage).not.toContain("max-height");
+    const video = cssRule(".window-pulse__video");
+    expect(video).not.toContain("max-height");
+    // The panes no longer stretch into a void of their own.
+    expect(cssRule(".window-pulse__panes")).toContain("flex: 0 0 auto");
+  });
+
+  it("layout (2026-11-23): the analytics type is bold — bifocal-readable sizes", () => {
+    const bpm = cssRule(".window-pulse__bpm");
+    const bpmSize = /font-size: ([\d.]+)rem/.exec(bpm);
+    expect(bpmSize).not.toBeNull();
+    expect(Number(bpmSize![1])).toBeGreaterThanOrEqual(2.4);
+    for (const sel of [
+      ".window-pulse__pane h3",
+      ".window-pulse__quality",
+      ".window-pulse__state",
+      ".window-pulse__summary",
+    ]) {
+      const m = /font-size: ([\d.]+)rem/.exec(cssRule(sel));
+      expect(m, sel).not.toBeNull();
+      expect(Number(m![1]), sel).toBeGreaterThanOrEqual(0.85);
+    }
+    const presence = /font-size: ([\d.]+)rem/.exec(cssRule(".window-pulse__freq"));
+    expect(presence).not.toBeNull();
+    expect(Number(presence![1])).toBeGreaterThanOrEqual(0.9);
   });
 
   it("minimizes to the title bar and closes through the X button", () => {

@@ -326,6 +326,7 @@ import { lookupKnowledge } from "./knowledgeBase";
 import { parseSpaceNavigationCommand } from "./spaceNavigation";
 import { SpaceView } from "./SpaceView";
 import { coreStatusLabel, type CoreStatus } from "./coreLink";
+import { brainStateLine } from "./brainState";
 import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
 
 type Settings = RenderSettings & {
@@ -3524,7 +3525,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           voiceAvailable={voiceAvailable}
           voiceListening={voiceListening}
           onToggleVoice={() => earRef.current?.toggle()}
-          responseLine={lastWords}
+          responseLine={
+            // BRAIN STATE IN PLAIN WORDS (2026-11-23): before the
+            // first exchange, when no brain path is ready, the thread
+            // stands on WHY nothing can answer and the doors that fix
+            // it — never a bare silent "No response yet." Once any
+            // reply lands, lastWords is the reply and this steps aside.
+            lastWords === "No response yet."
+              ? (brainStateLine({ core: coreStatus, phoneBrain: phoneBrainState }) ?? lastWords)
+              : lastWords
+          }
           responseSource={responseSource}
           speakerName={ADDRESSEE_NAMES[addressee]}
           userLine={lastUserMessage}

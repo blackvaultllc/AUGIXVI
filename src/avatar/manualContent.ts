@@ -831,6 +831,31 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "The HUD's PHONE BRAIN line.",
       },
       {
+        id: "ts-nobrain",
+        title: "“No brain can answer yet” on the stage",
+        state: "live",
+        what: "The stage says this in plain words when no brain path is ready on that surface: the core is not connected, the on-phone brain is not downloaded, and no cloud key is entered. It replaces the old bare “No response yet.” — silence was the defect; the line names the three doors because one of them is the fix. The HUD's CORE and PHONE BRAIN lines carry the same truth in short form.",
+        steps: [
+          "Door one: connect the core — Settings → Brain address points this surface at your Parrot core (tailnet or LAN address).",
+          "Door two: download the on-phone brain — Settings → On-phone brain; the size is shown before anything downloads, and the brain then lives on the device, grid-down included.",
+          "Door three: enter a cloud key — Connections holds the API slots; the cloud fallbacks answer through the server pipe when their keys are in.",
+          "Ask a question after opening any door: a real answer, or a failure stated in words — never silence.",
+        ],
+        where: "The chat thread's standing line + Settings / Connections.",
+      },
+      {
+        id: "ts-pulse",
+        title: "Pulse reads SEARCHING",
+        state: "live",
+        what: "Pulse (Senses & analysis) reads heart rate from the phone or computer camera — an ESTIMATE, never a medical reading. The camera fills the panel now and the analytics read bold underneath. The estimate is tightened the way watch firmware works, at camera scale: three skin patches (forehead and both cheeks) are combined, the signal is filtered to the heart band, frames where motion swamps the signal are thrown out, and a number is shown only once recent estimates agree with each other — with the live signal-quality percentage beside it. SEARCHING with a climbing quality % means it is hearing the signal but will not print a number until the readings agree. It cannot do what a watch's skin-contact sensor does: room light, stillness, and a plain view of the face decide what the camera can honestly read, and when the signal is not there it stays SEARCHING instead of inventing a number. Nothing is recorded or stored, and no face is identified — presence and pulse only.",
+        steps: [
+          "Face the camera in good, even light and hold still for about ten seconds.",
+          "Watch the signal-quality %: low and flat means light or motion is the problem — move nearer the light, rest the phone, try again.",
+          "A watch reading, when its pipe lands, outranks the camera estimate — the camera is the backup sense, labeled estimate on purpose.",
+        ],
+        where: "Tools → Senses & analysis → Pulse.",
+      },
+      {
         id: "ts-analyzer",
         title: "Picture analysis feels slow",
         state: "live",

@@ -8,11 +8,13 @@
  *   uses for hands) says whether a person is in frame, and frame
  *   difference says how much is moving.
  *
- *   HEART-RATE ESTIMATE (rPPG) — subtle color changes in the face
- *   region, POS method (see pulse.ts). Always labeled an estimate,
- *   always with a signal-quality read, and UNAVAILABLE / SEARCHING
- *   whenever there is no face, the light is too low, or the signal is
- *   too weak. It never invents a number.
+ *   HEART-RATE ESTIMATE (rPPG) — subtle color changes in THREE face
+ *   regions (forehead + both cheeks), POS method with heart-band
+ *   filtering, motion-artifact rejection, and a stabilization window
+ *   (see pulse.ts). Always labeled an estimate, always with a live
+ *   signal-quality read, and UNAVAILABLE / SEARCHING whenever there
+ *   is no face, the light is too low, or the signal is too weak. It
+ *   never invents a number.
  *
  *   FREQUENCY — the microphone's live spectrum with the dominant
  *   frequency labeled in Hz: a readout of the sound in the room.
@@ -29,13 +31,16 @@ import {
   GOOD_QUALITY,
   WEAK_QUALITY,
   dominantFrequency,
-  estimatePulse,
+  estimatePulseFromRois,
   frameMotion,
   motionLabel,
   pulseSummary,
+  stabilizeReading,
   type MotionLabel,
+  type MotionSample,
   type PulseReadout,
   type RoiSample,
+  type TimedReading,
 } from "./pulse";
 import { expressionCues, perceptionSentence, voiceCues } from "./perception";
 
@@ -104,7 +109,7 @@ function landmarksBox(
   return { x: minX * width, y: minY * height, w, h };
 }
 
-/** Forehead band of the face box — the ROI the pulse is read from. */
+/** Forehead band of the face box — the primary pulse region. */
 function foreheadRoi(face: FaceBox): FaceBox {
   return {
     x: face.x + face.w * 0.21,
@@ -112,6 +117,23 @@ function foreheadRoi(face: FaceBox): FaceBox {
     w: face.w * 0.58,
     h: face.h * 0.27,
   };
+}
+
+/**
+ * MULTI-ROI (tightening round, 2026-11-23): the pulse is read from
+ * THREE skin patches — forehead and both cheeks — and the estimator
+ * combines them quality-weighted (see pulse.ts). One patch in shadow
+ * or under a glasses frame no longer decides the reading alone.
+ * Order matters: index 0 is the forehead (the brightness reference).
+ */
+function pulseRois(face: FaceBox): FaceBox[] {
+  const cheek = (fx: number): FaceBox => ({
+    x: face.x + face.w * fx,
+    y: face.y + face.h * 0.52,
+    w: face.w * 0.24,
+    h: face.h * 0.2,
+  });
+  return [foreheadRoi(face), cheek(0.14), cheek(0.62)];
 }
 
 /**
@@ -133,7 +155,11 @@ function CameraPulsePanel() {
   const detectorRef = useRef<Detector | null>(null);
   const rafRef = useRef(0);
   const runningRef = useRef(false);
-  const samplesRef = useRef<RoiSample[]>([]);
+  const samplesRef = useRef<RoiSample[][]>([[], [], []]);
+  /** Frame-motion readings aligned with the samples (rejection). */
+  const motionSamplesRef = useRef<MotionSample[]>([]);
+  /** Recent per-tick estimates — the stabilization window's input. */
+  const readingHistoryRef = useRef<TimedReading[]>([]);
   const faceRef = useRef<{
     box: FaceBox;
     at: number;
@@ -227,7 +253,9 @@ function CameraPulsePanel() {
     void audioCtxRef.current?.close().catch(() => undefined);
     audioCtxRef.current = null;
     analyserRef.current = null;
-    samplesRef.current = [];
+    samplesRef.current = [[], [], []];
+    motionSamplesRef.current = [];
+    readingHistoryRef.current = [];
     faceRef.current = null;
     prevGrayRef.current = null;
     setRunning(false);
@@ -299,42 +327,51 @@ function CameraPulsePanel() {
     const face = faceRef.current;
     const present = face !== null && now - face.at < PRESENCE_HOLD_MS;
 
-    // ROI color sample when a face is in view
+    // ROI color samples when a face is in view — all three patches.
     let brightness: number | null = null;
     if (present && face) {
-      const roi = foreheadRoi(face.box);
-      const sx = Math.max(0, Math.floor((roi.x / video.videoWidth) * sc.width));
-      const sy = Math.max(0, Math.floor((roi.y / video.videoHeight) * sc.height));
-      const sw = Math.max(2, Math.floor((roi.w / video.videoWidth) * sc.width));
-      const sh = Math.max(2, Math.floor((roi.h / video.videoHeight) * sc.height));
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      let count = 0;
-      for (let y = sy; y < Math.min(sc.height, sy + sh); y++) {
-        for (let x = sx; x < Math.min(sc.width, sx + sw); x++) {
-          const idx = (y * sc.width + x) * 4;
-          r += px[idx]!;
-          g += px[idx + 1]!;
-          b += px[idx + 2]!;
-          count++;
+      const cutoff = now - SAMPLE_WINDOW_MS;
+      pulseRois(face.box).forEach((roi, roiIndex) => {
+        const sx = Math.max(0, Math.floor((roi.x / video.videoWidth) * sc.width));
+        const sy = Math.max(0, Math.floor((roi.y / video.videoHeight) * sc.height));
+        const sw = Math.max(2, Math.floor((roi.w / video.videoWidth) * sc.width));
+        const sh = Math.max(2, Math.floor((roi.h / video.videoHeight) * sc.height));
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let count = 0;
+        for (let y = sy; y < Math.min(sc.height, sy + sh); y++) {
+          for (let x = sx; x < Math.min(sc.width, sx + sw); x++) {
+            const idx = (y * sc.width + x) * 4;
+            r += px[idx]!;
+            g += px[idx + 1]!;
+            b += px[idx + 2]!;
+            count++;
+          }
         }
-      }
-      if (count > 0) {
-        r /= count;
-        g /= count;
-        b /= count;
-        brightness = (r + g + b) / 3;
-        samplesRef.current.push({ t: now, r, g, b });
-        const cutoff = now - SAMPLE_WINDOW_MS;
-        while (samplesRef.current.length && samplesRef.current[0]!.t < cutoff) {
-          samplesRef.current.shift();
+        if (count > 0) {
+          r /= count;
+          g /= count;
+          b /= count;
+          if (roiIndex === 0) brightness = (r + g + b) / 3;
+          const trace = samplesRef.current[roiIndex]!;
+          trace.push({ t: now, r, g, b });
+          while (trace.length && trace[0]!.t < cutoff) trace.shift();
         }
+      });
+      motionSamplesRef.current.push({ t: now, m: motionEmaRef.current });
+      while (
+        motionSamplesRef.current.length &&
+        motionSamplesRef.current[0]!.t < cutoff
+      ) {
+        motionSamplesRef.current.shift();
       }
     } else {
       // No face: the trace is meaningless — do not let stale samples
       // from a previous face produce a reading for an empty chair.
-      samplesRef.current = [];
+      samplesRef.current = [[], [], []];
+      motionSamplesRef.current = [];
+      readingHistoryRef.current = [];
     }
 
     // overlay: face box + forehead ROI
@@ -348,10 +385,11 @@ function CameraPulsePanel() {
         octx.strokeStyle = "#22d3ee";
         octx.lineWidth = 3;
         octx.strokeRect(face.box.x, face.box.y, face.box.w, face.box.h);
-        const roi = foreheadRoi(face.box);
         octx.strokeStyle = "#4ade80";
         octx.lineWidth = 2;
-        octx.strokeRect(roi.x, roi.y, roi.w, roi.h);
+        for (const roi of pulseRois(face.box)) {
+          octx.strokeRect(roi.x, roi.y, roi.w, roi.h);
+        }
       }
     }
 
@@ -392,12 +430,25 @@ function CameraPulsePanel() {
         setReadout({ state: "unavailable", reason: "light too low" });
         drawSparkline([]);
       } else {
-        const est = estimatePulse(samplesRef.current);
+        const est = estimatePulseFromRois(samplesRef.current, {
+          motion: motionSamplesRef.current,
+        });
         drawSparkline(est.waveform);
+        // STABILIZATION: a number is shown only once recent
+        // estimates agree (stabilizeReading) — until then the panel
+        // stays SEARCHING and shows the live signal quality, so the
+        // Captain can see the signal he is giving the camera.
         if (est.bpm !== null && est.quality >= WEAK_QUALITY) {
-          setReadout({ state: "reading", bpm: est.bpm, quality: est.quality });
+          readingHistoryRef.current = [
+            ...readingHistoryRef.current.filter((h) => now - h.at <= 6_000),
+            { bpm: est.bpm, quality: est.quality, at: now },
+          ];
+        }
+        const stable = stabilizeReading(readingHistoryRef.current, now);
+        if (stable) {
+          setReadout({ state: "reading", bpm: stable.bpm, quality: stable.quality });
         } else {
-          setReadout({ state: "searching" });
+          setReadout({ state: "searching", quality: est.quality });
         }
       }
     }
@@ -467,11 +518,16 @@ function CameraPulsePanel() {
         <span className="window-pulse__bpm">{Math.round(readout.bpm)}</span>
         <span className="window-pulse__bpm-unit">BPM · estimate</span>
         <span className="window-pulse__quality">
-          {readout.quality >= GOOD_QUALITY ? "good signal" : "weak signal"}
+          {readout.quality >= GOOD_QUALITY ? "good signal" : "weak signal"} · signal quality{" "}
+          {Math.round(readout.quality * 100)}%
         </span>
       </>
     ) : readout.state === "searching" ? (
-      <span className="window-pulse__state">SEARCHING — face the camera, hold still, good light</span>
+      <span className="window-pulse__state">
+        SEARCHING — face the camera, hold still, good light
+        {readout.quality !== undefined &&
+          ` · signal quality ${Math.round(readout.quality * 100)}%`}
+      </span>
     ) : (
       <span className="window-pulse__state">
         UNAVAILABLE — {readout.state === "unavailable" ? readout.reason : ""}
@@ -606,7 +662,7 @@ type PulseSource = "camera" | "watch";
 export function PulsePanel() {
   const [source, setSource] = useState<PulseSource>("camera");
   return (
-    <div>
+    <div className="window-pulse__wrap">
       <div className="window-pulse__source" role="group" aria-label="Vitals source">
         <span className="window-pulse__source-label">Source</span>
         <button

@@ -5293,19 +5293,36 @@
   min-height: 100%;
   overflow-y: auto;
 }
+/* The source switch + panel wrapper carries the window's full
+   height so the camera stage inside can claim the frame (below). */
+.window-pulse__wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.window-pulse__wrap > .window-pulse {
+  flex: 1 1 auto;
+  min-height: 0;
+}
 .window-pulse__stage {
   position: relative;
   border: 1px solid var(--avatar-hud-line);
   border-radius: 0.35rem;
   overflow: hidden;
   background: #000;
-  min-height: 180px;
+  /* CAMERA IS THE MAIN FEATURE (Captain, 2026-11-23): the stage
+     flexes to fill the panel — the big black opening his phone
+     showed under small readouts is now the camera itself. The old
+     320px cap is gone; the stage starts from the frame's own aspect
+     and grows into whatever height the window gives it. */
+  flex: 1 1 auto;
+  min-height: 260px;
   /* Part 21: the camera opens in its NORMAL FULL FRAME — the whole
      feed visible, letterboxed, never cover-cropped tight on his
      face. Close framing is the analysis's internal business (the
-     forehead ROI), not the default perspective. */
+     face ROIs), not the default perspective. */
   aspect-ratio: 4 / 3;
-  max-height: 320px;
   margin-inline: auto;
   width: 100%;
 }
@@ -5313,7 +5330,6 @@
   display: block;
   width: 100%;
   height: 100%;
-  max-height: 300px;
   /* Part 21: the FULL frame is the default view — contain, never the
      old cover crop. The stage adopts the stream's aspect ratio, so
      the whole picture shows with no bars and no cut edges; close
@@ -5360,7 +5376,7 @@
   padding: 1rem;
   text-align: center;
   background: oklch(0.12 0.03 250 / 88%);
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   line-height: 1.45;
 }
 .window-pulse__idle p {
@@ -5379,11 +5395,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.55rem;
-  /* The readouts spread across any extra frame the Captain gives
-     the box (no-empty-gaps law): the pane row takes the leftover
-     height and the graphs inside grow with it. */
-  flex: 1;
-  min-height: 0;
+  /* The leftover height belongs to the CAMERA now (2026-11-23):
+     the panes sit at their content height under it, bold and
+     readable, instead of stretching into a void of their own. */
+  flex: 0 0 auto;
 }
 .window-pulse__pane {
   border: 1px solid var(--avatar-hud-line);
@@ -5395,37 +5410,39 @@
 }
 .window-pulse__pane h3 {
   margin: 0;
-  font-size: 0.68rem;
+  /* BOLDER ANALYTICS (Captain, 2026-11-23): bifocal-readable type
+     across the whole panel — nothing under ~0.85rem in the reads. */
+  font-size: 0.85rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  opacity: 0.75;
+  opacity: 0.9;
 }
 .window-pulse__reading {
   display: flex;
   align-items: baseline;
   gap: 0.45rem;
-  min-height: 2rem;
+  min-height: 2.6rem;
   flex-wrap: wrap;
 }
 .window-pulse__bpm {
-  font-size: 1.9rem;
+  font-size: 2.6rem;
   font-weight: 700;
   line-height: 1;
   color: #f87171;
 }
 .window-pulse__bpm-unit {
-  font-size: 0.72rem;
-  opacity: 0.85;
+  font-size: 0.9rem;
+  opacity: 0.9;
 }
 .window-pulse__quality {
-  font-size: 0.68rem;
+  font-size: 0.85rem;
   border: 1px solid var(--avatar-hud-line);
   border-radius: 999px;
   padding: 0.1rem 0.45rem;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 .window-pulse__state {
-  font-size: 0.78rem;
+  font-size: 1rem;
   line-height: 1.4;
 }
 .window-pulse__spark,
@@ -5439,21 +5456,21 @@
   flex: 1 1 auto;
 }
 .window-pulse__spark {
-  min-height: 44px;
+  min-height: 56px;
 }
 .window-pulse__spec {
-  min-height: 64px;
+  min-height: 80px;
 }
 .window-pulse__presence,
 .window-pulse__freq {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   line-height: 1.45;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 .window-pulse__summary {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 1rem;
   border-top: 1px solid var(--avatar-hud-line);
   padding-top: 0.5rem;
 }
