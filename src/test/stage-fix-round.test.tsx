@@ -34,28 +34,32 @@ function pointer(node: Element, type: string, x: number, y: number) {
 
 describe("centered medallion geometry", () => {
   it("centers a medallion at the size it wears", () => {
+    // Face only (owner eye-check 2026-11-22): nothing stands under
+    // the face, so centering is the face's own box, dead-center.
     expect(centeredMedallionGeometry({ x: 10, y: 10, size: 168 }, 1200, 800)).toEqual({
       x: 516,
-      y: 276,
+      y: 316,
       size: 168,
     });
   });
 
   it("never stacks another face onto the Captain's — it clears him below when there is room", () => {
     // A tall stage: the owner (380) centered on 1600×1000; a god
-    // centering lands below the Captain's whole medallion instead.
+    // centering lands below the Captain's face instead.
     const owner = { x: 610, y: 270, size: 380 };
     expect(centeredMedallionGeometry({ x: 0, y: 0, size: 168 }, 1600, 1000, owner)).toEqual({
       x: 716,
-      y: 742,
+      y: 662,
       size: 168,
     });
   });
 
   it("flanks the Captain when below and above cannot clear him", () => {
+    // A shorter stage: below the Captain runs off the bottom and
+    // above runs off the top, so the flank spot wins.
     const owner = { x: 410, y: 170, size: 380 };
-    const landed = centeredMedallionGeometry({ x: 0, y: 0, size: 168 }, 1200, 800, owner);
-    expect(landed).toEqual({ x: 802, y: 276, size: 168 });
+    const landed = centeredMedallionGeometry({ x: 0, y: 0, size: 168 }, 1200, 640, owner);
+    expect(landed).toEqual({ x: 802, y: 236, size: 168 });
     // The landed face does not touch the owner's face rect.
     expect(landed.x).toBeGreaterThanOrEqual(owner.x + owner.size);
   });
@@ -63,18 +67,18 @@ describe("centered medallion geometry", () => {
   it("an avoid rect that does not overlap the centered spot changes nothing", () => {
     expect(
       centeredMedallionGeometry({ x: 0, y: 0, size: 380 }, 1200, 800, { x: 0, y: 0, size: 380 }),
-    ).toEqual({ x: 410, y: 170, size: 380 });
+    ).toEqual({ x: 410, y: 210, size: 380 });
   });
 });
 
-describe("medallion controls — moving made obvious", () => {
+describe("medallion controls — inside the box menu (owner eye-check 2026-11-22)", () => {
   beforeEach(() => {
     localStorage.clear();
     Element.prototype.setPointerCapture = vi.fn();
     Element.prototype.releasePointerCapture = vi.fn();
   });
 
-  it("every medallion carries a labeled Move handle, a Center button, and its anchor state", () => {
+  it("the stage shows the FACE ALONE — no plate, no controls row — until the menu opens", () => {
     const { container } = render(
       <>
         <BlackHatterPresence inPerspective onSelect={vi.fn()} />
@@ -82,12 +86,31 @@ describe("medallion controls — moving made obvious", () => {
         <MontuPresence ready onSelect={vi.fn()} />
       </>,
     );
-    expect(container.querySelectorAll('[data-testid="medallion-controls"]')).toHaveLength(3);
-    expect(screen.getByRole("button", { name: /^Move The Black Hatter/ })).not.toBeNull();
+    // No name plates anywhere, and no controls standing on the stage.
+    expect(container.querySelector(".anubis-presence__plate")).toBeNull();
+    expect(container.querySelector(".black-hatter-presence__plate")).toBeNull();
+    expect(container.querySelector(".montu-presence__plate")).toBeNull();
+    expect(container.querySelectorAll('[data-testid="medallion-controls"]')).toHaveLength(0);
+    // Each medallion carries exactly one small menu button.
+    expect(screen.getByRole("button", { name: "Open The Black Hatter's menu" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Open Anubis's menu" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Open Montu's menu" })).not.toBeNull();
+  });
+
+  it("the box menu holds the labeled Move handle, the Center button, and the anchor state", () => {
+    render(
+      <>
+        <BlackHatterPresence inPerspective onSelect={vi.fn()} />
+        <AnubisPresence ready speaking={false} listening={false} acting={false} onSelect={vi.fn()} />
+        <MontuPresence ready onSelect={vi.fn()} />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open Anubis's menu" }));
     expect(screen.getByRole("button", { name: /^Move Anubis/ })).not.toBeNull();
-    expect(screen.getByRole("button", { name: /^Move Montu/ })).not.toBeNull();
     expect(screen.getByRole("button", { name: "Center Anubis on the stage" })).not.toBeNull();
-    expect(screen.getAllByText("Anchored")).toHaveLength(3);
+    expect(screen.getByText("Anchored")).not.toBeNull();
+    // Only the opened medallion's menu is up.
+    expect(document.querySelectorAll('[data-testid="medallion-controls"]')).toHaveLength(1);
   });
 
   it("the Move handle drags the medallion, shows the free state in hand, and persists the spot", () => {
@@ -97,19 +120,20 @@ describe("medallion controls — moving made obvious", () => {
     const root = container.querySelector(".anubis-presence") as HTMLElement;
     // Factory home on the jsdom stage (1024×768): CENTER stage at
     // his resident size — the presence doctrine (owner order
-    // 2026-11-22) superseded the old top-center 168px home.
+    // 2026-11-22); face only, so the face's own box centers.
     expect(root.style.left).toBe("380px");
-    expect(root.style.top).toBe("229px");
+    expect(root.style.top).toBe("252px");
+    fireEvent.click(screen.getByRole("button", { name: "Open Anubis's menu" }));
     const handle = screen.getByRole("button", { name: /^Move Anubis/ });
     pointer(handle, "pointerdown", 500, 100);
     expect(screen.getByText("Free — drag to place")).not.toBeNull();
     pointer(handle, "pointermove", 560, 160);
     pointer(handle, "pointerup", 560, 160);
     expect(root.style.left).toBe("440px");
-    expect(root.style.top).toBe("289px");
+    expect(root.style.top).toBe("312px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.medallion.anubis.v1") ?? "{}")).toEqual({
       x: 440,
-      y: 289,
+      y: 312,
       size: 264,
     });
     expect(screen.getByText("Anchored")).not.toBeNull();
@@ -122,17 +146,18 @@ describe("medallion controls — moving made obvious", () => {
         <AnubisPresence ready speaking={false} listening={false} acting={false} onSelect={vi.fn()} />
       </>,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Open Anubis's menu" }));
     fireEvent.click(screen.getByRole("button", { name: "Center Anubis on the stage" }));
     const anubis = container.querySelector(".anubis-presence") as HTMLElement;
-    // The Captain stands at {322,154} with a 380 face on this stage;
+    // The Captain stands at {322,194} with a 380 face on this stage;
     // dead-center would stack Anubis onto him, so he lands flanking
     // — right of the Captain, vertically centered at his resident
     // size (264, presence doctrine 2026-11-22).
     expect(anubis.style.left).toBe("714px");
-    expect(anubis.style.top).toBe("212px");
+    expect(anubis.style.top).toBe("252px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.medallion.anubis.v1") ?? "{}")).toEqual({
       x: 714,
-      y: 212,
+      y: 252,
       size: 264,
     });
   });
@@ -143,10 +168,28 @@ describe("medallion controls — moving made obvious", () => {
     pointer(root, "pointerdown", 400, 300);
     pointer(root, "pointermove", 460, 340);
     pointer(root, "pointerup", 460, 340);
-    expect(root.style.top).toBe("194px");
+    expect(root.style.top).toBe("234px");
+    fireEvent.click(screen.getByRole("button", { name: "Open The Black Hatter's menu" }));
     fireEvent.click(screen.getByRole("button", { name: "Center The Black Hatter on the stage" }));
     expect(root.style.left).toBe("322px");
-    expect(root.style.top).toBe("154px");
+    expect(root.style.top).toBe("194px");
+  });
+
+  it("the stretch handle grows Anubis's face and persists the size (the dead-arrow repair)", () => {
+    const { container } = render(
+      <AnubisPresence ready speaking={false} listening={false} acting={false} onSelect={vi.fn()} />,
+    );
+    const handle = screen.getByLabelText("Stretch the Anubis medallion");
+    pointer(handle, "pointerdown", 640, 510);
+    pointer(handle, "pointermove", 680, 550);
+    pointer(handle, "pointerup", 680, 550);
+    const face = container.querySelector(".anubis-presence__face") as HTMLElement;
+    expect(face.style.width).toBe("304px");
+    expect(JSON.parse(localStorage.getItem("augi.avatar.medallion.anubis.v1") ?? "{}")).toEqual({
+      x: 380,
+      y: 252,
+      size: 304,
+    });
   });
 });
 

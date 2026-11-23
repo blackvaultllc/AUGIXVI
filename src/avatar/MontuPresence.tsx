@@ -27,7 +27,7 @@
  */
 import { useState } from "react";
 import { MONTU_BINDING } from "./medallionPortraits";
-import { MedallionControls } from "./MedallionControls";
+import { MedallionMenu } from "./MedallionMenu";
 import { LivingPortrait, MONTU_FEATURES } from "./LivingPortrait";
 import {
   availablePresenceViews,
@@ -154,32 +154,32 @@ export function MontuPresence({
           />
         )}
       </div>
-      <div className="montu-presence__plate">
-        <span className="montu-presence__name">{MONTU_BINDING.name}</span>
-        <span className="montu-presence__role">{MONTU_BINDING.roleLabel}</span>
-      </div>
-      <MedallionControls
+      {/* FACE ONLY (owner eye-check 2026-11-22): no name plate, no
+          controls row under the face — Move / Center / Anchor live
+          inside his box menu (MedallionMenu). */}
+      <MedallionMenu
         name={MONTU_BINDING.name}
         lifted={anchor.lifted}
         moveHandleProps={anchor.moveHandleProps}
         eatClick={anchor.eatClick}
         onCenter={anchor.center}
-      />
-      {views.length > 1 && (
-        <button
-          type="button"
-          className="medallion-anchor__view-toggle"
-          onClick={(event) => {
-            event.stopPropagation();
-            toggleView();
-          }}
-          aria-pressed={view === "body"}
-          aria-label={view === "head" ? "Show Montu full body" : "Show Montu head only"}
-          title={view === "head" ? "Body perspective" : "Head perspective"}
-        >
-          {view === "head" ? "Body" : "Head"}
-        </button>
-      )}
+      >
+        {views.length > 1 && (
+          <button
+            type="button"
+            className="medallion-anchor__view-toggle"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleView();
+            }}
+            aria-pressed={view === "body"}
+            aria-label={view === "head" ? "Show Montu full body" : "Show Montu head only"}
+            title={view === "head" ? "Body perspective" : "Head perspective"}
+          >
+            {view === "head" ? "Body" : "Head"}
+          </button>
+        )}
+      </MedallionMenu>
       <div
         className="medallion-anchor__stretch"
         role="separator"

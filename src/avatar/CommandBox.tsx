@@ -12,14 +12,17 @@ import {
   Anchor,
   BookOpen,
   ChevronDown,
+  Eraser,
   Eye,
   GripVertical,
+  History,
   Menu,
   Mic,
   MicOff,
   Minus,
   RotateCcw,
   Settings,
+  Smile,
   Sparkles,
   Terminal,
   type LucideIcon,
@@ -270,6 +273,18 @@ export const STRIP_PREVIEW_HOLD_MS = 5200;
 /** The fade itself — a smooth opacity glide, never a flash. */
 export const STRIP_PREVIEW_FADE_MS = 650;
 
+/**
+ * THE EMOJI KEYS (owner order 2026-11-22 ~19:53 EST): he can add
+ * emojis to a conversation — the picker's keys insert into the
+ * message he is writing, and from there they send and render like
+ * any other character he typed. A small standing set, no library.
+ */
+export const CHAT_EMOJIS = [
+  "😀", "😂", "🙂", "😉", "😎", "🤔", "👍", "🙏",
+  "🔥", "⭐", "❤️", "💯", "🎉", "👑", "🏆", "⚡",
+  "🛡️", "🦅", "🌟", "✅", "❗", "❓", "💬", "👀",
+] as const;
+
 export function CommandBox({
   accent,
   tabs,
@@ -292,6 +307,7 @@ export function CommandBox({
   partnerSpeaking,
   away = false,
   onReturnToChat,
+  onOpenHistory,
 }: {
   accent: string;
   tabs: Array<{ id: CommandTab; label: string; icon: LucideIcon }>;
@@ -354,6 +370,13 @@ export function CommandBox({
   away?: boolean;
   /** The strip's tap: AvatarStage brings the chat screen back. */
   onReturnToChat?: () => void;
+  /**
+   * TERMINAL LAW (owner order 2026-11-22 ~19:53 EST): the chat's
+   * History button opens the record — every conversation with its
+   * date and time (the Reply history window AvatarStage holds).
+   * The record is the truth; Clear (below) never touches it.
+   */
+  onOpenHistory?: () => void;
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
   // Minimized starts EXPANDED on every load — session-only (the
@@ -378,6 +401,20 @@ export function CommandBox({
   // the chat alone; the menu opens only when he asks for it and is not
   // persisted — every fresh load starts as a plain chat box.
   const [machineryOpen, setMachineryOpen] = useState(false);
+  /**
+   * TERMINAL LAW (owner order 2026-11-22 ~19:53 EST): "chat works
+   * like a terminal — Clear clears the screen." Clear hides every
+   * line currently on the screen (the history entries up to now,
+   * and the live user/response lines) and NOTHING is deleted: the
+   * full record stays in the history store and in the History
+   * view, dates and times and all, pull-up-able whenever he wants.
+   * Screen state only — a reload brings the log back from the
+   * record, like scrolling a terminal's buffer.
+   */
+  const [hiddenCount, setHiddenCount] = useState(0);
+  const [liveHidden, setLiveHidden] = useState(false);
+  /** The emoji picker's open state (owner order 2026-11-22). */
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -622,7 +659,7 @@ export function CommandBox({
   }, [anchored, anchorPos]);
 
   const lastEntry = history && history.length > 0 ? history[history.length - 1] : undefined;
-  const showLiveUser = Boolean(userLine) && userLine !== lastEntry?.question;
+  const showLiveUser = !liveHidden && Boolean(userLine) && userLine !== lastEntry?.question;
   // The speaker of record (speaking protocol, owner order
   // 2026-11-22): typed lines are spoken by his character, the Black
   // Hatter; mic lines are the operator himself, in his own voice.
@@ -632,13 +669,48 @@ export function CommandBox({
     responseSource === "microphone" || responseSource === "awaiting response"
       ? "System"
       : "Anubis";
-  const showLiveResponse = Boolean(responseLine) && responseLine !== lastEntry?.answer;
+  const showLiveResponse =
+    !liveHidden && Boolean(responseLine) && responseLine !== lastEntry?.answer;
+
+  // The visible log: everything after the Clear watermark. The
+  // watermark clamps if the record itself was cleared shorter.
+  const visibleFrom = Math.min(hiddenCount, history?.length ?? 0);
+  const hasVisibleLines = (history?.length ?? 0) > visibleFrom;
+
+  /** Clear the SCREEN (terminal law): hide what is showing; the
+   *  record in History is untouched. */
+  const clearChatScreen = useCallback(() => {
+    setHiddenCount(history?.length ?? 0);
+    setLiveHidden(true);
+  }, [history]);
+
+  // A fresh line arriving after a Clear is a new screen — the live
+  // slot shows again from that line on.
+  useEffect(() => {
+    setLiveHidden(false);
+  }, [responseLine, userLine]);
+
+  /** Insert an emoji at the caret, the way typing it would. */
+  const insertEmoji = useCallback(
+    (emoji: string) => {
+      const input = inputRef.current;
+      const start = input?.selectionStart ?? chat.length;
+      const end = input?.selectionEnd ?? chat.length;
+      onChatChange(chat.slice(0, start) + emoji + chat.slice(end));
+      requestAnimationFrame(() => {
+        input?.focus();
+        const caret = start + emoji.length;
+        input?.setSelectionRange(caret, caret);
+      });
+    },
+    [chat, onChatChange],
+  );
 
   // Keep the newest line in view as the conversation flows.
   useEffect(() => {
     const thread = threadRef.current;
     if (!minimized && thread) thread.scrollTop = thread.scrollHeight;
-  }, [minimized, history, responseLine, userLine]);
+  }, [minimized, history, responseLine, userLine, hiddenCount]);
 
   /**
    * THE STRIP'S MESSAGE PREVIEWS (owner order 2026-11-22, his
@@ -738,6 +810,7 @@ export function CommandBox({
     event.preventDefault();
     const text = chat.trim();
     if (!text) return;
+    setEmojiOpen(false);
     onChatChange("");
     onSubmit(text);
   };
@@ -930,6 +1003,34 @@ export function CommandBox({
 
       {!minimized && (
         <div className="avatar-command-box__conversation" role="group" aria-label="Chat">
+          {/* TERMINAL TOOLS (owner order 2026-11-22): Clear wipes
+              the SCREEN only — the record is never touched — and
+              History opens the full record, dates and times, any
+              time he wants to pull it up. */}
+          <div className="avatar-command-box__chat-tools">
+            <button
+              type="button"
+              className="avatar-command-box__chat-tool"
+              onClick={clearChatScreen}
+              aria-label="Clear the chat screen"
+              title="Clear — clears the screen only; the record stays in History"
+            >
+              <Eraser aria-hidden="true" />
+              <span>Clear</span>
+            </button>
+            {onOpenHistory && (
+              <button
+                type="button"
+                className="avatar-command-box__chat-tool"
+                onClick={onOpenHistory}
+                aria-label="Open the chat history"
+                title="History — every conversation, with its date and time"
+              >
+                <History aria-hidden="true" />
+                <span>History</span>
+              </button>
+            )}
+          </div>
           <div
             id="avatar-command-thread"
             className="avatar-command-box__thread"
@@ -945,7 +1046,9 @@ export function CommandBox({
                 sits last, right above the input, and a long log
                 scrolls with the newest kept in view. */}
             <div className="avatar-command-box__thread-flow">
-            {history?.map((entry, index) => (
+            {history?.slice(visibleFrom).map((entry, sliceIndex) => {
+              const index = visibleFrom + sliceIndex;
+              return (
               <div className="avatar-command-box__thread-entry" key={`${entry.at}-${index}`}>
                 {entry.question && (
                   <p className="avatar-command-box__thread-q">
@@ -959,7 +1062,8 @@ export function CommandBox({
                   <span className="avatar-command-box__thread-who">Anubis:</span> {entry.answer}
                 </p>
               </div>
-            ))}
+              );
+            })}
             {showLiveUser && (
               <p className="avatar-command-box__thread-q avatar-command-box__user-line">
                 <span className="avatar-command-box__thread-who">
@@ -983,7 +1087,7 @@ export function CommandBox({
             {showLiveResponse && liveSpeaker === "Anubis" && responseSource && (
               <p className="avatar-command-box__response-source">Answered by {responseSource}</p>
             )}
-            {!history?.length && !showLiveUser && !showLiveResponse && (
+            {!hasVisibleLines && !showLiveUser && !showLiveResponse && (
               <p className="avatar-command-box__thread-system">
                 <span className="avatar-command-box__thread-who">System:</span> Standing by —
                 talk to Anubis here.
@@ -1014,6 +1118,27 @@ export function CommandBox({
         </ul>
       )}
 
+      {/* THE EMOJI PICKER (owner order 2026-11-22): a key tap
+          inserts the emoji into the message at the caret — from
+          there it sends and renders like any character he typed.
+          The picker stays up for more picks; the toggle, a send,
+          or minimize folds it away. */}
+      {!minimized && emojiOpen && (
+        <div className="avatar-command-box__emoji" role="group" aria-label="Emoji picker">
+          {CHAT_EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              className="avatar-command-box__emoji-key"
+              onClick={() => insertEmoji(emoji)}
+              aria-label={`Insert ${emoji}`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+
       <form className="avatar-command-box__form" onSubmit={submit}>
         <label className="sr-only" htmlFor="avatar-command-input">
           Message for Anubis
@@ -1042,6 +1167,16 @@ export function CommandBox({
           }}
           autoComplete="off"
         />
+        <button
+          className="avatar-command-box__icon-button"
+          type="button"
+          onClick={() => setEmojiOpen((open) => !open)}
+          aria-expanded={emojiOpen}
+          aria-label={emojiOpen ? "Close the emoji picker" : "Add an emoji"}
+          title="Add an emoji"
+        >
+          <Smile aria-hidden="true" />
+        </button>
         <button
           className="avatar-command-box__icon-button"
           type="button"

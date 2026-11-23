@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BlackHatterPresence } from "@/avatar/BlackHatterPresence";
 import { MontuPresence } from "@/avatar/MontuPresence";
 import {
+  besideMedallionGeometry,
   clampMedallionGeometry,
   clearMedallionSpot,
   defaultMedallionGeometry,
@@ -45,24 +46,23 @@ describe("medallion anchor geometry", () => {
   });
 
   it("the Black Hatter's factory home is bigger, in the middle", () => {
-    // 1200×800 stage: 380px face, centered; the whole medallion
-    // (face + 80px under the face — plate and the move controls)
-    // centered vertically.
+    // 1200×800 stage: 380px face, centered both ways — face only
+    // (owner eye-check 2026-11-22): nothing stands under the face,
+    // so the face's own box is what centers.
     expect(defaultMedallionGeometry("black-hatter", 1200, 800)).toEqual({
       x: 410,
-      y: 170,
+      y: 210,
       size: 380,
     });
   });
 
   it("Anubis's home is CENTER stage (presence doctrine); Montu's is the right flank", () => {
     // The resident commander stands in the middle: 264px face,
-    // centered both ways, the whole medallion (face + plate)
-    // centered vertically. Montu's flank home rides 17px higher
-    // since the move-controls round counted the controls row in
-    // the medallion's full height.
-    expect(defaultMedallionGeometry("anubis", 1200, 800)).toEqual({ x: 468, y: 245, size: 264 });
-    expect(defaultMedallionGeometry("montu", 1200, 800)).toEqual({ x: 1028, y: 282, size: 156 });
+    // centered both ways. Montu's flank home is the face's own
+    // center too, since the plate/controls heights went to zero
+    // with the face-only order.
+    expect(defaultMedallionGeometry("anubis", 1200, 800)).toEqual({ x: 468, y: 268, size: 264 });
+    expect(defaultMedallionGeometry("montu", 1200, 800)).toEqual({ x: 1028, y: 322, size: 156 });
   });
 
   it("a clear spot: a standing spot that overlaps nobody is returned untouched", () => {
@@ -83,11 +83,11 @@ describe("medallion anchor geometry", () => {
     expect(spot.x + spot.size).toBeLessThanOrEqual(390);
   });
 
-  it("overlap is judged on the whole medallion — face plus plate — with air between", () => {
+  it("overlap is judged on the medallions' footprints, with air between", () => {
     const a = { x: 0, y: 0, w: 100, h: 146 };
     expect(medallionRectsOverlap(a, { x: 120, y: 0, w: 100, h: 146 })).toBe(false);
     expect(medallionRectsOverlap(a, { x: 105, y: 0, w: 100, h: 146 })).toBe(true); // within the gap
-    expect(medallionRectsOverlap(a, { x: 0, y: 140, w: 100, h: 146 })).toBe(true); // plate reaches
+    expect(medallionRectsOverlap(a, { x: 0, y: 140, w: 100, h: 146 })).toBe(true); // footprints cross
     expect(medallionRectsOverlap(a, { x: 0, y: 160, w: 100, h: 146 })).toBe(false);
   });
 
@@ -98,7 +98,7 @@ describe("medallion anchor geometry", () => {
     );
     expect(loadOrDefaultMedallionGeometry("black-hatter", 1024, 768)).toEqual({
       x: 720,
-      y: 384,
+      y: 464,
       size: 300,
     });
   });
@@ -106,6 +106,18 @@ describe("medallion anchor geometry", () => {
   it("sizes clamp to the readable band and the stage", () => {
     expect(clampMedallionGeometry({ x: 0, y: 0, size: 10 }, 1200, 800).size).toBe(72);
     expect(clampMedallionGeometry({ x: 0, y: 0, size: 9999 }, 1200, 800).size).toBe(560);
+  });
+
+  it("an in-bounds seat is returned EXACTLY as it stands — the system never nudges a placed medallion", () => {
+    // FIXED IN PLACE (owner order 2026-11-22 ~20:06 EST): clamping
+    // is healing for out-of-bounds geometry only. A medallion
+    // seated inside the stage — Anubis above all — comes through
+    // every clamp, load, and layout shift byte-identical: where
+    // he sits is where he stays until the Captain's own hand
+    // moves him.
+    const seated = { x: 468, y: 268, size: 264 };
+    expect(clampMedallionGeometry(seated, 1200, 800)).toEqual(seated);
+    expect(clampMedallionGeometry(seated, 1024, 768)).toEqual(seated);
   });
 });
 
@@ -132,7 +144,7 @@ describe("BlackHatterPresence — the anchor at work", () => {
     const { container } = render(<BlackHatterPresence inPerspective onSelect={vi.fn()} />);
     const root = container.querySelector(".black-hatter-presence") as HTMLElement;
     expect(root.style.left).toBe("322px");
-    expect(root.style.top).toBe("154px");
+    expect(root.style.top).toBe("194px");
     const face = container.querySelector(".black-hatter-presence__face") as HTMLElement;
     expect(face.style.width).toBe("380px");
   });
@@ -145,10 +157,10 @@ describe("BlackHatterPresence — the anchor at work", () => {
     pointer(root, "pointermove", 460, 340);
     pointer(root, "pointerup", 460, 340);
     expect(root.style.left).toBe("382px");
-    expect(root.style.top).toBe("194px");
+    expect(root.style.top).toBe("234px");
     expect(
       JSON.parse(localStorage.getItem("augi.avatar.medallion.black-hatter.v1") ?? "{}"),
-    ).toEqual({ x: 382, y: 194, size: 380 });
+    ).toEqual({ x: 382, y: 234, size: 380 });
     fireEvent.click(root);
     expect(onSelect).not.toHaveBeenCalled();
     fireEvent.click(root);
@@ -182,12 +194,17 @@ describe("the presence registry", () => {
     expect(MONTU_BINDING.portrait).toBe("/montu-presence/face.webp");
   });
 
-  it("Montu's station renders his face and plate", () => {
+  it("Montu's station renders his face — face only, his controls in his menu", () => {
     const { container } = render(<MontuPresence ready onSelect={vi.fn()} />);
     const img = container.querySelector<HTMLImageElement>(".montu-presence__img");
     expect(img?.getAttribute("src")).toBe("/montu-presence/face.webp");
-    expect(screen.getByText("Montu")).toBeInTheDocument();
-    expect(screen.getByText("Commander")).toBeInTheDocument();
+    // FACE ONLY (owner eye-check 2026-11-22): no name plate stands
+    // under the face; the name lives in the aria-label and the menu.
+    expect(container.querySelector(".montu-presence__plate")).toBeNull();
+    expect(container.querySelector(".montu-presence")!.getAttribute("aria-label")).toContain(
+      "Montu",
+    );
+    expect(screen.getByRole("button", { name: "Open Montu's menu" })).not.toBeNull();
   });
 
   it("Amun-Ra holds the top seat — over the Captain, never a perspective", () => {
@@ -318,5 +335,31 @@ describe("stage backdrops", () => {
     expect(loadStageBackdrop()).toBe("desert-photo");
     saveStageBackdrop("world");
     expect(loadStageBackdrop()).toBe("world");
+  });
+});
+
+describe("besideMedallionGeometry — the council seat beside the commander", () => {
+  // Anubis's standing home on a 1200x800 stage.
+  const anubis = { x: 468, y: 268, size: 264 };
+
+  it("seats the called god at Anubis's right flank, centered on him, one gap away", () => {
+    const seat = besideMedallionGeometry(anubis, 156, 1200, 800);
+    expect(seat.x).toBe(anubis.x + anubis.size + 28);
+    expect(seat.y).toBe(Math.round(anubis.y + anubis.size / 2 - 156 / 2));
+    expect(seat.size).toBe(156);
+    expect(medallionRectsOverlap(medallionRect(seat), medallionRect(anubis))).toBe(false);
+  });
+
+  it("takes the left flank when the right is occupied", () => {
+    const blocker = { x: anubis.x + anubis.size + 28, y: 322, size: 156 };
+    const seat = besideMedallionGeometry(anubis, 156, 1200, 800, [blocker]);
+    expect(seat.x).toBe(anubis.x - 156 - 28);
+    expect(medallionRectsOverlap(medallionRect(seat), medallionRect(anubis))).toBe(false);
+    expect(medallionRectsOverlap(medallionRect(seat), medallionRect(blocker))).toBe(false);
+  });
+
+  it("never returns a seat on top of the commander himself", () => {
+    const seat = besideMedallionGeometry(anubis, 200, 700, 500);
+    expect(medallionRectsOverlap(medallionRect(seat), medallionRect(anubis))).toBe(false);
   });
 });

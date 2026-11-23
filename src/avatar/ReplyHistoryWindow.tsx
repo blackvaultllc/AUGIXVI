@@ -24,6 +24,10 @@ export function ReplyHistoryWindow({
       onClose={onClose}
       initialWidth={440}
       initialHeight={400}
+      // NO EMPTY GAPS (owner law 2026-11-22): the record opens
+      // sized to what is in it — a short history no longer stands
+      // over a tall empty box; a long one caps and scrolls.
+      fitContentHeight
     >
       <div className="window-reply-history">
         {newestFirst.length === 0 ? (

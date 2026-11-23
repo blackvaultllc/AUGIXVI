@@ -26,22 +26,20 @@ export interface MedallionGeometry {
 export const MEDALLION_MIN_SIZE = 72;
 export const MEDALLION_MAX_SIZE = 560;
 /**
- * Vertical allowance for the name plate and gap under the face, so
- * position clamping keeps the WHOLE medallion — plate included —
- * inside the stage, not just the circle.
+ * FACE ONLY (owner eye-check 2026-11-22 ~19:40 EST): the name
+ * plate and the Move/Center/Anchor row no longer stand under the
+ * face — the plate is gone entirely and the controls live inside
+ * the medallion's box menu (MedallionMenu.tsx), an overlay that
+ * takes no room in the medallion's body. So nothing stands under
+ * the face: the under-face allowance is zero, kept as a named
+ * constant because the clamping and centering math reads it.
  */
-export const MEDALLION_PLATE_HEIGHT = 46;
+export const MEDALLION_PLATE_HEIGHT = 0;
 
-/**
- * Vertical allowance for the visible move controls under the plate
- * (owner order 2026-11-22: moving an avatar must be OBVIOUS — a
- * labeled Move handle, a Center button, and the anchor state, all
- * shown on the medallion itself). The controls are part of the
- * medallion's body for clamping, exactly like the plate.
- */
-export const MEDALLION_CONTROLS_HEIGHT = 34;
+/** The menu is an overlay — it adds nothing under the face. */
+export const MEDALLION_CONTROLS_HEIGHT = 0;
 
-/** Everything under the face: plate + gap + the move controls row. */
+/** Everything under the face: nothing — the face alone. */
 export const MEDALLION_UNDER_FACE_HEIGHT = MEDALLION_PLATE_HEIGHT + MEDALLION_CONTROLS_HEIGHT;
 
 export function medallionStorageKey(id: string): string {
@@ -127,7 +125,7 @@ export function defaultMedallionGeometry(
     return clampMedallionGeometry(
       {
         x: (stageW - size) / 2,
-        y: stageH * 0.5 - (size + MEDALLION_PLATE_HEIGHT) / 2,
+        y: stageH * 0.5 - (size + MEDALLION_UNDER_FACE_HEIGHT) / 2,
         size,
       },
       stageW,
@@ -319,8 +317,7 @@ export function clearMedallionSpot(
   others: readonly MedallionGeometry[],
   stageW: number,
   stageH: number,
-): MedallionGeometry {
-  const taken = others.map(medallionRect);
+): MedallionGeometry {  const taken = others.map(medallionRect);
   const clear = (candidate: MedallionGeometry) =>
     !taken.some((rect) => medallionRectsOverlap(medallionRect(candidate), rect));
   const standing = clampMedallionGeometry(geometry, stageW, stageH);
@@ -341,4 +338,44 @@ export function clearMedallionSpot(
     if (clear(clamped)) return clamped;
   }
   return standing;
+}
+
+/**
+ * THE COUNCIL SEAT — BESIDE THE COMMANDER (owner order 2026-11-22
+ * ~20:09 EST): "Call another god: that god comes up ON THE SCREEN
+ * RIGHT NEXT TO ANUBIS, SMALL — beside the commander, not replacing
+ * him." When a council forms, the called god's seat is beside
+ * Anubis's seat: his right flank first (reading order), then his
+ * left, then below, then above — vertically centered on the
+ * commander, one readable gap away, at the god's own size (the
+ * SMALL of the council is the presentation scale the stage CSS
+ * lays on; the seat itself is honest geometry). The first flank
+ * that overlaps nobody standing wins; if every flank is blocked,
+ * the clear-spot law decides. Anubis's own geometry is an input
+ * here, never an output: nobody is seated BY moving him.
+ */
+export function besideMedallionGeometry(
+  anchor: MedallionGeometry,
+  size: number,
+  stageW: number,
+  stageH: number,
+  others: readonly MedallionGeometry[] = [],
+): MedallionGeometry {
+  const gap = 28;
+  const centerY = anchor.y + anchor.size / 2 - size / 2;
+  const centerX = anchor.x + anchor.size / 2 - size / 2;
+  const candidates: MedallionGeometry[] = [
+    { x: anchor.x + anchor.size + gap, y: centerY, size }, // his right
+    { x: anchor.x - size - gap, y: centerY, size }, // his left
+    { x: centerX, y: anchor.y + anchor.size + gap, size }, // below him
+    { x: centerX, y: anchor.y - size - gap, size }, // above him
+  ];
+  const taken = [medallionRect(anchor), ...others.map(medallionRect)];
+  for (const candidate of candidates) {
+    const clamped = clampMedallionGeometry(candidate, stageW, stageH);
+    if (!taken.some((rect) => medallionRectsOverlap(medallionRect(clamped), rect))) {
+      return clamped;
+    }
+  }
+  return clearMedallionSpot({ x: anchor.x + anchor.size + gap, y: centerY, size }, others, stageW, stageH);
 }

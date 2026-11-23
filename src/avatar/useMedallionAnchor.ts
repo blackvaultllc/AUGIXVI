@@ -114,6 +114,7 @@ export function useMedallionAnchor(id: string) {
     // the medallion and the button would never receive it (the same
     // rule the windows follow).
     if ((event.target as HTMLElement).closest?.("[data-medallion-stretch]")) return;
+    if ((event.target as HTMLElement).closest?.("[data-medallion-menu]")) return;
     if ((event.target as HTMLElement).closest?.("button")) return;
     beginDrag("move", event);
   }, []);

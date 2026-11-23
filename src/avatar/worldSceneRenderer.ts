@@ -20,6 +20,7 @@ import { LABEL_CANVAS_HEIGHT, LABEL_FONT_PX, labelCanvasWidth, labelPlaqueSize }
 import {
   BACKDROP_IMAGE_OPACITY,
   backdropById,
+  backdropFitSize,
   backdropPlaneSize,
 } from "./builder/backdrops";
 import { standingFloorImage, type RoomSurfaces } from "./builder/room";
@@ -361,29 +362,36 @@ export class WorldSceneManager {
     const set = new THREE.Group();
     set.name = "living-world-room";
     const surfaces = this.roomSurfaces;
-    // THE BACKDROP PICTURE (Environment Builder): one of the
-    // Captain's theme pictures, cover-fit on the back wall — scaled
-    // to cover with its aspect intact, overflow cropped, never
-    // stretched — and rendered TRUE, at full strength (owner
+    // THE BACKDROP PICTURE (Environment Builder; fit corrected by
+    // his eye-check 2026-11-22 ~19:40 EST): one of the Captain's
+    // theme pictures, CONTAIN-fit on the back wall — the WHOLE
+    // picture visible, centered in the window, as large as
+    // whole-picture framing allows, aspect intact, never zoomed,
+    // never cropped — and rendered TRUE, at full strength (owner
     // correction 2026-11-22: the veil that used to hang over it
     // washed the picture out; the picture itself is the backdrop,
     // a composed stage scene. The interface's panels are solid and
     // carry the text; the room carries the art.)
     const backdrop = backdropById(surfaces.backdropImage);
     if (backdrop) {
-      // The view the wall must cover: the camera (fov 40, z = 11)
-      // sees ≈15.7 world units of height at the wall's depth; above
-      // the floor line that is ≈10.3. Cover-fit against that window.
+      // The view window the picture must fit inside: the camera
+      // (fov 40, z = 11) sees ≈15.7 world units of height at the
+      // wall's depth; above the floor line that is ≈10.3. The
+      // window is that height and the camera aspect wide — no
+      // cover bleed factor: contain-fit reads the true window, so
+      // what he sees is the whole picture, centered.
       const viewH = 10.4;
-      const viewW = viewH * this.viewAspect * 1.8;
-      const size = backdropPlaneSize(backdrop, viewW, viewH);
+      const viewW = viewH * this.viewAspect;
+      const size = backdropFitSize(backdrop, viewW, viewH);
       const material = new THREE.MeshBasicMaterial({
         transparent: true,
         opacity: BACKDROP_IMAGE_OPACITY,
         depthWrite: false,
       });
       const plane = new THREE.Mesh(new THREE.PlaneGeometry(size.w, size.h), material);
-      plane.position.set(0, size.h / 2, -10.6);
+      // Centered in the window: middle of the stage horizontally,
+      // middle of the above-floor window vertically.
+      plane.position.set(0, viewH / 2, -10.6);
       plane.name = "living-world-room-backdrop";
       set.add(plane);
       try {

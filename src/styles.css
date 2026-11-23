@@ -1599,7 +1599,11 @@
   border-radius: 9999px;
   overflow: hidden;
   border: 1px solid var(--avatar-hud-line);
-  background: #0b0e14;
+  /* BLACK, never white (owner eye-check 2026-11-22): Osiris's
+     ground is black — the clips and poster were re-rendered onto
+     black to match (public/augie-presence), and this ground is
+     the same black so no light frame ever shows around him. */
+  background: #000;
 }
 .augie-presence__video {
   display: block;
@@ -1689,13 +1693,16 @@
   color: #f3d27a;
 }
 @keyframes anubis-speak {
+  /* Transform only (blink-blur defect, owner eye-check
+     2026-11-22): the old brightness() filter animation forced the
+     portrait to re-raster every frame it ran — a standing blur
+     pulse under the speech. The speaking glow lives on the face's
+     box-shadow instead; the portrait itself only scales. */
   from {
     transform: scale(1);
-    filter: brightness(1);
   }
   to {
     transform: scale(1.025);
-    filter: brightness(1.1);
   }
 }
 @keyframes anubis-bob {
@@ -2539,8 +2546,10 @@
   display: none;
 }
 .avatar-command-box.avatar-command-box--minimized .augie-presence {
-  width: 44px;
-  height: 44px;
+  /* The minimized rail keeps a readable face too — 64px, up from
+     the 44px he could not make out (owner eye-check 2026-11-22). */
+  width: 64px;
+  height: 64px;
 }
 .avatar-command-box--minimized .avatar-command-box__form {
   margin-top: 0;
@@ -3369,9 +3378,13 @@
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 0.9rem;
-  height: 0.9rem;
+  /* A bigger grab target (owner eye-check 2026-11-22): the grip
+     was 0.9rem — a sliver he could not land on. 1.5rem now, with
+     touch-action off so a touch-drag resizes instead of scrolling. */
+  width: 1.5rem;
+  height: 1.5rem;
   cursor: nwse-resize;
+  touch-action: none;
   background: linear-gradient(
     135deg,
     transparent 40%,
@@ -4923,7 +4936,14 @@
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  height: 100%;
+  /* NO EMPTY GAPS (owner law 2026-11-22): the panel sizes to its
+     content (the window fits it — see PulseWindow's
+     fitContentHeight). min-height, never a forced 100%: when the
+     Captain himself stretches or maximizes the box, the panel
+     fills the frame DELIBERATELY — the panes row below flexes and
+     the readout graphs take the room — instead of the content
+     huddling at the top over a void. */
+  min-height: 100%;
   overflow-y: auto;
 }
 .window-pulse__stage {
@@ -5012,6 +5032,11 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.55rem;
+  /* The readouts spread across any extra frame the Captain gives
+     the box (no-empty-gaps law): the pane row takes the leftover
+     height and the graphs inside grow with it. */
+  flex: 1;
+  min-height: 0;
 }
 .window-pulse__pane {
   border: 1px solid var(--avatar-hud-line);
@@ -5061,6 +5086,16 @@
   width: 100%;
   border-radius: 0.25rem;
   background: oklch(0.1 0.02 250 / 60%);
+  /* The graphs grow with their pane when the frame is taller
+     than the content (no-empty-gaps law) — at content height they
+     sit at their drawn size. */
+  flex: 1 1 auto;
+}
+.window-pulse__spark {
+  min-height: 44px;
+}
+.window-pulse__spec {
+  min-height: 64px;
 }
 .window-pulse__presence,
 .window-pulse__freq {
@@ -7284,9 +7319,14 @@
   align-items: center;
   gap: 0.55rem;
   cursor: grab;
-  transition:
-    opacity 0.45s ease,
-    filter 0.45s ease;
+  /* NO filter transition here (blink-blur defect, owner eye-check
+     2026-11-22): a filter on the medallion root puts the WHOLE
+     portrait through a filtered rendering surface, and every
+     animation inside it — a blink above all — re-rastered that
+     surface at animation scale, so the face pulsed blurry and
+     back on every blink. The root animates opacity only; the
+     stepped-back shade is opacity alone now too. */
+  transition: opacity 0.45s ease;
 }
 .black-hatter-presence__face {
   width: clamp(190px, 32vmin, 320px);
@@ -7319,8 +7359,9 @@
   user-select: none;
 }
 .black-hatter-presence--stepped-back {
+  /* Opacity only — a saturate filter here re-rastered the whole
+     medallion on every blink inside it (see the root rule). */
   opacity: 0.82;
-  filter: saturate(0.88);
 }
 .black-hatter-presence--stepped-back .black-hatter-presence__face {
   transform: scale(0.94);
@@ -7681,8 +7722,12 @@
   display: none;
 }
 .avatar-command-box .augie-presence {
-  width: 3rem;
-  height: 3rem;
+  /* OSIRIS, BIGGER (owner eye-check 2026-11-22): 76px was ordered
+     earlier the same day and this rule silently overrode it back
+     down to 3rem — he could not see Osiris working in the box.
+     104px now: plainly visible at the head of the rail. */
+  width: 104px;
+  height: 104px;
 }
 .avatar-command-box__form {
   align-items: center;
@@ -7918,8 +7963,11 @@
     border-radius: 9999px;
   }
   .avatar-command-box .augie-presence {
-    width: 2.5rem;
-    height: 2.5rem;
+    /* Phone: still clearly bigger than the old 2.5rem — Osiris
+       readable in the box on the phone too (owner eye-check
+       2026-11-22). */
+    width: 84px;
+    height: 84px;
   }
   /* HUD containment: narrow wrapped columns at the top corners,
      ending before the command medallion's span begins. */

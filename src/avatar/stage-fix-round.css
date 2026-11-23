@@ -8,9 +8,72 @@
       eyes in 150ms (the feature maps themselves live in
       LivingPortrait.tsx, re-measured from the shipped portraits).
    These rules ride in their own file so this round never rewrites
-   the shared stylesheet's other lines' work in flight. */
+   the shared stylesheet's other lines' work in flight.
 
-/* ---- 1) THE MEDALLION CONTROLS ---------------------------------- */
+   EYE-CHECK ROUND (owner, 2026-11-22 ~19:40 EST, from his screen
+   and his screenshot) — this file also carries:
+   4) FACE ONLY: the plate is gone and the controls live inside the
+      medallion's box menu (MedallionMenu.tsx); the stretch handle
+      is REPAIRED (see its rule — it was click-through dead on
+      Anubis and Montu) and sits at the face's own corner, bigger;
+   5) idle life for the living faces (LivingPortrait.tsx): the
+      head sways, breathes, and looks around — lids repaint in
+      their own layer, so a blink touches nothing else (the
+      blink-blur defect: no filter surfaces remain on a medallion);
+   6) the HUD readouts BRIGHTENED: solid bright text on a dark
+      backing, readable over any backdrop picture;
+   7) Osiris in the chat strip stays slim (his bigger sizes live in
+      the shared stylesheet's command-box rules). */
+
+/* ---- 4) THE MEDALLION'S BOX MENU -------------------------------- */
+.medallion-menu {
+  /* Static wrapper: the button and the panel position themselves
+     against the medallion root (the face's box). */
+  pointer-events: none;
+}
+.medallion-menu__button {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 65%);
+  background: rgb(8 12 22 / 85%);
+  color: #f3d27a;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.medallion-menu__button:hover,
+.medallion-menu__button:focus-visible {
+  background: rgb(24 32 52 / 95%);
+  border-color: rgb(212 175 55 / 95%);
+  outline: none;
+}
+.medallion-menu__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgb(212 175 55 / 55%);
+  background: rgb(5 8 16 / 96%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 50%);
+  pointer-events: auto;
+}
+
+/* The medallion controls row — inside the box menu now, unchanged
+   in itself: Move handle, Center button, anchor-state chip. */
 .medallion-controls {
   display: flex;
   align-items: center;
@@ -55,19 +118,224 @@
   letter-spacing: 0.05em;
   white-space: nowrap;
 }
-/* The stretch corner rides above the controls row now that the row
-   is part of the medallion's body. */
+
+/* ---- 4) THE STRETCH HANDLE — REPAIRED ----------------------------
+   THE DEFECT (his screenshot, 2026-11-22 ~19:38 EST): the little
+   orange arrow at Anubis's bottom-right did NOTHING when clicked.
+   Root cause: the Anubis and Montu medallion roots are
+   pointer-events:none (only children that re-enable it can be
+   pressed), the selectable override that was meant to re-enable
+   the root loses on specificity to the stage rule — and this
+   handle never re-enabled pointer events at all, so presses fell
+   straight through it to the stage. The Move/Center row worked
+   only because it carries its own pointer-events:auto.
+   THE FIX: the handle re-enables pointer events itself, sits at
+   the FACE's own lower-right corner (the plate and controls row
+   that used to push it 3.6rem up the root are gone), and is a
+   bigger, always-clearly-visible target. The selectable roots are
+   re-enabled at stage specificity too, so the face itself takes
+   presses and drags the way the Black Hatter's always did. */
 .avatar-stage .medallion-anchor__stretch {
-  bottom: 3.6rem;
+  right: -6px;
+  bottom: -6px;
+  width: 28px;
+  height: 28px;
+  opacity: 0.9;
+  pointer-events: auto;
+  z-index: 4;
+}
+.avatar-stage .anubis-presence--selectable,
+.avatar-stage .montu-presence--selectable {
+  pointer-events: auto;
 }
 
-/* ---- 3) THE BLINK, AT THE ORDERED PACE --------------------------- */
+/* ---- 3+5) THE BLINK, ISOLATED — AND THE FACE'S IDLE LIFE --------- */
 /* The close sweep is 150ms (owner order 2026-11-22) — the shared
    stylesheet's 80ms snap is part of what made the blink read wrong.
    Higher specificity on purpose: this round's pace wins without
    rewriting the shared rule. */
 .avatar-stage .living-face__lid.is-closed {
   transition-duration: 150ms;
+}
+/* BLINK ISOLATION (blink-blur defect, owner eye-check 2026-11-22):
+   each lid paints in its OWN layer — a blink repaints the two
+   small lid ellipses and nothing else. Together with the removal
+   of every filter surface from the medallions (styles.css), a
+   blink can no longer drag the whole portrait through a
+   re-raster: no blur pulse, anywhere. */
+.avatar-stage .living-face__lid {
+  will-change: transform;
+  contain: paint;
+}
+/* The living face's wrapper: the whole head — portrait, lids,
+   mouth together — carries the look-around shift, turning from
+   the neck (origin low-center), slow glides both ways. */
+.avatar-stage .living-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: 50% 68%;
+  transition: transform 950ms ease-in-out;
+}
+.avatar-stage .living-face.is-looking-left {
+  transform: translateX(-1.5%) rotate(-0.9deg);
+}
+.avatar-stage .living-face.is-looking-right {
+  transform: translateX(1.5%) rotate(0.9deg);
+}
+/* Breathing and the slow head sway ride the portrait alone, at
+   amplitudes too small to drift the feature map (the lids sit a
+   layer above, unmoved): a living stillness, not a cartoon. */
+.avatar-stage .living-face__portrait {
+  animation: living-face-breathe 6.5s ease-in-out infinite;
+}
+@keyframes living-face-breathe {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.012) rotate(0.35deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar-stage .living-face {
+    transition: none;
+  }
+  .avatar-stage .living-face__portrait {
+    animation: none;
+  }
+}
+
+/* ---- 6) THE HUD READOUTS — BRIGHT (owner eye-check 2026-11-22) ---
+   "The information on the screen like the core and all this stuff
+   I can't see it, it's so dark." The readouts inherited the dim
+   theme blue and the top-left column sat at 60% opacity over his
+   backdrop picture. Now: full-strength near-white text, a bright
+   accent for the values, a dark backing panel behind each column
+   so the words read over ANY picture, and a step up in size. The
+   room, the black floor, and the screen background are untouched. */
+.avatar-stage div.avatar-hud {
+  color: #eef4ff;
+  font-size: 12.5px;
+  background: rgb(3 6 14 / 62%);
+  border: 1px solid rgb(147 180 240 / 28%);
+  border-radius: 0.55rem;
+  padding: 0.5rem 0.7rem;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 80%);
+}
+.avatar-stage .avatar-hud--tl {
+  opacity: 1;
+}
+.avatar-stage .avatar-hud__value {
+  color: #8fd0ff;
+}
+.avatar-stage .avatar-hud__db-status {
+  color: #eef4ff;
+}
+
+/* ---- 10) ANUBIS STAYS FIXED IN HIS PLACE (owner order
+   2026-11-22 ~20:06 EST: "the avatar should be fixed in place by
+   now") ------------------------------------------------------------
+   Where Anubis sits is where he stays: the system never moves him
+   on its own. His geometry is written only by his own anchor —
+   the Captain's drag, stretch, and Center (useMedallionAnchor) —
+   and a summon writes only the SUMMONED god's spot, with Anubis
+   as the obstacle it clears, never the piece it moves.
+   What DID displace him to the eye were two presentation
+   transforms fired by conversation changes: the council shrink
+   (his medallion scaled to 0.62 when a council formed) and the
+   in-perspective growth (his face scaled 1.07 when the focus came
+   to him). Both are dead for Anubis now — his face renders at his
+   seated size in every view; the perspective ring (a box-shadow,
+   which moves nothing) still marks the focus. His living face
+   still breathes and looks around (item 3) — that is life inside
+   his place, not a change of place. */
+.avatar-stage .anubis-presence.medallion-anchor--in-council {
+  transform: none;
+}
+.avatar-stage .anubis-presence--in-perspective .anubis-presence__face {
+  transform: none;
+}
+
+/* ---- 11) CALL AND COUNCIL — the presence sizes (owner order
+   2026-11-22 ~20:09 EST) ------------------------------------------
+   His words: "Call another god: that god comes up ON THE SCREEN
+   RIGHT NEXT TO ANUBIS, SMALL. Saying I want to talk to a god by
+   themselves: that god comes up BIG."
+   - COUNCIL (small, beside the commander): the stage already lays
+     the 0.62 council scale on a god in council, and the seat
+     itself is written beside Anubis's standing geometry
+     (seatBesideAnubis in AvatarStage, besideMedallionGeometry in
+     medallionAnchor.ts). Anubis never takes the council scale —
+     section 10 above.
+   - ONE-ON-ONE CALL (big): a god addressed alone presents at the
+     call scale below, grown around his own seat — presentation
+     only, his saved geometry untouched, so when the call ends he
+     is exactly where he stood. The rule names the god presences
+     that can be called alone; the Captain himself never scales,
+     and Anubis never scales (section 10). */
+.avatar-stage .montu-presence.medallion-anchor--in-call {
+  transform: scale(1.4);
+}
+
+/* ---- 8) TERMINAL CHAT — CLEAR, HISTORY, EMOJI (owner order
+   2026-11-22 ~19:53 EST) ------------------------------------------
+   The Clear/History row rides at the head of the conversation;
+   the emoji picker is a compact key grid above the input bar. */
+.avatar-command-box__chat-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem 0;
+}
+.avatar-command-box__chat-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.24rem 0.6rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 45%);
+  background: rgb(8 12 22 / 70%);
+  color: #f3d27a;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+.avatar-command-box__chat-tool:hover,
+.avatar-command-box__chat-tool:focus-visible {
+  background: rgb(24 32 52 / 92%);
+  border-color: rgb(212 175 55 / 90%);
+  outline: none;
+}
+.avatar-command-box__chat-tool svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+.avatar-command-box__emoji {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.2rem;
+  padding: 0.45rem 0.5rem 0.2rem;
+}
+.avatar-command-box__emoji-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.28rem 0;
+  border-radius: 0.45rem;
+  border: 1px solid transparent;
+  background: rgb(8 12 22 / 55%);
+  font-size: 1.05rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.avatar-command-box__emoji-key:hover,
+.avatar-command-box__emoji-key:focus-visible {
+  border-color: rgb(212 175 55 / 70%);
+  background: rgb(24 32 52 / 90%);
+  outline: none;
 }
 
 /* ---- 2) THE CHAT STRIP (the chat on other screens) --------------- */
@@ -99,10 +367,14 @@
   display: flex;
   align-items: center;
 }
-/* In the strip, Osiris's face rides without his caption — the strip
-   stays slim. */
+/* In the strip, Osiris's face rides without his caption and at the
+   strip's own slim size — the strip stays slim. */
 .avatar-chat-strip__presence .osiris-presence__caption {
   display: none;
+}
+.avatar-chat-strip .augie-presence {
+  width: 44px;
+  height: 44px;
 }
 .avatar-chat-strip__label {
   flex: none;

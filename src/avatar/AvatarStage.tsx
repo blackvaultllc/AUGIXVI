@@ -119,6 +119,7 @@ import {
   type StageResidency,
 } from "./presenceDoctrine";
 import {
+  besideMedallionGeometry,
   clearMedallionSpot,
   loadOrDefaultMedallionGeometry,
   saveMedallionGeometry,
@@ -261,6 +262,7 @@ import {
 } from "./interactionControls";
 import { createHighlight, createLocalMemory, findLocalAnswer, splitDocument } from "./localMemory";
 import { createLocalEar, type LocalEar } from "./localEar";
+import { VoiceIndicator } from "./VoiceIndicator";
 import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
 import { TrustedDevicesPanel } from "./TrustedDevicesPanel";
 import { PhoneBrainPanel } from "./PhoneBrainPanel";
@@ -505,11 +507,16 @@ export function AvatarStage({
   // THE CONSTRUCT IN HIS OWN BOX (owner order 2026-11-22): the sand
   // construct no longer holds center stage — he stands in a floating
   // container window, and the renderer's canvas docks into that
-  // window's body. OPEN BY DEFAULT (owner defect fix 2026-11-22):
-  // Osiris must be plainly visible working on the stage from load,
-  // not hidden until summoned — closing his box still takes him off
-  // stage, and "open AUGI avatar" brings him back.
-  const [constructOpen, setConstructOpen] = useState(true);
+  // window's body. CLOSED ON ENTRY (owner order 2026-11-22 ~19:53
+  // EST, superseding the same day's open-by-default fix): "the AGI
+  // screen that pops up — don't let it pop up on the beginning of
+  // coming in the screen. If I open it, I open it. It takes the
+  // background away from the actual main screen until I close the
+  // AUGI." The stage opens to the room and the resident face;
+  // AUGI's box opens only when he opens it ("open AUGI avatar",
+  // the Scene tab seat). The state is not persisted, so a fresh
+  // entry starts closed even if he left it open last session.
+  const [constructOpen, setConstructOpen] = useState(false);
   const [constructDock, setConstructDock] = useState<HTMLElement | null>(null);
   // THE ENVIRONMENT BUILDER (owner order 2026-11-22): the Captain's
   // designed Room — layouts saved as he goes, the active room fed to
@@ -601,6 +608,30 @@ export function AvatarStage({
     }
     setSummonedGods((current) => (current.includes(god) ? current : [...current, god]));
   }, [ownerPresent]);
+  /**
+   * THE COUNCIL SEAT (owner order 2026-11-22 ~20:09 EST): a god
+   * called into a conversation with Anubis comes up RIGHT NEXT TO
+   * ANUBIS, SMALL — beside the commander, never replacing him, and
+   * Anubis is never moved to make room: the called god's own seat
+   * is what gets written, at the flank of Anubis's standing
+   * geometry. His hand can re-place the god afterwards like any
+   * medallion; the next council call seats him beside Anubis
+   * again, because that is what a council call means.
+   */
+  const seatBesideAnubis = useCallback((god: GodPerspective) => {
+    if (god === "anubis") return;
+    const stageW = typeof window === "undefined" ? 0 : window.innerWidth;
+    const stageH = typeof window === "undefined" ? 0 : window.innerHeight;
+    if (stageW <= 0 || stageH <= 0) return;
+    const anubis = loadOrDefaultMedallionGeometry("anubis", stageW, stageH);
+    const standing = loadOrDefaultMedallionGeometry(god, stageW, stageH);
+    const others: ReturnType<typeof loadOrDefaultMedallionGeometry>[] = [];
+    if (ownerPresent) others.push(loadOrDefaultMedallionGeometry("black-hatter", stageW, stageH));
+    const seat = besideMedallionGeometry(anubis, standing.size, stageW, stageH, others);
+    if (seat.x !== standing.x || seat.y !== standing.y) {
+      saveMedallionGeometry(god, seat);
+    }
+  }, [ownerPresent]);
   // CONVERSATION VIEWS (owner order 2026-11-22): speaking with ONE
   // god is a CALL — his Black Hatter and the god, side by side.
   // Tapping a SECOND god while one holds the perspective raises a
@@ -624,14 +655,19 @@ export function AvatarStage({
         return;
       }
       if (isGodPerspective(perspective) && perspective !== god) {
-        // A second god joins the one addressed: a council.
+        // A second god joins the one addressed: a council. The
+        // joining god takes the council seat — right beside
+        // Anubis, small (owner order 2026-11-22 ~20:09 EST). When
+        // the joining god IS Anubis, the god already standing is
+        // the one who takes the seat beside him.
+        seatBesideAnubis(god === "anubis" ? perspective : god);
         setCouncil([perspective, god]);
         setPerspective(god);
         return;
       }
       setPerspective(god);
     },
-    [perspective, council, summonGod],
+    [perspective, council, summonGod, seatBesideAnubis],
   );
   const selectOwner = useCallback(() => {
     // The Owner seat brings the Black Hatter BACK onto the stage
@@ -771,6 +807,46 @@ export function AvatarStage({
   const dismissNotification = useCallback((id: number) => {
     setNotifications((current) => current.filter((item) => item.id !== id));
   }, []);
+  /**
+   * THE RESPONSE MODEL (owner order 2026-11-22 ~20:02 EST): "the
+   * way that he popped up to chat, that's the way I want my AI to
+   * respond to me. Not do the chat box. I'll send the commands to
+   * the chat, it'll show me a chat window and talk to me."
+   *
+   * So a REPLY is delivered by Anubis himself: when a line of his
+   * starts SPEAKING, he pops up — face at a clear edge, the cream
+   * bubble beside his head typing the line, his mouth moving with
+   * it (GodReportPopUp) — and when the line is done he goes, and
+   * the stage settles back to the room and the resident face. The
+   * chat box is where the Captain SENDS and where the conversation
+   * can be read while it is live; the record waits behind the
+   * History button. The pop-up keys on the speaking STATE and the
+   * line itself — the same signals the medallion's mouth reads —
+   * never on the voice pipeline's internals.
+   *
+   * Not every line pops: microphone status lines are the room
+   * talking to itself, and idle-life musings keep to voice and
+   * text (his reports already pop through notify()). One pop per
+   * distinct line: the same words spoken twice in a row are one
+   * delivery.
+   */
+  const lastResponsePopRef = useRef("");
+  useEffect(() => {
+    if (worldScreen !== "live" || clearScreen) return;
+    if (state !== "SPEAKING") return;
+    if (!lastWords || lastWords === "No response yet.") return;
+    if (
+      responseSource === "microphone" ||
+      responseSource === "awaiting response" ||
+      responseSource === "idle life"
+    ) {
+      return;
+    }
+    if (lastResponsePopRef.current === lastWords) return;
+    lastResponsePopRef.current = lastWords;
+    notificationIdRef.current += 1;
+    setGodPopUp({ id: notificationIdRef.current, god: "anubis", text: lastWords });
+  }, [state, lastWords, responseSource, worldScreen, clearScreen]);
   const recordReply = useCallback((text: string) => {
     setTranscript((prev) =>
       appendReplyHistory(prev, {
@@ -2944,6 +3020,18 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         <div>
           INTENSITY: <span className="avatar-hud__value">{intensityLabel(level)}</span>
         </div>
+        {/* THE VOICE INDICATOR (owner order 2026-11-22 ~20:11 EST):
+            the live graph of his REAL microphone level and the
+            plain HEARING YOU / NOT HEARING state for the construct
+            he is addressing — Anubis, or the god holding the call
+            (Montu). It reads the same local ear the stage listens
+            through (earRef — created in the mount effect below,
+            which re-renders the stage as it lands), so the graph
+            can only move on his measured voice. */}
+        <VoiceIndicator
+          ear={earRef.current}
+          addressee={perspective === "montu" ? MONTU_BINDING.name : ANUBIS_BINDING.name}
+        />
       </div>
       <div className="avatar-hud avatar-hud--tl" style={frameStyle("hud-core")} {...frameDragProps("hud-core", true)}>
         <div className="avatar-hud__db-status">CORE: {coreStatusLabel(coreStatus)}</div>
@@ -2998,6 +3086,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           partnerSpeaking={state === "SPEAKING"}
           away={worldScreen !== "live"}
           onReturnToChat={returnToChat}
+          onOpenHistory={() => setHistoryOpen(true)}
           presence={
             <AugiePresence
               ready={ready}

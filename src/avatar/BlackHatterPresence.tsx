@@ -34,7 +34,7 @@
 import { useState } from "react";
 import { BLACK_HATTER_BINDING } from "./medallionPortraits";
 import { BLACK_HATTER_FEATURES, LivingPortrait } from "./LivingPortrait";
-import { MedallionControls } from "./MedallionControls";
+import { MedallionMenu } from "./MedallionMenu";
 import {
   availablePresenceViews,
   effectivePresenceView,
@@ -133,34 +133,34 @@ export function BlackHatterPresence({
           />
         )}
       </div>
-      <div className="black-hatter-presence__plate">
-        <span className="black-hatter-presence__name">{BLACK_HATTER_BINDING.name}</span>
-        <span className="black-hatter-presence__role">{BLACK_HATTER_BINDING.roleLabel}</span>
-      </div>
-      <MedallionControls
+      {/* FACE ONLY (owner eye-check 2026-11-22): no name plate, no
+          controls row under the face — Move / Center / Anchor live
+          inside his box menu (MedallionMenu). */}
+      <MedallionMenu
         name={BLACK_HATTER_BINDING.name}
         lifted={anchor.lifted}
         moveHandleProps={anchor.moveHandleProps}
         eatClick={anchor.eatClick}
         onCenter={anchor.center}
-      />
-      {views.length > 1 && (
-        <button
-          type="button"
-          className="medallion-anchor__view-toggle"
-          onClick={(event) => {
-            event.stopPropagation();
-            toggleView();
-          }}
-          aria-pressed={view === "body"}
-          aria-label={
-            view === "head" ? "Show the Black Hatter full body" : "Show the Black Hatter head only"
-          }
-          title={view === "head" ? "Body perspective" : "Head perspective"}
-        >
-          {view === "head" ? "Body" : "Head"}
-        </button>
-      )}
+      >
+        {views.length > 1 && (
+          <button
+            type="button"
+            className="medallion-anchor__view-toggle"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleView();
+            }}
+            aria-pressed={view === "body"}
+            aria-label={
+              view === "head" ? "Show the Black Hatter full body" : "Show the Black Hatter head only"
+            }
+            title={view === "head" ? "Body perspective" : "Head perspective"}
+          >
+            {view === "head" ? "Body" : "Head"}
+          </button>
+        )}
+      </MedallionMenu>
       <div
         className="medallion-anchor__stretch"
         role="separator"

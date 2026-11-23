@@ -10,13 +10,19 @@ import {
 /**
  * OSIRIS IN THE PANEL (owner orders 2026-11-22): the chat panel's
  * round face is OSIRIS — the construct — shown at a size the Captain
- * can actually SEE working (76px, captioned OSIRIS), not a tiny
- * icon. The clip is chosen by presenceKindFor from the stage's real
- * signals, and the milestone face appears only in the brief window
- * after a thinking cycle actually completes (THINKING leaving the
- * bridge state). The construct's full presence stands on the stage
- * in his own box; this is his face in the panel, at the head of the
- * rail, working.
+ * can actually SEE working, captioned OSIRIS, not a tiny icon. The
+ * size itself lives in the stylesheet (104px in the full box, 84px
+ * on the phone, 64px minimized — an earlier 3rem override silently
+ * shrank him back down, and his eye-check caught it). HIS GROUND IS
+ * BLACK (owner eye-check 2026-11-22): the clips and the poster in
+ * public/augie-presence were re-rendered onto black — "Osiris
+ * shouldn't have a white background" — and the frame's own ground
+ * is the same black. The clip is chosen by presenceKindFor from the
+ * stage's real signals, and the milestone face appears only in the
+ * brief window after a thinking cycle actually completes (THINKING
+ * leaving the bridge state). The construct's full presence stands
+ * on the stage in his own box; this is his face in the panel, at
+ * the head of the rail, working.
  */
 export function AugiePresence({
   ready,

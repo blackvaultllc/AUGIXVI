@@ -257,6 +257,52 @@ export function speakingMsForText(text: string): number {
   return Math.min(9000, Math.max(1300, 700 + words * 340));
 }
 
+/**
+ * IDLE LIFE (owner eye-check 2026-11-22 ~19:40 EST): a still face
+ * reads dead to him — "his hair should be moving around him, he
+ * can move his neck, he can look around sometimes, his ears
+ * moving." The portrait is one flat raster, so the life is layered
+ * at the portrait level, honestly: the whole head sways slowly
+ * (the neck), breathes (a barely-there scale), and every several
+ * seconds LOOKS to one side and back (the gaze shift — hair and
+ * ears ride the head, because on a flat portrait they are part of
+ * it; there is no separate hair layer to animate, and none is
+ * faked). Everything — portrait, lids, mouth — sits inside ONE
+ * wrapper that carries the look shift, so the measured feature
+ * map can never drift off the eyes while the head moves. The
+ * breathing rides the portrait alone at sub-pixel amplitude for
+ * the same reason. Slow and restrained throughout; reduced-motion
+ * stills it all.
+ */
+function useLookAround(): "" | "left" | "right" {
+  const [look, setLook] = useState<"" | "left" | "right">("");
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    let alive = true;
+    const timers: number[] = [];
+    const later = (fn: () => void, ms: number) => {
+      timers.push(window.setTimeout(fn, ms));
+    };
+    const cycle = () => {
+      later(() => {
+        if (!alive) return;
+        setLook(Math.random() < 0.5 ? "left" : "right");
+        later(() => {
+          if (!alive) return;
+          setLook("");
+          cycle();
+        }, 1500 + Math.random() * 700);
+      }, 8000 + Math.random() * 8000);
+    };
+    cycle();
+    return () => {
+      alive = false;
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+  return look;
+}
+
 export function LivingPortrait({
   src,
   features,
@@ -270,6 +316,7 @@ export function LivingPortrait({
 }) {
   const closed = useBlink();
   const open = useMouthOpen(speaking);
+  const look = useLookAround();
   const sampledLid = useSampledLidBackground(src, features);
   const lidStyle = (eye: { x: number; y: number }) => ({
     left: `${eye.x - features.eyeW / 2}%`,
@@ -279,8 +326,17 @@ export function LivingPortrait({
     background: sampledLid ?? features.lidBackground,
   });
   return (
-    <>
-      <img className={imgClassName} src={src} alt="" aria-hidden="true" draggable={false} />
+    <span
+      className={`living-face${look ? ` is-looking-${look}` : ""}`}
+      data-testid="living-face"
+    >
+      <img
+        className={`${imgClassName} living-face__portrait`}
+        src={src}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+      />
       <span
         aria-hidden="true"
         data-testid="living-lid-left"
@@ -307,6 +363,6 @@ export function LivingPortrait({
           opacity: open <= 0.01 ? 0 : 1,
         }}
       />
-    </>
+    </span>
   );
 }

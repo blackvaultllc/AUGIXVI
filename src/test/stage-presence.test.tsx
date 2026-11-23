@@ -43,7 +43,7 @@ describe("the Black Hatter binding", () => {
 });
 
 describe("BlackHatterPresence", () => {
-  it("stands at center with his portrait, name, and owner plate", () => {
+  it("stands at center with his portrait — face only, name in the label, no plate", () => {
     const { container } = render(<BlackHatterPresence inPerspective />);
     const root = container.querySelector(".black-hatter-presence")!;
     expect(root.classList.contains("black-hatter-presence--in-perspective")).toBe(true);
@@ -51,8 +51,12 @@ describe("BlackHatterPresence", () => {
     const image = container.querySelector<HTMLImageElement>(".black-hatter-presence__img");
     expect(image).not.toBeNull();
     expect(image!.getAttribute("src")).toBe(BLACK_HATTER_FACE_SRC);
-    expect(container.textContent).toContain("The Black Hatter");
-    expect(container.textContent).toContain("Owner");
+    // FACE ONLY (owner eye-check 2026-11-22 ~19:40 EST): "I don't
+    // need to see his name, I know his name" — no plate stands
+    // under the face and no name text is painted on the stage.
+    expect(container.querySelector(".black-hatter-presence__plate")).toBeNull();
+    expect(container.textContent).not.toContain("The Black Hatter");
+    expect(container.textContent).not.toContain("Owner");
   });
 
   it("steps back while a station holds the perspective, and tapping him takes it back", () => {

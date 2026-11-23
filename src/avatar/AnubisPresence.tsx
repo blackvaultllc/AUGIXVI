@@ -53,7 +53,7 @@
 import { useState } from "react";
 import { ANUBIS_BINDING, ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
 import { ANUBIS_FEATURES, LivingPortrait } from "./LivingPortrait";
-import { MedallionControls } from "./MedallionControls";
+import { MedallionMenu } from "./MedallionMenu";
 import {
   availablePresenceViews,
   effectivePresenceView,
@@ -185,32 +185,33 @@ export function AnubisPresence({
           />
         )}
       </div>
-      <div className="anubis-presence__plate">
-        <span className="anubis-presence__name">{ANUBIS_BINDING.name}</span>
-        <span className="anubis-presence__role">{ANUBIS_BINDING.roleLabel}</span>
-      </div>
-      <MedallionControls
+      {/* FACE ONLY (owner eye-check 2026-11-22): no name plate, no
+          controls row under the face — the Move / Center / Anchor
+          controls live inside his box menu (MedallionMenu), opened
+          from the small button at the face's corner. */}
+      <MedallionMenu
         name={ANUBIS_BINDING.name}
         lifted={anchor.lifted}
         moveHandleProps={anchor.moveHandleProps}
         eatClick={anchor.eatClick}
         onCenter={anchor.center}
-      />
-      {views.length > 1 && (
-        <button
-          type="button"
-          className="medallion-anchor__view-toggle"
-          onClick={(event) => {
-            event.stopPropagation();
-            toggleView();
-          }}
-          aria-pressed={view === "body"}
-          aria-label={view === "head" ? "Show Anubis full body" : "Show Anubis head only"}
-          title={view === "head" ? "Body perspective" : "Head perspective"}
-        >
-          {view === "head" ? "Body" : "Head"}
-        </button>
-      )}
+      >
+        {views.length > 1 && (
+          <button
+            type="button"
+            className="medallion-anchor__view-toggle"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleView();
+            }}
+            aria-pressed={view === "body"}
+            aria-label={view === "head" ? "Show Anubis full body" : "Show Anubis head only"}
+            title={view === "head" ? "Body perspective" : "Head perspective"}
+          >
+            {view === "head" ? "Body" : "Head"}
+          </button>
+        )}
+      </MedallionMenu>
       <div
         className="medallion-anchor__stretch"
         role="separator"

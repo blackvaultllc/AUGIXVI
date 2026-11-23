@@ -68,6 +68,7 @@ export function FloatingWindow({
   initialWidth = 420,
   initialHeight = 320,
   accent = "var(--avatar-hud-accent, #22d3ee)",
+  fitContentHeight = false,
 }: {
   id: string;
   title: string;
@@ -76,6 +77,16 @@ export function FloatingWindow({
   initialWidth?: number;
   initialHeight?: number;
   accent?: string;
+  /**
+   * NO EMPTY GAPS (owner law, 2026-11-22 ~19:25 CST): "when
+   * something opens and there's an open gap with nothing there —
+   * get rid of it." A fit-content window carries NO fixed height:
+   * it opens exactly as tall as its content, capped by the
+   * viewport (the body scrolls past the cap). The persisted/dragged
+   * height is ignored while this is on — the grip still sets the
+   * width, and maximize still fills the screen on purpose.
+   */
+  fitContentHeight?: boolean;
 }) {
   const saved = useRef(loadGeometry(id)).current;
   // Bounds (operator order 2026-11-21): saved geometry is never trusted
@@ -223,12 +234,19 @@ export function FloatingWindow({
       style={
         maximized
           ? maximizedStyle
-          : {
-              left: position.x,
-              top: position.y,
-              width: size.w,
-              height: minimized ? undefined : size.h,
-            }
+          : fitContentHeight && !minimized
+            ? {
+                left: position.x,
+                top: position.y,
+                width: size.w,
+                maxHeight: "calc(100dvh - 16px)",
+              }
+            : {
+                left: position.x,
+                top: position.y,
+                width: size.w,
+                height: minimized ? undefined : size.h,
+              }
       }
       aria-label={title}
     >

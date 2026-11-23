@@ -640,6 +640,11 @@ export function PulseWindow({ onClose }: { onClose: () => void }) {
       initialWidth={440}
       initialHeight={500}
       accent="#f87171"
+      // NO EMPTY GAPS (owner law 2026-11-22): Pulse opens sized to
+      // its content — on his phone the fixed 500px frame stood
+      // taller than the readouts and the bottom of the box was a
+      // dead void under content huddled at the top.
+      fitContentHeight
     >
       <PulsePanel />
     </FloatingWindow>

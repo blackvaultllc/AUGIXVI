@@ -1,23 +1,14 @@
 /**
- * THE MEDALLION'S OWN CONTROLS (owner order 2026-11-22): moving an
- * avatar must be OBVIOUS. His words: "I don't know how to move the
- * other avatars to put them in place — I'm trying to get things
- * centered." The drag existed, but nothing on the face said so — a
- * hidden gesture is a defect.
+ * THE MEDALLION'S OWN CONTROLS (owner orders 2026-11-22): moving
+ * an avatar must be OBVIOUS — a labeled Move handle that IS the
+ * drag, a one-click Center, and the anchor state in plain words.
  *
- * So every medallion carries this row under its name plate, in
- * plain words, always visible (never hover-only, never behind a
- * menu):
- * - MOVE — a handle that IS the drag: press it and drag, the face
- *   follows the hand; release sets it down and the spot persists.
- * - CENTER — one click puts the face dead-center of the stage at
- *   the size it wears (another face never lands on the Captain's).
- * - The state chip — "Anchored" while the medallion sits set in
- *   place, "Free — drag to place" while it is in his hand — the
- *   anchor state shown on the avatar itself.
- *
- * The controls are self-evident, so no how-to text rides on the
- * face (Part 33: explanation lives behind the Help button).
+ * WHERE THEY LIVE (owner eye-check 2026-11-22 ~19:40 EST): not
+ * standing under the face. His words: "I don't need those options
+ * always there... they can be inside the box menu. I just want
+ * face there." This row now renders inside the medallion's box
+ * menu (MedallionMenu.tsx) — one tap on the face's menu button
+ * brings the whole row up; the stage itself shows the face alone.
  */
 import { Crosshair, Move } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";

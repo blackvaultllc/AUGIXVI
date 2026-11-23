@@ -4,9 +4,17 @@
  * selectable backgrounds for the Room, switchable like every other
  * surface choice and saved with the layout.
  *
- * THE FIT RULE (his binding words): a backdrop must FIT correctly
- * — cover-fit, scaled to cover the stage's back wall with no
- * distortion, cropping overflow, never stretched.
+ * THE FIT RULE (his binding words, sharpened by his eye-check
+ * 2026-11-22 ~19:40 EST): the backdrop picture must be seen WHOLE
+ * — centered, fit inside the screen's window, never zoomed or
+ * cropped. The first build cover-fit the picture to the wall, and
+ * on his screen that read as a magnified middle slice of the art
+ * (a giant scarab pattern filling the frame) — the whole picture
+ * was nowhere to be seen. That is dead for backdrops: a backdrop
+ * now CONTAIN-fits — scaled as large as the window allows while
+ * the entire picture stays visible, centered in the window. (The
+ * floor picture still cover-fits its framed floor: a floor is a
+ * surface to stand on, not a picture to read.)
  *
  * THE PICTURE IS THE BACKDROP (owner correction 2026-11-22, from
  * his live screen): the first build hung the picture under a
@@ -104,6 +112,29 @@ export function backdropPlaneSize(
     return { w: viewW, h: viewW / imageAspect };
   }
   return { w: viewH * imageAspect, h: viewH };
+}
+
+/**
+ * CONTAIN FIT — the backdrop's fit (owner eye-check 2026-11-22):
+ * the plane size that fits the WHOLE picture inside a view of
+ * (viewW × viewH) — scaled up until one dimension meets the
+ * window, aspect never distorted, nothing cropped. The renderer
+ * centers this plane in the window, so the picture starts
+ * centered and as big as whole-picture framing allows.
+ */
+export function backdropFitSize(
+  image: { width: number; height: number },
+  viewW: number,
+  viewH: number,
+): { w: number; h: number } {
+  const imageAspect = image.width / Math.max(1, image.height);
+  const viewAspect = viewW / Math.max(1, viewH);
+  if (viewAspect > imageAspect) {
+    // The view is wider than the picture: height rules, the whole
+    // picture stands inside with air at the sides.
+    return { w: viewH * imageAspect, h: viewH };
+  }
+  return { w: viewW, h: viewW / imageAspect };
 }
 
 /**
