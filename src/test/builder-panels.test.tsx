@@ -76,7 +76,11 @@ describe("BuilderPanel", () => {
 
   it("his backdrop pictures are offered by name, both sets", () => {
     render(<BuilderPanel {...panelProps()} />);
-    expect(screen.getByRole("button", { name: /Pyramids under the planets/ })).toBeInTheDocument();
+    // WIDER WORLD (owner order 2026-11-23): "Pyramids under the
+    // planets" is offered TWICE now on purpose — once as the room's
+    // backdrop and once in the World sky picker, because it is one
+    // of his sky pictures. The map pictures still appear once.
+    expect(screen.getAllByRole("button", { name: /Pyramids under the planets/ })).toHaveLength(2);
     expect(screen.getByRole("button", { name: /World map — countries/ })).toBeInTheDocument();
   });
 

@@ -117,6 +117,45 @@ describe("Ollama AI speech notifications", () => {
     ai.dispose();
   });
 
+  it("carries the speaker directive per message — the addressee rides the prompt (routing law)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ message: { content: "I hear you, Captain." } }), {
+          status: 200,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    // The room's addressee state, as the stage holds it: consulted
+    // fresh on every ask, so a switch mid-conversation is honored
+    // by the very next reply.
+    let directive: string | null = "You are speaking as Anubis";
+    const ai = attachOllamaAI(new AvatarBridge(), {
+      voice: { speak: vi.fn(), stop: vi.fn() },
+      getSpeakerDirective: () => directive,
+    });
+
+    await ai.handleText("Anubis, can you hear me?");
+    const first = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+      messages: { role: string; content: string }[];
+    };
+    expect(first.messages[0]?.content).toContain("You are speaking as Anubis");
+    // The directive rides LAST in the system content — the freshest
+    // instruction names the face this reply speaks as.
+    expect(first.messages[0]?.content.trimEnd().endsWith("You are speaking as Anubis")).toBe(
+      true,
+    );
+
+    directive = "You are speaking as Osiris";
+    await ai.handleText("Osiris, report");
+    const second = JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string) as {
+      messages: { role: string; content: string }[];
+    };
+    expect(second.messages[0]?.content).toContain("You are speaking as Osiris");
+    expect(second.messages[0]?.content).not.toContain("You are speaking as Anubis");
+    ai.dispose();
+  });
+
   it("uses the offline reply when Ollama cannot be reached", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
     const voice = { speak: vi.fn(), stop: vi.fn() };

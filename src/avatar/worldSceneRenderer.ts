@@ -250,7 +250,18 @@ export class WorldSceneManager {
     floorStyle: "color",
     floorImage: null,
     wall: "#aebfd8",
+    skyImage: null,
   };
+  /**
+   * THE WORLD SKY (owner order 2026-11-23): his sky picture on a
+   * far plane behind the built world. It lives outside the room
+   * set — the room's wall holds the home frame; the sky stands
+   * behind EVERYTHING and follows the view's travel in x, the way
+   * a real sky stays overhead wherever you walk.
+   */
+  private skyMesh: THREE.Mesh | null = null;
+  private skyImageId: string | null = null;
+  private skyViewX = 0;
   /** The stage camera's aspect — the backdrop's cover-fit reads it. */
   private viewAspect = 16 / 9;
 
@@ -263,6 +274,46 @@ export class WorldSceneManager {
       this.roomSet = this.buildRoomSet();
       this.group.add(this.roomSet);
     }
+    this.refreshSky();
+  }
+
+  /** The world view travelled — the sky follows in x. */
+  setSkyViewX(x: number) {
+    this.skyViewX = x;
+    if (this.skyMesh) this.skyMesh.position.x = x;
+  }
+
+  /** (Re)build the sky plane from the surface choice. */
+  private refreshSky() {
+    const id = this.roomSurfaces.skyImage;
+    if (id !== this.skyImageId) {
+      this.skyImageId = id;
+      if (this.skyMesh) {
+        this.group.remove(this.skyMesh);
+        this.disposeRoomSet(this.skyMesh as unknown as THREE.Group);
+        this.skyMesh = null;
+      }
+      const asset = backdropById(id);
+      if (asset) {
+        const size = backdropPlaneSize(asset, 1500, 430);
+        const material = new THREE.MeshBasicMaterial({ depthWrite: false });
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(size.w, size.h), material);
+        plane.position.set(this.skyViewX, 74, -380);
+        plane.name = "living-world-sky";
+        try {
+          new THREE.TextureLoader().load(asset.src, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            material.map = texture;
+            material.needsUpdate = true;
+          });
+        } catch {
+          // No image loading here (test DOMs): no sky stands.
+        }
+        this.skyMesh = plane;
+        this.group.add(plane);
+      }
+    }
+    if (this.skyMesh) this.skyMesh.visible = this.current === "room";
   }
 
   /** The renderer reports its camera aspect so backdrops cover-fit. */
@@ -312,6 +363,7 @@ export class WorldSceneManager {
     this.clear();
     this.built = buildScene(id);
     this.current = id;
+    this.refreshSky();
     if (id === "room") {
       // THE ROOM (owner order 2026-11-22): no point set at all — the
       // room is drawn as its SURFACES: a floor plane in his color or
@@ -362,6 +414,21 @@ export class WorldSceneManager {
     const set = new THREE.Group();
     set.name = "living-world-room";
     const surfaces = this.roomSurfaces;
+    // THE UNBUILT WORLD IS DARKNESS (owner order 2026-11-23): past
+    // the home plot's ground, the world is a dark void — no fake
+    // terrain, nothing pretending to be land he has not built. One
+    // near-black plane runs under everything, out to the horizon —
+    // as far as the eye can see; claimed plots and the home floor
+    // lay over it. (This is world terrain at world scale, NOT the
+    // Room's floor grid — that grid stays deleted, by his order.)
+    const voidPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(3000, 3000),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color("#04050a") }),
+    );
+    voidPlane.rotation.x = -Math.PI / 2;
+    voidPlane.position.y = -0.05;
+    voidPlane.name = "living-world-room-void";
+    set.add(voidPlane);
     // THE BACKDROP PICTURE (Environment Builder; fit corrected by
     // his eye-check 2026-11-22 ~19:40 EST): one of the Captain's
     // theme pictures, CONTAIN-fit on the back wall — the WHOLE
