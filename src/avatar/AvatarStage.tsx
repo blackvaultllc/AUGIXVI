@@ -2964,6 +2964,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           inCall={conversationView === "call" && perspective === "anubis"}
           inCouncil={council.includes("anubis")}
           atAttention={perspective === "anubis"}
+          scepter={godPopUp?.god === "anubis"}
           onSelect={() => selectGod("anubis")}
         />
       )}

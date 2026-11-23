@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
-import { lidGradientFromSamples, lidSamplePoints, type Rgb } from "./lidColor";
+import { useEffect, useState, type CSSProperties } from "react";
+import {
+  averageRgb,
+  lidGradientFromSamples,
+  lidSamplePoints,
+  rgbCss,
+  shadeRgb,
+  type Rgb,
+} from "./lidColor";
 
 /**
  * LIVING PORTRAITS (owner order 2026-11-22, the core-defect fix):
@@ -27,6 +34,37 @@ import { lidGradientFromSamples, lidSamplePoints, type Rgb } from "./lidColor";
  * speaks when Anubis answers. The Black Hatter speaks the
  * Captain's TYPED words. When the Captain uses the mic, that is
  * the Captain himself — the Hatter's mouth stays still.
+ *
+ * LIVING PARITY (owner orders 2026-11-23 — "just like you… all
+ * those functionalities, all of them"; the investor standard the
+ * same morning: when the AI speaks it must LOOK like it's
+ * talking): the generated-clip route was tried first, twice, on
+ * Anubis's real portrait — an idle clip and a talking clip per
+ * attempt, the second attempt under a cinemagraph prompt ordering
+ * everything but the eyelids/mouth frozen. It cannot hold his
+ * face: measured against the shipped portrait, the talking
+ * frames' eye region collapsed (the model's eyes change color
+ * and shape, the gold nose goes black, ornaments the portrait
+ * does not carry appear on the ring). A regenerated face is a
+ * DIFFERENT face, and his law is that the medallion is Khadija's
+ * chosen portrait, unchanged — so no generated clip ships for
+ * any god. What ships instead is this treatment, strengthened:
+ *
+ *   THE JAW — a second copy of the SAME portrait, feather-masked
+ *   to the jaw zone under the mouth, that drops and hinges on
+ *   the speech rhythm while the face speaks. Every pixel of it
+ *   is his own artwork, so the face cannot drift, shimmer, or
+ *   become someone else; the chin visibly works like a jaw
+ *   instead of a dark ellipse pasted over a still muzzle.
+ *   THE MOUTH — the interior is painted from the portrait's own
+ *   mouth-shadow pixels, sampled at runtime like the lids are,
+ *   deepened — his own shadow, opened.
+ *   THE RHYTHM — the mouth no longer jitters at random: it runs
+ *   in phrases (bursts of syllables, brief word-gap closures,
+ *   a pause between phrases), the shape of actual speech.
+ *
+ * Osiris needs none of this: his panel presence already runs
+ * real animated clips whose mouth moves (presenceState.ts).
  */
 
 export type FaceFeatures = {
@@ -40,6 +78,18 @@ export type FaceFeatures = {
   mouthH: number;
   lidBackground: string;
   mouthBackground: string;
+  /**
+   * THE JAW ZONE (living parity, 2026-11-23): the feathered
+   * ellipse of the portrait's own pixels — centered at
+   * (mouth.x, jawY), jawW × jawH percent of the face — that
+   * drops by up to jawDrop percent of the face height while
+   * the face speaks. Sized per face: a muzzle and a chin get
+   * a real zone; a beak gets a whisper of one.
+   */
+  jawW: number;
+  jawH: number;
+  jawY: number;
+  jawDrop: number;
 };
 
 /**
@@ -70,6 +120,13 @@ export type FaceFeatures = {
  * MONTU (face.webp): the falcon's eyes at (43.7, 40.5) /
  * (56.3, 40.5), his mouth at the beak's seam (50.0, 46.8).
  *
+ * JAW ZONES (2026-11-23, from the same maps): Anubis's jaw zone
+ * covers the lower muzzle and chin (center y 60.6, 17×10) and
+ * fades into the dark neck fur below; the Captain's covers his
+ * chin and jaw (center y 57.0, 21×11); Montu's is the lower beak
+ * only (center y 48.8, 9×5) with a third of the travel — a beak
+ * hinges, it does not drop like a jaw.
+ *
  * The lid COLOR is not part of the map's authority: on top of the
  * hand-sampled tones recorded in each map, the lid is re-sampled
  * from each portrait itself at runtime (lidColor.ts), at points
@@ -88,6 +145,10 @@ export const ANUBIS_FEATURES: FaceFeatures = {
   lidBackground:
     "radial-gradient(ellipse at 50% 35%, #c49a48 0%, #a0752f 70%, #7c5a24 100%)",
   mouthBackground: "radial-gradient(ellipse at 50% 50%, #3a2a08 0%, #241a04 100%)",
+  jawW: 17,
+  jawH: 10,
+  jawY: 60.6,
+  jawDrop: 0.85,
 };
 
 export const BLACK_HATTER_FEATURES: FaceFeatures = {
@@ -101,6 +162,10 @@ export const BLACK_HATTER_FEATURES: FaceFeatures = {
   lidBackground:
     "radial-gradient(ellipse at 50% 35%, #54423a 0%, #3a2a21 60%, #271b13 100%)",
   mouthBackground: "radial-gradient(ellipse at 50% 50%, #33150c 0%, #1c0b06 100%)",
+  jawW: 21,
+  jawH: 11,
+  jawY: 57.0,
+  jawDrop: 0.75,
 };
 
 /**
@@ -124,20 +189,25 @@ export const MONTU_FEATURES: FaceFeatures = {
   lidBackground:
     "radial-gradient(ellipse at 50% 35%, #2c3850 0%, #161d2e 70%, #0a0e18 100%)",
   mouthBackground: "radial-gradient(ellipse at 50% 50%, #14100a 0%, #070503 100%)",
+  jawW: 9,
+  jawH: 5,
+  jawY: 48.8,
+  jawDrop: 0.35,
 };
 
 /**
- * THE LID WEARS THE FACE'S OWN COLORS (owner order 2026-11-22):
- * once the portrait loads, sample the pixels of its own lid
- * territory (lidColor.ts — the strip above each eye and the eye's
- * corners, placed from this face's feature map) and build the
- * lid's gradient from them. Each face blinks in its own colors
- * because each gradient is read off its own artwork. Any failure —
- * an unreadable image, a blocked canvas — leaves the authored
- * gradient standing; the blink never waits on the sampling.
+ * Sample a face's own pixels at percent-space points — the one
+ * canvas routine behind both the lid tones and the mouth's
+ * interior (below). Any failure — an unreadable image, a blocked
+ * canvas — resolves to null and the authored gradient stands;
+ * the face never waits on the sampling.
  */
-function useSampledLidBackground(src: string, features: FaceFeatures): string | null {
-  const [sampled, setSampled] = useState<string | null>(null);
+function usePortraitSamples(
+  src: string,
+  points: readonly { x: number; y: number }[],
+): Rgb[] | null {
+  const [samples, setSamples] = useState<Rgb[] | null>(null);
+  const key = points.map((point) => `${point.x},${point.y}`).join(";");
   useEffect(() => {
     let alive = true;
     const image = new Image();
@@ -150,8 +220,8 @@ function useSampledLidBackground(src: string, features: FaceFeatures): string | 
         const context = canvas.getContext("2d");
         if (!context || canvas.width === 0 || canvas.height === 0) return;
         context.drawImage(image, 0, 0);
-        const samples: Rgb[] = [];
-        for (const point of lidSamplePoints(features)) {
+        const read: Rgb[] = [];
+        for (const point of points) {
           const px = Math.min(
             canvas.width - 1,
             Math.max(0, Math.round((point.x / 100) * canvas.width)),
@@ -161,21 +231,44 @@ function useSampledLidBackground(src: string, features: FaceFeatures): string | 
             Math.max(0, Math.round((point.y / 100) * canvas.height)),
           );
           const data = context.getImageData(px, py, 1, 1).data;
-          samples.push({ r: data[0] ?? 0, g: data[1] ?? 0, b: data[2] ?? 0 });
+          read.push({ r: data[0] ?? 0, g: data[1] ?? 0, b: data[2] ?? 0 });
         }
-        const gradient = lidGradientFromSamples(samples);
-        if (alive && gradient) setSampled(gradient);
+        if (alive && read.length > 0) setSamples(read);
       } catch {
-        // The authored gradient stands — sampling is an enhancement,
-        // never a dependency of the blink.
+        // The authored gradients stand — sampling is an
+        // enhancement, never a dependency of the face.
       }
     };
     image.src = src;
     return () => {
       alive = false;
     };
-  }, [src, features]);
-  return sampled;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, key]);
+  return samples;
+}
+
+/** Percent-space points inside the mouth's own shadow. */
+function mouthSamplePoints(features: FaceFeatures): { x: number; y: number }[] {
+  const y = features.mouth.y + features.mouthH * 0.3;
+  return [
+    { x: features.mouth.x - features.mouthW * 0.3, y },
+    { x: features.mouth.x, y },
+    { x: features.mouth.x + features.mouthW * 0.3, y },
+  ];
+}
+
+/**
+ * The mouth's interior from its own sampled shadow, deepened —
+ * the portrait's mouth-shadow tones taken down toward the dark
+ * of an open mouth, in the authored gradients' shape.
+ */
+function mouthGradientFromSamples(samples: readonly Rgb[]): string | null {
+  if (samples.length === 0) return null;
+  const base = averageRgb(samples);
+  const deep = shadeRgb(base, 0.45);
+  const core = shadeRgb(base, 0.2);
+  return `radial-gradient(ellipse at 50% 50%, ${rgbCss(core)} 0%, ${rgbCss(deep)} 100%)`;
 }
 
 function prefersReducedMotion(): boolean {
@@ -224,7 +317,13 @@ function useBlink(): boolean {
   return closed;
 }
 
-/** Mouth openness 0..1 — a speech rhythm while speaking, shut at rest. */
+/**
+ * Mouth openness 0..1 — while speaking, a PHRASE rhythm (living
+ * parity, 2026-11-23): bursts of syllable shapes with brief
+ * word-gap closures inside the burst and a near-shut pause
+ * between phrases — the envelope of actual speech, not a random
+ * jitter. Shut at rest; a steady half-open under reduced motion.
+ */
 function useMouthOpen(speaking: boolean): number {
   const [open, setOpen] = useState(0);
   useEffect(() => {
@@ -236,11 +335,25 @@ function useMouthOpen(speaking: boolean): number {
       setOpen(0.55);
       return;
     }
-    setOpen(0.5);
+    setOpen(0.55);
+    let burst = 3 + Math.floor(Math.random() * 5);
+    let pause = 0;
     const id = window.setInterval(() => {
-      // Syllable-like: mostly open shapes, brief closures between words.
-      setOpen(Math.random() < 0.16 ? 0.04 : 0.2 + Math.random() * 0.8);
-    }, 118);
+      if (pause > 0) {
+        pause -= 1;
+        setOpen(0.04);
+        return;
+      }
+      if (burst <= 0) {
+        pause = 2 + Math.floor(Math.random() * 4);
+        burst = 3 + Math.floor(Math.random() * 6);
+        setOpen(0.04);
+        return;
+      }
+      burst -= 1;
+      // A word-gap closure inside the phrase, else a syllable.
+      setOpen(Math.random() < 0.12 ? 0.05 : 0.25 + Math.random() * 0.75);
+    }, 105);
     return () => window.clearInterval(id);
   }, [speaking]);
   return open;
@@ -263,10 +376,12 @@ export function speakingMsForText(text: string): number {
  * a look-around turn on the face's wrapper — he rejected it from
  * his screen: "Why is the whole circle moving? It shouldn't be
  * rocking." The wrapper is a STATIC positioning layer now. Motion
- * lives INSIDE the portrait only: the lids (blink) and the mouth
- * (speech) — both painted in their own layers over the still
- * portrait, on the measured feature map, so a blink can never
- * drift off the eyes it covers.
+ * lives INSIDE the portrait only: the lids (blink), the jaw (a
+ * masked copy of the portrait itself, dropped on the speech
+ * rhythm), and the mouth — each painted in its own layer over
+ * the still portrait, on the measured feature map, so a blink
+ * can never drift off the eyes it covers and the jaw can never
+ * carry the face somewhere it is not.
  */
 export function LivingPortrait({
   src,
@@ -281,7 +396,10 @@ export function LivingPortrait({
 }) {
   const closed = useBlink();
   const open = useMouthOpen(speaking);
-  const sampledLid = useSampledLidBackground(src, features);
+  const lidSamples = usePortraitSamples(src, lidSamplePoints(features));
+  const sampledLid = lidSamples ? lidGradientFromSamples(lidSamples) : null;
+  const mouthSamples = usePortraitSamples(src, mouthSamplePoints(features));
+  const sampledMouth = mouthSamples ? mouthGradientFromSamples(mouthSamples) : null;
   const lidStyle = (eye: { x: number; y: number }) => ({
     left: `${eye.x - features.eyeW / 2}%`,
     top: `${eye.y - features.eyeH / 2}%`,
@@ -289,6 +407,7 @@ export function LivingPortrait({
     height: `${features.eyeH}%`,
     background: sampledLid ?? features.lidBackground,
   });
+  const jawMask = `radial-gradient(ellipse ${features.jawW}% ${features.jawH}% at ${features.mouth.x}% ${features.jawY}%, rgb(0 0 0 / 100%) 52%, rgb(0 0 0 / 0%) 76%)`;
   return (
     <span className="living-face" data-testid="living-face">
       <img
@@ -297,6 +416,28 @@ export function LivingPortrait({
         alt=""
         aria-hidden="true"
         draggable={false}
+      />
+      {/* THE JAW (living parity, 2026-11-23): the portrait's OWN
+          pixels in the jaw zone, feather-masked, hinged down on
+          the speech rhythm while the face speaks — at rest the
+          copy sits exactly on the portrait and is invisible. */}
+      <img
+        aria-hidden="true"
+        data-testid="living-jaw"
+        className="living-face__jaw"
+        src={src}
+        alt=""
+        draggable={false}
+        style={
+          {
+            "--jaw-mask": jawMask,
+            transform: `translateY(${(open * features.jawDrop).toFixed(3)}%) scaleY(${(
+              1 +
+              open * 0.015
+            ).toFixed(4)})`,
+            transformOrigin: `${features.mouth.x}% ${features.mouth.y}%`,
+          } as CSSProperties
+        }
       />
       <span
         aria-hidden="true"
@@ -319,7 +460,7 @@ export function LivingPortrait({
           top: `${features.mouth.y - features.mouthH / 2}%`,
           width: `${features.mouthW}%`,
           height: `${features.mouthH}%`,
-          background: features.mouthBackground,
+          background: sampledMouth ?? features.mouthBackground,
           transform: `scaleY(${open.toFixed(3)})`,
           opacity: open <= 0.01 ? 0 : 1,
         }}
