@@ -244,7 +244,19 @@ export type Inputs = {
 export class AvatarRenderer {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  private camera = new THREE.PerspectiveCamera(40, 1, 0.1, 2000);
+  /**
+   * THE WORLD VIEW (owner order 2026-11-23): where the camera
+   * stands over the built world, in world units from the home
+   * origin. The camera and its look target translate TOGETHER by
+   * this offset, so travelling neither zooms nor turns — the view
+   * window simply moves across the world, and every raycast
+   * (builder picks, floor points, screen projections) reads the
+   * same camera and stays true at any pan. Home is (0, 0).
+   */
+  private worldPan = { x: 0, z: 0 };
+  /** The camera's home distance, set by resize for the aspect. */
+  private cameraBaseZ = 11;
   /**
    * THE STAGE VIEW (owner eye-check 2026-11-23): where the camera
    * stands — front (dead-on), left, or right — switched by the
@@ -252,9 +264,6 @@ export class AvatarRenderer {
    * the medallions are DOM and Anubis's seat is never an input.
    */
   private stageView: StageView = "front";
-  /** The camera's standing distance — resize() owns it (portrait
-   *  stages stand further back); applyCamera() reads it. */
-  private cameraZ = 11;
   /**
    * The anchor Osiris stands on. Locomotion moves avatarRoot inside
    * it; the operator's drag moves the anchor. Keeping the two
@@ -646,21 +655,13 @@ export class AvatarRenderer {
     F["uGlow"]!.value = 1.3;
   }
   /**
-   * THE CAMERA'S ONE DOOR: position from the stage view (x), the
-   * standing height (y), and the resize-owned distance (z), always
-   * looking at the stage's heart. Constructor, resize, and
-   * setStageView all come through here so the three never disagree.
-   */
-  private applyCamera() {
-    this.camera.position.set(stageViewCameraX(this.stageView), -0.75, this.cameraZ);
-    this.camera.lookAt(0, -0.8, 0);
-  }
-
-  /**
    * PERSPECTIVE BY BUTTON (owner eye-check 2026-11-23): step the
    * camera to the stage's left or right, or back to the front.
    * The view changes around the medallions — no medallion geometry
-   * is read or written here.
+   * is read or written here. The camera itself is placed by the
+   * one applyCamera() below (the world-view section), which
+   * composes this stage view with the world pan and the
+   * resize-owned home distance.
    */
   setStageView(view: StageView) {
     if (view === this.stageView) return;
@@ -691,7 +692,7 @@ export class AvatarRenderer {
     this.composer.setSize(w, h);
     this.camera.aspect = w / h;
     this.worldScenes.setViewAspect(w / h);
-    this.cameraZ = w / h < 1 ? (11 / (w / h)) * 0.75 : 11;
+    this.cameraBaseZ = w / h < 1 ? (11 / (w / h)) * 0.75 : 11;
     this.applyCamera();
     this.camera.updateProjectionMatrix();
     (this.post.uniforms as unknown as PostU).uRes.value.set(w, h);
@@ -996,6 +997,64 @@ export class AvatarRenderer {
     this.applyStageLook(id);
     // The builder's placed room belongs to the Room scene only.
     this.builderScenes.setVisible(id === "room");
+    // The world view belongs to the Room's built world; any other
+    // scene starts from its own home framing.
+    if (id !== "room") this.setWorldPan(0, 0);
+  }
+
+  /* --------------------- the world view (pan) --------------------- */
+
+  /** Stand the camera over a point of the built world. */
+  private applyCamera() {
+    // THE CAMERA'S ONE DOOR (merged composition): the world pan
+    // travels the view across the built world; the stage view
+    // (perspective buttons, owner eye-check 2026-11-23) steps the
+    // camera sideways and angles it back at the heart it stands
+    // over — at home (pan 0, front) this is the stage's standing
+    // framing exactly. The distance is the resize-owned base.
+    this.camera.position.set(
+      this.worldPan.x + stageViewCameraX(this.stageView),
+      -0.75,
+      this.cameraBaseZ + this.worldPan.z,
+    );
+    this.camera.lookAt(this.worldPan.x, -0.8, this.worldPan.z);
+    // Optional-chained: applyCamera also runs in the constructor,
+    // before the world scenes exist.
+    this.worldScenes?.setSkyViewX(this.worldPan.x);
+    this.refreshClearColor();
+  }
+
+  /**
+   * Travel the view across the built world (owner order
+   * 2026-11-23). Clamped to the world's edge (WORLD_BOUNDS in
+   * builder/room.ts — imported as literals here to keep the
+   * renderer free of the builder's data module cycle).
+   */
+  setWorldPan(x: number, z: number) {
+    const clamp = (value: number, min: number, max: number) =>
+      Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : 0;
+    this.worldPan = { x: clamp(x, -120, 120), z: clamp(z, -120, 120) };
+    this.applyCamera();
+  }
+
+  /** Where the view stands over the world — (0, 0) is home. */
+  getWorldPan(): { x: number; z: number } {
+    return { ...this.worldPan };
+  }
+
+  /**
+   * The canvas clear color. In the Room at home it is the room's
+   * own composition; travelled away from home, the unbuilt world
+   * is darkness, so the clear goes dark too — no pale void
+   * pretending to be land (owner order 2026-11-23).
+   */
+  private refreshClearColor() {
+    if (!this.lightStage) {
+      this.renderer.setClearColor(0x02040a, 1);
+      return;
+    }
+    const away = Math.abs(this.worldPan.x) > 0.01 || Math.abs(this.worldPan.z) > 0.01;
+    this.renderer.setClearColor(away ? 0x020304 : this.roomClearColor(), 1);
   }
 
   /**
@@ -1009,7 +1068,7 @@ export class AvatarRenderer {
     this.worldScenes.setRoomSurfaces(room.surfaces);
     this.builderBackdrop = room.surfaces.backdrop;
     this.builderBackdropPicture = backdropById(room.surfaces.backdropImage) != null;
-    if (this.lightStage) this.renderer.setClearColor(this.roomClearColor(), 1);
+    if (this.lightStage) this.refreshClearColor();
   }
 
   /** The Room's clear color: black while a backdrop picture is up —
@@ -1082,7 +1141,7 @@ export class AvatarRenderer {
   private applyStageLook(id: WorldSceneId) {
     const light = id === "room";
     this.lightStage = light;
-    this.renderer.setClearColor(light ? this.roomClearColor() : 0x02040a, 1);
+    this.refreshClearColor();
     this.bloom.enabled = !light;
     const blending = light ? THREE.NormalBlending : THREE.AdditiveBlending;
     const setMaterial = (material: THREE.ShaderMaterial) => {
@@ -1244,6 +1303,35 @@ export class AvatarRenderer {
     center.project(this.camera);
     return { x: (center.x * 0.5 + 0.5) * w, y: (-center.y * 0.5 + 0.5) * h };
   }
+  /**
+   * Where the construct stands in the built world, in room
+   * coordinates (the same space placed items live in) — the built
+   * world map's live marker reads this. Folds the figure anchor
+   * and the locomotion root into one true floor spot.
+   */
+  figureWorldPosition(): { x: number; z: number } {
+    const center = new THREE.Vector3();
+    this.avatarRoot.getWorldPosition(center);
+    return { x: center.x, z: center.z };
+  }
+
+  /**
+   * Where a placed item stands on the host element, in pixels —
+   * the stage parks the selection's control cluster beside it.
+   * Null when the item is unknown or the host has no size.
+   */
+  builderItemScreenPoint(id: string): { x: number; y: number } | null {
+    const spot = this.builderScenes.itemWorldPoint(id);
+    if (!spot) return null;
+    const w = this.host.clientWidth;
+    const h = this.host.clientHeight;
+    if (!w || !h) return null;
+    const point = new THREE.Vector3(spot.x, -3.2 + 1.1, spot.z);
+    point.project(this.camera);
+    if (point.z > 1) return null; // behind the camera — no cluster
+    return { x: (point.x * 0.5 + 0.5) * w, y: (-point.y * 0.5 + 0.5) * h };
+  }
+
   /** World units per screen pixel at the figure's depth plane. */
   worldUnitsPerPixel(): number {
     const h = this.host.clientHeight || 1;

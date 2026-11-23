@@ -5,6 +5,7 @@ import { Eye, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "@/avatar/CommandBox";
+import { ReplyHistoryWindow } from "@/avatar/ReplyHistoryWindow";
 import type { ReplyHistoryEntry } from "@/avatar/replyHistory";
 
 /**
@@ -284,6 +285,77 @@ describe("command box chat log", () => {
     renderBoxWithHistory(false);
     expect(screen.queryByRole("button", { name: /Conversation/ })).not.toBeInTheDocument();
     expect(screen.getByText("Standing by.")).toBeInTheDocument();
+  });
+});
+
+/**
+ * THE SPEAKER'S NAME (routing law, owner order 2026-11-23): the
+ * thread's label is read from the same addressee state the reply
+ * prompt carried — label and words can never disagree again. The
+ * live line wears the CURRENT addressee's name; a kept entry wears
+ * the name it was recorded under; an entry from before routing
+ * wears Anubis, as it always did.
+ */
+describe("command box routed speaker label", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  function renderRouted(speakerName: string, entries?: ReplyHistoryEntry[]) {
+    return render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="I hear you, Captain."
+        responseSource="test"
+        speakerName={speakerName}
+        history={entries}
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+  }
+
+  it("the live reply is labeled with the addressee's name — and the box addresses him too", () => {
+    renderRouted("Osiris");
+    expect(screen.getByText("Osiris:")).toBeInTheDocument();
+    expect(screen.queryByText("Anubis:")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Message Osiris — / for commands")).toBeInTheDocument();
+  });
+
+  it("a kept entry renders under the name it was recorded with", () => {
+    const entries: ReplyHistoryEntry[] = [
+      { at: 1, question: "Anubis, can you hear me?", answer: "I hear you, Captain.", speaker: "Anubis" },
+      { at: 2, question: "Osiris, report", answer: "Watching, Captain.", speaker: "Osiris" },
+      { at: 3, question: "old line", answer: "From before routing." },
+    ];
+    const { unmount } = renderRouted("Osiris", entries);
+    // THE THREAD OPENS CLEAN (owner phone photo 2026-11-23): the
+    // kept entries are NOT in the opening thread — the only label
+    // on the face is the live Osiris line. The full record lives
+    // behind the History button…
+    expect(screen.getAllByText("Osiris:")).toHaveLength(1);
+    expect(screen.queryByText("Anubis:")).not.toBeInTheDocument();
+    unmount();
+    // …and THERE each kept entry renders under the name it was
+    // recorded with: one routed Anubis entry, one Osiris entry,
+    // and the pre-routing entry under Anubis.
+    // …and THERE each kept entry renders under the name it was
+    // recorded with: one routed Anubis entry, one Osiris entry,
+    // and the pre-routing entry under Anubis.
+    render(
+      <ReplyHistoryWindow entries={entries} onClear={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.getAllByText(/Anubis:/)).toHaveLength(2);
+    expect(screen.getAllByText(/Osiris:/)).toHaveLength(1);
   });
 });
 

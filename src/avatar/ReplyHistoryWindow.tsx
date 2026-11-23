@@ -45,7 +45,14 @@ export function ReplyHistoryWindow({
                 {entry.question && (
                   <div className="window-reply-history__q">You: {entry.question}</div>
                 )}
-                <div className="window-reply-history__a">Augie: {entry.answer}</div>
+                {/* The speaker of record (routing law, owner order
+                    2026-11-23): the record names who actually
+                    spoke — the entry's recorded speaker, Anubis
+                    for anything kept before routing existed —
+                    never a blanket system name. */}
+                <div className="window-reply-history__a">
+                  {entry.speaker ?? "Anubis"}: {entry.answer}
+                </div>
               </li>
             ))}
           </ol>

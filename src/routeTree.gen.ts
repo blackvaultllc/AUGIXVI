@@ -22,6 +22,8 @@ import { Route as AvatarWorldRouteImport } from './routes/avatar_.world'
 import { Route as LearnerGameRouteImport } from './routes/learner_.game'
 import { Route as LearnerRacingRouteImport } from './routes/learner_.racing'
 import { Route as LearnerSquishyRouteImport } from './routes/learner_.squishy'
+import { Route as ApiCamerasSnapshotRouteImport } from './routes/api.cameras.snapshot'
+import { Route as ApiCamerasStreamRouteImport } from './routes/api.cameras.stream'
 import { Route as ApiDevicesPhoneSightingsRouteImport } from './routes/api.devices.phone-sightings'
 import { Route as ApiDevicesScanStateRouteImport } from './routes/api.devices.scan-state'
 import { Route as ApiDevicesSightingsRouteImport } from './routes/api.devices.sightings'
@@ -107,6 +109,16 @@ const LearnerRacingRoute = LearnerRacingRouteImport.update({
 const LearnerSquishyRoute = LearnerSquishyRouteImport.update({
   id: '/learner_/squishy',
   path: '/learner/squishy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCamerasSnapshotRoute = ApiCamerasSnapshotRouteImport.update({
+  id: '/api/cameras/snapshot',
+  path: '/api/cameras/snapshot',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCamerasStreamRoute = ApiCamerasStreamRouteImport.update({
+  id: '/api/cameras/stream',
+  path: '/api/cameras/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDevicesPhoneSightingsRoute =
@@ -231,6 +243,8 @@ export interface FileRoutesByFullPath {
   '/learner/game': typeof LearnerGameRoute
   '/learner/racing': typeof LearnerRacingRoute
   '/learner/squishy': typeof LearnerSquishyRoute
+  '/api/cameras/snapshot': typeof ApiCamerasSnapshotRoute
+  '/api/cameras/stream': typeof ApiCamerasStreamRoute
   '/api/devices/phone-sightings': typeof ApiDevicesPhoneSightingsRoute
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
@@ -267,6 +281,8 @@ export interface FileRoutesByTo {
   '/learner/game': typeof LearnerGameRoute
   '/learner/racing': typeof LearnerRacingRoute
   '/learner/squishy': typeof LearnerSquishyRoute
+  '/api/cameras/snapshot': typeof ApiCamerasSnapshotRoute
+  '/api/cameras/stream': typeof ApiCamerasStreamRoute
   '/api/devices/phone-sightings': typeof ApiDevicesPhoneSightingsRoute
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
@@ -304,6 +320,8 @@ export interface FileRoutesById {
   '/learner_/game': typeof LearnerGameRoute
   '/learner_/racing': typeof LearnerRacingRoute
   '/learner_/squishy': typeof LearnerSquishyRoute
+  '/api/cameras/snapshot': typeof ApiCamerasSnapshotRoute
+  '/api/cameras/stream': typeof ApiCamerasStreamRoute
   '/api/devices/phone-sightings': typeof ApiDevicesPhoneSightingsRoute
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
@@ -342,6 +360,8 @@ export interface FileRouteTypes {
     | '/learner/game'
     | '/learner/racing'
     | '/learner/squishy'
+    | '/api/cameras/snapshot'
+    | '/api/cameras/stream'
     | '/api/devices/phone-sightings'
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
@@ -378,6 +398,8 @@ export interface FileRouteTypes {
     | '/learner/game'
     | '/learner/racing'
     | '/learner/squishy'
+    | '/api/cameras/snapshot'
+    | '/api/cameras/stream'
     | '/api/devices/phone-sightings'
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
@@ -414,6 +436,8 @@ export interface FileRouteTypes {
     | '/learner_/game'
     | '/learner_/racing'
     | '/learner_/squishy'
+    | '/api/cameras/snapshot'
+    | '/api/cameras/stream'
     | '/api/devices/phone-sightings'
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
@@ -451,6 +475,8 @@ export interface RootRouteChildren {
   LearnerGameRoute: typeof LearnerGameRoute
   LearnerRacingRoute: typeof LearnerRacingRoute
   LearnerSquishyRoute: typeof LearnerSquishyRoute
+  ApiCamerasSnapshotRoute: typeof ApiCamerasSnapshotRoute
+  ApiCamerasStreamRoute: typeof ApiCamerasStreamRoute
   ApiDevicesPhoneSightingsRoute: typeof ApiDevicesPhoneSightingsRoute
   ApiDevicesScanStateRoute: typeof ApiDevicesScanStateRoute
   ApiDevicesSightingsRoute: typeof ApiDevicesSightingsRoute
@@ -565,6 +591,20 @@ declare module '@tanstack/react-router' {
       path: '/learner/squishy'
       fullPath: '/learner/squishy'
       preLoaderRoute: typeof LearnerSquishyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cameras/snapshot': {
+      id: '/api/cameras/snapshot'
+      path: '/api/cameras/snapshot'
+      fullPath: '/api/cameras/snapshot'
+      preLoaderRoute: typeof ApiCamerasSnapshotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cameras/stream': {
+      id: '/api/cameras/stream'
+      path: '/api/cameras/stream'
+      fullPath: '/api/cameras/stream'
+      preLoaderRoute: typeof ApiCamerasStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/devices/phone-sightings': {
@@ -731,6 +771,8 @@ const rootRouteChildren: RootRouteChildren = {
   LearnerGameRoute: LearnerGameRoute,
   LearnerRacingRoute: LearnerRacingRoute,
   LearnerSquishyRoute: LearnerSquishyRoute,
+  ApiCamerasSnapshotRoute: ApiCamerasSnapshotRoute,
+  ApiCamerasStreamRoute: ApiCamerasStreamRoute,
   ApiDevicesPhoneSightingsRoute: ApiDevicesPhoneSightingsRoute,
   ApiDevicesScanStateRoute: ApiDevicesScanStateRoute,
   ApiDevicesSightingsRoute: ApiDevicesSightingsRoute,

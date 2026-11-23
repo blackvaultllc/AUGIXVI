@@ -10,24 +10,35 @@ import {
 import {
   DEFAULT_SURFACES,
   addItem,
+  claimPlot,
   clampRoomPoint,
   defaultLayoutStore,
   emptyRoom,
   exportRoomPackage,
+  isHomePlot,
   loadLayoutStore,
   makePlacedItem,
   moveItem,
   parseRoomPackage,
+  plotAtPoint,
+  plotClaimed,
   removeItem,
   rotateItem,
   saveLayoutStore,
   sanitizeRoom,
   setItemAnchored,
   setSurfaces,
+  unclaimPlot,
   updateItemVariant,
   withLayoutRoom,
   type RoomContent,
 } from "@/avatar/builder/room";
+import {
+  describeOffset,
+  mapToWorld,
+  worldMapExtent,
+  worldToMap,
+} from "@/avatar/builder/worldMap";
 import {
   GAZETTEER,
   formatLatLon,
@@ -115,11 +126,19 @@ describe("environment builder — the object anchor law", () => {
     expect(removeItem(freed, "item-1").items).toHaveLength(0);
   });
 
-  it("positions clamp to the room's framed floor", () => {
-    expect(clampRoomPoint(99, 99)).toEqual({ x: 10.5, z: 2.5 });
-    expect(clampRoomPoint(-99, -99)).toEqual({ x: -10.5, z: -8.5 });
+  it("positions clamp to the WORLD's edge — the world grew (owner order 2026-11-23)", () => {
+    // This pin used to assert the home plot's framed floor
+    // (±10.5, −8.5…2.5). The wider-world round widened the clamp
+    // on purpose: pieces now stand anywhere in the world, and the
+    // home plot's coordinates did not move — only the fence did.
+    expect(clampRoomPoint(99, 99)).toEqual({ x: 99, z: 99 });
+    expect(clampRoomPoint(500, 500)).toEqual({ x: 120, z: 120 });
+    expect(clampRoomPoint(-500, -500)).toEqual({ x: -120, z: -120 });
     const room = moveItem(roomWithItem(false), "item-1", 500, 500);
-    expect(room.items[0]).toMatchObject({ x: 10.5, z: 2.5 });
+    expect(room.items[0]).toMatchObject({ x: 120, z: 120 });
+    // …and a piece can now stand far outside the old frame.
+    const far = moveItem(roomWithItem(false), "item-1", 40, -60);
+    expect(far.items[0]).toMatchObject({ x: 40, z: -60 });
   });
 });
 
@@ -138,6 +157,7 @@ describe("environment builder — room surfaces persist like items", () => {
       floorStyle: "color" as const,
       floorImage: null,
       wall: "#3a3f4a",
+      skyImage: null,
     };
     layouts = withLayoutRoom(layouts, layouts.activeId, setSurfaces(emptyRoom(), surfaces));
     saveLayoutStore(layouts, storage);
@@ -213,7 +233,9 @@ describe("environment builder — the portable room package", () => {
     const text = exportRoomPackage(layout);
     const parsed = JSON.parse(text) as Record<string, unknown>;
     expect(parsed["kind"]).toBe("augi-room");
-    expect(Object.keys(parsed).sort()).toEqual(["items", "kind", "name", "surfaces", "version"]);
+    // "plots" joined the package with the wider world (owner order
+    // 2026-11-23): a carried-away room keeps the ground he claimed.
+    expect(Object.keys(parsed).sort()).toEqual(["items", "kind", "name", "plots", "surfaces", "version"]);
     const back = parseRoomPackage(text);
     expect(back.ok).toBe(true);
     if (back.ok) {
@@ -325,6 +347,101 @@ describe("environment builder — variant changes on placed pieces", () => {
     expect(updateItemVariant(room, id, { form: "castle" })).toBe(room);
     expect(updateItemVariant(room, id, { color: "invisible" })).toBe(room);
     expect(updateItemVariant(room, "no-such-piece", { form: "gable" })).toBe(room);
+  });
+});
+
+describe("the wider world — claimed ground plots (owner order 2026-11-23)", () => {
+  it("plots are indexed from the home origin, and the home plots are the room's own", () => {
+    expect(plotAtPoint(0, 0)).toEqual({ x: 0, z: 0 });
+    expect(plotAtPoint(10.9, 2.4)).toEqual({ x: 0, z: 0 });
+    expect(plotAtPoint(-0.1, -0.1)).toEqual({ x: -1, z: -1 });
+    expect(plotAtPoint(25, -30)).toEqual({ x: 2, z: -3 });
+    expect(isHomePlot({ x: 0, z: 0 })).toBe(true);
+    expect(isHomePlot({ x: -1, z: -1 })).toBe(true);
+    expect(isHomePlot({ x: 1, z: 0 })).toBe(false);
+    expect(isHomePlot({ x: 0, z: 1 })).toBe(false);
+  });
+
+  it("claiming covers a plot once; home plots are never stored; unclaiming takes the cover up", () => {
+    let room = emptyRoom();
+    room = claimPlot(room, { x: 2, z: -3 });
+    expect(room.plots).toEqual([{ x: 2, z: -3 }]);
+    expect(claimPlot(room, { x: 2, z: -3 })).toBe(room); // already claimed — no duplicate
+    expect(claimPlot(room, { x: 0, z: 0 })).toBe(room); // home — the room itself covers it
+    expect(plotClaimed(room, { x: 2, z: -3 })).toBe(true);
+    expect(plotClaimed(room, { x: 0, z: -1 })).toBe(true); // home counts as covered
+    expect(plotClaimed(room, { x: 5, z: 5 })).toBe(false);
+    room = unclaimPlot(room, { x: 2, z: -3 });
+    expect(room.plots).toEqual([]);
+    expect(unclaimPlot(room, { x: 2, z: -3 })).toBe(room);
+  });
+
+  it("claimed plots survive the layout store and the portable package", () => {
+    const storage = fakeStorage();
+    let layouts = defaultLayoutStore();
+    const room = claimPlot(claimPlot(emptyRoom(), { x: 3, z: 1 }), { x: -4, z: -2 });
+    layouts = withLayoutRoom(layouts, layouts.activeId, room);
+    saveLayoutStore(layouts, storage);
+    expect(loadLayoutStore(storage).layouts[0]!.room.plots).toEqual([
+      { x: 3, z: 1 },
+      { x: -4, z: -2 },
+    ]);
+    const back = parseRoomPackage(exportRoomPackage({ id: "w", name: "World", room }));
+    expect(back.ok).toBe(true);
+    if (back.ok) expect(back.room.plots).toEqual(room.plots);
+  });
+
+  it("sanitize keeps honest plots and drops home plots, duplicates and junk", () => {
+    const room = sanitizeRoom({
+      items: [],
+      plots: [{ x: 2, z: 2 }, { x: 0, z: 0 }, { x: 2, z: 2 }, { x: "far", z: 1 }, null, { x: 2.9, z: -3.2 }],
+    });
+    expect(room.plots).toEqual([
+      { x: 2, z: 2 },
+      { x: 2, z: -3 },
+    ]);
+  });
+
+  it("an old layout with no plots field loads with the world unclaimed, home intact", () => {
+    const room = sanitizeRoom({ surfaces: {}, items: [] });
+    expect(room.plots).toEqual([]);
+    expect(emptyRoom().plots).toEqual([]);
+  });
+});
+
+describe("the wider world — the world sky (owner order 2026-11-23)", () => {
+  it("the sky is a registry picture or nothing — unknown ids read as no sky", () => {
+    const room = sanitizeRoom({ surfaces: { skyImage: "egypt-throne" }, items: [] });
+    expect(room.surfaces.skyImage).toBe("egypt-throne");
+    const bogus = sanitizeRoom({ surfaces: { skyImage: "not-his-sky" }, items: [] });
+    expect(bogus.surfaces.skyImage).toBeNull();
+    expect(emptyRoom().surfaces.skyImage).toBeNull();
+  });
+});
+
+describe("the built-world map — framing and projection (owner order 2026-11-23)", () => {
+  it("the extent frames home, claims, pieces, inhabitants and the view — padded", () => {
+    const room = claimPlot(emptyRoom(), { x: 4, z: 0 });
+    const extent = worldMapExtent(room, [{ id: "augi", name: "AUGI", x: -30, z: 5, kind: "construct" }], { x: 0, z: 0 });
+    expect(extent.minX).toBeLessThanOrEqual(-34);
+    expect(extent.maxX).toBeGreaterThanOrEqual(4 * 11 + 11 + 4 - 1); // the claimed plot's east edge, padded
+    expect(extent.minZ).toBeLessThanOrEqual(-21);
+    expect(extent.maxZ).toBeGreaterThanOrEqual(21);
+  });
+
+  it("world → map → world round-trips, and north reads up", () => {
+    const extent = { minX: -50, maxX: 50, minZ: -50, maxZ: 50 };
+    const p = worldToMap(extent, 500, 400, 10, -20);
+    expect(mapToWorld(extent, 500, 400, p.px, p.py)).toEqual({ x: 10, z: -20 });
+    // North (−z) is a SMALLER py (higher on the map) than south.
+    expect(worldToMap(extent, 500, 400, 0, -20).py).toBeLessThan(worldToMap(extent, 500, 400, 0, 20).py);
+    expect(worldToMap(extent, 500, 400, -50, -50)).toEqual({ px: 0, py: 0 });
+  });
+
+  it("offsets describe in plain words from home", () => {
+    expect(describeOffset(0, 0)).toBe("the home plot");
+    expect(describeOffset(12, -5)).toBe("12 east, 5 north of home");
+    expect(describeOffset(-3, 8)).toBe("3 west, 8 south of home");
   });
 });
 

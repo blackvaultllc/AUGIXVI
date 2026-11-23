@@ -348,14 +348,19 @@ describe("nothing pops up on entry", () => {
   });
 });
 
-describe("the response model — Anubis pops up and talks (owner order 2026-11-22 ~20:02 EST)", () => {  it("a speaking reply raises the Anubis pop-up, keyed on the SPEAKING state", () => {
+describe("the response model — Anubis pops up and talks (owner order 2026-11-22 ~20:02 EST)", () => {  it("a speaking reply raises the addressed god's pop-up, keyed on the SPEAKING state", () => {
     const stage = readFileSync(resolve(process.cwd(), "src/avatar/AvatarStage.tsx"), "utf8");
     // The pop-up keys on the speaking state and the line itself,
     // delivered through the same GodReportPopUp the reports use.
     expect(stage).toContain('if (state !== "SPEAKING") return;');
-    expect(stage).toContain(
-      'setGodPopUp({ id: notificationIdRef.current, god: "anubis", text: lastWords });',
-    );
+    // ROUTING UPDATE (owner order 2026-11-23): the pop-up rises on
+    // the ADDRESSED god's face — Anubis by default, Montu when
+    // Montu is addressed — and Osiris never pops: the core speaks
+    // from the chat window. This pin supersedes the 2026-11-22
+    // always-Anubis shape, which was the visible half of the
+    // label/words mismatch in the Captain's screenshots.
+    expect(stage).toContain('god: addressee === "montu" ? "montu" : "anubis",');
+    expect(stage).toContain('if (addressee === "osiris") return;');
     // Room status and idle musings do not pop — replies do.
     expect(stage).toContain('responseSource === "idle life"');
   });
@@ -450,9 +455,12 @@ describe("the voice indicator — mounted on the stage's own ear", () => {
     const stage = readFileSync(resolve(process.cwd(), "src/avatar/AvatarStage.tsx"), "utf8");
     expect(stage).toContain('import { VoiceIndicator } from "./VoiceIndicator";');
     expect(stage).toContain("ear={earRef.current}");
-    // Anubis by default; Montu when Montu holds the perspective.
-    expect(stage).toContain(
-      'addressee={perspective === "montu" ? MONTU_BINDING.name : ANUBIS_BINDING.name}',
-    );
+    // ROUTING UPDATE (owner order 2026-11-23): the indicator's
+    // addressee reads the routing state — Anubis by default, and
+    // whoever the Captain is addressing (Montu summoned, Osiris
+    // by name) — the same state the prompt and the thread label
+    // read, so the three can never name different gods again.
+    // (Supersedes the perspective-driven shape pinned 2026-11-22.)
+    expect(stage).toContain("addressee={ADDRESSEE_NAMES[addressee]}");
   });
 });

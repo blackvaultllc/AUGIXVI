@@ -23,6 +23,16 @@ export type ReplyHistoryEntry = {
    * the mic. Absent on entries kept before the protocol landed.
    */
   source?: "typed" | "voice";
+  /**
+   * WHO answered — the addressee's display name at the moment of
+   * the reply (routing law, owner order 2026-11-23): the thread
+   * renders this entry under the name of the god who actually
+   * spoke, read from the same addressee state the reply prompt
+   * carried, so a label can never name one god over another's
+   * words. Absent on entries kept before routing landed — the log
+   * renders those under Anubis, the resident, as it always did.
+   */
+  speaker?: string;
 };
 
 const STORAGE_KEY = "augi.reply-history.v1";

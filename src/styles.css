@@ -3125,6 +3125,87 @@
 }
 
 /* THE COMMAND MAP */
+/* THE PICKED PIECE'S CONTROL CLUSTER (owner order 2026-11-23):
+   the controls ride beside the piece itself on the stage — a
+   small solid card (text always on its own ground), clear of the
+   medallion, following the piece as the view travels. */
+.builder-selection-cluster {
+  position: absolute;
+  z-index: 30;
+  transform: translate(-50%, calc(-100% - 14px));
+  min-width: 13rem;
+  max-width: 17rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #d4af37;
+  border-radius: 0.5rem;
+  background: rgba(10, 12, 16, 0.92);
+  color: #f2f6ff;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  pointer-events: auto;
+}
+.builder-selection-cluster__name {
+  margin: 0 0 0.15rem;
+  color: #ffd75e;
+  font-weight: 700;
+}
+.builder-selection-cluster__line {
+  margin: 0 0 0.45rem;
+  color: #cfe1ff;
+  font-size: 0.8rem;
+}
+.builder-selection-cluster__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* THE BUILT-WORLD MAP (owner order 2026-11-23): his world as a
+   map — darkness, claimed ground, pieces, inhabitants. */
+.built-world-map {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #f2f6ff;
+}
+.built-world-map__svg {
+  width: 100%;
+  height: auto;
+  border: 1px solid #3d5a85;
+  border-radius: 0.45rem;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+.built-world-map__label {
+  fill: #ffd75e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.built-world-map__soul {
+  fill: #f2f6ff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.built-world-map__row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+.built-world-map__where {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #cfe1ff;
+}
+.built-world-map__where svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .map-panel {
   display: flex;
   flex-direction: column;
@@ -4511,6 +4592,156 @@
    Form controls are dark end to end (operator order 2026-11-21):
    color-scheme dark + explicit dark fields and option lists, so a
    dropdown never flashes white against the stage. */
+/* CAMERAS (operator order 2026-11-23): his own cameras in one
+   window — both lenses, PTZ pad, add-a-camera form. Type follows
+   the bifocal standard set by the devices window: nothing small,
+   nothing crowded. */
+.window-cameras {
+  color-scheme: dark;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  height: 100%;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.window-cameras__intro {
+  opacity: 0.85;
+  margin: 0;
+}
+.window-cameras__card {
+  background: rgba(6, 16, 26, 0.55);
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 0.6rem;
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.window-cameras__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
+  align-items: baseline;
+  font-size: 1.05rem;
+}
+.window-cameras__head span {
+  opacity: 0.75;
+  font-size: 0.85rem;
+}
+.window-cameras__fingerprint,
+.window-cameras__grant,
+.window-cameras__probe,
+.window-cameras__transport {
+  margin: 0;
+  opacity: 0.85;
+}
+.window-cameras__lens {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.window-cameras__lens-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
+  align-items: baseline;
+}
+.window-cameras__lens-state {
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+.window-cameras__video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: #000;
+  border-radius: 0.4rem;
+}
+.window-cameras__novideo {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  opacity: 0.9;
+}
+.window-cameras__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+.window-cameras__ptz {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.window-cameras__pad {
+  display: grid;
+  grid-template-columns: repeat(3, 3rem);
+  gap: 0.35rem;
+  justify-content: center;
+}
+.window-cameras__pad .window-btn {
+  height: 2.6rem;
+  font-size: 1.1rem;
+}
+.window-cameras__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  background: rgba(6, 16, 26, 0.55);
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 0.6rem;
+  padding: 0.7rem;
+}
+.window-cameras__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+.window-cameras__form input,
+.window-cameras__form select {
+  background: #08131d;
+  color: #e6f9ff;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.95rem;
+}
+.window-cameras__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.window-cameras__row label {
+  flex: 1 1 9rem;
+}
+.window-cameras__check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  font-size: 0.95rem !important;
+}
+.window-cameras__check input {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.window-cameras__steps {
+  margin: 0;
+  padding-left: 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 .window-devices {
   --dev-fs-title: 1rem;
   --dev-fs-body: 0.9rem;
@@ -7409,11 +7640,29 @@
    rest swept up (scaleY 0, origin at the eye's top edge) and sweep
    down for a blink; the mouth is a dark ellipse over the portrait's
    own mouth, opening on a speech rhythm while its face speaks.
-   The portrait files themselves are never altered. */
+   The portrait files themselves are never altered.
+   LIVING PARITY (2026-11-23): a third layer — the jaw, a masked
+   copy of the portrait itself — hinges under the mouth on the
+   same rhythm. Every layer is the face's own pixels or its own
+   sampled tones; nothing is regenerated. */
 .anubis-presence__face,
 .black-hatter-presence__face,
 .montu-presence__face {
   position: relative;
+}
+.living-face__jaw {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-mask-image: var(--jaw-mask);
+  mask-image: var(--jaw-mask);
+  pointer-events: none;
+  contain: paint;
+  will-change: transform;
+  transition: transform 95ms linear;
+  z-index: 1;
 }
 .living-face__lid {
   position: absolute;
@@ -7422,7 +7671,10 @@
   transform-origin: 50% 0%;
   transition: transform 150ms ease-out;
   pointer-events: none;
-  z-index: 2;
+  z-index: 3;
+  /* A hair of seam shadow at the lid's lower edge, so the closed
+     lid reads as an eyelid lying on the eye, not a flat patch. */
+  box-shadow: inset 0 -2px 3px rgb(0 0 0 / 35%);
 }
 .living-face__lid.is-closed {
   transform: scaleY(1);
@@ -7439,6 +7691,41 @@
   pointer-events: none;
   z-index: 2;
 }
+/* THE SCEPTER (owner order 2026-11-23): Anubis's was-scepter, its
+   own asset standing at the medallion's right side. Put away —
+   sunk and faded — at every ordinary moment; DRAWN (is-drawn)
+   while a significant delivery is live. The asset is a black-
+   ground photograph, so its edges are feather-masked to melt
+   into the stage; the portrait underneath is never touched. */
+.anubis-presence__scepter {
+  position: absolute;
+  right: -3%;
+  bottom: 1%;
+  height: 97%;
+  width: auto;
+  -webkit-mask-image: radial-gradient(
+    ellipse 46% 49% at 50% 50%,
+    rgb(0 0 0 / 100%) 72%,
+    rgb(0 0 0 / 0%) 94%
+  );
+  mask-image: radial-gradient(
+    ellipse 46% 49% at 50% 50%,
+    rgb(0 0 0 / 100%) 72%,
+    rgb(0 0 0 / 0%) 94%
+  );
+  opacity: 0;
+  transform: translateY(9%) rotate(3deg);
+  transform-origin: 50% 100%;
+  transition:
+    opacity 280ms ease,
+    transform 380ms cubic-bezier(0.2, 0.8, 0.25, 1.12);
+  pointer-events: none;
+  z-index: 3;
+}
+.anubis-presence__scepter.is-drawn {
+  opacity: 1;
+  transform: translateY(0) rotate(0deg);
+}
 .black-hatter-presence--speaking .black-hatter-presence__face {
   box-shadow:
     0 18px 48px rgb(10 20 40 / 35%),
@@ -7447,7 +7734,9 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .living-face__lid,
-  .living-face__mouth {
+  .living-face__jaw,
+  .living-face__mouth,
+  .anubis-presence__scepter {
     transition: none;
   }
 }
@@ -7985,4 +8274,97 @@
     right: 0.6rem;
     width: min(19rem, calc(100vw - 1.2rem));
   }
+}
+
+/* Sound Watch window (2026-11-23) — the room's ear: sound events,
+   distance estimates, and the Captain's learned sound library. */
+.window-soundwatch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+  font-size: 0.82rem;
+}
+.window-soundwatch h3 {
+  margin: 0.2rem 0 0.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.window-soundwatch__status {
+  margin: 0;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: rgba(52, 211, 153, 0.08);
+}
+.window-soundwatch__error {
+  margin: 0;
+  color: #f87171;
+  font-weight: 600;
+}
+.window-soundwatch__meter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.window-soundwatch__meter {
+  border-radius: 0.3rem;
+  flex: 0 0 auto;
+}
+.window-soundwatch__db {
+  font-variant-numeric: tabular-nums;
+  min-width: 3.2rem;
+}
+.window-soundwatch__log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.window-soundwatch__entry {
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+}
+.window-soundwatch__entry.is-alert {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+.window-soundwatch__tag {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
+}
+.window-soundwatch__char {
+  opacity: 0.8;
+  font-size: 0.76rem;
+  margin-top: 0.15rem;
+}
+.window-soundwatch__teach {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.4rem;
+  flex-wrap: wrap;
+}
+.window-soundwatch__teach input[type="text"] {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.window-soundwatch__alerts h3 {
+  color: #f87171;
+}
+.window-soundwatch__note {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.45;
+  opacity: 0.65;
 }
