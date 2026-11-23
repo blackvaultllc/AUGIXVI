@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AvatarRouteImport } from './routes/avatar'
 import { Route as LearnerRouteImport } from './routes/learner'
+import { Route as ManualRouteImport } from './routes/manual'
 import { Route as PhoneBridgeRouteImport } from './routes/phone-bridge'
 import { Route as ApiSayRouteImport } from './routes/api.say'
 import { Route as ApiTranscribeRouteImport } from './routes/api.transcribe'
@@ -59,6 +60,11 @@ const AvatarRoute = AvatarRouteImport.update({
 const LearnerRoute = LearnerRouteImport.update({
   id: '/learner',
   path: '/learner',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ManualRoute = ManualRouteImport.update({
+  id: '/manual',
+  path: '/manual',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PhoneBridgeRoute = PhoneBridgeRouteImport.update({
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
   '/learner': typeof LearnerRoute
+  '/manual': typeof ManualRoute
   '/phone-bridge': typeof PhoneBridgeRoute
   '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -271,6 +278,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
   '/learner': typeof LearnerRoute
+  '/manual': typeof ManualRoute
   '/phone-bridge': typeof PhoneBridgeRoute
   '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -310,6 +318,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
   '/learner': typeof LearnerRoute
+  '/manual': typeof ManualRoute
   '/phone-bridge': typeof PhoneBridgeRoute
   '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -350,6 +359,7 @@ export interface FileRouteTypes {
     | '/'
     | '/avatar'
     | '/learner'
+    | '/manual'
     | '/phone-bridge'
     | '/api/say'
     | '/api/transcribe'
@@ -388,6 +398,7 @@ export interface FileRouteTypes {
     | '/'
     | '/avatar'
     | '/learner'
+    | '/manual'
     | '/phone-bridge'
     | '/api/say'
     | '/api/transcribe'
@@ -426,6 +437,7 @@ export interface FileRouteTypes {
     | '/'
     | '/avatar'
     | '/learner'
+    | '/manual'
     | '/phone-bridge'
     | '/api/say'
     | '/api/transcribe'
@@ -465,6 +477,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AvatarRoute: typeof AvatarRoute
   LearnerRoute: typeof LearnerRoute
+  ManualRoute: typeof ManualRoute
   PhoneBridgeRoute: typeof PhoneBridgeRoute
   ApiSayRoute: typeof ApiSayRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
@@ -521,6 +534,13 @@ declare module '@tanstack/react-router' {
       path: '/learner'
       fullPath: '/learner'
       preLoaderRoute: typeof LearnerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manual': {
+      id: '/manual'
+      path: '/manual'
+      fullPath: '/manual'
+      preLoaderRoute: typeof ManualRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/phone-bridge': {
@@ -761,6 +781,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AvatarRoute: AvatarRoute,
   LearnerRoute: LearnerRoute,
+  ManualRoute: ManualRoute,
   PhoneBridgeRoute: PhoneBridgeRoute,
   ApiSayRoute: ApiSayRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
