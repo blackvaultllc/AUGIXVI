@@ -31,7 +31,7 @@ describe("camera registry sanitize", () => {
     expect(camera?.rtspPort).toBe(554);
     expect(camera?.onvifPort).toBe(8080);
     expect(camera?.username).toBe("admin");
-    expect(camera?.lenses[0].rtspPath).toBe("/ucast/11");
+    expect(camera?.lenses[0]?.rtspPath).toBe("/ucast/11");
   });
 
   it("keeps the O-KAM family ports when given", () => {
@@ -94,13 +94,17 @@ describe("RTSP URL building (server-side record)", () => {
   };
 
   it("embeds the credentials escaped, on the camera's own port and path", () => {
-    expect(rtspUrlFor(stored, stored.lenses[0])).toBe(
+    const lens = stored.lenses[0];
+    if (!lens) throw new Error("fixture lens missing");
+    expect(rtspUrlFor(stored, lens)).toBe(
       "rtsp://admin:p%40ss%20word@10.0.0.9:10554/tcp/av0_0",
     );
   });
 
   it("omits the password segment when none is stored", () => {
     const open: StoredCamera = { ...stored, password: undefined, hasPassword: false };
-    expect(rtspUrlFor(open, open.lenses[0])).toBe("rtsp://admin@10.0.0.9:10554/tcp/av0_0");
+    const lens = open.lenses[0];
+    if (!lens) throw new Error("fixture lens missing");
+    expect(rtspUrlFor(open, lens)).toBe("rtsp://admin@10.0.0.9:10554/tcp/av0_0");
   });
 });

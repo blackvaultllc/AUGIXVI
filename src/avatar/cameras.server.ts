@@ -185,16 +185,19 @@ export const probeCamera = createServerFn({ method: "POST" })
       const profiles = await onvifProfiles(info.value.mediaUrl, camera.username, camera.password ?? "");
       if (profiles.state === "ok") {
         for (let i = 0; i < Math.min(profiles.value.length, effective.lenses.length); i++) {
+          const profileEntry = profiles.value[i];
+          const targetLens = effective.lenses[i];
+          if (!profileEntry || !targetLens) continue;
           const uri = await onvifStreamUri(
             info.value.mediaUrl,
             camera.username,
             camera.password ?? "",
-            profiles.value[i].token,
+            profileEntry.token,
           );
           if (uri.state === "ok") {
             try {
               const parsed = new URL(uri.value);
-              if (parsed.pathname) effective.lenses[i].rtspPath = parsed.pathname;
+              if (parsed.pathname) targetLens.rtspPath = parsed.pathname;
               const port = Number(parsed.port);
               if (port >= 1 && port <= 65535) effective.rtspPort = port;
             } catch {
@@ -239,10 +242,10 @@ export const probeCamera = createServerFn({ method: "POST" })
       fingerprint:
         info.state === "ok"
           ? {
-              manufacturer: info.value.manufacturer ?? undefined,
-              model: info.value.model ?? undefined,
-              firmware: info.value.firmware ?? undefined,
-              serial: info.value.serial ?? undefined,
+              ...(info.value.manufacturer ? { manufacturer: info.value.manufacturer } : {}),
+              ...(info.value.model ? { model: info.value.model } : {}),
+              ...(info.value.firmware ? { firmware: info.value.firmware } : {}),
+              ...(info.value.serial ? { serial: info.value.serial } : {}),
             }
           : null,
       lenses,
@@ -316,6 +319,9 @@ export const ptzCamera = createServerFn({ method: "POST" })
     // Dual-lens units expose the PTZ lens as the second profile; a
     // single-profile unit drives its only profile.
     const profile = profiles.value.length > 1 ? profiles.value[1] : profiles.value[0];
+    if (!profile) {
+      return { authorized: true, moved: false, note: "The camera offered no media profiles to drive." };
+    }
     const result = data.stop
       ? await onvifPtzStop(info.value.ptzUrl, camera.username, camera.password ?? "", profile.token)
       : await onvifPtzMove(info.value.ptzUrl, camera.username, camera.password ?? "", profile.token, {

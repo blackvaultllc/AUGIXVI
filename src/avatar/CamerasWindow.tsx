@@ -111,11 +111,13 @@ function mirrorIntoDeviceRegistry(camera: CameraProfile): void {
       declaredServices: [],
       capabilities: camera.lenses.map((l) => `${l.label} — live view`),
       limitations: [],
-      deviceInfo: {
-        manufacturer: camera.manufacturer,
-        model: camera.model,
-        firmware: camera.firmware,
-      },
+      deviceInfo: (() => {
+        const info: DeviceProfile["deviceInfo"] = {};
+        if (camera.manufacturer) info.manufacturer = camera.manufacturer;
+        if (camera.model) info.model = camera.model;
+        if (camera.firmware) info.firmware = camera.firmware;
+        return Object.keys(info).length ? info : undefined;
+      })(),
       batteryLevel: null,
       measured: { streamType: "RTSP bridged to MJPEG by the core machine" },
       firstSeen: camera.addedAt,

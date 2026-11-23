@@ -101,14 +101,16 @@ async function soap<T>(
 
 function tag(xml: string, name: string): string | null {
   const match = new RegExp(`<(?:[a-zA-Z0-9]+:)?${name}>([^<]*)</(?:[a-zA-Z0-9]+:)?${name}>`).exec(xml);
-  return match ? match[1].trim() : null;
+  return match?.[1] ? match[1].trim() : null;
 }
 
 function allTags(xml: string, name: string): string[] {
   const out: string[] = [];
   const re = new RegExp(`<(?:[a-zA-Z0-9]+:)?${name}>([^<]*)</(?:[a-zA-Z0-9]+:)?${name}>`, "g");
   let m: RegExpExecArray | null;
-  while ((m = re.exec(xml)) !== null) out.push(m[1].trim());
+  while ((m = re.exec(xml)) !== null) {
+    if (m[1] !== undefined) out.push(m[1].trim());
+  }
   return out;
 }
 
@@ -177,7 +179,9 @@ export async function onvifProfiles(
   password: string,
 ): Promise<OnvifResult<OnvifProfile[]>> {
   return soap(mediaUrl, username, password, `<trt:GetProfiles/>`, (xml) => {
-    const tokens = [...xml.matchAll(/Profiles[^>]*token="([^"]+)"/g)].map((m) => m[1]);
+    const tokens = [...xml.matchAll(/Profiles[^>]*token="([^"]+)"/g)]
+      .map((m) => m[1])
+      .filter((t): t is string => typeof t === "string" && t.length > 0);
     if (!tokens.length) return null;
     return tokens.map((token) => ({
       token,
