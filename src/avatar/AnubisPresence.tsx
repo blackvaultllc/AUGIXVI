@@ -49,9 +49,18 @@
  * medallion with a BLACK background inside the circle. The black
  * lives inside Anubis's medallion only; the Room around it stays
  * light.
+ *
+ * THE SCEPTER (owner order 2026-11-23 — "Anubis can pull it out
+ * when he needs to for a reason and put it back"): for significant
+ * deliveries — a god report pop-up, an alert, a proclamation —
+ * Anubis appears WITH his was-scepter raised at his side; normal
+ * idle and talk carry no scepter, it is put away. The scepter is
+ * its own asset (ANUBIS_SCEPTER_SRC) laid over the medallion, so
+ * the portrait itself is never altered to hold it; the stage
+ * raises it by driving the `scepter` prop from the pop-up state.
  */
 import { useState } from "react";
-import { ANUBIS_BINDING, ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
+import { ANUBIS_BINDING, ANUBIS_PORTRAIT_SRC, ANUBIS_SCEPTER_SRC } from "./medallionPortraits";
 import { ANUBIS_FEATURES, LivingPortrait } from "./LivingPortrait";
 import { MedallionMenu } from "./MedallionMenu";
 import {
@@ -70,6 +79,7 @@ export function AnubisPresence({
   speaking,
   listening,
   acting,
+  scepter = false,
   inPerspective = false,
   inCall = false,
   inCouncil = false,
@@ -84,6 +94,13 @@ export function AnubisPresence({
   listening: boolean;
   /** Augie is visibly carrying out work (thinking / presenting). */
   acting: boolean;
+  /**
+   * THE SCEPTER IS DRAWN (owner order 2026-11-23): a significant
+   * delivery is live — his report pop-up is on the stage — so the
+   * was-scepter stands raised at his side. Put away at all other
+   * times, ordinary talk included.
+   */
+  scepter?: boolean;
   /** The stage's focus is on Anubis's station right now. */
   inPerspective?: boolean;
   /** A one-god CALL conversation is live with Anubis (owner order 2026-11-22). */
@@ -118,6 +135,7 @@ export function AnubisPresence({
     "medallion-anchor",
     anchor.lifted ? "medallion-anchor--lifted" : "",
     speaking ? "anubis-presence--speaking" : "",
+    scepter ? "anubis-presence--scepter" : "",
     listening ? "anubis-presence--listening" : "",
     acting ? "anubis-presence--acting" : "",
     !ready ? "anubis-presence--connecting" : "",
@@ -143,7 +161,7 @@ export function AnubisPresence({
       className={classes}
       role={onSelect ? "button" : "img"}
       tabIndex={onSelect ? 0 : undefined}
-      aria-label={`Anubis — ${state}`}
+      aria-label={`Anubis — ${state}${scepter ? " · scepter raised" : ""}`}
       title={
         onSelect
           ? `Anubis — ${state} — tap to bring Anubis into perspective; drag to move his medallion`
@@ -185,6 +203,20 @@ export function AnubisPresence({
           />
         )}
       </div>
+      {/* THE SCEPTER (owner order 2026-11-23): his was-scepter,
+          its own asset laid over the medallion's right side —
+          raised while a significant delivery is live (the stage
+          drives the prop from his report pop-up), put away at
+          every other time. Always rendered so the draw and the
+          put-away animate; the portrait is never altered. */}
+      <img
+        aria-hidden="true"
+        data-testid="anubis-scepter"
+        className={`anubis-presence__scepter${scepter ? " is-drawn" : ""}`}
+        src={ANUBIS_SCEPTER_SRC}
+        alt=""
+        draggable={false}
+      />
       {/* FACE ONLY (owner eye-check 2026-11-22): no name plate, no
           controls row under the face — the Move / Center / Anchor
           controls live inside his box menu (MedallionMenu), opened

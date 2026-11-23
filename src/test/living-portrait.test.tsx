@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AnubisPresence } from "@/avatar/AnubisPresence";
 import { BlackHatterPresence } from "@/avatar/BlackHatterPresence";
 import { MontuPresence } from "@/avatar/MontuPresence";
-import { MONTU_FEATURES, speakingMsForText } from "@/avatar/LivingPortrait";
+import { ANUBIS_FEATURES, MONTU_FEATURES, speakingMsForText } from "@/avatar/LivingPortrait";
 
 /**
  * LIVING FACES (owner order 2026-11-22, the core defect): the
@@ -146,6 +146,81 @@ describe("living medallion faces", () => {
         "black-hatter-presence--speaking",
       ),
     ).toBe(false);
+  });
+});
+
+describe("living parity — the jaw is the portrait's own pixels (2026-11-23)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("every living face carries a jaw layer made of the portrait itself", () => {
+    const renders = [
+      render(<AnubisPresence ready speaking={false} listening={false} acting={false} />),
+      render(<BlackHatterPresence inPerspective speaking={false} />),
+      render(<MontuPresence ready />),
+    ];
+    for (const { container } of renders) {
+      const portrait = container.querySelector<HTMLImageElement>(".living-face__portrait")!;
+      const jaw = container.querySelector<HTMLImageElement>('[data-testid="living-jaw"]');
+      expect(jaw).not.toBeNull();
+      // The jaw is a second copy of the SAME portrait — his own
+      // pixels, so the face can never drift into someone else's.
+      expect(jaw!.getAttribute("src")).toBe(portrait.getAttribute("src"));
+    }
+  });
+
+  it("at rest the jaw sits exactly on the portrait — invisible", () => {
+    const { container } = render(
+      <AnubisPresence ready speaking={false} listening={false} acting={false} />,
+    );
+    const jaw = container.querySelector<HTMLElement>('[data-testid="living-jaw"]')!;
+    expect(jaw.style.transform).toContain("translateY(0.000%)");
+  });
+
+  it("while Anubis speaks, the jaw drops on the speech rhythm", () => {
+    const { container } = render(<AnubisPresence ready speaking listening={false} acting={false} />);
+    const jaw = container.querySelector<HTMLElement>('[data-testid="living-jaw"]')!;
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    const match = /translateY\(([0-9.]+)%\)/.exec(jaw.style.transform);
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBeGreaterThan(0);
+    // And never further than his measured jaw travel.
+    expect(Number(match![1])).toBeLessThanOrEqual(ANUBIS_FEATURES.jawDrop);
+  });
+
+  it("the jaw's feather mask is centered on his own mouth, not another face's", () => {
+    const { container } = render(
+      <AnubisPresence ready speaking={false} listening={false} acting={false} />,
+    );
+    const jaw = container.querySelector<HTMLElement>('[data-testid="living-jaw"]')!;
+    const mask = jaw.style.getPropertyValue("--jaw-mask");
+    expect(mask).toContain(
+      `at ${ANUBIS_FEATURES.mouth.x}% ${ANUBIS_FEATURES.jawY}%`,
+    );
+  });
+
+  it("the mouth runs in phrases — it dips near-shut between phrases while he is still speaking", () => {
+    const { container } = render(<AnubisPresence ready speaking listening={false} acting={false} />);
+    const mouth = () => container.querySelector<HTMLElement>('[data-testid="living-mouth"]')!;
+    let sawPhraseGap = false;
+    for (let i = 0; i < 40 && !sawPhraseGap; i += 1) {
+      act(() => {
+        vi.advanceTimersByTime(105);
+      });
+      const scale = /scaleY\(([0-9.]+)\)/.exec(mouth().style.transform);
+      // A phrase gap: near-shut (≤0.05) but still visibly speaking
+      // (opacity 1) — the breath between phrases, not silence.
+      if (scale && Number(scale[1]) <= 0.05 && mouth().style.opacity === "1") {
+        sawPhraseGap = true;
+      }
+    }
+    expect(sawPhraseGap).toBe(true);
   });
 });
 
