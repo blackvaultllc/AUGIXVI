@@ -5,9 +5,12 @@
  *
  * Every registered camera shows both its lenses live (the server
  * bridges RTSP → MJPEG; the browser never touches the camera's
- * password), a snapshot button, a probe that proves which paths
- * answer, and — only where his Permission-Law grant is on the
- * card — a PTZ pad for the moving lens.
+ * password), a snapshot button, an "Analyze this view" action that
+ * sends a fresh snapshot through the picture-analysis path (the
+ * reading renders as a labeled draft — the model can invent
+ * details), a probe that proves which paths answer, and — only
+ * where his Permission-Law grant is on the card — a PTZ pad for
+ * the moving lens.
  *
  * Honesty rules: a lens that has not produced a frame says so; a
  * camera that does not answer says so, with the exact step that
@@ -34,6 +37,13 @@ import {
   type CameraLens,
   type CameraProfile,
 } from "./cameras/cameraRegistry";
+import { loadBrainAddress } from "./brain";
+import {
+  analyzeCameraView,
+  cameraSnapshotUrl,
+  type LensAnalysisState,
+} from "./cameras/cameraAnalysis";
+import { CameraAnalysisBlock } from "./cameras/CameraAnalysisBlock";
 import { loadRegistry, upsertDevice, type DeviceProfile } from "./devices/deviceRegistry";
 
 async function loadAuthClient(): Promise<SupabaseClient | null> {
@@ -152,24 +162,62 @@ function LensView({
   const [stillNote, setStillNote] = useState<string>("");
   const [streamFailed, setStreamFailed] = useState(false);
   const stillRef = useRef<string | null>(null);
+  const [brain] = useState(() => loadBrainAddress());
+  const [analysis, setAnalysis] = useState<LensAnalysisState>({ kind: "idle" });
+
+  const showFrame = useCallback((blob: Blob) => {
+    if (stillRef.current) URL.revokeObjectURL(stillRef.current);
+    const url = URL.createObjectURL(blob);
+    stillRef.current = url;
+    setStill(url);
+  }, []);
 
   const takeSnapshot = useCallback(async () => {
     setStillNote("Grabbing a frame…");
     try {
-      const res = await fetch(
-        `/api/cameras/snapshot?t=${encodeURIComponent(token)}&id=${encodeURIComponent(camera.id)}&lens=${encodeURIComponent(lens.id)}`,
-      );
+      const res = await fetch(cameraSnapshotUrl(token, camera.id, lens.id));
       if (!res.ok) throw new Error(await res.text());
-      const blob = await res.blob();
-      if (stillRef.current) URL.revokeObjectURL(stillRef.current);
-      const url = URL.createObjectURL(blob);
-      stillRef.current = url;
-      setStill(url);
+      showFrame(await res.blob());
       setStillNote(`Snapshot — ${new Date().toLocaleTimeString()}`);
     } catch {
       setStillNote("No frame came back — the lens path is silent or refused.");
     }
-  }, [camera.id, lens.id, token]);
+  }, [camera.id, lens.id, token, showFrame]);
+
+  /** "Analyze this view": a CURRENT snapshot through the snapshot
+   *  route, read by the same vision path Picture Analysis uses.
+   *  The frame that was read replaces the still on display, so the
+   *  picture beside the draft reading is the picture it read. */
+  const analyzeView = useCallback(async () => {
+    const startedAt = Date.now();
+    setAnalysis({ kind: "working", elapsed: 0, partial: "" });
+    const clock = window.setInterval(() => {
+      setAnalysis((s) =>
+        s.kind === "working"
+          ? { ...s, elapsed: Math.floor((Date.now() - startedAt) / 1000) }
+          : s,
+      );
+    }, 250);
+    try {
+      const outcome = await analyzeCameraView({
+        snapshotUrl: cameraSnapshotUrl(token, camera.id, lens.id),
+        brain,
+        onText: (soFar) =>
+          setAnalysis((s) => (s.kind === "working" ? { ...s, partial: soFar } : s)),
+      });
+      if (outcome.ok) {
+        showFrame(outcome.frame);
+        setStillNote(
+          `Snapshot — ${new Date().toLocaleTimeString()} (the frame the analyzer read)`,
+        );
+        setAnalysis({ kind: "done", reading: outcome.reading, at: Date.now() });
+      } else {
+        setAnalysis({ kind: "failed", note: outcome.note });
+      }
+    } finally {
+      window.clearInterval(clock);
+    }
+  }, [brain, camera.id, lens.id, token, showFrame]);
 
   return (
     <div className="window-cameras__lens">
@@ -209,12 +257,21 @@ function LensView({
         <button type="button" className="window-btn" onClick={() => void takeSnapshot()}>
           Snapshot
         </button>
+        <button
+          type="button"
+          className="window-btn"
+          onClick={() => void analyzeView()}
+          disabled={analysis.kind === "working"}
+        >
+          {analysis.kind === "working" ? `Analyzing… ${analysis.elapsed}s` : "Analyze this view"}
+        </button>
         {stillNote && (
           <span className="window-hint" role="status">
             {stillNote}
           </span>
         )}
       </div>
+      <CameraAnalysisBlock state={analysis} />
       <p className="window-cameras__transport">
         Live view is the core machine transcoding the camera's RTSP stream (MJPEG, about 10 frames a
         second, under a second behind real time).

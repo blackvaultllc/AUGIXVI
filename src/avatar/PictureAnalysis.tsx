@@ -113,6 +113,74 @@ export async function collectGenerateStream(
   return full;
 }
 
+export type VisionReading = { text: string; findings: string[]; model: string };
+
+/**
+ * The one vision path, callable outside this panel — the Cameras
+ * surface sends a camera frame through the exact same route
+ * (operator order 2026-11-23, camera run-3 follow-up): pick the
+ * installed vision model the same way, stream /api/generate with
+ * the same prompt, split description + findings the same way.
+ * Throws an Error carrying a plain-words reason on any failure —
+ * callers show the words and never dress up a result that did
+ * not happen.
+ */
+export async function analyzeImageBase64(args: {
+  brain: string;
+  base64: string;
+  onText?: (textSoFar: string) => void;
+  fetchFn?: typeof fetch;
+}): Promise<VisionReading> {
+  const fetchFn = args.fetchFn ?? fetch;
+  let installed: string[] = [];
+  try {
+    const res = await fetchFn(`${args.brain}/api/tags`);
+    if (!res.ok) throw new Error(`Ollama answered ${res.status}`);
+    const data = (await res.json()) as { models?: { name?: string }[] };
+    installed = (data.models ?? [])
+      .map((m) => m.name)
+      .filter((n): n is string => Boolean(n));
+  } catch {
+    throw new Error(`the vision model is not answering at ${args.brain}`);
+  }
+  const model = pickVisionModel(installed);
+  if (!model) {
+    throw new Error(
+      `no vision model is installed on the brain — picture analysis uses ${CANONICAL_VISION_MODEL}`,
+    );
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
+  try {
+    const res = await fetchFn(`${args.brain}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        prompt: ANALYZE_PROMPT,
+        images: [args.base64],
+        stream: true,
+        options: { num_predict: 220 },
+      }),
+    });
+    if (!res.ok) throw new Error(`the vision model answered ${res.status}`);
+    const full = (await collectGenerateStream(res, args.onText ?? (() => undefined))).trim();
+    if (!full) throw new Error("the vision model returned an empty answer");
+    const parsed = parseAnalysis(full);
+    return { text: parsed.summary || full, findings: parsed.findings, model };
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(
+        `the vision model did not finish within ${Math.round(ANALYZE_TIMEOUT_MS / 1000)} seconds`,
+      );
+    }
+    throw err instanceof Error ? err : new Error("the vision request failed");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 type ModelState =
   | { status: "checking" }
   | { status: "ready"; model: string }

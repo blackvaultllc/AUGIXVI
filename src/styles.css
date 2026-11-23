@@ -4673,6 +4673,32 @@
   gap: 0.45rem;
   align-items: center;
 }
+.window-cameras__analysis {
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 0.4rem;
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.window-cameras__analysis-status,
+.window-cameras__analysis-note {
+  margin: 0;
+  opacity: 0.9;
+}
+.window-cameras__draft-label {
+  margin: 0;
+  font-weight: 700;
+  color: #fbbf24;
+}
+.window-cameras__reading {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.window-cameras__findings {
+  margin: 0;
+  padding-left: 1.2rem;
+}
 .window-cameras__ptz {
   display: flex;
   flex-direction: column;
