@@ -307,6 +307,7 @@ export function CommandBox({
   onToggleVoice,
   responseLine,
   responseSource,
+  speakerName = "Anubis",
   userLine,
   userSource = "typed",
   history,
@@ -330,6 +331,16 @@ export function CommandBox({
   onToggleVoice: () => void;
   responseLine: string;
   responseSource: string;
+  /**
+   * THE SPEAKER'S NAME (routing law, owner order 2026-11-23): who
+   * the Captain is addressing — the live reply is labeled with this
+   * name, read from the same addressee state the reply prompt
+   * carried, so the label and the words can never disagree. Kept
+   * entries carry their own speaker (the addressee at their
+   * moment); this prop names the CURRENT one. Defaults to Anubis,
+   * the resident commander.
+   */
+  speakerName?: string;
   /**
    * The operator's own last submitted message (typed or spoken), echoed
    * above the reply — he must always see what he sent (defect 2026-11-21:
@@ -695,7 +706,7 @@ export function CommandBox({
   const liveSpeaker =
     responseSource === "microphone" || responseSource === "awaiting response"
       ? "System"
-      : "Anubis";
+      : speakerName;
   const showLiveResponse =
     !liveHidden && Boolean(responseLine) && responseLine !== lastEntry?.answer;
 
@@ -754,7 +765,11 @@ export function CommandBox({
     showLiveResponse && responseLine
       ? { key: `live:${responseLine}`, speaker: liveSpeaker, text: responseLine }
       : lastEntry?.answer
-        ? { key: `hist:${lastEntry.at}`, speaker: "Anubis", text: lastEntry.answer }
+        ? {
+            key: `hist:${lastEntry.at}`,
+            speaker: lastEntry.speaker ?? "Anubis",
+            text: lastEntry.answer,
+          }
         : null;
   const [stripPreview, setStripPreview] = useState<{
     speaker: string;
@@ -918,7 +933,7 @@ export function CommandBox({
       style={boxStyle}
       data-anchored={anchored ? "true" : "false"}
       data-enlarged={enlarged ? "true" : "false"}
-      aria-label="Chat with Anubis"
+      aria-label={`Chat with ${speakerName}`}
     >
       <div
         className="avatar-command-box__rail avatar-command-box__grip"
@@ -1086,7 +1101,10 @@ export function CommandBox({
                   </p>
                 )}
                 <p className="avatar-command-box__thread-a">
-                  <span className="avatar-command-box__thread-who">Anubis:</span> {entry.answer}
+                  <span className="avatar-command-box__thread-who">
+                    {entry.speaker ?? "Anubis"}:
+                  </span>{" "}
+                  {entry.answer}
                 </p>
               </div>
               );
@@ -1111,13 +1129,13 @@ export function CommandBox({
                 {responseLine}
               </p>
             )}
-            {showLiveResponse && liveSpeaker === "Anubis" && responseSource && (
+            {showLiveResponse && liveSpeaker === speakerName && responseSource && (
               <p className="avatar-command-box__response-source">Answered by {responseSource}</p>
             )}
             {!hasVisibleLines && !showLiveUser && !showLiveResponse && (
               <p className="avatar-command-box__thread-system">
                 <span className="avatar-command-box__thread-who">System:</span> Standing by —
-                talk to Anubis here.
+                talk to {speakerName} here.
               </p>
             )}
             </div>
@@ -1168,13 +1186,13 @@ export function CommandBox({
 
       <form className="avatar-command-box__form" onSubmit={submit}>
         <label className="sr-only" htmlFor="avatar-command-input">
-          Message for Anubis
+          Message for {speakerName}
         </label>
         <input
           id="avatar-command-input"
           ref={inputRef}
           className="avatar-command-box__input"
-          placeholder="Message Anubis — / for commands"
+          placeholder={`Message ${speakerName} — / for commands`}
           value={chat}
           onChange={(event) => onChatChange(event.target.value)}
           onKeyDown={(event) => {

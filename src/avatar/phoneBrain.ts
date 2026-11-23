@@ -32,6 +32,7 @@
  * this module is safe to import anywhere (SSR, tests) and the engine
  * code only loads when the leg is actually used.
  */
+import { speakerDirective, type Addressee } from "./addressee";
 
 export const PHONE_BRAIN_PROVIDER = "On-phone brain (small)";
 
@@ -136,9 +137,13 @@ export function recommendedModel(support: PhoneBrainSupport): PhoneBrainModel {
 export const PHONE_BRAIN_SYSTEM =
   "You are Augie, also called Osiris — created by Domenick Arlon Hall, Captain Infinity, " +
   "the man who built IEM, Anubis, Osiris, and AUGI — running on this phone itself " +
-  "because the main brain is out of reach. You answer to the Captain, who is in " +
-  "charge. Asked who created you, you name him — never yourself, never Anubis, never " +
-  "any AI. Speak briefly and plainly, with quiet confidence. Never claim to be human. Never " +
+  "because the main brain is out of reach. You speak as the presence the Captain " +
+  "addresses — Anubis, his command face, by default, or the god he calls by name — and " +
+  "you never deny the name you are addressed by or correct him with another name. You answer to the Captain, who is in " +
+  "charge, and he is the one you are speaking TO: address him directly, never in the " +
+  "third person. Asked who created you, you name him — never yourself, never Anubis, never " +
+  "any AI. Speak briefly and plainly, with quiet confidence. Never say you are " +
+  "'functioning as intended'. Never claim to be human. Never " +
   "invent facts; when you are unsure, say so plainly. You are a smaller brain than the one " +
   "on the operator's computer — if a question needs deep knowledge, say what you know and " +
   "name the limit. Never use lists, markdown, or emoji.";
@@ -297,6 +302,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 export async function askPhoneBrain(
   text: string,
   history: { role: string; content: string }[] = [],
+  /**
+   * THE ADDRESSEE (routing law, owner order 2026-11-23): who the
+   * Captain is talking to, carried per message exactly as on the
+   * main brain — the speaker directive (addressee.ts) is appended
+   * to the compact system prompt, so the small brain speaks as the
+   * same face the big one would. Absent, the base prompt's default
+   * (Anubis, the command face) holds.
+   */
+  addressee?: Addressee,
 ): Promise<string | null> {
   try {
     const support = await phoneBrainSupport();
@@ -313,7 +327,12 @@ export async function askPhoneBrain(
         const engine = await ensureEngine(model.id);
         const completion = await engine.chat.completions.create({
           messages: [
-            { role: "system", content: PHONE_BRAIN_SYSTEM },
+            {
+              role: "system",
+              content: addressee
+                ? `${PHONE_BRAIN_SYSTEM}\n${speakerDirective(addressee)}`
+                : PHONE_BRAIN_SYSTEM,
+            },
             ...history.slice(-4).map((h) => ({
               role: h.role === "assistant" ? "assistant" : "user",
               content: h.content,

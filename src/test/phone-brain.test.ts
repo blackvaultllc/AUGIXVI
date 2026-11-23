@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PHONE_BRAIN_MODELS,
   PHONE_BRAIN_PROVIDER,
+  PHONE_BRAIN_SYSTEM,
   askPhoneBrain,
   deletePhoneBrain,
   derivePhoneBrainStatus,
@@ -116,6 +117,28 @@ describe("phone brain runtime (WebLLM faked at the boundary)", () => {
     fake.cached.add(small!.id);
     await expect(askPhoneBrain("ping")).resolves.toBe("ready");
     expect(fake.createCalls).toContain(small!.id);
+  });
+
+  it("carries the addressee into its system prompt — same routing as the main brain", async () => {
+    stubGpu(false);
+    fake.cached.add(small!.id);
+    type CreateArgs = { messages: { role: string; content: string }[] };
+    const create = fake.engine.chat.completions.create as unknown as {
+      mock: { calls: [CreateArgs][] };
+      mockClear: () => void;
+    };
+    create.mockClear();
+    await expect(askPhoneBrain("Osiris, report", [], "osiris")).resolves.toBe("ready");
+    const request = create.mock.calls.at(-1)?.[0];
+    // The compact prompt holds, and the speaker directive rides it:
+    // the small brain speaks as the addressed presence, by name.
+    expect(request?.messages[0]?.content).toContain(PHONE_BRAIN_SYSTEM);
+    expect(request?.messages[0]?.content).toContain("You are speaking as Osiris");
+    // Without an addressee, the base prompt's default (Anubis) holds alone.
+    create.mockClear();
+    await expect(askPhoneBrain("ping")).resolves.toBe("ready");
+    const plain = create.mock.calls.at(-1)?.[0];
+    expect(plain?.messages[0]?.content).toBe(PHONE_BRAIN_SYSTEM);
   });
 
   it("will not run the f16 3B on a device that reports no f16", async () => {
