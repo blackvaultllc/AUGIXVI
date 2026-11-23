@@ -24,6 +24,14 @@
  * below and BlackHatterPresence.tsx).
  */
 export const ANUBIS_PORTRAIT_SRC = "/anubis-presence/face.webp";
+/**
+ * ANUBIS'S SCEPTER (owner order 2026-11-23): the was-scepter asset
+ * he raises for significant deliveries — a separate replaceable
+ * file beside the portrait, never part of it: the face stays
+ * Khadija's chosen raster, untouched, and the scepter is drawn
+ * and put away around it.
+ */
+export const ANUBIS_SCEPTER_SRC = "/anubis-presence/scepter.webp";
 export const CAPTAIN_INFINITY_PORTRAIT_SRC = "/owner-presence/captain-infinity.webp";
 export const MONTU_PORTRAIT_SRC = "/montu-presence/face.webp";
 /**

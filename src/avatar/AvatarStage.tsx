@@ -218,6 +218,7 @@ import { CaptainsLogWindow } from "./CaptainsLogWindow";
 import { SandboxWindow } from "./SandboxWindow";
 import { LibraryWindow } from "./LibraryWindow";
 import { DevicesWindow } from "./DevicesWindow";
+import { CamerasWindow } from "./CamerasWindow";
 import {
   WAND_GREETING,
   createHeartbeatCheckPacer,
@@ -758,6 +759,10 @@ export function AvatarStage({
   // (operator order 2026-11-21). Opens from Tools → Rooms and from
   // "open devices".
   const [devicesOpen, setDevicesOpen] = useState(false);
+  // CAMERAS WINDOW (operator order 2026-11-23): his own cameras on
+  // his own network — both lenses live, PTZ under his grant. Opens
+  // from Tools → Senses & analysis.
+  const [camerasOpen, setCamerasOpen] = useState(false);
   // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
   // surface. Opens from Tools → Rooms and from "open listening mode".
   const [listeningOpen, setListeningOpen] = useState(false);
@@ -3028,6 +3033,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           inCall={conversationView === "call" && perspective === "anubis"}
           inCouncil={council.includes("anubis")}
           atAttention={perspective === "anubis"}
+          scepter={godPopUp?.god === "anubis"}
           onSelect={() => selectGod("anubis")}
         />
       )}
@@ -3498,6 +3504,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Devices"
                     onClick={() => setDevicesOpen(true)}
                   />
+                  <CommandAction
+                    icon={Camera}
+                    label="Cameras"
+                    onClick={() => setCamerasOpen(true)}
+                  />
                 </div>
               </CommandGroup>
               <CommandGroup label="Records & safety">
@@ -3834,6 +3845,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onActivated={() => say(WAND_GREETING)}
         />
       )}
+      {camerasOpen && <CamerasWindow onClose={() => setCamerasOpen(false)} />}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />
