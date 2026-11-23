@@ -34,6 +34,30 @@ export function createVoiceProvider(
   // Engines publish their voice lists late; warm the cache now so
   // the first spoken line already carries the gods' voice.
   warmSpeechVoices();
+  // AUTOPLAY UNLOCK (owner defect 2026-11-22 — lines printed but
+  // never heard): browsers start every AudioContext suspended until
+  // the operator interacts with the page. His first click or
+  // keypress warms one up and throws it away, which unlocks audio
+  // for the page — so a line spoken after any interaction (a typed
+  // command, a tap) is heard instead of dying in a suspended graph.
+  try {
+    const unlock = () => {
+      try {
+        const warm = new AudioContext();
+        void warm
+          .resume()
+          .catch(() => undefined)
+          .finally(() => void warm.close().catch(() => undefined));
+      } catch {
+        /* no WebAudio here — the plain element path still applies */
+      }
+      warmSpeechVoices();
+    };
+    globalThis.addEventListener?.("pointerdown", unlock, { once: true });
+    globalThis.addEventListener?.("keydown", unlock, { once: true });
+  } catch {
+    /* listener registration must never break the provider */
+  }
   let audio: HTMLAudioElement | null = null;
   let audioContext: AudioContext | null = null;
   let objectUrl: string | null = null;
@@ -101,16 +125,47 @@ export function createVoiceProvider(
    * full, then a gain stage turned up past unity feeds the bridge's
    * analyser chain, so app-generated speech lands clearly louder
    * than the raw file on phone speakers.
+   *
+   * SUSPENDED-CONTEXT GUARD (owner defect 2026-11-22): before the
+   * operator's first interaction the browser holds every new
+   * AudioContext "suspended", and resume() can stay pending forever
+   * without a gesture. The old code awaited resume() with no bound —
+   * a line spoken before any click could hang the whole speak()
+   * before play() was ever reached — and once an element is wired
+   * into a suspended graph it outputs silence even while "playing".
+   * So: try to resume with a short bound; only wire the element
+   * into the graph when the context is actually running. When it
+   * isn't, close the context untouched and return false — the
+   * caller plays the element directly, at full volume, through its
+   * own output. Returns true when the staged graph carries it.
    */
-  const stageAudio = async (element: HTMLAudioElement) => {
+  const stageAudio = async (element: HTMLAudioElement): Promise<boolean> => {
     element.volume = 1;
-    audioContext = new AudioContext();
-    const source = audioContext.createMediaElementSource(element);
-    const gain = audioContext.createGain();
+    let context: AudioContext;
+    try {
+      context = new AudioContext();
+    } catch {
+      return false;
+    }
+    try {
+      await Promise.race([
+        context.resume(),
+        new Promise((resolve) => setTimeout(resolve, 300)),
+      ]);
+    } catch {
+      /* a rejected resume lands in the state check below */
+    }
+    if (context.state !== "running") {
+      void context.close().catch(() => undefined);
+      return false;
+    }
+    audioContext = context;
+    const source = context.createMediaElementSource(element);
+    const gain = context.createGain();
     gain.gain.value = speechAudioGain();
     source.connect(gain);
     bridge.connectAudioSource(gain);
-    await audioContext.resume();
+    return true;
   };
 
   /**

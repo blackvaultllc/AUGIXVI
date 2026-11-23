@@ -72,12 +72,22 @@ export const loadClearScreenPreference = () => readPreference(CLEAR_SCREEN_KEY);
 export const saveClearScreenPreference = (value: boolean) =>
   writePreference(CLEAR_SCREEN_KEY, value);
 export function loadSilentModePreference(): boolean {
+  // Silence is a state he ORDERS, never a default (owner defect
+  // 2026-11-22: "he talks, I hear nothing, the face doesn't move").
+  // This loader used to default to TRUE when nothing was saved, so
+  // on any machine where he had never happened to save the
+  // preference the app booted muted and stayed muted: every spoken
+  // line still printed to the chat (onSpeak fires first) but the
+  // voice provider was never called and the bridge never entered
+  // SPEAKING — no sound, no mouth. An unset preference now means
+  // NOT silent; only a saved "true" (his explicit silence order,
+  // persisted by saveSilentModePreference) starts him silent.
   try {
     const saved = globalThis.localStorage?.getItem(SILENT_MODE_KEY);
-    return saved === null || saved === undefined ? true : saved === "true";
+    return saved === "true";
   } catch (error) {
     console.warn("Could not read avatar interface preference.", error);
-    return true;
+    return false;
   }
 }
 export const saveSilentModePreference = (value: boolean) => writePreference(SILENT_MODE_KEY, value);

@@ -59,7 +59,11 @@ describe("voice and focus controls", () => {
     });
 
     expect(loadClearScreenPreference()).toBe(false);
-    expect(loadSilentModePreference()).toBe(true);
+    // Unset silence preference = NOT silent (owner defect 2026-11-22):
+    // the old default-true booted every fresh machine muted, so lines
+    // printed to the chat but were never spoken and the face never
+    // moved. Silence starts only from a saved explicit order.
+    expect(loadSilentModePreference()).toBe(false);
     saveClearScreenPreference(true);
     saveSilentModePreference(false);
     expect(loadClearScreenPreference()).toBe(true);
