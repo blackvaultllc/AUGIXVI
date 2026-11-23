@@ -3743,6 +3743,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             const state = earRef.current?.currentState;
             return state === "starting" || state === "listening" || state === "transcribing";
           }}
+          onAlert={(text) => notify("sound-watch security", text)}
         />
       )}
       {analyzeOpen && <AnalyticWindow onClose={() => setAnalyzeOpen(false)} />}
