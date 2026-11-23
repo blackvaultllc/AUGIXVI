@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Anchor, Lock, LockOpen, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Anchor, Home, Lock, LockOpen, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { describeOffset } from "./worldMap";
 import {
   ITEM_SIZES,
   LIBRARY,
@@ -16,7 +17,23 @@ import {
   type RoomContent,
   type RoomSurfaces,
 } from "./room";
-import { BACKDROPS, type BackdropAsset } from "./backdrops";
+import { BACKDROPS, backdropById, type BackdropAsset } from "./backdrops";
+
+/**
+ * THE SKY CHOICES (owner order 2026-11-23): the pictures of his
+ * that are skies — stars, planets, sunset over the land. The
+ * world-sky slot itself accepts ANY picture in the registry
+ * (room.ts sanitizes by id), so a sky he uploads later joins this
+ * list the moment it is registered.
+ */
+const SKY_CHOICES: BackdropAsset[] = [
+  "egypt-pyramids-planets",
+  "egypt-throne",
+  "egypt-sphinx-sunset",
+  "egypt-pyramids-energy",
+]
+  .map((id) => backdropById(id))
+  .filter((asset): asset is BackdropAsset => asset !== null);
 import { STAGE_FRAMES, frameOffset, type FrameId, type FrameStore } from "./frames";
 import { CategorySection, SubCategory } from "../CategorySection";
 
@@ -62,6 +79,12 @@ export type BuilderPanelProps = {
   onToggleFramesArmed: () => void;
   onResetFrame: (id: FrameId) => void;
   onResetAllFrames: () => void;
+  /** THE WIDER WORLD (owner order 2026-11-23): where the stage
+   * view stands, the trip home, and the ground-laying hand. */
+  worldView?: { x: number; z: number };
+  onGoHome?: () => void;
+  layGroundArmed?: boolean;
+  onToggleLayGround?: () => void;
 };
 
 const CATEGORIES = ["buildings", "nature", "park & street"] as const;
@@ -96,8 +119,11 @@ export function BuilderPanel(props: BuilderPanelProps) {
     <div className="builder-panel">
       <p className="builder-panel__count">{variantCountLine()}</p>
       <p className="builder-panel__hint">
-        Everything lives in one category below. Add a piece, then drag it on the stage to place
-        it. Anchored pieces are locked until you unanchor them.
+        Tap a piece to place it; tap a placed piece to move or delete it.
+      </p>
+      <p className="builder-panel__hint">
+        Everything lives in one category below. Anchored pieces are locked in place until you
+        unanchor them.
       </p>
 
       {/* ------------------------- pieces for the room ------------------------ */}
@@ -341,6 +367,78 @@ export function BuilderPanel(props: BuilderPanelProps) {
               aria-label="Wall color"
             />
           </label>
+        </SubCategory>
+      </CategorySection>
+
+      {/* --------------------------- the wider world --------------------------- */}
+      <CategorySection title="The wider world">
+        <p className="builder-panel__hint">
+          Past the home plot the world runs on in darkness — unbuilt, until you build it. Drag
+          empty ground (or use the arrow keys) to travel the view, then build where you land:
+          pieces stand anywhere in the world, and a piece dropped on dark ground claims its
+          plot and covers it.
+        </p>
+        <p className="builder-panel__hint" role="status">
+          {props.worldView && (props.worldView.x !== 0 || props.worldView.z !== 0)
+            ? `You are looking at ${describeOffset(props.worldView.x, props.worldView.z)}.`
+            : "You are looking at the home plot."}{" "}
+          {room.plots.length > 0
+            ? `${room.plots.length} plot${room.plots.length === 1 ? "" : "s"} claimed beyond home.`
+            : "No plots claimed beyond home yet."}
+        </p>
+        <div className="builder-panel__row">
+          <button
+            type="button"
+            className="builder-panel__button"
+            onClick={() => props.onGoHome?.()}
+          >
+            <Home aria-hidden="true" /> Back to the home plot
+          </button>
+          <button
+            type="button"
+            className="builder-panel__button"
+            aria-pressed={props.layGroundArmed === true}
+            onClick={() => props.onToggleLayGround?.()}
+          >
+            {props.layGroundArmed ? "Laying ground: ON — tap dark ground" : "Lay ground cover"}
+          </button>
+        </div>
+        <p className="builder-panel__hint">
+          With Lay ground on, tapping dark ground covers that plot with your floor — your
+          color, or your floor picture. Tap a covered plot again to take the cover back up.
+          Grass is a floor color: the green below lays it everywhere your ground stands.
+        </p>
+        <div className="builder-panel__row">
+          <button
+            type="button"
+            className="builder-panel__button"
+            onClick={() => surface({ floorStyle: "color", floor: "#4a7c3a" })}
+          >
+            Lay grass (green floor)
+          </button>
+        </div>
+        <SubCategory title="World sky">
+          <p className="builder-panel__hint">
+            The sky stands far behind the world — stars above, earth below — and stays over
+            you as you travel, like a real sky. It is the world's sky, not the room's backdrop:
+            the backdrop hangs on the home wall; the sky is what you see out in the open
+            world. Pictures you add for the sky land in this same list.
+          </p>
+          <BackdropPicker
+            label="World sky — his sky pictures"
+            assets={SKY_CHOICES}
+            picked={room.surfaces.skyImage}
+            onPick={(id) => surface({ skyImage: id })}
+          />
+          {room.surfaces.skyImage && (
+            <button
+              type="button"
+              className="builder-panel__button"
+              onClick={() => surface({ skyImage: null })}
+            >
+              No sky — plain darkness
+            </button>
+          )}
         </SubCategory>
       </CategorySection>
 

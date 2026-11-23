@@ -34,6 +34,7 @@ import {
   Hammer,
   History,
   Home,
+  LandPlot,
   Map as MapIcon,
   Network,
   Laptop,
@@ -66,20 +67,27 @@ import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
 import "./stage-fix-round.css";
 import { BuilderPanel } from "./builder/BuilderPanel";
 import { MapPanel } from "./builder/MapPanel";
+import { BuiltWorldMapPanel } from "./builder/BuiltWorldMapPanel";
+import { BuilderSelectionCluster } from "./builder/SelectionCluster";
+import type { WorldInhabitant } from "./builder/worldMap";
 import {
   activeLayout,
   addItem,
+  claimPlot,
   emptyRoom,
   exportRoomPackage,
   loadLayoutStore,
   makePlacedItem,
   moveItem,
   parseRoomPackage,
+  plotAtPoint,
+  plotClaimed,
   removeItem,
   rotateItem,
   saveLayoutStore,
   setItemAnchored,
   setSurfaces as setRoomSurfaces,
+  unclaimPlot,
   updateItemVariant,
   withLayoutRoom,
   type LayoutStore,
@@ -545,6 +553,18 @@ export function AvatarStage({
   // system, like the command box.
   const [builderOpen, setBuilderOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  // THE BUILT WORLD (owner order 2026-11-23): the map of his own
+  // built world, where the stage view stands over it, the
+  // ground-laying hand, and where the selected piece's control
+  // cluster sits on screen.
+  const [builtWorldMapOpen, setBuiltWorldMapOpen] = useState(false);
+  const [worldPan, setWorldPan] = useState<{ x: number; z: number }>({ x: 0, z: 0 });
+  const worldPanRef = useRef(worldPan);
+  worldPanRef.current = worldPan;
+  const [layGroundArmed, setLayGroundArmed] = useState(false);
+  const layGroundArmedRef = useRef(layGroundArmed);
+  layGroundArmedRef.current = layGroundArmed;
+  const [selectionPoint, setSelectionPoint] = useState<{ x: number; y: number } | null>(null);
   const [layoutStore, setLayoutStore] = useState<LayoutStore>(() => loadLayoutStore());
   const layoutStoreRef = useRef(layoutStore);
   layoutStoreRef.current = layoutStore;
@@ -1043,11 +1063,48 @@ export function AvatarStage({
         spot ??= { x: 0, z: -1 };
       }
       const item = makePlacedItem(newBuilderItemId(), baseId, defaultVariant(base), spot.x, spot.z);
-      updateRoom(addItem(current, item));
+      const placed = addItem(current, item);
+      // A piece dropped on dark ground claims its plot and covers
+      // it (owner order 2026-11-23) — nothing he builds floats on
+      // the void. Home plots are the room's own ground already.
+      const landed = placed.items.find((entry) => entry.id === item.id);
+      updateRoom(landed ? claimPlot(placed, plotAtPoint(landed.x, landed.z)) : placed);
       setBuilderSelection(item.id);
     },
     [newBuilderItemId, updateRoom],
   );
+
+  /* ------------------- travelling the built world ------------------- */
+
+  // Stand the stage view over a point of the built world; the
+  // renderer clamps to the world's edge and the state mirrors its
+  // ruling, so the panel and the map read the true view center.
+  const panWorldTo = useCallback((x: number, z: number) => {
+    const renderer = rendRef.current;
+    if (!renderer) return;
+    renderer.setWorldPan(x, z);
+    setWorldPan(renderer.getWorldPan());
+  }, []);
+
+  // Who stands in the built world, for its map: the gods at the
+  // command seat on the home plot (where their medallions stand),
+  // and AUGI at his true floor spot, read from the renderer.
+  const getWorldInhabitants = useCallback((): WorldInhabitant[] => {
+    const souls: WorldInhabitant[] = [];
+    if (worldScreenRef.current === "live") {
+      souls.push({ id: "anubis", name: "Anubis", x: 0, z: -3, kind: "god" });
+      if (godOnStage(residencyRef.current, "montu"))
+        souls.push({ id: "montu", name: "Montu", x: -2.6, z: -3, kind: "god" });
+      if (residencyRef.current.ownerPresent)
+        souls.push({ id: "black-hatter", name: "Black Hatter", x: 2.6, z: -3, kind: "god" });
+    }
+    const renderer = rendRef.current;
+    if (renderer?.constructVisible) {
+      const spot = renderer.figureWorldPosition();
+      souls.push({ id: "augi", name: "AUGI", x: spot.x, z: spot.z, kind: "construct" });
+    }
+    return souls;
+  }, []);
 
   // Dragging pieces on the stage itself: capture-phase on the stage
   // root, so a press that lands on a placed piece is the builder's
@@ -1057,6 +1114,12 @@ export function AvatarStage({
     const root = stageRootRef.current;
     if (!root || !builderOpen || worldScene !== "room") return;
     let drag: { id: string; dx: number; dz: number } | null = null;
+    // A press on empty ground is either a click (clears the pick)
+    // or a travel drag (pans the world view) — decided by how far
+    // the hand actually moves (owner order 2026-11-23: drag the
+    // ground to go somewhere else in the world and build there).
+    let groundPress: { startX: number; startY: number; panX: number; panZ: number; moved: boolean } | null =
+      null;
     const onDown = (event: PointerEvent) => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       if (!(event.target as HTMLElement | null)?.closest?.("canvas")) return;
@@ -1083,7 +1146,31 @@ export function AvatarStage({
       }
       const id = renderer.builderPick(event.clientX, event.clientY);
       if (!id) {
-        setBuilderSelection(null);
+        // LAYING GROUND (owner order 2026-11-23): with the
+        // ground-laying hand armed, a tap on the world floor
+        // covers that plot — or takes the cover back up. Home
+        // plots are the room's own ground and never toggle.
+        if (layGroundArmedRef.current) {
+          const floor = renderer.builderFloorPoint(event.clientX, event.clientY);
+          if (floor) {
+            const plot = plotAtPoint(floor.x, floor.z);
+            const current = activeLayout(layoutStoreRef.current).room;
+            if (current.plots.some((entry) => entry.x === plot.x && entry.z === plot.z)) {
+              updateRoom(unclaimPlot(current, plot));
+            } else if (!plotClaimed(current, plot)) {
+              updateRoom(claimPlot(current, plot));
+            }
+          }
+          return;
+        }
+        const pan = renderer.getWorldPan();
+        groundPress = {
+          startX: event.clientX,
+          startY: event.clientY,
+          panX: pan.x,
+          panZ: pan.z,
+          moved: false,
+        };
         return;
       }
       event.stopPropagation();
@@ -1095,15 +1182,35 @@ export function AvatarStage({
       drag = { id, dx: floor ? item.x - floor.x : 0, dz: floor ? item.z - floor.z : 0 };
     };
     const onMove = (event: PointerEvent) => {
-      if (!drag) return;
       const renderer = rendRef.current;
       if (!renderer) return;
+      if (groundPress) {
+        const dx = event.clientX - groundPress.startX;
+        const dy = event.clientY - groundPress.startY;
+        if (Math.hypot(dx, dy) > 4) groundPress.moved = true;
+        if (groundPress.moved) {
+          // The ground follows the hand: drag right, the view
+          // travels west; drag down, it travels north.
+          const perPixel = renderer.worldUnitsPerPixel();
+          panWorldTo(groundPress.panX - dx * perPixel, groundPress.panZ - dy * perPixel * 1.6);
+        }
+        return;
+      }
+      if (!drag) return;
       const floor = renderer.builderFloorPoint(event.clientX, event.clientY);
       if (!floor) return;
       const current = activeLayout(layoutStoreRef.current).room;
       updateRoom(moveItem(current, drag.id, floor.x + drag.dx, floor.z + drag.dz));
     };
     const onUp = () => {
+      if (groundPress && !groundPress.moved) setBuilderSelection(null);
+      groundPress = null;
+      if (drag) {
+        // A piece set down on dark ground claims its plot.
+        const current = activeLayout(layoutStoreRef.current).room;
+        const landed = current.items.find((entry) => entry.id === drag!.id);
+        if (landed) updateRoom(claimPlot(current, plotAtPoint(landed.x, landed.z)));
+      }
       drag = null;
     };
     root.addEventListener("pointerdown", onDown, true);
@@ -1116,7 +1223,65 @@ export function AvatarStage({
       root.removeEventListener("pointerup", onUp, true);
       root.removeEventListener("pointercancel", onUp, true);
     };
-  }, [builderOpen, worldScene, updateRoom]);
+  }, [builderOpen, worldScene, updateRoom, panWorldTo]);
+
+  // TRAVEL BY KEY (owner order 2026-11-23): the arrow keys move
+  // the view one plot at a time while the builder is open — hold
+  // to travel. Never while he is typing somewhere.
+  useEffect(() => {
+    if (!builderOpen || worldScene !== "room") return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      )
+        return;
+      const step = 11; // one plot
+      const pan = worldPanRef.current;
+      if (event.key === "ArrowLeft") panWorldTo(pan.x - step, pan.z);
+      else if (event.key === "ArrowRight") panWorldTo(pan.x + step, pan.z);
+      else if (event.key === "ArrowUp") panWorldTo(pan.x, pan.z - step);
+      else if (event.key === "ArrowDown") panWorldTo(pan.x, pan.z + step);
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [builderOpen, worldScene, panWorldTo]);
+
+  // THE SELECTED PIECE'S CONTROL CLUSTER (owner order 2026-11-23):
+  // while a piece is picked, track where it stands on screen so
+  // its controls can sit beside it — move, turn, delete, done,
+  // right at the piece, no hunting through the panel.
+  useEffect(() => {
+    if (!builderOpen || !builderSelection) {
+      setSelectionPoint(null);
+      return;
+    }
+    const track = () => {
+      const renderer = rendRef.current;
+      const root = stageRootRef.current;
+      if (!renderer || !root) return;
+      const point = renderer.builderItemScreenPoint(builderSelection);
+      if (!point) {
+        setSelectionPoint(null);
+        return;
+      }
+      const w = root.clientWidth || 1;
+      const h = root.clientHeight || 1;
+      setSelectionPoint({
+        x: Math.min(Math.max(point.x, 110), Math.max(110, w - 110)),
+        y: Math.min(Math.max(point.y, 70), Math.max(70, h - 40)),
+      });
+    };
+    track();
+    const timer = window.setInterval(track, 120);
+    return () => window.clearInterval(timer);
+  }, [builderOpen, builderSelection]);
 
   const builderLayoutOps = useMemo(
     () => ({
@@ -1668,6 +1833,14 @@ export function AvatarStage({
       if (/^(open|show|start)?\s*(the\s+)?(environment\s+)?builder$/i.test(commandText.trim())) {
         setBuilderOpen(true);
         say("The Environment Builder is open, Captain. Design the Room your way.");
+        return;
+      }
+      if (
+        /^(open|show)?\s*(the\s+)?(my|built)\s+world(\s+map)?$/i.test(commandText.trim()) ||
+        /^(open|show)\s+my\s+world$/i.test(commandText.trim())
+      ) {
+        setBuiltWorldMapOpen(true);
+        say("Your built world, Captain — every plot and piece, and where everyone stands.");
         return;
       }
       if (/^(open|show)?\s*(the\s+)?(world\s+)?map$/i.test(commandText.trim())) {
@@ -3389,6 +3562,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setMapOpen((open) => !open)}
                   />
                   <CommandAction
+                    icon={LandPlot}
+                    label={builtWorldMapOpen ? "Built World · open" : "Built World"}
+                    onClick={() => setBuiltWorldMapOpen((open) => !open)}
+                  />
+                  <CommandAction
                     icon={Building2}
                     label="Departments"
                     onClick={() => setDepartmentsOpen(true)}
@@ -3818,8 +3996,30 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             onToggleFramesArmed={() => setFramesArmed((armed) => !armed)}
             onResetFrame={(id) => setFrameStore((store) => withoutFrame(store, id))}
             onResetAllFrames={() => setFrameStore({})}
+            worldView={worldPan}
+            onGoHome={() => panWorldTo(0, 0)}
+            layGroundArmed={layGroundArmed}
+            onToggleLayGround={() => setLayGroundArmed((armed) => !armed)}
           />
         </FloatingWindow>
+      )}
+      {builderOpen && builderSelection && selectionPoint && (
+        <BuilderSelectionCluster
+          room={activeLayout(layoutStore).room}
+          selectedId={builderSelection}
+          point={selectionPoint}
+          onRotate={(id, rotation) =>
+            updateRoom(rotateItem(activeLayout(layoutStoreRef.current).room, id, rotation))
+          }
+          onToggleAnchor={(id, anchored) =>
+            updateRoom(setItemAnchored(activeLayout(layoutStoreRef.current).room, id, anchored))
+          }
+          onRemove={(id) => {
+            updateRoom(removeItem(activeLayout(layoutStoreRef.current).room, id));
+            if (builderSelection === id) setBuilderSelection(null);
+          }}
+          onDone={() => setBuilderSelection(null)}
+        />
       )}
       {mapOpen && (
         <FloatingWindow
@@ -3830,6 +4030,22 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           initialHeight={600}
         >
           <MapPanel />
+        </FloatingWindow>
+      )}
+      {builtWorldMapOpen && (
+        <FloatingWindow
+          id="built-world-map"
+          title="Built World — your world, mapped"
+          onClose={() => setBuiltWorldMapOpen(false)}
+          initialWidth={560}
+          initialHeight={580}
+        >
+          <BuiltWorldMapPanel
+            room={activeLayout(layoutStore).room}
+            getInhabitants={getWorldInhabitants}
+            viewCenter={worldPan}
+            onGoTo={panWorldTo}
+          />
         </FloatingWindow>
       )}
       {snapGuides?.vertical !== undefined && (

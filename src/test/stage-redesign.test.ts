@@ -161,7 +161,13 @@ describe("the Room — on the stage", () => {
     // the solid floor plane + the plain back wall — and NO GRID
     // LINES anywhere in the set (owner decision, same day: "Remove
     // the grid entirely"). No citizens, ever.
-    expect(set!.children.length).toBe(2);
+    // WIDER WORLD (owner order 2026-11-23): a third child stands in
+    // the set now — the dark world-ground plane running out to the
+    // horizon under everything. It is world terrain at world
+    // scale, NOT the deleted room grid: the GridHelper count below
+    // still pins the grid law at zero.
+    expect(set!.children.length).toBe(3);
+    expect(scene.getObjectByName("living-world-room-void")).toBeDefined();
     expect(scene.getObjectByName("living-world-room-floor-solid")).toBeDefined();
     expect(scene.getObjectByName("living-world-room-wall")).toBeDefined();
     expect(scene.getObjectByName("living-world-room-floor-grid")).toBeUndefined();
