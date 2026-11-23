@@ -39,10 +39,24 @@ export const POPUP_FACE_SIZE = 104;
 export const POPUP_BUBBLE_WIDTH = 300;
 /** The gap between the face and its bubble, px. */
 export const POPUP_GAP = 14;
+/** The dismiss button's width, px (1.7rem) — part of the block. */
+export const POPUP_DISMISS_SIZE = 27;
 /** Breathing room kept between the pop-up and any avatar, px. */
 export const POPUP_CLEARANCE = 12;
-/** The whole pop-up block's width: bubble + gap + face. */
-export const POPUP_BLOCK_WIDTH = POPUP_BUBBLE_WIDTH + POPUP_GAP + POPUP_FACE_SIZE;
+/**
+ * The whole pop-up block's width: bubble + gap + face + gap +
+ * dismiss. EVERY rendered part is counted (owner screenshot
+ * 2026-11-23 ~07:18 EST): the math used to stop at the face, so
+ * the real block — dismiss button and its gap included — ran
+ * ~41px wider than the placement believed, and at the reporting
+ * corner that surplus hung off the screen's edge, the portrait
+ * clipped with it. The component now renders at exactly the
+ * width this math returns (PopUpPlacement.w), so the placed
+ * block and the painted block are the same block, at desktop
+ * and phone sizes alike.
+ */
+export const POPUP_BLOCK_WIDTH =
+  POPUP_BUBBLE_WIDTH + POPUP_GAP + POPUP_FACE_SIZE + POPUP_GAP + POPUP_DISMISS_SIZE;
 /** The block's working height (the face plus its name plate). */
 export const POPUP_BLOCK_HEIGHT = 148;
 /** Bellwood's typing pace: one character every 25 ms. */
@@ -84,6 +98,13 @@ export type PopUpPlacement = {
   /** The pop-up block's top-left on the stage. */
   x: number;
   y: number;
+  /**
+   * The width the block renders at — the same width the
+   * placement math used, so the painted block is exactly the
+   * placed block (it shrinks below POPUP_BLOCK_WIDTH only on
+   * stages too narrow to hold it, where the bubble flexes).
+   */
+  w: number;
   /** Which side of the face the bubble sits on — the tail points back at him. */
   bubbleSide: "left" | "right";
 };
@@ -126,6 +147,7 @@ export function placePopUp(
     const placement: PopUpPlacement = {
       x: rect.x,
       y: rect.y,
+      w: bw,
       bubbleSide: rect.x + bw / 2 > stage.w / 2 ? "left" : "right",
     };
     if (total === 0) return placement;
@@ -134,5 +156,5 @@ export function placePopUp(
       best = placement;
     }
   }
-  return best ?? { x: margin, y: margin, bubbleSide: "right" };
+  return best ?? { x: margin, y: margin, w: bw, bubbleSide: "right" };
 }

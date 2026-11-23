@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Eye, type LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "@/avatar/CommandBox";
 import type { ReplyHistoryEntry } from "@/avatar/replyHistory";
@@ -92,10 +92,11 @@ describe("command box grip controls", () => {
     expect(box.dataset["anchored"]).toBe("true");
     // The anchored home (owner orders 2026-11-22): the LEFT side,
     // bottom corner, margin from the edges — jsdom is 1024×768 and
-    // the standard box is the compact 460×400, so home is
-    // x=16, y=768−400−16.
+    // the standard box is the compact 420×360 (made smaller again
+    // on his eye-check 2026-11-23: "it's too big"), so home is
+    // x=16, y=768−360−16.
     expect(box.style.left).toBe("16px");
-    expect(box.style.top).toBe("352px");
+    expect(box.style.top).toBe("392px");
     // A grab on the rail unanchors the box in place (eye-check
     // 2026-11-23) and the unanchored state persists.
     pointerDown(screen.getByText("Chat"));
@@ -225,10 +226,42 @@ describe("command box chat log", () => {
   }
 
   it("flows in order on the face — Captain and Anubis lines, no dropdown bar", () => {
-    renderBoxWithHistory(true);
+    // THE THREAD OPENS CLEAN (owner eye-check 2026-11-23): the
+    // record that exists when the box opens stays behind the
+    // History button — the face starts empty. Lines that land
+    // DURING the session flow in order, as they always did. So
+    // this test opens on the record (clean), then the session's
+    // exchanges arrive.
+    const { rerender } = renderBoxWithHistory(true);
     expect(screen.queryByRole("button", { name: /Conversation/ })).not.toBeInTheDocument();
     const log = screen.getByRole("log", { name: "Chat log" });
     expect(log).toBeInTheDocument();
+    expect(screen.queryByText("open the cube")).not.toBeInTheDocument();
+    expect(screen.queryByText("Flying.")).not.toBeInTheDocument();
+    // The session's own exchanges land — and flow in order.
+    rerender(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+        history={[
+          ...history,
+          { at: 3, question: "open the cube", answer: "The cube is open." },
+          { at: 4, question: "now fly", answer: "Flying." },
+        ]}
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
     const first = screen.getByText("open the cube");
     const firstReply = screen.getByText("The cube is open.");
     const second = screen.getByText("now fly");
@@ -301,10 +334,11 @@ describe("command box resize", () => {
       </CommandBox>,
     );
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
-    // The compact home default (owner order 2026-11-22, defect fix:
-    // 460×400 class, bottom-left — the stage's center stays clear).
-    expect(box.style.width).toBe("460px");
-    expect(box.style.height).toBe("400px");
+    // The compact home default (owner order 2026-11-22, defect fix;
+    // smaller again on his eye-check 2026-11-23 — 420×360 class,
+    // bottom-left — the stage's center stays clear).
+    expect(box.style.width).toBe("420px");
+    expect(box.style.height).toBe("360px");
     // Anchored boxes do not stretch — unanchor first.
     fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
     const corner = screen.getByRole("separator", { name: "Resize the chat window" });
@@ -312,11 +346,11 @@ describe("command box resize", () => {
     expect(captureSpy).toHaveBeenCalled();
     pointer(corner, "pointermove", 200, 150);
     pointer(corner, "pointerup", 200, 150);
-    expect(box.style.width).toBe("560px");
-    expect(box.style.height).toBe("450px");
+    expect(box.style.width).toBe("520px");
+    expect(box.style.height).toBe("410px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v2")!)).toEqual({
-      w: 560,
-      h: 450,
+      w: 520,
+      h: 410,
     });
   });
 
@@ -342,7 +376,11 @@ describe("command box resize", () => {
     );
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
     expect(box.style.width).toBe("640px");
-    expect(box.style.height).toBe("300px");
+    // The saved 300 height heals UP to the layout floor (348 —
+    // COMMAND_BOX_MIN_SIZE, desk photos 2026-11-23): below it
+    // the box broke apart in his photos, so no size on record
+    // opens smaller than the layout can hold.
+    expect(box.style.height).toBe("348px");
   });
 });
 
@@ -384,6 +422,16 @@ describe("command box plain chat face", () => {
   } = {}) {
     const [tab, setTab] = useState<CommandTab>("scene");
     const [chat, setChat] = useState("");
+    // The box opens on an EMPTY record and the session's lines
+    // land a beat later — the thread-opens-clean law (owner
+    // eye-check 2026-11-23) keeps whatever record exists at first
+    // paint behind the History button; lines that arrive during
+    // the session flow. These tests exercise the flowing log, so
+    // the record arrives the way a live session's lines do.
+    const [landed, setLanded] = useState<ReplyHistoryEntry[]>([]);
+    useEffect(() => {
+      setLanded(history);
+    }, []);
     return (
       <CommandBox
         accent="#d4af37"
@@ -399,7 +447,7 @@ describe("command box plain chat face", () => {
         responseLine="Latest reply."
         responseSource="test"
         userLine="last thing I said"
-        history={history}
+        history={landed}
       >
         <p>{tab} panel body</p>
       </CommandBox>
@@ -587,11 +635,11 @@ describe("command box home form and bottom-stacked log", () => {
     );
   }
 
-  it("opens compact and anchored — 460×400 at the home corner", () => {
+  it("opens compact and anchored — 420×360 at the home corner", () => {
     const { container } = renderHome();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
-    expect(box.style.width).toBe("460px");
-    expect(box.style.height).toBe("400px");
+    expect(box.style.width).toBe("420px");
+    expect(box.style.height).toBe("360px");
     expect(box.dataset["anchored"]).toBe("true");
     // Anchored home is the bottom-left: left margin, no centering transform.
     expect(box.style.left).toBe("16px");
@@ -602,14 +650,42 @@ describe("command box home form and bottom-stacked log", () => {
     localStorage.setItem("augi.avatar.command-box.minimized.v1", "true");
     renderHome();
     expect(screen.getByRole("log", { name: "Chat log" })).toBeInTheDocument();
-    expect(screen.getByText("Flying.")).toBeInTheDocument();
+    // The live line stands on the face…
+    expect(screen.getByText("Standing by.")).toBeInTheDocument();
+    // …and the saved record does NOT greet him in the thread: the
+    // thread opens clean (owner eye-check 2026-11-23 — his phone
+    // opened on an old offer twice and an old musing). The record
+    // itself is untouched, behind the History button.
+    expect(screen.queryByText("Flying.")).not.toBeInTheDocument();
+    expect(screen.queryByText("open the cube")).not.toBeInTheDocument();
   });
 
   it("the log lines live in the bottom-pinned flow, newest last, input below them all", () => {
-    const { container } = renderHome();
+    const { container, rerender } = renderHome();
     const log = screen.getByRole("log", { name: "Chat log" });
     const flow = log.querySelector(".avatar-command-box__thread-flow");
     expect(flow).not.toBeNull();
+    // The thread opens clean (2026-11-23): the saved record is not
+    // on the face. A line SPOKEN in this session lands in the flow.
+    rerender(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+        history={[...history, { at: 3, question: "open the cube", answer: "Flying." }]}
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
     expect(flow!.contains(screen.getByText("open the cube"))).toBe(true);
     expect(flow!.contains(screen.getByText("Flying."))).toBe(true);
     // The input form is the main column's last child — the panel's
@@ -623,20 +699,44 @@ describe("command box home form and bottom-stacked log", () => {
     ).toBeTruthy();
   });
 
-  it("the log still renders every line when the panel is stretched large", () => {
+  it("the log renders the session's lines when the panel is stretched large — and opens clean", () => {
     localStorage.setItem(
       "augi.avatar.command-box.size.v2",
       JSON.stringify({ w: 1000, h: 740 }),
     );
-    renderHome();
+    const { rerender } = renderHome();
     const box = document.querySelector(".avatar-command-box") as HTMLElement;
     // 1000 saved, clamped to the jsdom viewport minus the window
     // margin (1024 − 2×16) — a genuinely large panel either way.
     expect(box.style.width).toBe("992px");
+    // Clean open at any size: none of the saved record is on the
+    // face (thread-opens-clean law, owner eye-check 2026-11-23).
     for (const line of ["open the cube", "The cube is open.", "now fly", "Flying."]) {
-      expect(screen.getByText(line)).toBeInTheDocument();
+      expect(screen.queryByText(line)).not.toBeInTheDocument();
     }
     expect(screen.getByRole("log", { name: "Chat log" })).toBeInTheDocument();
+    // Lines spoken in the session render in the large panel.
+    rerender(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+        history={[...history, { at: 3, question: "now fly", answer: "Flying." }]}
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+    expect(screen.getByText("now fly")).toBeInTheDocument();
+    expect(screen.getByText("Flying.")).toBeInTheDocument();
   });
 
   it("one click on the rail's reset restores the home form and clears the saved layout", () => {
@@ -657,8 +757,8 @@ describe("command box home form and bottom-stacked log", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Reset the chat window to its home spot and size" }),
     );
-    expect(box.style.width).toBe("460px");
-    expect(box.style.height).toBe("400px");
+    expect(box.style.width).toBe("420px");
+    expect(box.style.height).toBe("360px");
     expect(box.dataset["anchored"]).toBe("true");
     expect(box.style.left).toBe("16px");
     expect(localStorage.getItem("augi.avatar.command-box.size.v2")).toBeNull();
@@ -673,7 +773,7 @@ describe("command box home form and bottom-stacked log", () => {
  * dot grip toggles an enlarged state in the SAME format (both sizes
  * persist separately); and at phone width the anchored box sits
  * fully inside the small viewport with its margin. The standard
- * size these numbers run from is the compact home form, 460×400.
+ * size these numbers run from is the compact home form, 420×360.
  */
 describe("command box viewport heal + enlarge + phone form", () => {
   const captureSpy = vi.fn();
@@ -724,29 +824,29 @@ describe("command box viewport heal + enlarge + phone form", () => {
     );
     const { container } = renderBox();
     const box = boxOf(container);
-    // 460×400 at 1024×768 clamps to the far inside corner (edge 4).
-    expect(box.style.left).toBe("560px");
-    expect(box.style.top).toBe("364px");
+    // 420×360 at 1024×768 clamps to the far inside corner (edge 4).
+    expect(box.style.left).toBe("600px");
+    expect(box.style.top).toBe("404px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.position.v1") ?? "{}")).toEqual(
-      { x: 560, y: 364 },
+      { x: 600, y: 404 },
     );
   });
 
   it("the dot grip enlarges the box in the same format — and shrinks it back", () => {
     const { container } = renderBox();
     const box = boxOf(container);
-    expect(box.style.width).toBe("460px");
-    expect(box.style.height).toBe("400px");
+    expect(box.style.width).toBe("420px");
+    expect(box.style.height).toBe("360px");
     fireEvent.click(screen.getByRole("button", { name: "Enlarge the chat window" }));
     expect(box.dataset["enlarged"]).toBe("true");
-    // 460×400 × 1.4 — inside the jsdom viewport, no clamp needed.
-    expect(box.style.width).toBe("644px");
-    expect(box.style.height).toBe("560px");
+    // 420×360 × 1.4 — inside the jsdom viewport, no clamp needed.
+    expect(box.style.width).toBe("588px");
+    expect(box.style.height).toBe("504px");
     expect(localStorage.getItem("augi.avatar.command-box.enlarged.v1")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Shrink the chat window to standard size" }));
     expect(box.dataset["enlarged"]).toBe("false");
-    expect(box.style.width).toBe("460px");
-    expect(box.style.height).toBe("400px");
+    expect(box.style.width).toBe("420px");
+    expect(box.style.height).toBe("360px");
     expect(localStorage.getItem("augi.avatar.command-box.enlarged.v1")).toBe("false");
   });
 
@@ -761,8 +861,8 @@ describe("command box viewport heal + enlarge + phone form", () => {
     const { container } = renderBox();
     const box = boxOf(container);
     expect(box.dataset["enlarged"]).toBe("true");
-    expect(box.style.width).toBe("644px");
-    expect(box.style.height).toBe("560px");
+    expect(box.style.width).toBe("588px");
+    expect(box.style.height).toBe("504px");
   });
 
   it("the standard size is never overwritten by enlarging", () => {
@@ -774,17 +874,27 @@ describe("command box viewport heal + enlarge + phone form", () => {
     const box = boxOf(container);
     fireEvent.click(screen.getByRole("button", { name: "Enlarge the chat window" }));
     expect(box.style.width).toBe("896px");
-    expect(box.style.height).toBe("420px");
+    // The standard height healed to the 348 floor on load (desk
+    // photos 2026-11-23), so the enlarged height runs from it:
+    // 348 × 1.4 = 487.
+    expect(box.style.height).toBe("487px");
     fireEvent.click(screen.getByRole("button", { name: "Shrink the chat window to standard size" }));
     expect(box.style.width).toBe("640px");
-    expect(box.style.height).toBe("300px");
+    expect(box.style.height).toBe("348px");
     expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v2") ?? "{}")).toEqual({
       w: 640,
-      h: 300,
+      h: 348,
     });
   });
 
-  it("at phone width the anchored box sits fully inside the viewport with margin", () => {
+  it("at phone width the chat is the bottom bar — docked, minimized, no floating geometry", () => {
+    // THE PHONE BAR (owner phone spec 2026-11-23 ~06:00 CST)
+    // SUPERSEDES the floating-phone-box expectations that stood
+    // here: "The chat box on the phone can take the bottom screen
+    // and when I click it it can minimize and stuff." At phone
+    // widths the box docks full-width to the bottom (CSS owns the
+    // geometry — stage-fix-round.css), opens as the slim bar, and
+    // carries NO inline position or size at all.
     const widthSpy = vi
       .spyOn(window, "innerWidth", "get")
       .mockReturnValue(390);
@@ -794,23 +904,27 @@ describe("command box viewport heal + enlarge + phone form", () => {
     try {
       const { container } = renderBox();
       const box = boxOf(container);
-      expect(box.dataset["anchored"]).toBe("true");
-      // The compact phone default (owner order 2026-11-22): with no
-      // saved size on record the box opens at 340×380 on a 390×844
-      // phone — NOT the desktop default clamped to nearly the whole
-      // screen. It stands at the bottom-left, its input row above
-      // the edge: top = 844 − 380 − 16 margin.
-      expect(box.style.width).toBe("340px");
-      expect(box.style.height).toBe("380px");
-      expect(box.style.left).toBe("16px");
-      expect(box.style.top).toBe("448px");
+      expect(box.classList.contains("avatar-command-box--phone-bar")).toBe(true);
+      expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
+      expect(box.style.width).toBe("");
+      expect(box.style.height).toBe("");
+      expect(box.style.left).toBe("");
+      expect(box.style.top).toBe("");
+      // The bar's face: the input rides in it; the conversation
+      // waits behind the tap.
+      expect(screen.getByLabelText("Message for Anubis")).toBeInTheDocument();
+      expect(container.querySelector(".avatar-command-box__conversation")).toBeNull();
     } finally {
       widthSpy.mockRestore();
       heightSpy.mockRestore();
     }
   });
 
-  it("a size he saved on the phone wins over the phone default", () => {
+  it("a size he saved on the phone no longer drives the layout — the bar's geometry is the screen's", () => {
+    // The saved-size law stands on the PC (his stretch outranks
+    // the default). On the phone the floating box is GONE (his
+    // phone spec): a saved size stays on record for the PC, but
+    // the docked bar takes the screen's own width and height.
     localStorage.setItem(
       "augi.avatar.command-box.size.v2",
       JSON.stringify({ w: 300, h: 500 }),
@@ -824,84 +938,67 @@ describe("command box viewport heal + enlarge + phone form", () => {
     try {
       const { container } = renderBox();
       const box = boxOf(container);
-      // His stretch persists on the phone exactly as on desktop —
-      // the phone default only fills the gap before his first one.
-      expect(box.style.width).toBe("300px");
-      expect(box.style.height).toBe("500px");
-      expect(box.style.top).toBe("328px");
-    } finally {
-      widthSpy.mockRestore();
-      heightSpy.mockRestore();
-    }
-  });
-
-  it("enlarge on the phone grows the box from the compact default — and shrinking returns to it", () => {
-    const widthSpy = vi
-      .spyOn(window, "innerWidth", "get")
-      .mockReturnValue(390);
-    const heightSpy = vi
-      .spyOn(window, "innerHeight", "get")
-      .mockReturnValue(844);
-    try {
-      const { container } = renderBox();
-      const box = boxOf(container);
-      expect(box.style.width).toBe("340px");
-      expect(box.style.height).toBe("380px");
-      fireEvent.click(screen.getByRole("button", { name: "Enlarge the chat window" }));
-      expect(box.dataset["enlarged"]).toBe("true");
-      // 340×380 × 1.4, the width clamped by the phone (390 − 2×16).
-      expect(box.style.width).toBe("358px");
-      expect(box.style.height).toBe("532px");
-      fireEvent.click(
-        screen.getByRole("button", { name: "Shrink the chat window to standard size" }),
-      );
-      expect(box.dataset["enlarged"]).toBe("false");
-      expect(box.style.width).toBe("340px");
-      expect(box.style.height).toBe("380px");
-      // The compact default became the phone's standard record.
-      expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v2") ?? "{}")).toEqual({
-        w: 340,
-        h: 380,
-      });
-    } finally {
-      widthSpy.mockRestore();
-      heightSpy.mockRestore();
-    }
-  });
-
-  it("minimizing on the phone collapses the panel to the bar — no reserved height left behind", () => {
-    const widthSpy = vi
-      .spyOn(window, "innerWidth", "get")
-      .mockReturnValue(390);
-    const heightSpy = vi
-      .spyOn(window, "innerHeight", "get")
-      .mockReturnValue(844);
-    try {
-      const { container } = renderBox();
-      const box = boxOf(container);
-      expect(box.style.height).toBe("380px");
-      fireEvent.click(screen.getByRole("button", { name: "Minimize command box" }));
-      expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
-      // The footprint collapses completely (owner symptom 2026-11-22
-      // — minimize left a big blue gap): the box carries NO fixed
-      // height, so its height is the slim bar's own and the stage
-      // area it covered belongs to the stage again.
+      expect(box.classList.contains("avatar-command-box--phone-bar")).toBe(true);
+      expect(box.style.width).toBe("");
       expect(box.style.height).toBe("");
-      // The conversation is gone from the face; the input — never
-      // hidden — rides in the bar.
+    } finally {
+      widthSpy.mockRestore();
+      heightSpy.mockRestore();
+    }
+  });
+
+  it("the bar opens upward on a tap and folds back on another tap", () => {
+    const widthSpy = vi
+      .spyOn(window, "innerWidth", "get")
+      .mockReturnValue(390);
+    const heightSpy = vi
+      .spyOn(window, "innerHeight", "get")
+      .mockReturnValue(844);
+    try {
+      const { container } = renderBox();
+      const box = boxOf(container);
+      expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
+      // A tap on the bar itself (not on one of its buttons).
+      fireEvent.click(screen.getByText("Chat"));
+      expect(box.classList.contains("avatar-command-box--minimized")).toBe(false);
+      expect(container.querySelector(".avatar-command-box__conversation")).not.toBeNull();
+      fireEvent.click(screen.getByText("Chat"));
+      expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
       expect(container.querySelector(".avatar-command-box__conversation")).toBeNull();
-      expect(screen.getByLabelText("Message for Anubis")).toBeInTheDocument();
-      // Expanding restores the open panel at his size.
+    } finally {
+      widthSpy.mockRestore();
+      heightSpy.mockRestore();
+    }
+  });
+
+  it("the bar's minimize button folds it too — and the input never leaves the bar", () => {
+    const widthSpy = vi
+      .spyOn(window, "innerWidth", "get")
+      .mockReturnValue(390);
+    const heightSpy = vi
+      .spyOn(window, "innerHeight", "get")
+      .mockReturnValue(844);
+    try {
+      const { container } = renderBox();
+      const box = boxOf(container);
+      // Open the bar, then fold it with its own button.
       fireEvent.click(screen.getByRole("button", { name: "Expand command box" }));
       expect(box.classList.contains("avatar-command-box--minimized")).toBe(false);
-      expect(box.style.height).toBe("380px");
       expect(container.querySelector(".avatar-command-box__conversation")).not.toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Minimize command box" }));
+      expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
+      // The footprint collapses completely — no reserved height
+      // (the 2026-11-22 "big blue gap" symptom stays dead): the
+      // docked bar carries no fixed height at all, and the input
+      // — never hidden — rides in the bar.
+      expect(box.style.height).toBe("");
+      expect(container.querySelector(".avatar-command-box__conversation")).toBeNull();
+      expect(screen.getByLabelText("Message for Anubis")).toBeInTheDocument();
     } finally {
       widthSpy.mockRestore();
       heightSpy.mockRestore();
     }
   });
-
   it("the stylesheet folds the minimized rail into a row — the bar is the whole footprint", () => {
     // jsdom has no layout, so the collapse itself is pinned at the
     // stylesheet: the effective (last, cascade-winning) minimized

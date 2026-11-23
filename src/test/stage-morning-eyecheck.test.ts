@@ -47,7 +47,10 @@ function ruleBody(css: string, selector: string, fromIndex = 0): string {
 describe("thread purity — musings never wear a reply's clothes", () => {
   it("the idle tick writes the quiet activity line and never speaks", () => {
     expect(stage).toContain("setActivityLine(line)");
-    expect(stage).toContain('className="avatar-activity-line"');
+    // The line's home is the top-left box now (desk photos
+    // 2026-11-23 ~07:11 EST) — a readout line in the CORE
+    // cluster, not a loose element on the stage's edge.
+    expect(stage).toContain("avatar-hud__activity");
     // The old pollution path: the tick feeding the reply channel.
     expect(stage).not.toContain('setResponseSource("idle life")');
   });
@@ -92,18 +95,32 @@ describe("the holder goes black — backdrop surround and HUD readability", () =
     expect(stage.slice(Math.max(0, fpsAt - 200), fpsAt)).toContain("avatar-hud__db-status");
   });
 
-  it("both top clusters wear the indicator's panel and spread out", () => {
+  it("both top clusters wear the indicator's panel — and size to their content", () => {
     const hud = ruleBody(stageCss, ".avatar-stage div.avatar-hud");
     expect(hud).toContain("rgb(10 12 16 / 88%)");
     expect(hud).toContain("border-radius: 10px");
-    expect(ruleBody(stageCss, ".avatar-stage .avatar-hud--tl")).toContain("min-width: 19rem");
-    expect(ruleBody(stageCss, ".avatar-stage .avatar-hud--tr")).toContain("min-width: 19rem");
+    // SUPERSEDED the same morning (owner eye-check 2026-11-23
+    // ~06:51 EST): the 19rem minimum width this test was written
+    // to pin became the defect — "if that's all the words why do
+    // we have those other gaps in the container box." The No
+    // Empty Gaps law governs now: no minimum width anywhere, and
+    // the type went UP for his bifocals in the same round (1rem
+    // primary lines — the lock-down round's pins live in
+    // stage-lockdown-round.test.ts).
+    expect(stageCss).not.toContain("min-width: 19rem");
+    expect(hud).toContain("font-size: 1rem");
   });
 
   it("the activity line is a quiet status surface of its own", () => {
-    const body = ruleBody(stageCss, ".avatar-stage .avatar-activity-line");
-    expect(body).toContain("position: absolute");
-    expect(body).toContain("pointer-events: none");
+    // MOVED INTO THE BOX (owner desk photos 2026-11-23 ~07:11
+    // EST): "the activity on the side could be put up in one of
+    // the boxes… stop putting extra stuff on the screen." The
+    // free-floating bottom-right line is gone; the musing renders
+    // as a readout line inside the top-left cluster.
+    expect(stage).toContain("avatar-hud__activity");
+    expect(stage).not.toContain('className="avatar-activity-line"');
+    expect(stageCss).toContain(".avatar-stage .avatar-hud__activity");
+    expect(stageCss).not.toContain(".avatar-activity-line {");
   });
 });
 

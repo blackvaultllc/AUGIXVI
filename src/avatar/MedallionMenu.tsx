@@ -13,6 +13,14 @@
  * anchor-state chip the medallion always carried (MedallionControls)
  * — reachable in one tap, invisible the rest of the time. The menu
  * closes on an outside press or Escape.
+ *
+ * THE LOCKED SEAT (owner eye-check 2026-11-23 ~06:51 EST): Anubis's
+ * menu carries NO Move, NO Center, and NO size row — "nobody can
+ * move him around." In their place: the plain fact of his seat
+ * ("Centered · locked") and the one deliberate door, the EMERGENCY
+ * EDIT unlock. While an emergency edit is open, the full controls
+ * return, with the way out labeled for what it does: "Done — lock
+ * Anubis centered," which re-seats him as it locks.
  */
 import {
   useEffect,
@@ -22,7 +30,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { Lock, LockOpen, MoreHorizontal } from "lucide-react";
 import { MedallionControls } from "./MedallionControls";
 
 export function MedallionMenu({
@@ -33,6 +41,10 @@ export function MedallionMenu({
   onCenter,
   size,
   onSizeChange,
+  placementLocked = false,
+  emergencyEdit = false,
+  onEnterEmergencyEdit,
+  onExitEmergencyEdit,
   children,
 }: {
   /** The medallion's display name, for the menu's labels. */
@@ -51,6 +63,19 @@ export function MedallionMenu({
   size?: number;
   /** Step the face's size — the menu's Smaller / Bigger buttons. */
   onSizeChange?: (size: number) => void;
+  /**
+   * THE LOCKED SEAT (Anubis): while true, the placement controls
+   * (Move / Center / size) are NOT rendered — the menu shows the
+   * seat's locked state and the emergency-edit unlock instead.
+   */
+  placementLocked?: boolean;
+  /** An emergency edit is open: the full controls are back, plus
+   *  the finish button that locks him centered again. */
+  emergencyEdit?: boolean;
+  /** Open the emergency edit (the locked menu's one door). */
+  onEnterEmergencyEdit?: () => void;
+  /** Close the emergency edit — re-seats him centered and locks. */
+  onExitEmergencyEdit?: () => void;
   /** Extra rows for the menu (the head/body view switch, when a
    *  medallion's binding carries body artwork). */
   children?: ReactNode;
@@ -83,7 +108,11 @@ export function MedallionMenu({
         className="medallion-menu__button"
         aria-label={`Open ${name}'s menu`}
         aria-expanded={open}
-        title={`${name}'s menu — move, center, anchor`}
+        title={
+          placementLocked
+            ? `${name}'s menu — perspective, emergency edit`
+            : `${name}'s menu — move, center, anchor`
+        }
         onClick={(event) => {
           event.stopPropagation();
           setOpen((current) => !current);
@@ -98,43 +127,89 @@ export function MedallionMenu({
           aria-label={`${name}'s controls`}
           onClick={(event) => event.stopPropagation()}
         >
-          <MedallionControls
-            name={name}
-            lifted={lifted}
-            moveHandleProps={moveHandleProps}
-            eatClick={eatClick}
-            onCenter={onCenter}
-          />
-          {/* SIZE LIVES HERE NOW (owner eye-check 2026-11-23):
-              the stretch tab drawn on the circle is gone — the
-              circle stays clean — and the face's size is set from
-              this row instead, in plain steps. */}
-          {size !== undefined && onSizeChange && (
-            <div className="medallion-menu__size" role="group" aria-label={`${name}'s size`}>
-              <button
-                type="button"
-                className="medallion-menu__size-button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSizeChange(size - 40);
-                }}
-                aria-label={`Make ${name} smaller`}
-              >
-                Smaller
-              </button>
-              <span className="medallion-menu__size-readout">{Math.round(size)}px</span>
-              <button
-                type="button"
-                className="medallion-menu__size-button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSizeChange(size + 40);
-                }}
-                aria-label={`Make ${name} bigger`}
-              >
-                Bigger
-              </button>
+          {placementLocked ? (
+            /* THE LOCKED SEAT'S MENU (the lock-down): no Move, no
+               Center, no size — the seat's state in plain words
+               and the one deliberate door. */
+            <div className="medallion-menu__lock">
+              <span className="medallion-menu__lock-state" role="status">
+                <Lock aria-hidden="true" size={12} /> Centered · locked
+              </span>
+              {onEnterEmergencyEdit && (
+                <button
+                  type="button"
+                  className="medallion-menu__lock-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onEnterEmergencyEdit();
+                  }}
+                  aria-label={`Emergency edit — unlock ${name}'s placement`}
+                  title="Emergency edit — unlock his placement for a fix; done re-seats him centered"
+                >
+                  <LockOpen aria-hidden="true" size={13} />
+                  <span>Emergency edit — unlock placement</span>
+                </button>
+              )}
             </div>
+          ) : (
+            <>
+              <MedallionControls
+                name={name}
+                lifted={lifted}
+                moveHandleProps={moveHandleProps}
+                eatClick={eatClick}
+                onCenter={onCenter}
+              />
+              {/* SIZE LIVES HERE NOW (owner eye-check 2026-11-23):
+                  the stretch tab drawn on the circle is gone — the
+                  circle stays clean — and the face's size is set from
+                  this row instead, in plain steps. */}
+              {size !== undefined && onSizeChange && (
+                <div className="medallion-menu__size" role="group" aria-label={`${name}'s size`}>
+                  <button
+                    type="button"
+                    className="medallion-menu__size-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSizeChange(size - 40);
+                    }}
+                    aria-label={`Make ${name} smaller`}
+                  >
+                    Smaller
+                  </button>
+                  <span className="medallion-menu__size-readout">{Math.round(size)}px</span>
+                  <button
+                    type="button"
+                    className="medallion-menu__size-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSizeChange(size + 40);
+                    }}
+                    aria-label={`Make ${name} bigger`}
+                  >
+                    Bigger
+                  </button>
+                </div>
+              )}
+              {/* EMERGENCY EDIT OPEN (the lock-down): the way out
+                  is labeled for what it does — finishing re-seats
+                  him centered and locks the seat again. */}
+              {emergencyEdit && onExitEmergencyEdit && (
+                <button
+                  type="button"
+                  className="medallion-menu__lock-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onExitEmergencyEdit();
+                  }}
+                  aria-label={`Done — lock ${name} centered`}
+                  title={`Done — lock ${name} centered`}
+                >
+                  <Lock aria-hidden="true" size={13} />
+                  <span>Done — lock {name} centered</span>
+                </button>
+              )}
+            </>
           )}
           {children}
         </div>

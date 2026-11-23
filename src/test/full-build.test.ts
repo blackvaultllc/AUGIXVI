@@ -57,6 +57,9 @@ describe("settings that stick (augi.avatar.settings.v1)", () => {
         customColor: "#d4af37",
         sensitivity: 1.4,
         cooldownMs: 400,
+        backdropImage: null,
+        backdropFit: "contain",
+        backdropSynced: false,
       },
       storage,
     );

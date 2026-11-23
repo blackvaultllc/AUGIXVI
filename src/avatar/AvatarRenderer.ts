@@ -11,6 +11,7 @@ import { getLegGaitAngle, getArmSwingAngle, wantsToDance } from "./particleLegs"
 import { ARM, armPose, flightArmPose, handDirection, solveArm, type V3 } from "./armIK";
 import { getThemePalette, type ThemeChoice, type ThemePalette } from "./themes";
 import { clampFigureOffset, type FigureOffset } from "./osirisPosition";
+import { stageViewCameraX, type StageView } from "./stageView";
 import { eyeBrightnessFor, eyeColorFor, smoothEyePulse } from "./eyes";
 import { breathCycleAt } from "./heartbeat";
 import { SceneManager } from "./sceneManager";
@@ -245,6 +246,16 @@ export class AvatarRenderer {
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
   /**
+   * THE STAGE VIEW (owner eye-check 2026-11-23): where the camera
+   * stands — front (dead-on), left, or right — switched by the
+   * perspective buttons (stageView.ts). Only the camera moves;
+   * the medallions are DOM and Anubis's seat is never an input.
+   */
+  private stageView: StageView = "front";
+  /** The camera's standing distance — resize() owns it (portrait
+   *  stages stand further back); applyCamera() reads it. */
+  private cameraZ = 11;
+  /**
    * The anchor Osiris stands on. Locomotion moves avatarRoot inside
    * it; the operator's drag moves the anchor. Keeping the two
    * separate means a dragged Osiris still walks, flies and portals
@@ -363,8 +374,7 @@ export class AvatarRenderer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     this.renderer.setClearColor(0x02040a, 1);
     host.appendChild(this.renderer.domElement);
-    this.camera.position.set(0, -0.75, 11);
-    this.camera.lookAt(0, -0.8, 0);
+    this.applyCamera();
     this.scene.add(this.figureAnchor);
     this.figureAnchor.add(this.avatarRoot);
     this.avatarRoot.add(this.character);
@@ -635,6 +645,29 @@ export class AvatarRenderer {
     F["uForm"]!.value = this.fileForm;
     F["uGlow"]!.value = 1.3;
   }
+  /**
+   * THE CAMERA'S ONE DOOR: position from the stage view (x), the
+   * standing height (y), and the resize-owned distance (z), always
+   * looking at the stage's heart. Constructor, resize, and
+   * setStageView all come through here so the three never disagree.
+   */
+  private applyCamera() {
+    this.camera.position.set(stageViewCameraX(this.stageView), -0.75, this.cameraZ);
+    this.camera.lookAt(0, -0.8, 0);
+  }
+
+  /**
+   * PERSPECTIVE BY BUTTON (owner eye-check 2026-11-23): step the
+   * camera to the stage's left or right, or back to the front.
+   * The view changes around the medallions — no medallion geometry
+   * is read or written here.
+   */
+  setStageView(view: StageView) {
+    if (view === this.stageView) return;
+    this.stageView = view;
+    this.applyCamera();
+  }
+
   updateSettings(s: Partial<RenderSettings>) {
     Object.assign(this.settings, s);
     if (s.bloom !== undefined) this.bloom.strength = s.bloom;
@@ -658,8 +691,8 @@ export class AvatarRenderer {
     this.composer.setSize(w, h);
     this.camera.aspect = w / h;
     this.worldScenes.setViewAspect(w / h);
-    this.camera.position.z = w / h < 1 ? (11 / (w / h)) * 0.75 : 11;
-    this.camera.lookAt(0, -0.8, 0);
+    this.cameraZ = w / h < 1 ? (11 / (w / h)) * 0.75 : 11;
+    this.applyCamera();
     this.camera.updateProjectionMatrix();
     (this.post.uniforms as unknown as PostU).uRes.value.set(w, h);
   }
@@ -979,9 +1012,12 @@ export class AvatarRenderer {
     if (this.lightStage) this.renderer.setClearColor(this.roomClearColor(), 1);
   }
 
-  /** The Room's clear color: black while a backdrop picture is up. */
+  /** The Room's clear color: black while a backdrop picture is up —
+   *  and black by default too (the black-holder composition, owner
+   *  eye-check 2026-11-23); a backdrop color HE chose is the only
+   *  thing that ever replaces it. */
   private roomClearColor(): string | number {
-    return this.builderBackdropPicture ? 0x000000 : (this.builderBackdrop ?? 0xf6f2e9);
+    return this.builderBackdropPicture ? 0x000000 : (this.builderBackdrop ?? 0x000000);
   }
 
   /** The builder's selection ring follows the stage's pick. */

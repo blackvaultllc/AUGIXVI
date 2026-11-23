@@ -113,7 +113,9 @@ export function clampMedallionGeometry(
  * The Black Hatter's home is likewise the middle, at his commanding
  * size — for when the Captain brings him back from put-away. A
  * saved placement always outranks the home: where the Captain
- * leaves a medallion is where it stands.
+ * leaves a medallion is where it stands — EXCEPT Anubis, whose
+ * seat the lock-down (owner eye-check 2026-11-23) fixed at this
+ * home for good; see loadOrDefaultMedallionGeometry.
  */
 export function defaultMedallionGeometry(
   id: string,
@@ -125,14 +127,28 @@ export function defaultMedallionGeometry(
     // Anubis to the large size himself and ordered it kept —
     // "Leave it big like that — default, centered." The factory
     // home is now the medallion maximum, dead-center; the clamp
-    // still pulls it inside smaller stages, and his own saved
-    // placement outranks the home as always.
+    // still pulls it inside smaller stages. And since the
+    // LOCK-DOWN later the same morning (see
+    // loadOrDefaultMedallionGeometry), this home is not just the
+    // default for Anubis — it is his seat, period: no saved
+    // placement outranks it anymore.
     const size = MEDALLION_MAX_SIZE;
+    // THE SIZE CLAMPS FIRST, THEN THE SEAT CENTERS (owner phone
+    // photo 2026-11-23): centering on the full 560 and clamping
+    // the position afterwards left him shoved toward a corner on
+    // phone-sized stages — big was ordered, and CENTERED with it.
+    // On a stage too small for 560 he wears what fits (358 of a
+    // 390-wide stage) and the seat centers on the size he wears.
+    const fitted = clampMedallionGeometry(
+      { x: 0, y: 0, size },
+      stageW,
+      stageH,
+    ).size;
     return clampMedallionGeometry(
       {
-        x: (stageW - size) / 2,
-        y: stageH * 0.5 - (size + MEDALLION_UNDER_FACE_HEIGHT) / 2,
-        size,
+        x: (stageW - fitted) / 2,
+        y: stageH * 0.5 - (fitted + MEDALLION_UNDER_FACE_HEIGHT) / 2,
+        size: fitted,
       },
       stageW,
       stageH,
@@ -180,12 +196,26 @@ export function defaultMedallionGeometry(
  * into the current stage (a placement saved on a bigger screen must
  * never reopen half off this one), or the factory home when he has
  * never moved it.
+ *
+ * ANUBIS IS THE EXCEPTION — THE LOCK-DOWN (owner eye-check
+ * 2026-11-23 ~06:51 EST): "I don't want to move it around anymore —
+ * even if it's anchored it still lets me click and move it, that's
+ * stupid. Anubis needs to stay centered, anchored, nobody can move
+ * him around — unless I have an emergency edit I have to do."
+ * Anubis's saved record is NO LONGER honored: his seat is the
+ * centered, big factory home, full stop. A placement made inside
+ * an emergency-edit session lives in that session's state and is
+ * re-seated centered when the session ends (useMedallionAnchor);
+ * a stale off-center record left from before the lock-down is
+ * simply never read again — and the hook overwrites it with the
+ * centered seat on mount, so the record itself is reset too.
  */
 export function loadOrDefaultMedallionGeometry(
   id: string,
   stageW: number,
   stageH: number,
 ): MedallionGeometry {
+  if (id === "anubis") return defaultMedallionGeometry(id, stageW, stageH);
   const saved = loadMedallionGeometry(id);
   if (saved) return clampMedallionGeometry(saved, stageW, stageH);
   return defaultMedallionGeometry(id, stageW, stageH);

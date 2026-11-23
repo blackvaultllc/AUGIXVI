@@ -244,12 +244,17 @@ export class WorldSceneManager {
    * picture for the Room. Defaults are the shipped Room exactly.
    */
   private roomSurfaces: RoomSurfaces = {
-    backdrop: "#f6f2e9",
+    // Mirrors DEFAULT_SURFACES (builder/room.ts) — the black-holder
+    // composition is the shipped default on every device (owner
+    // eye-check 2026-11-23); setRoomSurfaces replaces these with
+    // the Captain's room the moment the stage hands it over.
+    backdrop: "#000000",
     backdropImage: null,
-    floor: "#93a9c9",
+    backdropFit: "contain",
+    floor: "#000000",
     floorStyle: "color",
     floorImage: null,
-    wall: "#aebfd8",
+    wall: "#000000",
   };
   /** The stage camera's aspect — the backdrop's cover-fit reads it. */
   private viewAspect = 16 / 9;
@@ -382,7 +387,15 @@ export class WorldSceneManager {
       // what he sees is the whole picture, centered.
       const viewH = 10.4;
       const viewW = viewH * this.viewAspect;
-      const size = backdropFitSize(backdrop, viewW, viewH);
+      // THE FIT CHOICE (owner order 2026-11-23): Whole picture
+      // (contain — the standing default, the whole picture
+      // visible) or Fill screen (cover — cascades edge to edge,
+      // edges trimmed; the same cover math the floor picture
+      // already uses).
+      const size =
+        surfaces.backdropFit === "cover"
+          ? backdropPlaneSize(backdrop, viewW, viewH)
+          : backdropFitSize(backdrop, viewW, viewH);
       const material = new THREE.MeshBasicMaterial({
         transparent: true,
         opacity: BACKDROP_IMAGE_OPACITY,

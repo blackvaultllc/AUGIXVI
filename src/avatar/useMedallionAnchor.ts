@@ -16,6 +16,25 @@
  *   moving a medallion never also triggers it.
  * - BOUNDS: geometry is clamped into the stage on load, on drag, on
  *   stretch, and when the stage itself resizes.
+ *
+ * THE LOCKED SEAT (owner eye-check 2026-11-23 ~06:51 EST — the
+ * `lockedSeat` option, Anubis only): "I don't want to move it
+ * around anymore — even if it's anchored it still lets me click
+ * and move it, that's stupid. Anubis needs to stay centered,
+ * anchored, nobody can move him around — unless I have an emergency
+ * edit I have to do." A locked-seat medallion:
+ * - does not drag — the grab is never begun, so the grab-to-move
+ *   path the other medallions live by does not exist for it;
+ * - sits at its centered factory home (medallionAnchor refuses its
+ *   saved record), and re-centers on stage resize — centered is a
+ *   standing state, not a one-time placement;
+ * - heals its saved record to the centered seat on mount, so a
+ *   stale off-center record from before the lock-down is reset;
+ * - moves ONLY inside an EMERGENCY EDIT session the Captain
+ *   explicitly opens (enterEmergencyEdit — session-only, never
+ *   persisted, so every load starts locked). Closing the session
+ *   (exitEmergencyEdit) re-seats him centered at his big home and
+ *   saves that seat: the lock restores the seat, always.
  */
 import {
   useCallback,
@@ -30,6 +49,7 @@ import {
   OWNER_MEDALLION_ID,
   centeredMedallionGeometry,
   clampMedallionGeometry,
+  defaultMedallionGeometry,
   loadOrDefaultMedallionGeometry,
   registerMedallionGeometry,
   registeredMedallionGeometry,
@@ -41,6 +61,26 @@ import {
 /** Press travel (px) beyond which a press is a drag, not a tap. */
 const TAP_TRAVEL = 4;
 
+/**
+ * THE RESPECT ASK (owner order 2026-11-23 ~07:22 EST): "these are
+ * my gods — if somebody tries to use the AI and touch the face
+ * too much, the gods will out of respect ask the person please…
+ * the Egyptian understanding and culture of respect in the
+ * system." Repeated handling of a god's face — presses and drag
+ * starts landing in a rush — crosses this threshold ONCE per
+ * session per god, and the god asks, politely and once, not to
+ * be handled. No nagging: the ask is spent for the session.
+ */
+export const RESPECT_POKE_THRESHOLD = 5;
+/** The window the pokes must land inside to count as handling, ms. */
+export const RESPECT_POKE_WINDOW_MS = 4000;
+/** Gods who have already asked this session — spent asks. */
+const respectAsked = new Set<string>();
+/** Test support: a fresh session for the respect doctrine. */
+export function clearRespectAsks() {
+  respectAsked.clear();
+}
+
 function stageWidth(): number {
   return typeof window === "undefined" ? 0 : window.innerWidth;
 }
@@ -48,13 +88,31 @@ function stageHeight(): number {
   return typeof window === "undefined" ? 0 : window.innerHeight;
 }
 
-export function useMedallionAnchor(id: string) {
+export function useMedallionAnchor(
+  id: string,
+  options?: { lockedSeat?: boolean; onRespectAsk?: (() => void) | undefined },
+) {
+  const lockedSeat = options?.lockedSeat ?? false;
+  const respectAskRef = useRef(options?.onRespectAsk);
+  respectAskRef.current = options?.onRespectAsk;
+  /** Press timestamps inside the respect window — the handling count. */
+  const pokesRef = useRef<number[]>([]);
   const [geometry, setGeometry] = useState<MedallionGeometry>(() =>
     loadOrDefaultMedallionGeometry(id, stageWidth(), stageHeight()),
   );
   const [lifted, setLifted] = useState(false);
+  /**
+   * EMERGENCY EDIT (the lock-down's one door): session-only —
+   * every load starts locked, and the state is never written to
+   * storage. Only meaningful for a locked seat.
+   */
+  const [emergencyEdit, setEmergencyEdit] = useState(false);
   const geometryRef = useRef(geometry);
   geometryRef.current = geometry;
+  const movableRef = useRef(!lockedSeat);
+  movableRef.current = !lockedSeat || emergencyEdit;
+  const emergencyEditRef = useRef(emergencyEdit);
+  emergencyEditRef.current = emergencyEdit;
   const drag = useRef<{
     startX: number;
     startY: number;
@@ -70,20 +128,59 @@ export function useMedallionAnchor(id: string) {
     return () => unregisterMedallionGeometry(id);
   }, [id, geometry]);
 
+  // THE RECORD HEALS TO THE SEAT (the lock-down): while a locked
+  // seat stands locked, its saved record IS the centered seat —
+  // a stale off-center record from before the lock-down is reset
+  // the first time the stage opens, and an emergency edit that
+  // ends (exit re-seats + saves) leaves the same truth behind.
+  useEffect(() => {
+    if (!lockedSeat || emergencyEdit) return;
+    saveMedallionGeometry(
+      id,
+      defaultMedallionGeometry(id, stageWidth(), stageHeight()),
+    );
+  }, [id, lockedSeat, emergencyEdit]);
+
   // The stage shrank (rotation, split screen, a smaller pane): pull
   // the medallion back inside the bounds instead of leaving it
-  // stranded off the edge.
+  // stranded off the edge. A LOCKED seat does more than clamp: it
+  // re-derives its centered home, so centered survives the resize
+  // (unless an emergency edit is live — then the edit's geometry
+  // is only clamped, like any medallion's).
   useEffect(() => {
     const onResize = () =>
       setGeometry((current) =>
-        clampMedallionGeometry(current, window.innerWidth, window.innerHeight),
+        lockedSeat && !emergencyEditRef.current
+          ? defaultMedallionGeometry(id, window.innerWidth, window.innerHeight)
+          : clampMedallionGeometry(current, window.innerWidth, window.innerHeight),
       );
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [id, lockedSeat]);
 
   const beginDrag = (event: ReactPointerEvent<HTMLElement>) => {
     if ("button" in event && event.button !== 0) return false;
+    // THE RESPECT COUNT (the doctrine, above): every press on the
+    // face counts — drags included, locked or not — because the
+    // handling is the handling whether the seat moves or not. The
+    // menu's own buttons never reach this handler (the root press
+    // routes around them), so opening the menu is never a poke.
+    // Past the threshold, once per session, the god asks.
+    const now = Date.now();
+    pokesRef.current = [
+      ...pokesRef.current.filter((at) => now - at < RESPECT_POKE_WINDOW_MS),
+      now,
+    ];
+    if (pokesRef.current.length >= RESPECT_POKE_THRESHOLD && !respectAsked.has(id)) {
+      respectAsked.add(id);
+      pokesRef.current = [];
+      respectAskRef.current?.();
+    }
+    // THE LOCKED SEAT DOES NOT DRAG (the lock-down): the grab is
+    // never begun — no lift, no follow, no saved drop. Last round's
+    // grab-unanchors-in-place law is for the free medallions; for
+    // Anubis there is no grab at all outside an emergency edit.
+    if (!movableRef.current) return false;
     // A fresh press clears any stale suppression — the flag only ever
     // eats the one click that trails THIS drag.
     suppressClick.current = false;
@@ -132,6 +229,7 @@ export function useMedallionAnchor(id: string) {
    * the obstacle the centering clears (centeredMedallionGeometry).
    */
   const center = useCallback(() => {
+    if (!movableRef.current) return;
     const avoid =
       id === OWNER_MEDALLION_ID ? null : registeredMedallionGeometry(OWNER_MEDALLION_ID);
     const next = centeredMedallionGeometry(
@@ -153,6 +251,7 @@ export function useMedallionAnchor(id: string) {
    */
   const setSize = useCallback(
     (size: number) => {
+      if (!movableRef.current) return;
       const current = geometryRef.current;
       const next = clampMedallionGeometry(
         {
@@ -218,6 +317,32 @@ export function useMedallionAnchor(id: string) {
     [],
   );
 
+  /**
+   * EMERGENCY EDIT — OPEN (the lock-down's deliberate unlock): the
+   * Captain turns it on himself, from the medallion's menu, when
+   * he has an emergency edit to do. While it is on, the locked
+   * seat drags, centers, and sizes like any medallion. It is
+   * session-only: a reload starts locked again.
+   */
+  const enterEmergencyEdit = useCallback(() => {
+    if (!lockedSeat) return;
+    setEmergencyEdit(true);
+  }, [lockedSeat]);
+
+  /**
+   * EMERGENCY EDIT — CLOSE: turning it off RE-SEATS HIM CENTERED
+   * (his order: "I need him to be centered") at his big factory
+   * home, and that seat is what gets saved. Whatever the edit
+   * moved, the lock restores the seat.
+   */
+  const exitEmergencyEdit = useCallback(() => {
+    if (!lockedSeat) return;
+    const seat = defaultMedallionGeometry(id, stageWidth(), stageHeight());
+    setGeometry(seat);
+    saveMedallionGeometry(id, seat);
+    setEmergencyEdit(false);
+  }, [id, lockedSeat]);
+
   const rootStyle: CSSProperties = { left: geometry.x, top: geometry.y };
   const faceStyle: CSSProperties = { width: geometry.size, height: geometry.size };
 
@@ -226,6 +351,12 @@ export function useMedallionAnchor(id: string) {
     lifted,
     center,
     setSize,
+    /** The locked seat's state (always false for free medallions). */
+    emergencyEdit,
+    enterEmergencyEdit,
+    exitEmergencyEdit,
+    /** False only for a locked seat outside an emergency edit. */
+    movable: !lockedSeat || emergencyEdit,
     rootProps: {
       style: rootStyle,
       onPointerDown,

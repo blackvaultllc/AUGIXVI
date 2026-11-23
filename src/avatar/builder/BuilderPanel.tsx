@@ -10,6 +10,7 @@ import {
   type ItemSizeId,
 } from "./library";
 import {
+  type BackdropFit,
   type FloorStyle,
   type LayoutStore,
   type PlacedItem,
@@ -75,6 +76,12 @@ const CATEGORY_TITLES: Record<(typeof CATEGORIES)[number], string> = {
 const FLOOR_STYLES: readonly { id: FloorStyle; label: string }[] = [
   { id: "color", label: "Solid color" },
   { id: "picture", label: "Picture floor" },
+];
+
+/** THE FIT CHOICE (owner order 2026-11-23): Whole picture or Fill screen. */
+const BACKDROP_FITS: readonly { id: BackdropFit; label: string }[] = [
+  { id: "contain", label: "Whole picture" },
+  { id: "cover", label: "Fill screen" },
 ];
 
 export function BuilderPanel(props: BuilderPanelProps) {
@@ -252,9 +259,10 @@ export function BuilderPanel(props: BuilderPanelProps) {
             />
           </label>
           <p className="builder-panel__hint">
-            A backdrop picture hangs on the back wall, fitted to cover — never stretched — and
-            shows as the picture itself, full strength. The panels stay solid, so the words
-            always read first.
+            A backdrop picture hangs on the back wall — never stretched — and shows as the
+            picture itself, full strength. Fit it Whole picture (all of it visible) or Fill
+            screen (edge to edge, edges trimmed) — your pick follows you to every device.
+            The panels stay solid, so the words always read first.
           </p>
           <BackdropPicker
             label="Egyptian themes"
@@ -269,13 +277,28 @@ export function BuilderPanel(props: BuilderPanelProps) {
             onPick={(id) => surface({ backdropImage: id })}
           />
           {room.surfaces.backdropImage && (
-            <button
-              type="button"
-              className="builder-panel__button"
-              onClick={() => surface({ backdropImage: null })}
-            >
-              No picture — plain backdrop color
-            </button>
+            <>
+              <div className="builder-panel__row" role="group" aria-label="Backdrop fit">
+                {BACKDROP_FITS.map((fit) => (
+                  <button
+                    key={fit.id}
+                    type="button"
+                    className="builder-panel__button"
+                    aria-pressed={room.surfaces.backdropFit === fit.id}
+                    onClick={() => surface({ backdropFit: fit.id })}
+                  >
+                    {fit.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="builder-panel__button"
+                onClick={() => surface({ backdropImage: null })}
+              >
+                No picture — plain backdrop color
+              </button>
+            </>
           )}
         </SubCategory>
 

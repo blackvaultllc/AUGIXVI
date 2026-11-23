@@ -36,6 +36,19 @@
  * him persists. The station's home does not move; the medallion is
  * his to place.
  *
+ * THE LOCK-DOWN (owner eye-check 2026-11-23 ~06:51 EST, superseding
+ * the anchor paragraph above for this medallion): "I don't want to
+ * move it around anymore — even if it's anchored it still lets me
+ * click and move it, that's stupid. Anubis needs to stay centered,
+ * anchored, nobody can move him around — unless I have an emergency
+ * edit I have to do." Anubis's seat is LOCKED: centered, at the big
+ * default, no drag, no Move/Center in his everyday menu. Placement
+ * lives only behind the EMERGENCY EDIT unlock in his menu, and
+ * closing the edit re-seats him centered (useMedallionAnchor's
+ * lockedSeat). What he gets instead of movement is the PERSPECTIVE
+ * BY BUTTON (same order): Left / Front / Right stage-view buttons
+ * in his menu — the view moves around him; he never does.
+ *
  * REPLACEABLE ASSET: the medallion reads exactly one file,
  * public/anubis-presence/face.webp. Replacing that file changes the
  * face with no code change. Because the chosen portrait is a finished
@@ -61,6 +74,7 @@ import {
   savePresenceView,
   type PresenceView,
 } from "./presenceView";
+import type { StageView } from "./stageView";
 import { useMedallionAnchor } from "./useMedallionAnchor";
 
 export const ANUBIS_FACE_SRC = ANUBIS_PORTRAIT_SRC;
@@ -75,6 +89,11 @@ export function AnubisPresence({
   inCouncil = false,
   atAttention = false,
   onSelect,
+  stageView,
+  onStageViewChange,
+  speechBubble,
+  onSpeechBubbleChange,
+  onRespectAsk,
 }: {
   /** False until the renderer's first frame — the stage is loading. */
   ready: boolean;
@@ -98,8 +117,35 @@ export function AnubisPresence({
   atAttention?: boolean;
   /** Tapping the medallion brings Anubis into perspective. */
   onSelect?: () => void;
+  /**
+   * THE STAGE VIEW (owner eye-check 2026-11-23): the perspective
+   * the stage is viewed from — switched by the buttons in his
+   * menu, never by moving him. Supplied by AvatarStage; without
+   * it the menu simply carries no perspective row.
+   */
+  stageView?: StageView;
+  /** Switch the stage view (Left / Front / Right perspective). */
+  onStageViewChange?: (view: StageView) => void;
+  /**
+   * THE SPEECH-BUBBLE SWITCH (owner desk photos 2026-11-23): a
+   * spoken reply raises the cream anime bubble beside his head —
+   * unless he turns it off here, in which case replies are voice
+   * + the chat thread only. Supplied by AvatarStage; without the
+   * handler the menu carries no switch.
+   */
+  speechBubble?: boolean;
+  /** Flip the speech-bubble switch. */
+  onSpeechBubbleChange?: (on: boolean) => void;
+  /**
+   * THE RESPECT ASK (owner order 2026-11-23 ~07:22 EST): fired
+   * once per session when his face is handled past the threshold
+   * — the stage has him speak the polite line.
+   */
+  onRespectAsk?: () => void;
 }) {
-  const anchor = useMedallionAnchor("anubis");
+  // THE LOCKED SEAT (the lock-down): Anubis's anchor runs locked —
+  // centered and big, immovable outside an emergency edit.
+  const anchor = useMedallionAnchor("anubis", { lockedSeat: true, onRespectAsk });
   // HEAD OR BODY (owner order 2026-11-22): the switch offers the
   // body perspective only when the binding carries body artwork —
   // Anubis's binding has none yet, so he is head-only until it lands.
@@ -117,6 +163,7 @@ export function AnubisPresence({
     "anubis-presence",
     "medallion-anchor",
     anchor.lifted ? "medallion-anchor--lifted" : "",
+    anchor.emergencyEdit ? "medallion-anchor--emergency-edit" : "",
     speaking ? "anubis-presence--speaking" : "",
     listening ? "anubis-presence--listening" : "",
     acting ? "anubis-presence--acting" : "",
@@ -146,7 +193,9 @@ export function AnubisPresence({
       aria-label={`Anubis — ${state}`}
       title={
         onSelect
-          ? `Anubis — ${state} — tap to bring Anubis into perspective; drag to move his medallion`
+          ? anchor.emergencyEdit
+            ? `Anubis — ${state} — emergency edit open: drag to move his medallion`
+            : `Anubis — ${state} — tap to bring Anubis into perspective; he stays centered — his placement is locked`
           : `Anubis — ${state}`
       }
       onClick={anchor.wrapSelect(onSelect)}
@@ -186,9 +235,12 @@ export function AnubisPresence({
         )}
       </div>
       {/* FACE ONLY (owner eye-check 2026-11-22): no name plate, no
-          controls row under the face — the Move / Center / Anchor
-          controls live inside his box menu (MedallionMenu), opened
-          from the small button at the face's corner. */}
+          controls row under the face — the controls live inside
+          his box menu (MedallionMenu), opened from the small
+          button at the face's corner. THE LOCK-DOWN (2026-11-23):
+          his menu carries no Move/Center/size while he is locked —
+          only the seat's state, the emergency-edit unlock, the
+          perspective buttons, and the head/body switch. */}
       <MedallionMenu
         name={ANUBIS_BINDING.name}
         lifted={anchor.lifted}
@@ -197,7 +249,92 @@ export function AnubisPresence({
         onCenter={anchor.center}
         size={anchor.geometry.size}
         onSizeChange={anchor.setSize}
+        placementLocked={!anchor.emergencyEdit}
+        emergencyEdit={anchor.emergencyEdit}
+        onEnterEmergencyEdit={anchor.enterEmergencyEdit}
+        onExitEmergencyEdit={anchor.exitEmergencyEdit}
       >
+        {/* PERSPECTIVE BY BUTTON (owner eye-check 2026-11-23):
+            "have a button I can do left perspective, right
+            perspective" — the stage's view steps left or right
+            around him, and Front brings it back to center. He
+            never moves; the view does. */}
+        {stageView && onStageViewChange && (
+          <div
+            className="medallion-menu__perspective"
+            role="group"
+            aria-label="Stage perspective"
+          >
+            <span className="medallion-menu__perspective-label">Perspective</span>
+            <div className="medallion-menu__perspective-buttons">
+              {(
+                [
+                  ["left", "Left"],
+                  ["front", "Front"],
+                  ["right", "Right"],
+                ] as const
+              ).map(([view, label]) => (
+                <button
+                  key={view}
+                  type="button"
+                  className="medallion-menu__perspective-button"
+                  aria-pressed={stageView === view}
+                  aria-label={`${label} perspective`}
+                  title={`${label} perspective — the view moves, Anubis stays centered`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onStageViewChange(view);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* THE SPEECH-BUBBLE SWITCH (owner desk photos 2026-11-23
+            ~07:11 EST): "when the AI talks… it's supposed to pop
+            up the chat box like an anime… If I want to turn that
+            box off I can, and just have it talk and look at the
+            chat to see what it's saying." One obvious switch,
+            beside Perspective — On raises the bubble on replies;
+            Off is voice + thread only. Persisted by the stage. */}
+        {onSpeechBubbleChange && (
+          <div
+            className="medallion-menu__perspective"
+            role="group"
+            aria-label="Speech bubble"
+          >
+            <span className="medallion-menu__perspective-label">Speech bubble</span>
+            <div className="medallion-menu__perspective-buttons">
+              {(
+                [
+                  [true, "On"],
+                  [false, "Off"],
+                ] as const
+              ).map(([on, label]) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="medallion-menu__perspective-button"
+                  aria-pressed={(speechBubble ?? true) === on}
+                  aria-label={`Speech bubble ${label.toLowerCase()}`}
+                  title={
+                    on
+                      ? "Replies raise the anime bubble beside his head"
+                      : "Replies are voice and the chat thread only — no bubble"
+                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSpeechBubbleChange(on);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {views.length > 1 && (
           <button
             type="button"

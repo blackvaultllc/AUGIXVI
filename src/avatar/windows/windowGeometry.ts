@@ -19,19 +19,23 @@ export const WINDOW_MIN_HEIGHT = 140;
 /**
  * Clamp a window size so the window fits the viewport with
  * WINDOW_MARGIN to spare on every side. Minimum sizes still win on a
- * viewport too small to honor both.
+ * viewport too small to honor both. A window whose layout needs
+ * more room than the shared floor (the chat box — its rail stack
+ * and input row must hold together) passes its own minimums.
  */
 export function clampWindowSize(
   w: number,
   h: number,
   viewportW: number,
   viewportH: number,
+  minW: number = WINDOW_MIN_WIDTH,
+  minH: number = WINDOW_MIN_HEIGHT,
 ): { w: number; h: number } {
-  const maxW = Math.max(WINDOW_MIN_WIDTH, viewportW - WINDOW_MARGIN * 2);
-  const maxH = Math.max(WINDOW_MIN_HEIGHT, viewportH - WINDOW_MARGIN * 2);
+  const maxW = Math.max(minW, viewportW - WINDOW_MARGIN * 2);
+  const maxH = Math.max(minH, viewportH - WINDOW_MARGIN * 2);
   return {
-    w: Math.min(Math.max(w, WINDOW_MIN_WIDTH), maxW),
-    h: Math.min(Math.max(h, WINDOW_MIN_HEIGHT), maxH),
+    w: Math.min(Math.max(w, minW), maxW),
+    h: Math.min(Math.max(h, minH), maxH),
   };
 }
 

@@ -49,6 +49,7 @@ export function MontuPresence({
   inCouncil = false,
   atAttention = false,
   onSelect,
+  onRespectAsk,
 }: {
   /** False until the renderer's first frame — the stage is loading. */
   ready: boolean;
@@ -74,8 +75,13 @@ export function MontuPresence({
   atAttention?: boolean;
   /** Tapping the medallion brings Montu into perspective. */
   onSelect?: () => void;
+  /**
+   * THE RESPECT ASK (owner order 2026-11-23 ~07:22 EST): fired
+   * once per session when his face is handled past the threshold.
+   */
+  onRespectAsk?: () => void;
 }) {
-  const anchor = useMedallionAnchor(MONTU_BINDING.id);
+  const anchor = useMedallionAnchor(MONTU_BINDING.id, { onRespectAsk });
   // HEAD OR BODY (owner order 2026-11-22): the switch offers the
   // body perspective only when the binding carries body artwork —
   // Montu's binding has none yet, so he is head-only until it lands.

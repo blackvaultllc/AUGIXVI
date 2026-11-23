@@ -2807,8 +2807,12 @@
 }
 .god-popup__bubble {
   position: relative;
-  width: 300px;
-  max-width: 62vw;
+  /* The bubble flexes inside the placed block (GodReportPopUp
+     renders the block at the placement's width): at full size it
+     lands on its 300px, on a narrow stage it takes what the
+     block leaves — the block never outgrows its placement. */
+  flex: 1 1 auto;
+  min-width: 0;
   margin-top: 0.9rem;
   padding: 0.65rem 0.8rem;
   border-radius: 1rem;
