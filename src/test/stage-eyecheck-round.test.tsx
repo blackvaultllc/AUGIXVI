@@ -165,7 +165,12 @@ describe("the HUD readouts — bright", () => {
     expect(body).toContain("background: rgb(10 12 16 / 88%)");
     const tl = ruleBody(stageCss, ".avatar-stage .avatar-hud--tl");
     expect(tl).toContain("opacity: 1");
-    expect(tl).toContain("min-width: 19rem");
+    // The min-width: 19rem "spread out" pin that stood here is
+    // SUPERSEDED (owner eye-check 2026-11-23 ~06:51 EST): the
+    // spread became dead space around a few words — the clusters
+    // size to their content now (No Empty Gaps law), with the
+    // type raised for his bifocals in the same round.
+    expect(stageCss).not.toContain("min-width: 19rem");
   });
 });
 
@@ -259,15 +264,12 @@ describe("terminal chat — clear, history, emoji", () => {
       entry(2, "Second question", "Second answer."),
     ];
     const { container, rerender } = renderChat({ history });
-    expect(container.textContent).toContain("First answer.");
-    expect(container.textContent).toContain("Second answer.");
-    fireEvent.click(screen.getByRole("button", { name: "Clear the chat screen" }));
-    // The screen is clear: no history lines remain in the thread.
+    // THE THREAD OPENS CLEAN (owner eye-check 2026-11-23): the
+    // saved record is not on the face to begin with — it lives
+    // behind History. What Clear governs is the live screen.
     expect(container.textContent).not.toContain("First answer.");
     expect(container.textContent).not.toContain("Second answer.");
-    // The record was NOT deleted: the same history handed back in
-    // (as the History view reads it) still exists — and a line
-    // arriving after the Clear starts the new screen.
+    // A line spoken in this session lands on the screen…
     rerender(
       <CommandBox
         accent="#d4af37"
@@ -287,8 +289,39 @@ describe("terminal chat — clear, history, emoji", () => {
         <p>panel body</p>
       </CommandBox>,
     );
-    expect(container.textContent).not.toContain("First answer.");
     expect(container.textContent).toContain("Third answer.");
+    fireEvent.click(screen.getByRole("button", { name: "Clear the chat screen" }));
+    // …and Clear wipes the screen: nothing of the session remains.
+    expect(container.textContent).not.toContain("Third answer.");
+    // The record was NOT deleted: the same history handed back in
+    // (as the History view reads it) still exists — and a line
+    // arriving after the Clear starts the new screen.
+    rerender(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine=""
+        responseSource=""
+        history={[
+          ...history,
+          entry(3, "Third question", "Third answer."),
+          entry(4, "Fourth question", "Fourth answer."),
+        ]}
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+    expect(container.textContent).not.toContain("First answer.");
+    expect(container.textContent).not.toContain("Third answer.");
+    expect(container.textContent).toContain("Fourth answer.");
   });
 
   it("the History button opens the record", () => {

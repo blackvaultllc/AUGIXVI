@@ -62,6 +62,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { AvatarBridge, type AvatarState } from "./AvatarBridge";
+import { backdropById as builderBackdropById } from "./builder/backdrops";
 import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
 import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
 import "./stage-fix-round.css";
@@ -87,9 +88,11 @@ import {
   saveLayoutStore,
   setItemAnchored,
   setSurfaces as setRoomSurfaces,
+  surfaceIsLight,
   unclaimPlot,
   updateItemVariant,
   withLayoutRoom,
+  type BackdropFit,
   type LayoutStore,
   type RoomContent,
 } from "./builder/room";
@@ -119,6 +122,8 @@ import {
   type GodPerspective,
   type StagePerspective,
 } from "./stagePerspective";
+import { loadStageView, saveStageView, type StageView } from "./stageView";
+import { loadSpeechBubble, saveSpeechBubble } from "./speechBubble";
 import {
   constructStandsOnStage,
   dismissalTarget,
@@ -153,11 +158,7 @@ import {
 import { StageNotifications, type StageNotification } from "./StageNotifications";
 import { GodReportPopUp, type GodPopUpRequest } from "./GodReportPopUp";
 import { godForReportTopic, type StageRect } from "./godPopUp";
-import {
-  MEDALLION_UNDER_FACE_HEIGHT,
-  defaultMedallionGeometry,
-  loadMedallionGeometry,
-} from "./medallionAnchor";
+import { MEDALLION_UNDER_FACE_HEIGHT } from "./medallionAnchor";
 import { loadSpeechVolume, saveSpeechVolume } from "./speechVoice";
 import {
   STAGE_BACKDROPS,
@@ -327,7 +328,15 @@ import { SpaceView } from "./SpaceView";
 import { coreStatusLabel, type CoreStatus } from "./coreLink";
 import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
 
-type Settings = RenderSettings & { sensitivity: number; cooldownMs: number };
+type Settings = RenderSettings & {
+  sensitivity: number;
+  cooldownMs: number;
+  // The backdrop sync fields (settings.ts carries the full
+  // AvatarSettings shape; the stage's working type matches it).
+  backdropImage: string | null;
+  backdropFit: BackdropFit;
+  backdropSynced: boolean;
+};
 type WorldScreen = "space" | "entering" | "live" | "returning";
 /**
  * How near a press must land to the construct's center to be a
@@ -345,6 +354,9 @@ const DEFAULTS: Settings = {
   customColor: "#22d3ee",
   sensitivity: 0.8,
   cooldownMs: 800,
+  backdropImage: null,
+  backdropFit: "contain",
+  backdropSynced: false,
 };
 
 const WORLD_SCENE_ICONS: Record<WorldSceneId, LucideIcon> = {
@@ -610,6 +622,31 @@ export function AvatarStage({
   // commander; a station takes the focus when he turns to it, and
   // the perspective returns to Anubis when it closes.
   const [perspective, setPerspective] = useState<StagePerspective>(DEFAULT_STAGE_PERSPECTIVE);
+  // STAGE VIEW (owner eye-check 2026-11-23 — perspective by
+  // button): where the stage's camera stands — front, left, or
+  // right — switched from Anubis's menu. The view moves around
+  // him; his geometry is never touched by it. The choice persists
+  // (stageView.ts) and the renderer is told on every change and
+  // once when it is created (the mount effect below).
+  const [stageView, setStageView] = useState<StageView>(() => loadStageView());
+  const stageViewRef = useRef(stageView);
+  stageViewRef.current = stageView;
+  const changeStageView = useCallback((view: StageView) => {
+    setStageView(view);
+    saveStageView(view);
+    rendRef.current?.setStageView(view);
+  }, []);
+  // THE SPEECH-BUBBLE SWITCH (owner desk photos 2026-11-23 ~07:11
+  // EST): the anime reply bubble beside the speaking god's head
+  // is his to turn off — OFF leaves voice + the chat thread only.
+  // Persisted (speechBubble.ts), default ON; the response-model
+  // effect below reads it before raising a reply pop-up. Reports
+  // through notify() are not replies and are not governed by it.
+  const [speechBubble, setSpeechBubble] = useState<boolean>(() => loadSpeechBubble());
+  const changeSpeechBubble = useCallback((on: boolean) => {
+    setSpeechBubble(on);
+    saveSpeechBubble(on);
+  }, []);
   // THE ADDRESSEE — A ROUTING STATE (owner order 2026-11-23;
   // rules in addressee.ts): who the Captain is talking to. Anubis
   // by default; naming a god in address switches the conversation
@@ -904,9 +941,28 @@ export function AvatarStage({
    * delivery.
    */
   const lastResponsePopRef = useRef("");
+  /**
+   * THE RESPECT ASK (owner order 2026-11-23 ~07:22 EST): when a
+   * god's face is handled past the threshold, the god himself
+   * speaks the polite line and raises his bubble — once per
+   * session per god (the anchor hook keeps the count and the
+   * spent set). The line is marked so the response pop-up effect
+   * below does not raise a second bubble for the same words.
+   */
+  const respectPopRef = useRef("");
+  const respectAsk = useCallback((god: "anubis" | "montu") => {
+    const line = "Please — I am not to be handled. Speak, and I will answer.";
+    respectPopRef.current = line;
+    aiRef.current?.speak(line);
+    notificationIdRef.current += 1;
+    setGodPopUp({ id: notificationIdRef.current, god, text: line });
+  }, []);
   useEffect(() => {
     if (worldScreen !== "live" || clearScreen) return;
     if (state !== "SPEAKING") return;
+    // THE SPEECH-BUBBLE SWITCH (owner 2026-11-23): OFF = the
+    // reply is voice + thread only; no bubble is raised.
+    if (!speechBubble) return;
     if (!lastWords || lastWords === "No response yet.") return;
     if (
       responseSource === "microphone" ||
@@ -916,6 +972,12 @@ export function AvatarStage({
       return;
     }
     if (lastResponsePopRef.current === lastWords) return;
+    // The respect ask already raised its own bubble (above).
+    if (respectPopRef.current === lastWords) {
+      respectPopRef.current = "";
+      lastResponsePopRef.current = lastWords;
+      return;
+    }
     // OSIRIS'S PLACE (routing law): the core speaks from the chat
     // window — his lines never borrow a god's face for a pop-up.
     if (addressee === "osiris") return;
@@ -928,7 +990,7 @@ export function AvatarStage({
       god: addressee === "montu" ? "montu" : "anubis",
       text: lastWords,
     });
-  }, [state, lastWords, responseSource, worldScreen, clearScreen, addressee]);
+  }, [state, lastWords, responseSource, worldScreen, clearScreen, speechBubble, addressee]);
   const recordReply = useCallback((text: string) => {
     setTranscript((prev) =>
       appendReplyHistory(prev, {
@@ -1077,6 +1139,32 @@ export function AvatarStage({
 
   const updateRoom = useCallback((next: RoomContent) => {
     setLayoutStore((store) => withLayoutRoom(store, store.activeId, next));
+  }, []);
+
+  /**
+   * THE BACKDROP SYNC (owner decision 2026-11-23 ~07:27 EST):
+   * the backdrop picture + fit follow the operator's account
+   * (settings.ts + settingsSync.ts) — phone, tablet, PC, the same
+   * background. Applying a pick writes it into the active room,
+   * whose layout store is this device's cached copy: the offline
+   * Parrot keeps showing the last-synced picture with no network.
+   */
+  const applyBackdropPick = useCallback((image: string | null, fit: BackdropFit) => {
+    const room = activeLayout(layoutStoreRef.current).room;
+    if (room.surfaces.backdropImage === image && room.surfaces.backdropFit === fit) return;
+    updateRoom(
+      setRoomSurfaces(room, { ...room.surfaces, backdropImage: image, backdropFit: fit }),
+    );
+  }, [updateRoom]);
+
+  // On load, this device's own settings copy may already carry
+  // the last-synced pick (saved on this device or pulled from the
+  // account on a previous visit) — the room follows it.
+  useEffect(() => {
+    const saved = settingsRef.current;
+    if (saved.backdropSynced) applyBackdropPick(saved.backdropImage, saved.backdropFit);
+    // Mounted once: the boot application of the device's copy.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const newBuilderItemId = useCallback(() => {
@@ -2446,6 +2534,10 @@ export function AvatarStage({
     const bridge = bridgeRef.current;
     const r = new AvatarRenderer(host.current!, bridge, { ...settingsRef.current });
     rendRef.current = r;
+    // THE SAVED STAGE VIEW (perspective by button, owner eye-check
+    // 2026-11-23): the camera opens where he left it — front, or
+    // stepped to a side.
+    r.setStageView(stageViewRef.current);
     // AUGI'S SAVED SPOT AND ANCHOR (owner orders 2026-11-22): if he
     // was dragged somewhere last session, he is standing there when
     // the stage opens — the drag persists like every other setting
@@ -3096,10 +3188,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
   // sees IS his saved configuration, on whichever device he opened.
   function applySyncedSettings(next: Settings) {
     persistSettings(next);
-    const { sensitivity, cooldownMs, ...renderSettings } = next;
+    const { sensitivity, cooldownMs, backdropImage, backdropFit, backdropSynced, ...renderSettings } = next;
     rendRef.current?.updateSettings(renderSettings);
     sensRef.current?.setOptions({ sensitivity, cooldownMs });
     saveThemePreference({ theme: next.theme, customColor: next.customColor });
+    // The backdrop pick rides the same account copy (owner
+    // decision 2026-11-23): a synced pick — including a clear —
+    // lands on this device's room; an unsynced copy says nothing
+    // about the backdrop and the room keeps its own.
+    if (backdropSynced) applyBackdropPick(backdropImage, backdropFit);
   }
 
   useEffect(() => {
@@ -3148,12 +3245,31 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     "--avatar-hud-line": `${themeAccent}80`,
   } as CSSProperties;
 
+  // THE STAGE LOOK FOLLOWS THE ROOM HE HAS (owner eye-check
+  // 2026-11-23): the light look belongs to a light room — a room
+  // HE colored light, with no picture up. The shipped room is the
+  // black-holder composition now, and a backdrop picture stands on
+  // black: both take the dark look, so the stage's own ground and
+  // the HUD's standing colors match the composition on every
+  // device, phone included — never pale-on-pale.
+  const stageSurfaces = activeLayout(layoutStore).room.surfaces;
+  const stageLook =
+    worldScreen === "live" &&
+    worldScene === "room" &&
+    // The BUILDER registry's lookup (builder/backdrops) — the
+    // stage-backdrop registry's backdropById imported above
+    // answers a different question and never returns null.
+    !builderBackdropById(stageSurfaces.backdropImage) &&
+    surfaceIsLight(stageSurfaces.backdrop)
+      ? "light"
+      : "dark";
+
   return (
     <div
       ref={stageRootRef}
       className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}${osirisDragging ? " avatar-stage--dragging-osiris" : ""}${captainDriving ? " avatar-stage--captain-driving" : ""}${!constructAnchored ? " avatar-stage--construct-held" : ""}${framesArmed ? " avatar-stage--moving-frames" : ""}`}
       data-scene-ready={ready ? "" : undefined}
-      data-stage-look={worldScreen === "live" && worldScene === "room" ? "light" : "dark"}
+      data-stage-look={stageLook}
       data-conversation-view={conversationView}
       style={stageStyle}
       onDragOver={(event) => {
@@ -3208,6 +3324,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           atAttention={perspective === "anubis"}
           scepter={godPopUp?.god === "anubis"}
           onSelect={() => selectGod("anubis")}
+          stageView={stageView}
+          onStageViewChange={changeStageView}
+          speechBubble={speechBubble}
+          onSpeechBubbleChange={changeSpeechBubble}
+          onRespectAsk={() => respectAsk("anubis")}
         />
       )}
       {/* Montu is NOT resident: his medallion stands on the stage
@@ -3223,6 +3344,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           inCouncil={council.includes("montu")}
           atAttention={perspective === "montu"}
           onSelect={() => selectGod("montu")}
+          onRespectAsk={() => respectAsk("montu")}
         />
       )}
       {/* THE TOOLBAR IS GONE FROM THE STAGE (owner order 2026-11-22
@@ -3237,15 +3359,14 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {!clearScreen && worldScreen === "live" && (
         <StageNotifications items={notifications} onDismiss={dismissNotification} />
       )}
-      {/* THE QUIET ACTIVITY LINE (owner eye-check 2026-11-23):
-          idle life's latest musing, as a status line in the
-          stage's bottom-right — outside the conversation thread,
-          unspoken, and never dressed as a reply. */}
-      {!clearScreen && worldScreen === "live" && activityLine && (
-        <div className="avatar-activity-line" role="status" aria-label="Construct activity">
-          <span className="avatar-activity-line__label">Activity</span> {activityLine}
-        </div>
-      )}
+      {/* THE QUIET ACTIVITY LINE lives INSIDE the top-left box
+          now (owner desk photos 2026-11-23 ~07:11 EST: "the
+          activity on the side could be put up in one of the
+          boxes, like where you have the core not configured —
+          put it in that box; stop putting extra stuff on the
+          screen; conserve space"). No loose text parked on the
+          stage's edges — the line renders in the CORE cluster
+          below, beside the readouts it belongs with. */}
       {!clearScreen && worldScreen === "live" && godPopUp && (
         <GodReportPopUp
           request={godPopUp}
@@ -3253,18 +3374,33 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             w: stageRootRef.current?.clientWidth ?? 1440,
             h: stageRootRef.current?.clientHeight ?? 900,
           }}
-          occupiedRects={["black-hatter", "anubis", "montu"].map((id): StageRect => {
-            const stageW = stageRootRef.current?.clientWidth ?? 1440;
-            const stageH = stageRootRef.current?.clientHeight ?? 900;
-            const geometry =
-              loadMedallionGeometry(id) ?? defaultMedallionGeometry(id, stageW, stageH);
-            return {
-              x: geometry.x,
-              y: geometry.y,
-              w: geometry.size,
-              h: geometry.size + MEDALLION_UNDER_FACE_HEIGHT,
-            };
-          })}
+          occupiedRects={[
+            ...["black-hatter", "anubis", "montu"].map((id): StageRect => {
+              const stageW = stageRootRef.current?.clientWidth ?? 1440;
+              const stageH = stageRootRef.current?.clientHeight ?? 900;
+              // The EFFECTIVE seat (the lock-down): for Anubis this
+              // is his centered locked seat, never a stale saved
+              // record — the pop-up clears the face as it stands.
+              const geometry = loadOrDefaultMedallionGeometry(id, stageW, stageH);
+              return {
+                x: geometry.x,
+                y: geometry.y,
+                w: geometry.size,
+                h: geometry.size + MEDALLION_UNDER_FACE_HEIGHT,
+              };
+            }),
+            // The notification lane is occupied ground too while
+            // cards are up (owner order 2026-11-23: nothing
+            // overlaps anything).
+            ...((): StageRect[] => {
+              const lane = notificationLaneRect(
+                stageRootRef.current?.clientWidth ?? 1440,
+                stageRootRef.current?.clientHeight ?? 900,
+                notifications.length,
+              );
+              return lane ? [lane] : [];
+            })(),
+          ]}
           onDone={dismissGodPopUp}
         />
       )}
@@ -3364,6 +3500,17 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         {sensor?.error && !clearScreen && <div className="avatar-hud__warning">{sensor.error}</div>}
         {memoryError && !clearScreen && (
           <div className="avatar-hud__warning">KNOWLEDGE: {memoryError}</div>
+        )}
+        {/* THE ACTIVITY LINE, IN THE BOX (owner desk photos
+            2026-11-23 ~07:11 EST — see the note at the stage's
+            notifications): idle life's latest musing as one more
+            readout line in this cluster. Still outside the
+            conversation thread, still unspoken, never dressed as
+            a reply — just no longer a loose box on the stage. */}
+        {!clearScreen && worldScreen === "live" && activityLine && (
+          <div className="avatar-hud__db-status avatar-hud__activity" role="status" aria-label="Construct activity">
+            <span className="avatar-hud__activity-label">Activity</span> {activityLine}
+          </div>
         )}
       </div>
       {!clearScreen && (
@@ -4075,9 +4222,26 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
               updateRoom(removeItem(activeLayout(layoutStoreRef.current).room, id));
               if (builderSelection === id) setBuilderSelection(null);
             }}
-            onSurfaces={(surfaces) =>
-              updateRoom(setRoomSurfaces(activeLayout(layoutStoreRef.current).room, surfaces))
-            }
+            onSurfaces={(surfaces) => {
+              updateRoom(setRoomSurfaces(activeLayout(layoutStoreRef.current).room, surfaces));
+              // A backdrop pick or fit change made HERE is the
+              // synced pick (owner decision 2026-11-23): it goes
+              // into the settings, which carry it to his other
+              // devices; this device's layout stays the cache.
+              const current = settingsRef.current;
+              if (
+                surfaces.backdropImage !== current.backdropImage ||
+                surfaces.backdropFit !== current.backdropFit ||
+                !current.backdropSynced
+              ) {
+                persistSettings({
+                  ...current,
+                  backdropImage: surfaces.backdropImage,
+                  backdropFit: surfaces.backdropFit,
+                  backdropSynced: true,
+                });
+              }
+            }}
             {...builderLayoutOps}
             frames={frameStore}
             framesArmed={framesArmed}
@@ -4150,6 +4314,40 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
     </div>
   );
+}
+
+/**
+ * THE NOTIFICATION LANE'S GROUND (owner order 2026-11-23 ~07:22
+ * EST — notifications never overlap anything): the god pop-up's
+ * placement treats the lane as occupied ground while cards are
+ * up, so a bubble picks another spot instead of landing on a
+ * card. The numbers mirror the lane's CSS in stage-fix-round.css
+ * (section 20): desktop — bottom-right lane, 21rem wide, cards
+ * ~76px + 8px gap stacking upward from 1rem off the bottom;
+ * phone — a band above the chat bar, 5rem off the bottom.
+ */
+export function notificationLaneRect(
+  stageW: number,
+  stageH: number,
+  count: number,
+): StageRect | null {
+  if (count <= 0) return null;
+  const stackH = Math.min(count * 84, stageW > 700 ? 384 : 152);
+  // Short screens (landscape phones, short windows): the CSS
+  // narrows the lane to a 12.5rem right-hand column so it never
+  // sits on the big centered face — at phone widths it still
+  // rides above the chat bar, at desktop widths on the floor.
+  if (stageH <= 500 && stageW > stageH) {
+    const h = Math.min(stackH, 128);
+    return stageW > 700
+      ? { x: stageW - 24 - 200, y: stageH - 16 - h, w: 200, h }
+      : { x: stageW - 10 - 200, y: stageH - 80 - h, w: 200, h };
+  }
+  if (stageW > 700) {
+    const w = Math.min(336, stageW - 32);
+    return { x: stageW - 24 - w, y: stageH - 16 - stackH, w, h: stackH };
+  }
+  return { x: 0, y: stageH - 80 - stackH, w: stageW, h: stackH };
 }
 
 function CommandAction({

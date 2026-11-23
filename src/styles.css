@@ -2807,8 +2807,12 @@
 }
 .god-popup__bubble {
   position: relative;
-  width: 300px;
-  max-width: 62vw;
+  /* The bubble flexes inside the placed block (GodReportPopUp
+     renders the block at the placement's width): at full size it
+     lands on its 300px, on a narrow stage it takes what the
+     block leaves — the block never outgrows its placement. */
+  flex: 1 1 auto;
+  min-width: 0;
   margin-top: 0.9rem;
   padding: 0.65rem 0.8rem;
   border-radius: 1rem;
@@ -4843,6 +4847,70 @@
   border: 1px solid var(--avatar-hud-line);
   border-radius: 8px;
   padding: 0.6rem;
+}
+/* Universal Command Module — the per-device commands panel */
+.window-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.window-commands__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.window-commands__item {
+  background: var(--dev-field);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.window-commands__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--dev-fs-body);
+}
+.window-commands__param {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: var(--dev-fs-body);
+}
+.window-commands__param input,
+.window-commands__param select,
+.window-commands__param textarea {
+  background: var(--dev-panel);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  font-size: var(--dev-fs-body);
+  padding: 0.35rem 0.45rem;
+}
+.window-commands__custom {
+  grid-column: 1 / -1;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+}
+.window-commands__customrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--dev-fs-body);
+  margin: 0;
+  flex-wrap: wrap;
 }
 .window-devices__formtitle {
   grid-column: 1 / -1;

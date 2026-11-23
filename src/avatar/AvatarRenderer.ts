@@ -11,6 +11,7 @@ import { getLegGaitAngle, getArmSwingAngle, wantsToDance } from "./particleLegs"
 import { ARM, armPose, flightArmPose, handDirection, solveArm, type V3 } from "./armIK";
 import { getThemePalette, type ThemeChoice, type ThemePalette } from "./themes";
 import { clampFigureOffset, type FigureOffset } from "./osirisPosition";
+import { stageViewCameraX, type StageView } from "./stageView";
 import { eyeBrightnessFor, eyeColorFor, smoothEyePulse } from "./eyes";
 import { breathCycleAt } from "./heartbeat";
 import { SceneManager } from "./sceneManager";
@@ -256,6 +257,13 @@ export class AvatarRenderer {
   private worldPan = { x: 0, z: 0 };
   /** The camera's home distance, set by resize for the aspect. */
   private cameraBaseZ = 11;
+  /**
+   * THE STAGE VIEW (owner eye-check 2026-11-23): where the camera
+   * stands — front (dead-on), left, or right — switched by the
+   * perspective buttons (stageView.ts). Only the camera moves;
+   * the medallions are DOM and Anubis's seat is never an input.
+   */
+  private stageView: StageView = "front";
   /**
    * The anchor Osiris stands on. Locomotion moves avatarRoot inside
    * it; the operator's drag moves the anchor. Keeping the two
@@ -646,6 +654,21 @@ export class AvatarRenderer {
     F["uForm"]!.value = this.fileForm;
     F["uGlow"]!.value = 1.3;
   }
+  /**
+   * PERSPECTIVE BY BUTTON (owner eye-check 2026-11-23): step the
+   * camera to the stage's left or right, or back to the front.
+   * The view changes around the medallions — no medallion geometry
+   * is read or written here. The camera itself is placed by the
+   * one applyCamera() below (the world-view section), which
+   * composes this stage view with the world pan and the
+   * resize-owned home distance.
+   */
+  setStageView(view: StageView) {
+    if (view === this.stageView) return;
+    this.stageView = view;
+    this.applyCamera();
+  }
+
   updateSettings(s: Partial<RenderSettings>) {
     Object.assign(this.settings, s);
     if (s.bloom !== undefined) this.bloom.strength = s.bloom;
@@ -983,7 +1006,17 @@ export class AvatarRenderer {
 
   /** Stand the camera over a point of the built world. */
   private applyCamera() {
-    this.camera.position.set(this.worldPan.x, -0.75, this.cameraBaseZ + this.worldPan.z);
+    // THE CAMERA'S ONE DOOR (merged composition): the world pan
+    // travels the view across the built world; the stage view
+    // (perspective buttons, owner eye-check 2026-11-23) steps the
+    // camera sideways and angles it back at the heart it stands
+    // over — at home (pan 0, front) this is the stage's standing
+    // framing exactly. The distance is the resize-owned base.
+    this.camera.position.set(
+      this.worldPan.x + stageViewCameraX(this.stageView),
+      -0.75,
+      this.cameraBaseZ + this.worldPan.z,
+    );
     this.camera.lookAt(this.worldPan.x, -0.8, this.worldPan.z);
     // Optional-chained: applyCamera also runs in the constructor,
     // before the world scenes exist.
@@ -1038,9 +1071,12 @@ export class AvatarRenderer {
     if (this.lightStage) this.refreshClearColor();
   }
 
-  /** The Room's clear color: black while a backdrop picture is up. */
+  /** The Room's clear color: black while a backdrop picture is up —
+   *  and black by default too (the black-holder composition, owner
+   *  eye-check 2026-11-23); a backdrop color HE chose is the only
+   *  thing that ever replaces it. */
   private roomClearColor(): string | number {
-    return this.builderBackdropPicture ? 0x000000 : (this.builderBackdrop ?? 0xf6f2e9);
+    return this.builderBackdropPicture ? 0x000000 : (this.builderBackdrop ?? 0x000000);
   }
 
   /** The builder's selection ring follows the stage's pick. */

@@ -53,16 +53,36 @@ const BOX_ENLARGED_SIZE_KEY = "augi.avatar.command-box.enlarged-size.v1";
 
 /**
  * The chat window's HOME form (owner order 2026-11-22, the defect
- * fix): compact — 460×400 class — anchored at the stage's
- * bottom-left corner, so the center of the stage and the Captain's
- * medallion stay clear. The size came down a step from the earlier
- * 500×430 on his PC check the same day: at bottom-left on his PC
- * screen, a little smaller fits the screen perfectly. His own
- * stretches replace the size (saved under the v2 key — the v1
- * sizes belonged to the broken layout), and the rail's reset
- * button always brings the home form back in one click.
+ * fix): compact, anchored at the stage's bottom-left corner, so
+ * the center of the stage and the Captain's medallion stay clear.
+ * His own stretches replace the size (saved under the v2 key —
+ * the v1 sizes belonged to the broken layout), and the rail's
+ * reset button always brings the home form back in one click.
+ *
+ * SMALLER STILL (owner eye-check 2026-11-23 ~06:51 EST): "It's
+ * too big — make the box smaller for the PC." The home form comes
+ * down again, to 420×360. The rail stack was tightened in the
+ * same round (stage-fix-round.css, desktop widths) so everything
+ * still sits inside the border at the smaller size — grip, the
+ * 104px face, the title, and the four buttons keep ~10px of air.
+ * His saved size still outranks this default the moment he sets
+ * one himself.
  */
-export const COMMAND_BOX_DEFAULT_SIZE = { w: 460, h: 400 } as const;
+export const COMMAND_BOX_DEFAULT_SIZE = { w: 420, h: 360 } as const;
+
+/**
+ * THE SMALLEST THE BOX MAY BE (owner desk photos 2026-11-23
+ * ~07:11 EST): shrunk past the layout's floor, the box broke
+ * apart in his photos — the input row's buttons fell out of the
+ * bottom, the rail's foot poked below the border, log lines ran
+ * off the right edge. The minimum is set where the layout still
+ * holds: wide enough for the rail (120px) plus a thread that
+ * wraps and an input row whose buttons stay inside, tall enough
+ * for the rail's tightened stack (~342px) inside the border.
+ * Every size path — load, stretch, enlarge — clamps to it, so a
+ * size saved by an older, smaller box heals UP to the floor.
+ */
+export const COMMAND_BOX_MIN_SIZE = { w: 320, h: 348 } as const;
 
 /** The anchored home spot: the bottom-left corner, in px margins. */
 export const COMMAND_BOX_HOME_MARGIN = 16;
@@ -131,7 +151,14 @@ function loadBoxSizeFrom(
     // fall through to the fallback size
   }
   if (typeof window === "undefined") return parsed;
-  return clampWindowSize(parsed.w, parsed.h, window.innerWidth, window.innerHeight);
+  return clampWindowSize(
+    parsed.w,
+    parsed.h,
+    window.innerWidth,
+    window.innerHeight,
+    COMMAND_BOX_MIN_SIZE.w,
+    COMMAND_BOX_MIN_SIZE.h,
+  );
 }
 
 /**
@@ -263,6 +290,12 @@ function saveBoxPosition(position: { x: number; y: number }) {
  * the input floating mid-box — the "horrible" broken panel on his
  * screen. The box now ALWAYS reloads in its full home form;
  * minimizing lasts only until he expands it or reloads.
+ *
+ * THE PHONE EXCEPTION (owner eye-check + phone spec 2026-11-23):
+ * on a phone-width screen the chat is a bottom BAR (see PHONE BAR
+ * below), and a bar starts as a bar — minimized is the phone's
+ * opening form, so he gets his stage and taps the bar when he
+ * wants the conversation. Still session-only: nothing persists.
  */
 function clearPersistedBoxLayout() {
   try {
@@ -398,9 +431,16 @@ export function CommandBox({
   onOpenHistory?: () => void;
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
-  // Minimized starts EXPANDED on every load — session-only (the
-  // defect fix above); the enlarged state is his to leave set.
-  const [minimized, setMinimized] = useState(false);
+  // Minimized is session-only (the defect fix above). THE PHONE
+  // BAR starts minimized (owner phone spec 2026-11-23): on a
+  // phone-width screen the chat is a bottom bar, and the bar is
+  // the opening form — he taps it to open the conversation. On PC
+  // widths the box still opens in its full home form.
+  const [minimized, setMinimized] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.innerWidth <= COMMAND_BOX_PHONE_BREAKPOINT,
+  );
   const [enlarged, setEnlarged] = useState(loadBoxEnlarged);
   const [boxSize, setBoxSize] = useState(() =>
     loadBoxEnlarged() ? loadBoxEnlargedSize(loadBoxSize()) : loadBoxSize(),
@@ -411,6 +451,17 @@ export function CommandBox({
       ? { w: 0, h: 0 }
       : { w: window.innerWidth, h: window.innerHeight },
   );
+  /**
+   * THE PHONE BAR (owner phone spec 2026-11-23 ~06:00 CST): at
+   * phone widths the chat is NOT the floating left box — it docks
+   * to the bottom of the screen, full width: a slim bar when
+   * minimized, opening UPWARD when tapped, folding back on another
+   * tap. CSS owns the bar's geometry (stage-fix-round.css); the
+   * drag / stretch / anchor machinery stands down while docked.
+   * On PC widths the standard left box stands exactly as ordered —
+   * "on the website it's going to be to the left… standard."
+   */
+  const phoneBar = viewport.w > 0 && viewport.w <= COMMAND_BOX_PHONE_BREAKPOINT;
   const sizeRef = useRef(boxSize);
   sizeRef.current = boxSize;
   const enlargedRef = useRef(enlarged);
@@ -429,8 +480,18 @@ export function CommandBox({
    * view, dates and times and all, pull-up-able whenever he wants.
    * Screen state only — a reload brings the log back from the
    * record, like scrolling a terminal's buffer.
+   *
+   * THE THREAD OPENS CLEAN (owner eye-check 2026-11-23 ~06:51
+   * EST, the terminal law carried to its conclusion): his phone
+   * greeted him with the saved record sitting in the thread —
+   * an old offer TWICE, an old musing — before he had said a
+   * word. History lives behind the History button; the visible
+   * thread starts EMPTY and carries the live conversation only.
+   * So the Clear watermark starts at the record's full length on
+   * load: nothing is deleted, the record is intact behind
+   * History, and lines spoken from here on appear as they come.
    */
-  const [hiddenCount, setHiddenCount] = useState(0);
+  const [hiddenCount, setHiddenCount] = useState(() => history?.length ?? 0);
   const [liveHidden, setLiveHidden] = useState(false);
   /** The emoji picker's open state (owner order 2026-11-22). */
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -469,6 +530,12 @@ export function CommandBox({
 
   const startDrag = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
+      // THE PHONE BAR IS DOCKED (owner phone spec 2026-11-23): it
+      // never drags — a tap on the bar opens or folds it instead
+      // (the rail's onClick below). He tried to push the floating
+      // box out of the way on his phone and couldn't; the bar
+      // answers that by not being in the way to begin with.
+      if (phoneBar) return;
       if ("button" in event && event.button !== 0) return;
     // The grip's own minimize/expand button keeps its click: starting a
     // drag here captures the pointer to the grip, and a captured pointer
@@ -497,7 +564,7 @@ export function CommandBox({
     dragOffset.current = { x: event.clientX - rect.left, y: event.clientY - rect.top };
     event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [anchored],
+    [anchored, phoneBar],
   );
 
   const moveDrag = useCallback(
@@ -557,6 +624,9 @@ export function CommandBox({
   // windows (windowGeometry clamps it inside the viewport).
   const startResize =
     (mode: "corner" | "right" | "bottom") => (event: ReactPointerEvent<HTMLDivElement>) => {
+      // The docked phone bar does not stretch either — its open
+      // height is the bar's own (CSS), its closed form the bar.
+      if (phoneBar) return;
       if ("button" in event && event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
@@ -585,7 +655,16 @@ export function CommandBox({
     if (!active) return;
     const nextW = active.mode === "bottom" ? active.w : active.w + (event.clientX - active.startX);
     const nextH = active.mode === "right" ? active.h : active.h + (event.clientY - active.startY);
-    setBoxSize(clampWindowSize(nextW, nextH, window.innerWidth, window.innerHeight));
+    setBoxSize(
+      clampWindowSize(
+        nextW,
+        nextH,
+        window.innerWidth,
+        window.innerHeight,
+        COMMAND_BOX_MIN_SIZE.w,
+        COMMAND_BOX_MIN_SIZE.h,
+      ),
+    );
   }, []);
   const endResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (!resizing.current) return;
@@ -929,8 +1008,8 @@ export function CommandBox({
   return (
     <section
       ref={boxRef}
-      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}${enlarged ? " avatar-command-box--enlarged" : ""}`}
-      style={boxStyle}
+      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}${enlarged ? " avatar-command-box--enlarged" : ""}${phoneBar ? " avatar-command-box--phone-bar" : ""}`}
+      style={phoneBar ? undefined : boxStyle}
       data-anchored={anchored ? "true" : "false"}
       data-enlarged={enlarged ? "true" : "false"}
       aria-label={`Chat with ${speakerName}`}
@@ -941,9 +1020,18 @@ export function CommandBox({
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
+        onClick={(event) => {
+          // THE BAR TAP (owner phone spec 2026-11-23): tapping the
+          // phone bar opens it upward; tapping again folds it back
+          // to the bar. The rail's buttons keep their own jobs —
+          // only a tap on the bar itself toggles.
+          if (!phoneBar) return;
+          if ((event.target as HTMLElement).closest?.("button")) return;
+          toggleMinimized();
+        }}
         role="separator"
-        aria-label="Drag to move the chat window"
-        title="Drag to move the chat window"
+        aria-label={phoneBar ? "Chat bar — tap to open or close the chat" : "Drag to move the chat window"}
+        title={phoneBar ? "Tap to open or close the chat" : "Drag to move the chat window"}
       >
         <button
           type="button"
@@ -1244,7 +1332,7 @@ export function CommandBox({
         </button>
       </form>
       </div>
-      {!minimized && (
+      {!minimized && !phoneBar && (
         <>
           <div
             className="avatar-command-box__resize avatar-command-box__resize--right"

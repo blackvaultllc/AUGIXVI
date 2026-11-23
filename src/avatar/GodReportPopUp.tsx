@@ -104,7 +104,10 @@ export function GodReportPopUp({
   return (
     <div
       className="god-popup"
-      style={{ left: placement.x, top: placement.y }}
+      // The block renders at the placement's own width — the
+      // painted block is the placed block, never wider (the
+      // clipped-portrait defect, owner screenshot 2026-11-23).
+      style={{ left: placement.x, top: placement.y, width: placement.w }}
       role="status"
       aria-label={`${binding.name} reports`}
     >

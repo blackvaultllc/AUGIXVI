@@ -121,15 +121,28 @@ export function VoiceIndicator({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 4,
-        padding: "8px 10px",
-        borderRadius: 10,
-        background: "rgba(10, 12, 16, 0.82)",
-        border: "1px solid rgba(255, 255, 255, 0.14)",
+        gap: 3,
+        // ONE TIGHT PANEL (owner desk photos 2026-11-23 ~07:11
+        // EST): the indicator used to carry its OWN panel —
+        // background, border, padding — inside the cluster's
+        // panel, and the two boxes' spacing read as a tall panel
+        // with the hearing note floating low in dead space. The
+        // cluster's panel is the one panel now; the indicator is
+        // lines and the graph, packed directly under STATUS /
+        // INTENSITY. The graph keeps its working height — that
+        // is content, not gap.
+        padding: 0,
+        background: "transparent",
+        border: "none",
         color: "#eef2f6",
-        fontSize: 12,
-        lineHeight: 1.35,
-        maxWidth: 200,
+        // BIFOCAL TYPE (owner eye-check 2026-11-23): the reason
+        // line rides at 14px and the HEARING state line at 16px —
+        // nothing in the top clusters sits below the readable
+        // floor. The box widens a step to hold the bigger words;
+        // it still sizes to its content, never a reserved gap.
+        fontSize: 14,
+        lineHeight: 1.45,
+        maxWidth: 230,
       }}
     >
       <canvas
@@ -139,7 +152,7 @@ export function VoiceIndicator({
         aria-hidden="true"
         style={{ display: "block", width: WIDTH, height: HEIGHT }}
       />
-      <div style={{ fontWeight: 700, letterSpacing: 0.4 }}>
+      <div style={{ fontWeight: 700, letterSpacing: 0.4, fontSize: 16 }}>
         <span style={{ color: hearing ? "#7ee2a8" : "#f0a35e" }}>
           {hearing ? "HEARING YOU" : "NOT HEARING"}
         </span>{" "}

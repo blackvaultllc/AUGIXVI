@@ -36,16 +36,28 @@ import { backdropById } from "./backdrops";
  */
 export type FloorStyle = "color" | "picture";
 
+/** How a backdrop picture fits the back wall: Whole picture or Fill screen. */
+export type BackdropFit = "contain" | "cover";
+
 export type RoomSurfaces = {
   /** The room's backdrop color — the renderer's clear color in the Room. */
   backdrop: string;
   /**
    * A backdrop PICTURE from the Captain's theme sets (backdrops.ts),
    * by asset id — or null for the plain color backdrop. When set,
-   * the picture is cover-fit on the back wall and renders TRUE —
-   * full strength, no veil (his correction 2026-11-22).
+   * the picture renders TRUE on the back wall — full strength, no
+   * veil (his correction 2026-11-22) — fitted per backdropFit.
    */
   backdropImage: string | null;
+  /**
+   * HOW THE BACKDROP PICTURE FITS THE WALL (owner order
+   * 2026-11-23 ~07:22 EST): "Whole picture" (contain — the whole
+   * picture visible, the standing default) or "Fill screen"
+   * (cover — the picture cascades edge to edge, its edges
+   * trimmed). His choice, persisted with the room and synced
+   * with the picture across his devices (settings.ts).
+   */
+  backdropFit: BackdropFit;
   /** The floor tint — the solid floor's color. */
   floor: string;
   /** Which floor stands in the Room: the solid color, or a picture. */
@@ -70,16 +82,43 @@ export type RoomSurfaces = {
   skyImage: string | null;
 };
 
-/** The shipped Room: warm white, pale blue-gray solid floor, soft wall. */
+/**
+ * The shipped Room — THE BLACK-HOLDER COMPOSITION (owner eye-check
+ * 2026-11-23 ~06:51 EST, superseding the warm-white shipped room
+ * of 2026-11-22): "make the white background holder black so that
+ * way the picture sticks out better," and from his phone photo the
+ * same morning: the pale two-tone room is NOT the standing look on
+ * any device. The factory surfaces are black — backdrop, wall, and
+ * floor — so a fresh stage on any screen opens on the black
+ * composition, and his backdrop picture (when he picks one) stands
+ * on the black wall exactly as the picture rules already render
+ * it. Every color stays his to choose in the builder; a room he
+ * has colored himself keeps his colors — only the factory default
+ * changed.
+ */
 export const DEFAULT_SURFACES: RoomSurfaces = {
-  backdrop: "#f6f2e9",
+  backdrop: "#000000",
   backdropImage: null,
-  floor: "#93a9c9",
+  backdropFit: "contain",
+  floor: "#000000",
   floorStyle: "color",
   floorImage: null,
-  wall: "#aebfd8",
+  wall: "#000000",
   skyImage: null,
 };
+
+/** A surface color's rough luminance (0–1) — the stage-look
+ *  derivation reads it: a room HE colored light still gets the
+ *  light stage look; the black default does not. */
+export function surfaceIsLight(hex: string): boolean {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!match) return false;
+  const value = parseInt(match[1]!, 16);
+  const r = (value >> 16) & 0xff;
+  const g = (value >> 8) & 0xff;
+  const b = value & 0xff;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6;
+}
 
 /** The floor picture that actually stands, or null when none can. */
 export function standingFloorImage(surfaces: RoomSurfaces): string | null {
@@ -306,6 +345,9 @@ export function sanitizeSurfaces(raw: unknown): RoomSurfaces {
     // Only a picture from his own theme registry may ride a layout —
     // an unknown id reads as no picture, never as a broken image.
     backdropImage: backdropById(value.backdropImage)?.id ?? null,
+    // The fit choice rides the layout too: anything but the
+    // explicit Fill-screen reads as the Whole-picture default.
+    backdropFit: value.backdropFit === "cover" ? "cover" : "contain",
     floor: pick(value.floor, DEFAULT_SURFACES.floor),
     floorStyle,
     floorImage,

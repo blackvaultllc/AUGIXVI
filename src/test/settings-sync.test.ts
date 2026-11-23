@@ -18,6 +18,9 @@ const LOCAL_SETTINGS: AvatarSettings = {
   customColor: "#22c55e",
   sensitivity: 1.1,
   cooldownMs: 650,
+  backdropImage: null,
+  backdropFit: "contain" as const,
+  backdropSynced: false,
 };
 
 const ACCOUNT_SETTINGS: AvatarSettings = {
@@ -28,6 +31,9 @@ const ACCOUNT_SETTINGS: AvatarSettings = {
   customColor: "#22c55e",
   sensitivity: 0.9,
   cooldownMs: 700,
+  backdropImage: null,
+  backdropFit: "contain" as const,
+  backdropSynced: false,
 };
 
 const tick = (ms = 40) => new Promise((resolve) => setTimeout(resolve, ms));

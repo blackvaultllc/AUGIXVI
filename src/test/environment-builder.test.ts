@@ -149,6 +149,10 @@ describe("environment builder — room surfaces persist like items", () => {
     const surfaces = {
       backdrop: "#101018",
       backdropImage: "egypt-throne",
+      // The fit choice rides the layout since the Captain's
+      // Whole/Fill order (2026-11-23) — it persists like every
+      // other surface choice.
+      backdropFit: "contain" as const,
       floor: "#2a4a7a",
       floorStyle: "color" as const,
       floorImage: null,

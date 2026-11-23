@@ -30,6 +30,9 @@ const HIS_CONFIGURATION: AvatarSettings = {
   customColor: "#22c55e",
   sensitivity: 1.1,
   cooldownMs: 650,
+  backdropImage: null,
+  backdropFit: "contain" as const,
+  backdropSynced: false,
 };
 
 describe("settings persistence — close it, open it, it's still his", () => {

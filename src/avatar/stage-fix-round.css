@@ -35,7 +35,47 @@
    10) both top HUD clusters wear the indicator box's panel style
        and spread out across the top;
    11) the quiet activity line — idle musings as a status line,
-       never in the conversation thread. */
+       never in the conversation thread.
+
+   LOCK-DOWN ROUND (owner, 2026-11-23 ~06:51 EST) — this file
+   also carries:
+   12) the top clusters SIZE TO THEIR CONTENT (the No Empty Gaps
+       law): the 19rem minimum width from (10) is OUT — it was
+       reserved space with dead air around a few words, on the
+       phone as much as the PC;
+   13) the locked seat's menu: the lock state + emergency-edit
+       unlock, and the perspective buttons (MedallionMenu);
+   14) the emergency-edit ring on Anubis's face while unlocked;
+   15) BIFOCAL READABILITY (owner, 2026-11-23 ~06:58 EST): the
+       HUD type goes UP — primary lines at 1rem, nothing in the
+       clusters under 0.85rem, line spacing opened — the panels
+       grow to fit the bigger words, never the reverse;
+   16) the chat rail tightened to fit the smaller PC box (desktop
+       widths only — the phone keeps its big touch targets);
+   17) THE PHONE BAR (owner phone spec, 2026-11-23 ~06:00 CST):
+       at phone widths the chat docks to the bottom of the screen
+       full-width — bar minimized, tap opens upward, tap folds
+       back — and the activity line leaves the phone stage's face
+       (nothing parked on the right);
+   18) CONSOLIDATION + THE TIGHT TOP-RIGHT (owner desk photos,
+       2026-11-23 ~07:11 EST): the activity line moves INTO the
+       top-left box as one more readout line — no loose text on
+       the stage at any size — and the top-right cluster packs
+       into ONE tight panel (the hearing indicator's own nested
+       panel is gone; status lines and the hearing note sit
+       together, sized to content);
+   19) CHAT BOX INTEGRITY (same photos): nothing crosses the
+       chat box's edge at any size — the box clips at its border,
+       the flex children shrink so log text wraps inside, the
+       input row's buttons hold their places, and the box's
+       minimum size (CommandBox) is set where the layout holds;
+   20) THE NOTIFICATION LANE (owner, 2026-11-23 ~07:22 EST):
+       notifications leave the top-right cluster's ground for
+       their own bottom lane — never overlapping anything;
+   21) FULL COMIC STYLE on the conversation surfaces (the
+       Captain's tap, 2026-11-23 ~06:31 CST): bold ink frames,
+       stacked panels, speaker name tags — the stage and the
+       medallions keep their Egyptian gold. */
 
 /* ---- 4) THE MEDALLION'S BOX MENU -------------------------------- */
 .medallion-menu {
@@ -179,6 +219,153 @@
   text-align: center;
 }
 
+/* ---- 13) THE LOCKED SEAT'S MENU (lock-down round, owner
+   2026-11-23) -------------------------------------------------------
+   Anubis's menu carries no Move, no Center, no size steppers —
+   just the plain statement of his seat and the one deliberate
+   door: Emergency edit. While emergency edit is ON, the usual
+   controls return (MedallionControls, styled above) alongside
+   the "Done — lock centered" button that ends it. */
+.medallion-menu__lock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  pointer-events: auto;
+}
+.medallion-menu__lock-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 9999px;
+  background: rgb(8 12 22 / 62%);
+  border: 1px solid rgb(212 175 55 / 30%);
+  color: #cfd8e6;
+  font-size: 0.66rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.medallion-menu__lock-state svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+.medallion-menu__lock-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 65%);
+  background: rgb(8 12 22 / 85%);
+  color: #f3d27a;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.medallion-menu__lock-button:hover,
+.medallion-menu__lock-button:focus-visible {
+  background: rgb(24 32 52 / 92%);
+  border-color: rgb(212 175 55 / 95%);
+  outline: none;
+}
+.medallion-menu__lock-button svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+/* ---- 13) PERSPECTIVE BY BUTTON (lock-down round, owner
+   2026-11-23: "have a button I can do left perspective, right
+   perspective") -----------------------------------------------------
+   The perspective row rides in Anubis's menu — the stage's one
+   obvious spot for stage-view control. Pressing a button turns
+   the CAMERA (stageView.ts / AvatarRenderer.setStageView);
+   Anubis's geometry is never touched. */
+.medallion-menu__perspective {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: auto;
+}
+.medallion-menu__perspective-label {
+  color: #9fb2c8;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.medallion-menu__perspective-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.medallion-menu__perspective-button {
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 65%);
+  background: rgb(8 12 22 / 85%);
+  color: #f3d27a;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.medallion-menu__perspective-button:hover,
+.medallion-menu__perspective-button:focus-visible {
+  background: rgb(24 32 52 / 92%);
+  border-color: rgb(212 175 55 / 95%);
+  outline: none;
+}
+.medallion-menu__perspective-button[aria-pressed="true"] {
+  background: rgb(212 175 55 / 92%);
+  color: #101623;
+  border-color: rgb(212 175 55 / 95%);
+}
+
+/* ---- 14) THE EMERGENCY-EDIT RING (lock-down round) ----------------
+   While Anubis's placement is unlocked, his face wears a dashed
+   gold ring — the unlock is visible at a glance, and locking him
+   again (which re-seats him centered) takes it off. */
+.avatar-stage .anubis-presence.medallion-anchor--emergency-edit .anubis-presence__face {
+  outline: 2px dashed rgb(212 175 55 / 80%);
+  outline-offset: 4px;
+}
+
+/* ---- 16) THE CHAT RAIL, TIGHTENED FOR THE SMALLER PC BOX
+   (lock-down round; desktop widths only) -----------------------------
+   The home form came down to 420×360 (CommandBox). The rail's
+   stack — grip, the 104px face, the title, the four buttons —
+   tightens to fit inside the smaller border with air to spare;
+   the shared stylesheet's phone block keeps the phone's 2.6rem
+   touch targets, so this tightening is fenced to desktop widths. */
+@media (min-width: 701px) {
+  .avatar-stage .avatar-command-box__rail {
+    gap: 0.18rem;
+    touch-action: none;
+  }
+  .avatar-stage .avatar-command-box__window-button,
+  .avatar-stage .avatar-command-box__menu-button {
+    width: 2rem;
+    min-width: 2rem;
+    height: 2rem;
+    min-height: 2rem;
+  }
+  .avatar-stage .avatar-command-box__title {
+    letter-spacing: 0.08em;
+  }
+  .avatar-stage .avatar-command-box__grip-toggle svg {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+  .avatar-stage .osiris-presence {
+    gap: 0.1rem;
+  }
+}
+
 /* ---- 3+5) THE BLINK, ISOLATED — AND THE FACE'S IDLE LIFE --------- */
 /* The close sweep is 150ms (owner order 2026-11-22) — the shared
    stylesheet's 80ms snap is part of what made the blink read wrong.
@@ -220,19 +407,39 @@
    so the words read over ANY picture, and a step up in size. The
    room, the black floor, and the screen background are untouched.
 
-   ---- TOP BOXES, ONE STYLE, SPREAD OUT (owner eye-check
-   2026-11-23) -----------------------------------------------------
+   ---- TOP BOXES, ONE STYLE (owner eye-check 2026-11-23) ---------
    The top-right indicator box is his reference: "looks good, I can
    read it" — a near-solid dark panel, a soft light border, bright
-   text. Both top clusters now wear THAT panel language exactly,
-   and they spread out: each cluster carries a real width and
-   roomier padding, so the readouts lay out across the top instead
-   of cramming into the corners. With the backdrop holder black
-   (item 3), every line reads bright-on-black; nothing readable
-   depends on the picture behind it. */
+   text. Both top clusters now wear THAT panel language exactly.
+   With the backdrop holder black (item 3), every line reads
+   bright-on-black; nothing readable depends on the picture behind
+   it.
+
+   ---- SIZED TO CONTENT (owner eye-check 2026-11-23 ~06:51 EST) --
+   The morning round spread the clusters with a 19rem minimum
+   width; his verdict on the result: "if that's all the words why
+   do we have those other gaps in the container box." The minimum
+   is OUT — the No Empty Gaps law governs: each panel is exactly
+   as wide and tall as its words, on the PC and on the phone (the
+   phone's 25vw squeeze in the shared stylesheet is widened in
+   the phone block below so the fit is the content's, not the
+   column's).
+
+   ---- BIFOCAL READABILITY (owner, 2026-11-23 ~06:58 EST) --------
+   "I wear bifocals — there's no way I can read… I need to SEE
+   those words, not stress my eyes." The clusters' primary lines
+   stand at 1rem with the line spacing opened to 1.9; nothing in
+   either cluster renders under 0.85rem (the phone floor, in the
+   phone block below — the phone's own 0.58rem rule in the shared
+   stylesheet is superseded by this file's panel rule). The
+   panels grow to fit the bigger words — fit-to-content still
+   governs — and at his 1920×1080 the grown clusters still clear
+   the medallion, the chat box, and the activity line with room
+   (the sweep is pinned in stage-lockdown-round.test.ts). */
 .avatar-stage div.avatar-hud {
   color: #eef2f6;
-  font-size: 12.5px;
+  font-size: 1rem;
+  line-height: 1.9;
   background: rgb(10 12 16 / 88%);
   border: 1px solid rgb(255 255 255 / 14%);
   border-radius: 10px;
@@ -241,10 +448,6 @@
 }
 .avatar-stage .avatar-hud--tl {
   opacity: 1;
-  min-width: 19rem;
-}
-.avatar-stage .avatar-hud--tr {
-  min-width: 19rem;
 }
 .avatar-stage .avatar-hud__value {
   color: #8fd0ff;
@@ -252,33 +455,58 @@
 .avatar-stage .avatar-hud__db-status {
   color: #eef2f6;
 }
-
-/* ---- THE QUIET ACTIVITY LINE (owner eye-check 2026-11-23) --------
-   Idle life's latest musing, as a status line in the stage's
-   bottom-right — outside the conversation thread, unspoken, and
-   never dressed as a reply. Muted on purpose: it is background
-   life, not a message. */
-.avatar-stage .avatar-activity-line {
-  position: absolute;
-  right: 1.5rem;
-  bottom: 1.25rem;
-  z-index: 6;
-  max-width: 26rem;
-  padding: 0.45rem 0.7rem;
-  border-radius: 8px;
-  background: rgb(10 12 16 / 72%);
-  border: 1px solid rgb(255 255 255 / 10%);
-  color: #b9c6d4;
-  font-size: 11.5px;
-  line-height: 1.45;
-  text-align: right;
-  pointer-events: none;
+@media (max-width: 700px) {
+  /* PHONE FIT (the lock-down): the same content-sized panels, the
+     type at the 0.85rem floor, and room to hold the words — the
+     shared stylesheet's 25vw columns would wrap every line into
+     a tower at this size. */
+  .avatar-stage div.avatar-hud {
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  .avatar-stage .avatar-hud--tl,
+  .avatar-stage .avatar-hud--tr {
+    max-width: 62vw;
+  }
 }
-.avatar-stage .avatar-activity-line__label {
+
+/* ---- THE ACTIVITY LINE, IN THE BOX (owner desk photos
+   2026-11-23 ~07:11 EST) --------------------------------------------
+   The free-floating activity line that stood at the stage's
+   bottom-right is GONE from the stage face: "the activity on the
+   side could be put up in one of the boxes, like where you have
+   the core not configured — put it in that box; stop putting
+   extra stuff on the screen; conserve space." The musing now
+   renders as one more readout line inside the top-left cluster
+   (AvatarStage, .avatar-hud__activity) — same quiet status, same
+   rules (outside the thread, unspoken, never a reply), no loose
+   box parked on an edge. It wraps inside the cluster like every
+   other line there. */
+.avatar-stage .avatar-hud__activity {
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+.avatar-stage .avatar-hud__activity-label {
   color: #7f8fa3;
-  font-size: 9.5px;
+  font-size: 0.62rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
+}
+
+/* ---- 18) THE TOP-RIGHT, ONE TIGHT PANEL (owner desk photos
+   2026-11-23 ~07:11 EST) --------------------------------------------
+   His photo: STATUS/INTENSITY small at the top of a tall panel,
+   the NOT HEARING note floating low, a big empty gap between.
+   The cluster is a tight column now — the rows pack from the top
+   with no distributed space — and the hearing indicator inside
+   it carries no panel of its own anymore (VoiceIndicator): one
+   panel, status lines and hearing note together, sized to the
+   content and nothing else. */
+.avatar-stage div.avatar-hud--tr {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
 }
 
 /* ---- 10) ANUBIS STAYS FIXED IN HIS PLACE (owner order
@@ -465,4 +693,219 @@
     animation: none;
     transition: none;
   }
+}
+
+/* ---- 17) THE PHONE BAR + THE PHONE STAGE'S FACE (lock-down
+   round; owner phone spec 2026-11-23 ~06:00 CST) -------------------
+   At phone widths the chat docks to the BOTTOM of the screen,
+   full width — a slim bar minimized; tapped, it opens upward to
+   its working height; tapped again, it folds back to the bar.
+   Not the floating left box: he tried to push that box out of the
+   way on his phone and couldn't. The PC box is untouched — the
+   bar is phone-only, fenced by the same 700px line the box's own
+   phone rules use. The docked bar ignores the floating geometry
+   entirely (CommandBox renders no inline style in bar mode), and
+   the anchor / reset / enlarge rail buttons stand down — a docked
+   bar has no corner to anchor to and no scale to enlarge.
+   The stage's face on the phone carries Anubis and the picture —
+   nothing parked on the right. (The standing right-side box he
+   meant — the activity line — has since left the stage entirely,
+   into the top-left box: section 18 above.) */
+@media (max-width: 700px) {
+  .avatar-stage .avatar-command-box--phone-bar {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: auto;
+    max-width: none;
+    transform: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-radius: 0.55rem 0.55rem 0 0;
+  }
+  .avatar-stage .avatar-command-box--phone-bar:not(.avatar-command-box--minimized) {
+    height: min(62dvh, 36rem);
+  }
+  .avatar-stage .avatar-command-box--phone-bar .avatar-command-box__anchor-button,
+  .avatar-stage .avatar-command-box--phone-bar .avatar-command-box__reset-button,
+  .avatar-stage .avatar-command-box--phone-bar .avatar-command-box__grip-toggle {
+    display: none;
+  }
+}
+
+/* ---- 19) CHAT BOX INTEGRITY AT EVERY SIZE (owner desk photos
+   2026-11-23 ~07:11 EST) --------------------------------------------
+   Shrunk small, the box broke apart in his photos: the input
+   row's buttons fell out of the bottom, the rail's foot poked
+   below the border, log lines ran off the right edge. The whole
+   class is closed here: the box clips at its own border (nothing
+   crosses the edge, at the minimum or any other size), the flex
+   children may shrink so the log's wrap actually engages instead
+   of pushing the column wide, the input row compresses around a
+   shrinking field with its buttons holding their places, and
+   the rail clips its own stack. Together with the box's minimum
+   size (COMMAND_BOX_MIN_SIZE — set where this layout holds),
+   the box is whole at every size it can be given. */
+.avatar-stage .avatar-command-box {
+  overflow: hidden;
+}
+.avatar-stage .avatar-command-box__main {
+  min-width: 0;
+  min-height: 0;
+}
+.avatar-stage .avatar-command-box__conversation,
+.avatar-stage .avatar-command-box__thread,
+.avatar-stage .avatar-command-box__thread-flow {
+  min-width: 0;
+}
+.avatar-stage .avatar-command-box__rail {
+  min-height: 0;
+  overflow: hidden;
+}
+.avatar-stage .avatar-command-box__form {
+  min-width: 0;
+}
+.avatar-stage .avatar-command-box__form .avatar-command-box__icon-button,
+.avatar-stage .avatar-command-box__form .avatar-command-box__send {
+  flex: none;
+}
+
+/* 20. THE NOTIFICATION LANE (owner order 2026-11-23 ~07:22 EST —
+   "that overlapage notification"): his screenshot showed a
+   BUSINESS card rendered ON TOP of the top-right STATUS/hearing
+   panel, text bleeding through. Notifications keep their cards,
+   their auto-dismiss and their X — but they live in their own
+   lane now, ground no HUD cluster, medallion, or chat box ever
+   uses: the bottom-right on desktop (the stack grows upward from
+   the corner, capped and scrollable past four cards), and on the
+   phone a band just above the chat bar. The god pop-up treats
+   the lane as occupied ground while cards are up
+   (notificationLaneRect in AvatarStage). */
+.avatar-stage .stage-notifications {
+  top: auto;
+  bottom: 1rem;
+  right: 1.5rem;
+  width: min(21rem, calc(100vw - 2rem));
+  max-height: min(24rem, calc(100vh - 2rem));
+  overflow-y: auto;
+}
+@media (max-width: 700px) {
+  .avatar-stage .stage-notifications {
+    bottom: 5rem;
+    left: 0.6rem;
+    right: 0.6rem;
+    width: auto;
+    max-height: 9.5rem;
+  }
+}
+@media (max-width: 700px) and (max-height: 500px) {
+  .avatar-stage .stage-notifications {
+    left: auto;
+    width: 12.5rem;
+    max-height: 8rem;
+  }
+}
+/* Short screens at desktop widths — a landscape phone above the
+   700px breakpoint, or a short window: the lane narrows to the
+   same right-hand column instead of sitting on the big face. */
+@media (min-width: 701px) and (max-height: 500px) {
+  .avatar-stage .stage-notifications {
+    width: 12.5rem;
+    max-height: 8rem;
+  }
+}
+
+/* 21. FULL COMIC STYLE — THE CONVERSATION SURFACES (the Captain's
+   tap, 2026-11-23 ~06:31 CST): "Go full comic style on the chat
+   box" — his Etsy comic/anime references: bold framed boxes,
+   stacked message rows with speaker name tags, comic speech
+   bubbles, strong color. This supersedes the Egyptian-gold chat
+   idea from earlier today: the STAGE and the MEDALLIONS keep
+   their Egyptian gold; comic lives in the conversation surfaces
+   — the chat box (PC left box and phone bottom bar alike, same
+   classes) and the god pop-up bubble. HARD CONSTRAINTS that
+   outrank style, kept: bifocal type is untouched (no font size
+   in this section), item D's integrity rules stand (frames are
+   borders and shadows — nothing moves, nothing overflows), and
+   every panel keeps strong contrast — ink text on cream, pale
+   text on deep indigo. Bold and clean, never messy: this is his
+   comic universe's brand. */
+.avatar-stage .avatar-command-box {
+  border: 3px solid #0b0e14;
+  box-shadow: 7px 7px 0 rgb(0 0 0 / 55%);
+}
+.avatar-stage .avatar-command-box__rail {
+  background: #1d2a52;
+  border-right: 3px solid #0b0e14;
+}
+.avatar-stage .avatar-command-box__title {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffd94d;
+}
+.avatar-stage .avatar-command-box__thread-entry {
+  margin-bottom: 0.55rem;
+}
+.avatar-stage .avatar-command-box__thread-q,
+.avatar-stage .avatar-command-box__thread-a {
+  border: 2px solid #0b0e14;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  margin: 0.3rem 0;
+}
+.avatar-stage .avatar-command-box__thread-q {
+  background: #1d2a52;
+  color: #eef2ff;
+}
+.avatar-stage .avatar-command-box__thread-a {
+  background: #fff6da;
+  color: #171208;
+}
+.avatar-stage .avatar-command-box__thread-system {
+  border: 2px dashed #0b0e14;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  margin: 0.3rem 0;
+  background: #2a2f3a;
+  color: #eef2ff;
+}
+.avatar-stage .avatar-command-box__thread-who {
+  display: inline-block;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 2px solid #0b0e14;
+  border-radius: 6px;
+  padding: 0 0.35rem;
+  margin-right: 0.3rem;
+  background: #ffd94d;
+  color: #171208;
+}
+.avatar-stage .avatar-command-box__thread-a .avatar-command-box__thread-who {
+  background: #14100a;
+  color: #ffd94d;
+}
+.avatar-stage .avatar-command-box__form input,
+.avatar-stage .avatar-command-box__form textarea {
+  border: 2px solid #0b0e14;
+  border-radius: 8px;
+}
+.avatar-stage .avatar-command-box__send {
+  border: 2px solid #0b0e14;
+  box-shadow: 3px 3px 0 rgb(0 0 0 / 55%);
+  font-weight: 800;
+}
+/* The god pop-up in full comic dress: the cream Bellwood bubble
+   with an ink frame, a hard offset shadow, and a bold name tag. */
+.avatar-stage .god-popup__bubble {
+  border: 3px solid #14100a;
+  box-shadow: 5px 5px 0 rgb(0 0 0 / 50%);
+}
+.avatar-stage .god-popup__name {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
