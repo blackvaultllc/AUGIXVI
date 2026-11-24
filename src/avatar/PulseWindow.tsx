@@ -536,28 +536,85 @@ function CameraPulsePanel() {
 
   return (
     <div className="window-pulse">
-      <div
-        className="window-pulse__stage"
-        style={frameAspect ? { aspectRatio: frameAspect } : undefined}
-      >
-        <video ref={videoRef} className="window-pulse__video" playsInline muted autoPlay />
-        <canvas ref={overlayRef} className="window-pulse__overlay" aria-hidden="true" />
-        {!running && (
-          <div className="window-pulse__idle">
-            <p>
-              Presence, motion, a heart-rate estimate from the camera, and the room's sound
-              frequencies — all read live on this machine.
+      {/* CONSOLIDATED LAYOUT (Captain, 2026-11-24, from his PC
+          screenshot): the picture stands BIG in its own box in the
+          middle; the heart-rate panel fills the space on its left
+          and the frequencies panel the space on its right — one row,
+          no black gaps, nothing stacked in a long column. On a
+          narrow panel the two panels stack under the picture. The
+          live summary and the cues ride INSIDE the picture as dark
+          overlay boxes at its corners (below) — fixed sizes, so a
+          changing number never moves anything on the page. */}
+      <div className="window-pulse__main">
+        <div
+          className="window-pulse__stage"
+          style={frameAspect ? { aspectRatio: frameAspect } : undefined}
+        >
+          <video ref={videoRef} className="window-pulse__video" playsInline muted autoPlay />
+          <canvas ref={overlayRef} className="window-pulse__overlay" aria-hidden="true" />
+          {/* STATS INSIDE THE PICTURE (Captain, 2026-11-24): the
+              Presence / Motion / Pulse line and the cues live in
+              fixed dark boxes at the frame's edges — bottom-left and
+              top-left (bottom-right when the frame is wide) — never
+              over the face at the center the pulse is read from.
+              Their sizes are fixed in CSS: the words change, the
+              boxes never do, so the page cannot jump. */}
+          <p className="window-pulse__summary window-pulse__hud-box" role="status">
+            {summary}
+          </p>
+          {perception && (
+            <p className="window-pulse__perception window-pulse__hud-box" role="status">
+              {perception}
+              <span className="window-pulse__privacy">
+                {" "}
+                — cues only, read live; expression is not identity, and nothing here is stored.
+              </span>
             </p>
-            <button
-              type="button"
-              className="window-btn"
-              onClick={() => void start()}
-              disabled={starting}
-            >
-              {starting ? "Starting…" : "Start sensing"}
-            </button>
-          </div>
-        )}
+          )}
+          {!running && (
+            <div className="window-pulse__idle">
+              <p>
+                Presence, motion, a heart-rate estimate from the camera, and the room's sound
+                frequencies — all read live on this machine.
+              </p>
+              <button
+                type="button"
+                className="window-btn"
+                onClick={() => void start()}
+                disabled={starting}
+              >
+                {starting ? "Starting…" : "Start sensing"}
+              </button>
+            </div>
+          )}
+        </div>
+        <section
+          className="window-pulse__pane window-pulse__pane--heart"
+          aria-label="Heart rate estimate"
+        >
+          <h3>Heart rate · camera estimate</h3>
+          <div className="window-pulse__reading">{pulseBig}</div>
+          <canvas ref={sparkRef} className="window-pulse__spark" width={260} height={44} />
+          <p className="window-pulse__presence">
+            Presence:{" "}
+            {presence === null ? "—" : presence ? "person in view" : "no face in view"} · Motion:{" "}
+            {motion ?? "—"}
+          </p>
+        </section>
+        <section
+          className="window-pulse__pane window-pulse__pane--freq"
+          aria-label="Room sound frequencies"
+        >
+          <h3>Frequencies · room sound</h3>
+          <canvas ref={specRef} className="window-pulse__spec" width={260} height={64} />
+          <p className="window-pulse__freq">
+            {freqState === "off" && "Microphone off."}
+            {freqState === "quiet" && "Listening — no dominant frequency right now."}
+            {freqState === "live" &&
+              domFreq &&
+              `Dominant frequency: ~${domFreq.hz} Hz (the loudest sound in the room)`}
+          </p>
+        </section>
       </div>
       {cameraError && (
         <p role="alert" className="window-pulse__error">
@@ -572,41 +629,6 @@ function CameraPulsePanel() {
       {detectorError && (
         <p role="alert" className="window-pulse__error">
           {detectorError}
-        </p>
-      )}
-      <div className="window-pulse__panes">
-        <section className="window-pulse__pane" aria-label="Heart rate estimate">
-          <h3>Heart rate · camera estimate</h3>
-          <div className="window-pulse__reading">{pulseBig}</div>
-          <canvas ref={sparkRef} className="window-pulse__spark" width={260} height={44} />
-          <p className="window-pulse__presence">
-            Presence:{" "}
-            {presence === null ? "—" : presence ? "person in view" : "no face in view"} · Motion:{" "}
-            {motion ?? "—"}
-          </p>
-        </section>
-        <section className="window-pulse__pane" aria-label="Room sound frequencies">
-          <h3>Frequencies · room sound</h3>
-          <canvas ref={specRef} className="window-pulse__spec" width={260} height={64} />
-          <p className="window-pulse__freq">
-            {freqState === "off" && "Microphone off."}
-            {freqState === "quiet" && "Listening — no dominant frequency right now."}
-            {freqState === "live" &&
-              domFreq &&
-              `Dominant frequency: ~${domFreq.hz} Hz (the loudest sound in the room)`}
-          </p>
-        </section>
-      </div>
-      <p className="window-pulse__summary" role="status">
-        {summary}
-      </p>
-      {perception && (
-        <p className="window-pulse__perception" role="status">
-          {perception}
-          <span className="window-pulse__privacy">
-            {" "}
-            — cues only, read live; expression is not identity, and nothing here is stored.
-          </span>
         </p>
       )}
       {running && (

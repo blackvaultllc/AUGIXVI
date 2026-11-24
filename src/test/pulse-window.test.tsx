@@ -68,16 +68,32 @@ describe("Pulse window", () => {
     expect(screen.getByRole("button", { name: "Start sensing" })).toBeTruthy();
   });
 
-  it("layout (2026-11-23): the camera stage is the dominant region — it flexes into the frame, uncapped", () => {
+  it("layout (2026-11-24): one consolidated row — readouts flank the picture, stats inside the frame, fixed sizes", () => {
+    // The Captain's screenshot showed the old waste: picture in the
+    // middle with black gaps beside it, every readout stacked below.
+    // Now the main grid stacks picture-then-readouts when the panel
+    // is narrow, and a container query on the PANEL's own width
+    // opens the wide row: heart rate left, picture center,
+    // frequencies right.
+    const main = cssRule(".window-pulse__main");
+    expect(main).toContain("display: grid");
+    expect(main).toContain('"stage"');
+    expect(baseCss).toContain("@container pulse (min-width: 60rem)");
+    expect(baseCss).toContain('grid-template-areas: "heart stage freq"');
+    // The stage is the center column — no height cap holds it small.
     const stage = cssRule(".window-pulse__stage");
-    // The stage grows to fill the panel (the wasted black opening IS
-    // the camera now) — no height cap holds it small.
-    expect(stage).toContain("flex: 1 1 auto");
+    expect(stage).toContain("grid-area: stage");
     expect(stage).not.toContain("max-height");
     const video = cssRule(".window-pulse__video");
     expect(video).not.toContain("max-height");
-    // The panes no longer stretch into a void of their own.
-    expect(cssRule(".window-pulse__panes")).toContain("flex: 0 0 auto");
+    // The live summary rides INSIDE the picture as a dark overlay
+    // box at its corner — never over the face at the center.
+    expect(cssRule(".window-pulse__hud-box")).toContain("position: absolute");
+    // FIXED DIMENSIONS (his anti-jump order): the live regions hold
+    // their size, so a changing value never reflows the page.
+    expect(cssRule(".window-pulse__summary")).toContain("height: 5.4rem");
+    expect(cssRule(".window-pulse__reading")).toContain("height: 4.4rem");
+    expect(cssRule(".window-pulse__perception")).toContain("height:");
   });
 
   it("layout (2026-11-23): the analytics type is bold — bifocal-readable sizes", () => {
