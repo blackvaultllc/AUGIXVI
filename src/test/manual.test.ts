@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { MANUAL_CATEGORIES, MANUAL_FRONT } from "@/avatar/manualContent";
 
 const REQUIRED_CATEGORIES = [
+  "What you can do",
   "Getting around the stage",
   "Talking to the gods",
   "The chat box",
