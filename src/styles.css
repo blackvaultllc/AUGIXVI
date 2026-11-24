@@ -4571,6 +4571,160 @@
   text-overflow: ellipsis;
 }
 
+/* Remote Codes window (2026-11-24) — the RF/IR knowledge load:
+   code lookup + remote surface + setup numbers. Bifocal standard:
+   body text at 1rem, big tap targets, nothing crowded. */
+.window-remote-codes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.window-remote-codes__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.window-remote-codes__tabs .window-btn[aria-selected="true"] {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+.window-remote-codes__note {
+  font-size: 1rem;
+  opacity: 0.85;
+  margin: 0;
+}
+.window-remote-codes__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 1rem;
+}
+.window-remote-codes__input {
+  font-size: 1.1rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+  color-scheme: dark;
+}
+.window-remote-codes__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+.window-remote-codes__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  font-size: 1.05rem;
+  padding: 0.6rem 0.7rem;
+  text-align: left;
+}
+.window-remote-codes__count {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+.window-remote-codes__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.window-remote-codes__device {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 1.05rem;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+}
+.window-remote-codes__crumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  margin: 0;
+  flex-wrap: wrap;
+}
+.window-remote-codes__pad {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+}
+.window-remote-codes__key {
+  font-size: 1rem;
+  padding: 0.6rem 0.4rem;
+  min-height: 3rem;
+}
+.window-remote-codes__key[aria-pressed="true"] {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+.window-remote-codes__detail {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.window-remote-codes__detail-title {
+  font-size: 1.15rem;
+  margin: 0.4rem 0 0;
+}
+.window-remote-codes__code {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: flex-start;
+}
+.window-remote-codes__codeline {
+  font-size: 1.05rem;
+  margin: 0;
+}
+.window-remote-codes__pronto {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 7rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+.window-remote-codes__steps {
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0;
+  padding-left: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.window-remote-codes__numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-size: 1.25rem;
+  margin-top: 0.5rem;
+}
+.window-remote-codes__sources {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
 /* Devices window (2026-11-21) — the device-understanding sector:
    registry list + capability report cards.
    Type scale (operator order 2026-11-21 — one deliberate hierarchy,

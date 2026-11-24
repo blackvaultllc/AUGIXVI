@@ -170,6 +170,22 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "Devices window, in the Parrot (local) copy of Augie.",
       },
       {
+        id: "yc-remote-codes",
+        title: "Remote Codes — every TV and remote code Augie knows",
+        state: "live",
+        what: "THE KNOWLEDGE LOAD (your order 2026-11-24). Augie now holds the big public remote-code lists, loaded onto this machine: 13,302 devices, 483,640 codes, 1,752 brands — from the Flipper IRDB, the irdb database, the LIRC remote library, and two printed universal-remote code lists (SMPL 2019-1 and the DISH 6.3/6.4 guide). Every code keeps the name of the list it came from. If a brand is not in those lists, it is not here — Augie will not make up a code. THE HONEST LIMIT: today the window shows codes and copies them. It does not send them. Sending starts when your RF/IR blaster is hooked up and registered — then this same screen sends.",
+        steps: [
+          "Open Augie → Tools → Senses & analysis → Remote Codes.",
+          "Find a code: type the brand written on your device (Samsung, Sony, LG…).",
+          "Pick the kind of device, then your model. No model match? Pick any set with the same brand — most brands use the same codes for many models.",
+          "Tap a button on the remote — Power, Volume, any of them. Augie shows that button's code. Tap Copy to copy it. Raw codes also show as Pronto hex, converted from the source timings on the spot.",
+          "Setup numbers: open the Setup numbers shelf, pick the list that matches your universal remote (SMPL or DISH), pick the kind of device, then the brand.",
+          "Hold the remote's setup button the way its little book says, type the first number, point the remote at the TV, press Power. Nothing? Type the next number and try again, down the list, until one works.",
+        ],
+        where: "The Remote Codes window. The library itself: public/rf-library/ in the app (built by tools/rf-library/ingest.mjs from the public lists), with a standing copy in the offline vault — it works with the internet unplugged.",
+        note: "Counts are from the load of 2026-11-24. Re-running the ingest tool against fresh copies of the public lists rebuilds the library; nothing in it is hand-typed.",
+      },
+      {
         id: "yc-ghost",
         title: "The Destiny Ghost — a speaker that runs by its own book",
         state: "gap",

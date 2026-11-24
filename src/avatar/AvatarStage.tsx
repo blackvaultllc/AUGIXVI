@@ -45,6 +45,7 @@ import {
   MoveRight,
   Plane,
   Presentation,
+  Radio,
   Save,
   Scale,
   ScanSearch,
@@ -229,6 +230,7 @@ import { CaptainsLogWindow } from "./CaptainsLogWindow";
 import { SandboxWindow } from "./SandboxWindow";
 import { LibraryWindow } from "./LibraryWindow";
 import { DevicesWindow } from "./DevicesWindow";
+import { RemoteCodesWindow } from "./RemoteCodesWindow";
 import { CamerasWindow } from "./CamerasWindow";
 import {
   WAND_GREETING,
@@ -826,6 +828,11 @@ export function AvatarStage({
   // (operator order 2026-11-21). Opens from Tools → Rooms and from
   // "open devices".
   const [devicesOpen, setDevicesOpen] = useState(false);
+  // REMOTE CODES WINDOW (operator order 2026-11-24): the RF/IR
+  // knowledge load — every public TV/remote code Augie holds, in a
+  // lookup with a remote surface. Lookup + display + copy only;
+  // sending waits for the blaster hardware.
+  const [remoteCodesOpen, setRemoteCodesOpen] = useState(false);
   // CAMERAS WINDOW (operator order 2026-11-23): his own cameras on
   // his own network — both lenses live, PTZ under his grant. Opens
   // from Tools → Senses & analysis.
@@ -3861,6 +3868,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setDevicesOpen(true)}
                   />
                   <CommandAction
+                    icon={Radio}
+                    label="Remote Codes"
+                    onClick={() => setRemoteCodesOpen(true)}
+                  />
+                  <CommandAction
                     icon={Camera}
                     label="Cameras"
                     onClick={() => setCamerasOpen(true)}
@@ -4203,6 +4215,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         />
       )}
       {camerasOpen && <CamerasWindow onClose={() => setCamerasOpen(false)} />}
+      {remoteCodesOpen && <RemoteCodesWindow onClose={() => setRemoteCodesOpen(false)} />}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />
