@@ -19,7 +19,7 @@
  * the same as sendable, and the panel never blurs the two.
  */
 import { useMemo, useRef, useState } from "react";
-import { Cable, Plus, Send, Settings2, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Cable, Pause, Plus, Send, Settings2, Trash2, X } from "lucide-react";
 import { canControl, type DeviceProfile } from "./deviceRegistry";
 import {
   COMMAND_TRANSPORT_LABELS,
@@ -29,6 +29,11 @@ import {
   type DeviceCommand,
   type DeviceCommandProfile,
 } from "./commandProfiles";
+import {
+  WEPWAWET_REMOTE_ACTIONS,
+  WEPWAWET_REMOTE_FEED,
+  WEPWAWET_REMOTE_PAD,
+} from "./wepwawetRemote";
 import {
   BATTERY_MODES,
   addBatteryEntry,
@@ -107,6 +112,9 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
   // switch is the Captain's own hand on the card, per session.
   const [dogLive, setDogLive] = useState(false);
   const [bridgeReceipts, setBridgeReceipts] = useState<string[]>([]);
+  // The remote control's last click, so its outcome stands under
+  // the remote itself and not only down in the command list.
+  const [lastRemoteId, setLastRemoteId] = useState<string | null>(null);
   // The Captain's sound picks (Use / Never use per sound trigger)
   // and his battery-test log — his records, kept on this machine.
   const [soundOff, setSoundOff] = useState(loadSoundOff);
@@ -435,6 +443,111 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
     );
   };
 
+  /**
+   * THE REMOTE CONTROL (Captain's order 2026-11-24 ~11:21 EST) —
+   * a clickable remote on the dog's card, modeled on the vendor
+   * app's Control screen: direction pad with Stop in the middle,
+   * trick/action buttons around it, the eight Feed buttons in a
+   * row. No talking to anybody: click, and the dog moves. Every
+   * click calls runSend — the SAME road as the card's Send
+   * buttons (Permission Law, then the Parrot bridge), and the
+   * Practice/LIVE switch above governs the remote exactly as it
+   * governs the card. Every button carries its name in plain
+   * words — no icon-only mystery buttons.
+   */
+  const renderRemote = () => {
+    if (!binding || !profile) return null;
+    const byId = new Map(bindingCommands(binding, profile).map((c) => [c.id, c]));
+    const remoteButton = (
+      command: DeviceCommand | undefined,
+      opts?: { className?: string; icon?: React.ReactNode },
+    ) => {
+      if (!command) return null;
+      const silenced = soundOff[command.id] === true;
+      return (
+        <button
+          key={command.id}
+          type="button"
+          className={`window-commands__remote-btn${opts?.className ? ` ${opts.className}` : ""}`}
+          disabled={!granted || sending !== null || silenced}
+          aria-label={silenced ? `${command.name} — set to Never use` : command.name}
+          onClick={() => {
+            setLastRemoteId(command.id);
+            void runSend(command);
+          }}
+        >
+          {opts?.icon}
+          {sending === command.id ? `${command.name} — sending…` : command.name}
+          {silenced ? " (Never use)" : ""}
+        </button>
+      );
+    };
+    const padButton = (
+      id: string,
+      area: string,
+      icon: React.ReactNode,
+      extraClass = "",
+    ) => {
+      const command = byId.get(id);
+      if (!command) return <span key={id} className={`window-commands__pad-cell window-commands__pad-${area}`} />;
+      return (
+        <span key={id} className={`window-commands__pad-cell window-commands__pad-${area}`}>
+          {remoteButton(command, { icon, className: extraClass })}
+        </span>
+      );
+    };
+    const lastRemote = lastRemoteId ? byId.get(lastRemoteId) : undefined;
+    const lastOutcome = lastRemoteId ? outcomes[lastRemoteId] : undefined;
+    return (
+      <section className="window-commands__remote" aria-label="Wepwawet remote control">
+        <h5>Remote control — click to drive him</h5>
+        <p className="window-hint">
+          No talking needed. Click a button and he does it. Every click goes the same road
+          as the Send buttons below — the Permission Law first, then the Parrot bridge — and
+          the Practice / LIVE switch above rules this remote just like it rules the whole
+          card. Stop sits in the middle of the pad: click it any time.
+        </p>
+        <p className="window-hint" role="status">
+          {dogLive
+            ? "Remote is LIVE — clicks go on air and the dog moves."
+            : "Remote is in Practice — clicks print the frames, nothing goes on air, the dog does not move."}
+        </p>
+        <div className="window-commands__remote-body">
+          <div className="window-commands__pad" role="group" aria-label="Direction pad">
+            {padButton(WEPWAWET_REMOTE_PAD.up, "up", <ArrowUp aria-hidden="true" />)}
+            {padButton(WEPWAWET_REMOTE_PAD.left, "left", <ArrowLeft aria-hidden="true" />)}
+            {padButton(
+              WEPWAWET_REMOTE_PAD.center,
+              "center",
+              <Pause aria-hidden="true" />,
+              "window-commands__remote-stop",
+            )}
+            {padButton(WEPWAWET_REMOTE_PAD.right, "right", <ArrowRight aria-hidden="true" />)}
+            {padButton(WEPWAWET_REMOTE_PAD.down, "down", <ArrowDown aria-hidden="true" />)}
+          </div>
+          <div className="window-commands__remote-actions" role="group" aria-label="Tricks and actions">
+            {WEPWAWET_REMOTE_ACTIONS.map((id) => remoteButton(byId.get(id)))}
+          </div>
+        </div>
+        <div className="window-commands__remote-feed" role="group" aria-label="Feeding buttons">
+          <span className="window-commands__remote-feedlabel">Feed him:</span>
+          {WEPWAWET_REMOTE_FEED.map((id) => remoteButton(byId.get(id)))}
+        </div>
+        {lastRemote && sending === lastRemote.id && (
+          <p className="window-hint" role="status">
+            Sending {lastRemote.name}…
+          </p>
+        )}
+        {lastRemote && lastOutcome && sending !== lastRemote.id && (
+          <p className="window-hint" role="status">
+            Remote — {lastRemote.name}: {lastOutcome.result === "sent" ? "Sent — " : `${lastOutcome.result}: `}
+            {lastOutcome.note}
+          </p>
+        )}
+      </section>
+    );
+  };
+
   const renderCommandLists = () => {
     if (!binding || !profile) return null;
     const commands = bindingCommands(binding, profile);
@@ -563,6 +676,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
                     : "Practice: a tap makes the Parrot sender print the exact frames — nothing is transmitted, the dog hears nothing."}
                 </span>
               </div>
+              {isDogProfile && renderRemote()}
               {isDogProfile && (
                 <section className="window-commands__howto" aria-label="How to control Wepwawet">
                   <h5>How to control Wepwawet</h5>
@@ -583,6 +697,12 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
                     <li>
                       Tap a command below. STOP is always at the top — tap it any time he
                       does something unexpected.
+                    </li>
+                    <li>
+                      Or drive him with the remote above — no talking needed: click the pad
+                      to walk and turn him, click a trick or Feed button, and click Stop in
+                      the middle of the pad to stop him. The remote follows the same
+                      Practice / LIVE switch as everything else on this card.
                     </li>
                     <li>
                       Adding your own: “Change command setup” below lets you add commands to
