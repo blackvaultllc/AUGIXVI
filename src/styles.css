@@ -7884,6 +7884,14 @@
 }
 .avatar-construct-host canvas {
   display: block;
+  /* MOVING PIECES BY TOUCH (owner order 2026-11-24): without
+     this, a finger-drag on the stage is claimed by the browser
+     as a scroll/zoom gesture — the pointer move dies and a
+     placed piece can be dragged by mouse but never by touch.
+     The stage's drags (pieces on the floor plane, the construct
+     himself) are pointer-event driven; the canvas must keep
+     every gesture for them. */
+  touch-action: none;
 }
 .avatar-construct-dock {
   position: relative;

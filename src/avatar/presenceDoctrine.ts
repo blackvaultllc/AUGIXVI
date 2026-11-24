@@ -152,26 +152,35 @@ export function dismissalTarget(
 }
 
 /**
- * THE CONSTRUCT IN EDIT MODE (owner order 2026-11-22): the
- * construct stands on the stage — visible, movable, workable —
- * whenever he has been brought on, whenever his box is open and
- * docked, and whenever the Captain is EDITING the environment (the
- * builder is open): edit mode must not exile him to his sandbox
- * only. Off the live Room (the space view) he stands as he always
- * has. In the live Room with none of those true, center stage
- * belongs to the resident commander and the construct is off stage.
+ * WHERE THE CONSTRUCT STANDS (owner order 2026-11-24 — the
+ * layering law, superseding the 2026-11-22 edit-mode and
+ * off-the-live-Room clauses below in this file's history):
+ *
+ * The sand-code AUGI renders NOWHERE on the main stage by
+ * default. Not in front of Anubis, not behind him, no abrasion
+ * or peeking above the medallion's rim, not clipped or tucked
+ * behind anything: behind Anubis is wallpaper only, and the
+ * stage is Anubis's. AUGI stays in his own box. He appears only
+ * in the CALLED state:
+ *
+ * - BROUGHT ON: he has been settled onto the stage
+ *   (constructOnStage) — Anubis summons him, or the Captain
+ *   calls him on. He stays until he is sent back to his box.
+ * - IN HIS BOX: his window is open and the canvas is docked
+ *   into it (constructOpen && constructDocked) — he stands in
+ *   his own container, not on the stage.
+ *
+ * Nothing else raises him: not the space view (the old
+ * visible-by-default away doctrine — the reason a flash of the
+ * sand figure stood on the stage at every login, before
+ * Anubis), and not the builder being open (edit mode no longer
+ * summons him; if the Captain wants him in the environment he
+ * is editing, he calls him like anywhere else).
  */
 export function constructStandsOnStage(input: {
-  worldScreen: string;
   constructOnStage: boolean;
-  builderOpen: boolean;
   constructOpen: boolean;
   constructDocked: boolean;
 }): boolean {
-  return (
-    input.worldScreen !== "live" ||
-    input.constructOnStage ||
-    input.builderOpen ||
-    (input.constructOpen && input.constructDocked)
-  );
+  return input.constructOnStage || (input.constructOpen && input.constructDocked);
 }

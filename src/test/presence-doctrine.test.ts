@@ -95,25 +95,22 @@ describe("dismissal", () => {
   });
 });
 
-describe("the construct in edit mode (item 2)", () => {
+describe("the construct on the stage — the layering law (2026-11-24)", () => {
   const base = {
-    worldScreen: "live",
     constructOnStage: false,
-    builderOpen: false,
     constructOpen: false,
     constructDocked: false,
   };
 
-  it("in the live Room, closed and unbrought, he is off stage", () => {
+  it("uncalled, he renders NOWHERE on the main stage — behind Anubis is wallpaper only", () => {
     expect(constructStandsOnStage(base)).toBe(false);
   });
 
-  it("EDIT MODE: with the builder open he stands in the environment — not exiled to his sandbox", () => {
-    expect(constructStandsOnStage({ ...base, builderOpen: true })).toBe(true);
+  it("brought on (called onto the stage), he stands", () => {
+    expect(constructStandsOnStage({ ...base, constructOnStage: true })).toBe(true);
   });
 
-  it("brought on, or docked in his open box, he stands", () => {
-    expect(constructStandsOnStage({ ...base, constructOnStage: true })).toBe(true);
+  it("in his own box — open and docked — he stands in his container, not on the stage", () => {
     expect(constructStandsOnStage({ ...base, constructOpen: true, constructDocked: true })).toBe(
       true,
     );
@@ -122,7 +119,15 @@ describe("the construct in edit mode (item 2)", () => {
     );
   });
 
-  it("off the live Room he stands as he always has", () => {
-    expect(constructStandsOnStage({ ...base, worldScreen: "space" })).toBe(true);
+  it("the old raisers are gone: no worldScreen and no builderOpen input can raise him", () => {
+    // The 2026-11-22 clauses (space view visible-by-default, edit
+    // mode summons him) are superseded — the function's own shape
+    // is the pin: extra inputs change nothing.
+    const withExtras = {
+      ...base,
+      worldScreen: "space",
+      builderOpen: true,
+    } as Parameters<typeof constructStandsOnStage>[0] & Record<string, unknown>;
+    expect(constructStandsOnStage(withExtras)).toBe(false);
   });
 });
