@@ -125,12 +125,16 @@ describe("DEFECT 3a — the capability brief is true, and stays true with the ma
     expect(brief).toContain("CANNOT speak through");
   });
 
-  it("states Wepwawet exactly: built and byte-verified, NOT yet proven live", () => {
+  it("states Wepwawet exactly: built, byte-verified, and PROVEN LIVE 2026-11-24", () => {
+    // Superseded the same day it landed: the first live test fired on
+    // the Captain's order (voice call 2026-11-24 ~10:02 EST) and he
+    // watched the dog move — the brief must never again say unproven.
     const brief = capabilitiesBrief();
     expect(brief).toContain("byte-verified");
-    expect(brief).toContain("NOT been fired");
-    expect(brief).toContain("not yet proven live");
-    expect(capabilitiesBrief("short")).toContain("NOT yet proven live");
+    expect(brief).toContain("PROVEN LIVE");
+    expect(brief).toContain("2026-11-24");
+    expect(brief).not.toContain("not yet proven live");
+    expect(capabilitiesBrief("short")).toContain("PROVEN LIVE");
   });
 
   it("every brief line mirrors a Master Manual entry that still exists", () => {
