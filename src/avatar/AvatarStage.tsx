@@ -144,12 +144,20 @@ import {
   type Addressee,
 } from "./addressee";
 import {
-  besideMedallionGeometry,
+  centeredMedallionGeometry,
   clearMedallionSpot,
   loadOrDefaultMedallionGeometry,
   saveMedallionGeometry,
 } from "./medallionAnchor";
 import { ANUBIS_BINDING, MONTU_BINDING } from "./medallionPortraits";
+import {
+  FRONT_FACE_SIZE,
+  GOD_GREETINGS,
+  frontAfterDismiss,
+  frontAfterSummon,
+  type FrontGod,
+} from "./godStage";
+import { GodSideRail } from "./GodSideRail";
 import { closeWithBlessing } from "./etiquette";
 import {
   applyNotificationInstruction,
@@ -678,14 +686,29 @@ export function AvatarStage({
   // render's closure (the file's standing ref pattern).
   const residencyRef = useRef(residency);
   residencyRef.current = residency;
+  // THE FRONT (gods-on-the-sides round, owner order 2026-11-24
+  // ~11:27–11:31 EST — the law in godStage.ts): the stage RESTS
+  // on its wallpaper. Every god, Anubis included, rests SMALL
+  // in his side slot; frontGod is the god a click has brought
+  // to the center, big — null is the resting stage. The
+  // greeting is his allegiance line, shown on the stage while
+  // he holds the front. The ref mirrors the state for the
+  // callbacks that must know the front synchronously.
+  const [frontGod, setFrontGod] = useState<FrontGod>(null);
+  const frontGodRef = useRef<FrontGod>(null);
+  const [frontGreeting, setFrontGreeting] = useState<string | null>(null);
   const perspectiveRef = useRef(perspective);
   perspectiveRef.current = perspective;
   // A god answers a summon: he comes onto the stage and stays for
   // the conversation. Under the no-overlap law he takes a clear
   // spot — if the spot he was left at would overlap someone already
   // standing, a clear spot is written for him BEFORE he mounts, so
-  // he never appears on top of another face.
-  const summonGod = useCallback((god: GodPerspective) => {
+  // he never appears on top of another face. A FRONT summon (the
+  // gods-on-the-sides round, 2026-11-24) seats him at the center,
+  // big, instead: the clear-spot law yields to the front, because
+  // at the front he stands ALONE — whoever held it has stepped
+  // back to his slot.
+  const summonGod = useCallback((god: GodPerspective, seat: "clear" | "front" = "clear") => {
     if (god !== "anubis") {
       const stageW = typeof window === "undefined" ? 0 : window.innerWidth;
       const stageH = typeof window === "undefined" ? 0 : window.innerHeight;
@@ -693,37 +716,16 @@ export function AvatarStage({
         const others = [loadOrDefaultMedallionGeometry("anubis", stageW, stageH)];
         if (ownerPresent) others.push(loadOrDefaultMedallionGeometry("black-hatter", stageW, stageH));
         const standing = loadOrDefaultMedallionGeometry(god, stageW, stageH);
-        const spot = clearMedallionSpot(standing, others, stageW, stageH);
+        const spot =
+          seat === "front"
+            ? centeredMedallionGeometry({ ...standing, size: FRONT_FACE_SIZE }, stageW, stageH)
+            : clearMedallionSpot(standing, others, stageW, stageH);
         if (spot.x !== standing.x || spot.y !== standing.y || spot.size !== standing.size) {
           saveMedallionGeometry(god, spot);
         }
       }
     }
     setSummonedGods((current) => (current.includes(god) ? current : [...current, god]));
-  }, [ownerPresent]);
-  /**
-   * THE COUNCIL SEAT (owner order 2026-11-22 ~20:09 EST): a god
-   * called into a conversation with Anubis comes up RIGHT NEXT TO
-   * ANUBIS, SMALL — beside the commander, never replacing him, and
-   * Anubis is never moved to make room: the called god's own seat
-   * is what gets written, at the flank of Anubis's standing
-   * geometry. His hand can re-place the god afterwards like any
-   * medallion; the next council call seats him beside Anubis
-   * again, because that is what a council call means.
-   */
-  const seatBesideAnubis = useCallback((god: GodPerspective) => {
-    if (god === "anubis") return;
-    const stageW = typeof window === "undefined" ? 0 : window.innerWidth;
-    const stageH = typeof window === "undefined" ? 0 : window.innerHeight;
-    if (stageW <= 0 || stageH <= 0) return;
-    const anubis = loadOrDefaultMedallionGeometry("anubis", stageW, stageH);
-    const standing = loadOrDefaultMedallionGeometry(god, stageW, stageH);
-    const others: ReturnType<typeof loadOrDefaultMedallionGeometry>[] = [];
-    if (ownerPresent) others.push(loadOrDefaultMedallionGeometry("black-hatter", stageW, stageH));
-    const seat = besideMedallionGeometry(anubis, standing.size, stageW, stageH, others);
-    if (seat.x !== standing.x || seat.y !== standing.y) {
-      saveMedallionGeometry(god, seat);
-    }
   }, [ownerPresent]);
   // CONVERSATION VIEWS (owner order 2026-11-22): speaking with ONE
   // god is a CALL — his Black Hatter and the god, side by side.
@@ -734,46 +736,75 @@ export function AvatarStage({
   // presentation only: his anchored placements and sizes hold.
   const [council, setCouncil] = useState<StagePerspective[]>([]);
   const conversationView = conversationViewFor(perspective, council);
+  // SUMMON TO THE FRONT (gods-on-the-sides round, owner order
+  // 2026-11-24 ~11:27-11:31 EST — the law in godStage.ts; this
+  // SUPERSEDES the tap-seating and council formation of
+  // 2026-11-22 for taps): a tap on a god — his side slot, his
+  // medallion, his builder figure — turns the conversation to
+  // him (the routing law) and brings him FRONT: center, big.
+  // Whoever held the front returns to his side slot. On arrival
+  // he shows allegiance and asks what the Captain needs — the
+  // greeting shows on the stage, and on a TAP summon it is
+  // spoken in his voice; a routing summon (his name heading a
+  // typed line, the summon-by-name command) shows it without
+  // speaking, because the answer to his line is the reply.
+  // Anubis is first among the side gods and the conversation's
+  // default — but the stage RESTS on its wallpaper: he does not
+  // sit big un-summoned (his resting rule, godStage.ts).
   const selectGod = useCallback(
-    (god: GodPerspective) => {
+    (god: GodPerspective, opts?: { speakGreeting?: boolean }) => {
       // Turning to a god turns the CONVERSATION to him too
       // (routing law): his name tapped is his name addressed.
       applyAddressee(god);
       // Residency first: a non-resident god tapped by name is
-      // SUMMONED onto the stage; returning to Anubis puts the
-      // Black Hatter away again — the resident holds the stage.
+      // SUMMONED onto the stage — to the FRONT seat (center,
+      // big). Returning to Anubis puts the Black Hatter away
+      // again — the resident holds his place.
       if (god === "anubis") setOwnerPresent(false);
-      else summonGod(god);
-      if (council.length >= 2) {
-        // Already in council: tapping a god takes the call to him alone.
-        setCouncil([]);
-        setPerspective(god);
-        return;
+      else summonGod(god, "front");
+      const changed = frontGodRef.current !== god;
+      frontGodRef.current = frontAfterSummon(frontGodRef.current, god);
+      setFrontGod(frontGodRef.current);
+      if (changed) {
+        setFrontGreeting(GOD_GREETINGS[god]);
+        if (opts?.speakGreeting) {
+          // After applyAddressee, the voice speaking is his.
+          aiRef.current?.speak(GOD_GREETINGS[god]);
+        }
       }
-      if (isGodPerspective(perspective) && perspective !== god) {
-        // A second god joins the one addressed: a council. The
-        // joining god takes the council seat — right beside
-        // Anubis, small (owner order 2026-11-22 ~20:09 EST). When
-        // the joining god IS Anubis, the god already standing is
-        // the one who takes the seat beside him.
-        seatBesideAnubis(god === "anubis" ? perspective : god);
-        setCouncil([perspective, god]);
-        setPerspective(god);
-        return;
-      }
+      // One god holds the front at a time: a tap no longer seats
+      // a council beside the commander (superseded above).
+      setCouncil([]);
       setPerspective(god);
     },
-    [perspective, council, summonGod, seatBesideAnubis, applyAddressee],
+    [applyAddressee, summonGod],
   );
   const selectOwner = useCallback(() => {
     // The Owner seat brings the Black Hatter BACK onto the stage
     // from put-away — at his saved placement, with the perspective.
+    // The front empties with him: the summoned god steps back to
+    // his slot and the stage rests.
     setOwnerPresent(true);
+    frontGodRef.current = null;
+    setFrontGod(null);
+    setFrontGreeting(null);
     setCouncil([]);
     setPerspective("black-hatter");
   }, []);
   const selectGodRef = useRef(selectGod);
   selectGodRef.current = selectGod;
+  // RETURN TO HIS PLACE (the same round): the front god goes
+  // back to his side slot — a tap on his face at the front, or
+  // "Return to his place" in his menu — and the stage rests on
+  // its wallpaper again. A summoned Montu's residency is NOT
+  // ended by this: he stands down through the doctrine's own
+  // doors (the dismissal words), not by stepping back.
+  const returnGodToSlot = useCallback((god: GodPerspective) => {
+    if (frontGodRef.current !== god) return;
+    frontGodRef.current = null;
+    setFrontGod(null);
+    setFrontGreeting(null);
+  }, []);
   // PULSE WINDOW: presence + motion, the rPPG heart-rate estimate and
   // the room-frequency readout in a small floating box (operator order
   // 2026-11-21). Opens from Tools → Rooms and from "open pulse".
@@ -1884,6 +1915,13 @@ export function AvatarStage({
         setReportGod((current) => (current === god ? null : current));
         setCouncil((current) => current.filter((entry) => entry !== god));
         setPerspective((current) => (current === god ? DEFAULT_STAGE_PERSPECTIVE : current));
+        // The dismissed god leaves the FRONT with his bow
+        // (gods-on-the-sides round, 2026-11-24): when the bow
+        // ends he is back in his side slot, and if he was the
+        // last at front the stage rests on its wallpaper.
+        frontGodRef.current = frontAfterDismiss(frontGodRef.current, god);
+        setFrontGod(frontGodRef.current);
+        if (frontGodRef.current === null) setFrontGreeting(null);
       }, 1600);
     },
     [say, applyAddressee],
@@ -3299,7 +3337,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onSelect={selectOwner}
         />
       )}
-      {!clearScreen && worldScreen === "live" && (
+      {/* THE FRONT (gods-on-the-sides round, owner order
+          2026-11-24): a god stands BIG at the center only while
+          he holds the front — brought there by a click on his
+          side slot. At rest NO god stands here: the stage rests
+          on its wallpaper and every god is small in his slot
+          (the side rails below). Anubis's seat at the front is
+          his locked factory home, as ever; a tap on his face at
+          the front, or "Return to his place" in his menu, sends
+          him back to his slot. */}
+      {!clearScreen && worldScreen === "live" && frontGod === "anubis" && (
         <AnubisPresence
           ready={ready}
           speaking={state === "SPEAKING"}
@@ -3309,40 +3356,80 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           inCall={conversationView === "call" && perspective === "anubis"}
           inCouncil={council.includes("anubis")}
           atAttention={perspective === "anubis"}
-          onSelect={() => {
-            // EVERY GOD HIS OWN CHAT (owner order 2026-11-24
-            // ~10:40 EST): tapping his medallion routes the
-            // conversation to him AND opens his chat box.
-            selectGod("anubis");
-            openChatBox();
-          }}
+          onSelect={() => returnGodToSlot("anubis")}
+          onReturn={() => returnGodToSlot("anubis")}
           stageView={stageView}
           onStageViewChange={changeStageView}
           onRespectAsk={() => respectAsk("anubis")}
         />
       )}
-      {/* Montu is NOT resident: his medallion stands on the stage
-          only while he is summoned for a conversation or bowing
-          out under dismissal (presenceDoctrine.ts). A report no
-          longer brings him in (pop-up removal, 2026-11-24). */}
-      {!clearScreen && worldScreen === "live" && godOnStage(residency, "montu") && (
-        <MontuPresence
-          ready={ready}
-          speaking={perspective === "montu" && state === "SPEAKING"}
-          bowing={bowingGod === "montu"}
-          inPerspective={perspective === "montu"}
-          inCall={conversationView === "call" && perspective === "montu"}
-          inCouncil={council.includes("montu")}
-          atAttention={perspective === "montu"}
-          onSelect={() => {
-            // EVERY GOD HIS OWN CHAT (owner order 2026-11-24
-            // ~10:40 EST): his medallion tap routes the
-            // conversation to him AND opens his chat box.
-            selectGod("montu");
-            openChatBox();
-          }}
-          onRespectAsk={() => respectAsk("montu")}
-        />
+      {/* Montu at the FRONT (the same round): his medallion
+          stands big at the center while he holds the front, and
+          while he bows out under dismissal (the bow renders
+          through the dismissal, then his slot takes him back).
+          A report no longer brings him in (pop-up removal,
+          2026-11-24). */}
+      {!clearScreen &&
+        worldScreen === "live" &&
+        ((frontGod === "montu" && godOnStage(residency, "montu")) || bowingGod === "montu") && (
+          <MontuPresence
+            ready={ready}
+            speaking={perspective === "montu" && state === "SPEAKING"}
+            bowing={bowingGod === "montu"}
+            inPerspective={perspective === "montu"}
+            inCall={conversationView === "call" && perspective === "montu"}
+            inCouncil={council.includes("montu")}
+            atAttention={perspective === "montu"}
+            onSelect={() => returnGodToSlot("montu")}
+            {...(frontGod === "montu"
+              ? { onReturn: () => returnGodToSlot("montu") }
+              : {})}
+            onRespectAsk={() => respectAsk("montu")}
+          />
+        )}
+      {/* THE SIDE SLOTS (the same round): every god NOT at front
+          rests small down the stage's sides — Anubis left, Montu
+          right — living faces in the small medallion format,
+          looking around the room. A click summons him to the
+          front with his greeting spoken, and opens his chat
+          (every god his own chat, clean-screen round). */}
+      {!clearScreen && worldScreen === "live" && (
+        <>
+          <GodSideRail
+            side="left"
+            front={frontGod}
+            speakingGod={
+              state === "SPEAKING" && (addressee === "anubis" || addressee === "montu")
+                ? addressee
+                : null
+            }
+            onSummon={(god) => {
+              selectGod(god, { speakGreeting: true });
+              openChatBox();
+            }}
+          />
+          <GodSideRail
+            side="right"
+            front={frontGod}
+            speakingGod={
+              state === "SPEAKING" && (addressee === "anubis" || addressee === "montu")
+                ? addressee
+                : null
+            }
+            onSummon={(god) => {
+              selectGod(god, { speakGreeting: true });
+              openChatBox();
+            }}
+          />
+        </>
+      )}
+      {/* THE ALLEGIANCE GREETING (the same round): while a god
+          holds the front, his greeting stands on the stage —
+          his name, his allegiance, his question. */}
+      {!clearScreen && worldScreen === "live" && frontGod !== null && frontGreeting && (
+        <p className="god-front-greeting" role="status">
+          {frontGreeting}
+        </p>
       )}
       {/* THE TOOLBAR IS GONE FROM THE STAGE (owner order 2026-11-22
           — consolidation): the standalone bottom-center bar's seats

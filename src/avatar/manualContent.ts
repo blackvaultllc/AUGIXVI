@@ -317,6 +317,20 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "The stage — computer and phone alike.",
       },
       {
+        id: "stage-gods-on-the-sides",
+        title: "The gods on the sides — the stage rests on your wallpaper",
+        state: "live",
+        what: "Your order (2026-11-24): the stage at rest is your WALLPAPER — nothing big stands on it. Every god rests SMALL in a round medallion down the sides of the screen, the way Osiris sits in his corner: Anubis down the left side, Montu down the right. They are alive in their slots — each one blinks and looks around the room, each in his own way: Anubis slow and heavy, like a judge watching; Montu quick, his eyes darting to the corners like a falcon. TAP a god and he comes to the FRONT — big, in the center. He greets you out loud and on the screen — his name, and “at your command, Captain — what do you need?” — and his chat box opens, so you type to HIM. Send him back any of three ways: tap his face while he is at the front, tap “Return to his place” in the menu behind the three dots on his medallion, or tap another god (that god comes front, and the first one goes back to his slot). When nobody is at the front, the stage is your wallpaper again, with the gods small around it. Anubis is still the one the main chat talks to when you have not picked anyone — he is first among the side gods; he just does not sit big on your wallpaper until you call him. The slots never move and no god is dragged: a god moves by a tap, never by grabbing his face. Anubis's blink was rebuilt the same day: his lids now close the way real eyes close — the top lid sweeps down slow, the bottom lid rises to meet it — fitted to his jackal eyes, in his own slow time.",
+        steps: [
+          "Look at the stage: your wallpaper, with small round gods down the left and right sides.",
+          "Tap a god's round face. He comes big to the center, greets you, and his chat opens.",
+          "Type your order in his chat box — you are talking to him now.",
+          "Tap his face again (or the three dots on his medallion → “Return to his place”). He goes back to his small slot, and the stage is your wallpaper again.",
+          "Tap a different god while one is at the front: the new god comes front, the first one goes back to his slot.",
+        ],
+        where: "The stage — computer and phone alike.",
+      },
+      {
         id: "stage-construct-law",
         title: "AUGI stays in his box — the layering law, and no flash at login",
         state: "live",

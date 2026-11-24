@@ -402,12 +402,27 @@ describe("god presence — call and council (owner order 2026-11-22 ~20:09 EST)"
   });
 
   it("a council seats the called god beside Anubis — his seat is written, Anubis's never is", () => {
+    // SUPERSEDED (owner order 2026-11-24 ~11:27–11:31 EST, the
+    // gods-on-the-sides round): a tap no longer seats a council
+    // beside Anubis. One god holds the FRONT at a time — the
+    // tapped god takes the center, big, and whoever held the
+    // front returns to his side slot (godStage.ts). The pins
+    // below hold the new law: the front seat is written through
+    // the geometry store for the summoned god, and Anubis's
+    // saved geometry is never written by a summon.
     const stage = readFileSync(resolve(process.cwd(), "src/avatar/AvatarStage.tsx"), "utf8");
-    expect(stage).toContain("const seatBesideAnubis = useCallback(");
-    expect(stage).toContain('seatBesideAnubis(god === "anubis" ? perspective : god);');
-    expect(stage).toContain("saveMedallionGeometry(god, seat);");
-    // Anubis is the anchor the seat is measured from — read-only.
-    expect(stage).toContain('const anubis = loadOrDefaultMedallionGeometry("anubis", stageW, stageH);');
+    expect(stage).not.toContain("seatBesideAnubis");
+    expect(stage).toContain("frontGodRef.current = frontAfterSummon(frontGodRef.current, god);");
+    expect(stage).toContain('summonGod(god, "front")');
+    expect(stage).toContain(
+      "centeredMedallionGeometry({ ...standing, size: FRONT_FACE_SIZE }, stageW, stageH)",
+    );
+    const summonStart = stage.indexOf("const summonGod = useCallback(");
+    const summonEnd = stage.indexOf("// SUMMON TO THE FRONT", summonStart);
+    const summon = stage.slice(summonStart, summonEnd);
+    expect(summon).toContain('if (god !== "anubis")');
+    expect(summon).toContain("saveMedallionGeometry(god, spot);");
+    expect(summon).not.toContain('saveMedallionGeometry("anubis"');
   });
 });
 
