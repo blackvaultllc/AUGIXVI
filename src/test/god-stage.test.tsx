@@ -1,14 +1,13 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_FRONT,
   GOD_GREETINGS,
-  GOD_SLOTS,
+  MEDALLION_GODS,
   RESTING_FRONT,
-  SLOT_GODS,
   frontAfterDismiss,
   frontAfterSummon,
-  slotFor,
-  slotGodsOnSide,
+  restingMedallionGods,
 } from "@/avatar/godStage";
 import {
   ANUBIS_MOTION_PROFILE,
@@ -20,56 +19,65 @@ import {
   gazeOffsetForStep,
   motionProfileFor,
 } from "@/avatar/godMotion";
-import { GodSideRail } from "@/avatar/GodSideRail";
+import { GodMedallions } from "@/avatar/GodMedallions";
 import { LivingPortrait, ANUBIS_FEATURES, MONTU_FEATURES } from "@/avatar/LivingPortrait";
 
 /**
- * GODS ON THE SIDES (owner order 2026-11-24 ~11:27–11:31 EST):
- * the stage rests on its wallpaper; every god — Anubis included
- * — rests small in a side slot; a click brings him front with
- * his allegiance greeting; and every god moves on the SHARED
- * RIG (Osiris's values) with his OWN motion on top of it. These
- * tests pin the law, the lineup, the greeting, and the
- * distinctness of the motions — including the rebuilt blink
- * that answers his defect: "when he blinks his eyes don't look
- * right — at all."
+ * THE RESTING LAW (owner order 2026-11-24 ~16:57 EST — the
+ * Captain's refinement over his screenshot of the deployed
+ * gods-on-the-sides build: "this is so wrong… Definitely not
+ * at all"):
+ * - NO EDGE FIGURES: the side rails / slots are gone entirely;
+ *   nothing stands on the stage's left/right edges.
+ * - ANUBIS IS CENTER AT REST, circular, his regular front
+ *   size — the way he stood before the gods-on-the-sides
+ *   change (the wallpaper-rest of that morning is superseded).
+ * - THE OTHER GODS REST AS SMALL CIRCLES on the stage, in the
+ *   same circular format as Osiris's medallion.
+ * - DISMISSAL RETURNS ANUBIS TO THE CENTER, the default.
+ * And every god still moves on the SHARED RIG (Osiris's
+ * values) with his OWN motion on top of it — including the
+ * rebuilt blink that answers his defect: "when he blinks his
+ * eyes don't look right — at all."
  */
-describe("the resting law — the stage rests on its wallpaper", () => {
-  it("at load, nobody holds the front", () => {
-    expect(RESTING_FRONT).toBeNull();
+describe("the resting law — Anubis at the center, the others as small circles", () => {
+  it("at load, ANUBIS holds the front — the stage rests on him, not on the wallpaper", () => {
+    expect(RESTING_FRONT).toBe("anubis");
+    expect(DEFAULT_FRONT).toBe("anubis");
   });
 
-  it("the lineup: Anubis down the left, Montu down the right", () => {
-    expect(SLOT_GODS).toEqual(["anubis", "montu"]);
-    expect(slotFor("anubis")).toEqual({ god: "anubis", side: "left", order: 0 });
-    expect(slotFor("montu")).toEqual({ god: "montu", side: "right", order: 0 });
-    expect(GOD_SLOTS).toHaveLength(2);
+  it("the medallion gods: Anubis first, then Montu — and no slots, no sides, anywhere in the law", () => {
+    expect(MEDALLION_GODS).toEqual(["anubis", "montu"]);
   });
 
-  it("a summon puts the called god at front — and sends the holder back to his slot", () => {
-    expect(frontAfterSummon(null, "montu")).toBe("montu");
+  it("a summon puts the called god at front — and sends the holder back to his resting circle", () => {
+    expect(frontAfterSummon("anubis", "montu")).toBe("montu");
     expect(frontAfterSummon("montu", "anubis")).toBe("anubis");
     expect(frontAfterSummon("anubis", "anubis")).toBe("anubis");
+    expect(frontAfterSummon(null, "montu")).toBe("montu");
   });
 
-  it("a dismissal returns only the dismissed god; the stage rests when he was the front", () => {
-    expect(frontAfterDismiss("montu", "montu")).toBeNull();
+  it("a dismissal returns ANUBIS to the center — the stage never rests empty", () => {
+    expect(frontAfterDismiss("montu", "montu")).toBe("anubis");
+    // Dismissing a god who is not at front changes nothing.
     expect(frontAfterDismiss("montu", "anubis")).toBe("montu");
     expect(frontAfterDismiss(null, "montu")).toBeNull();
   });
 
-  it("a god at front has left his slot; the other god's slot stands", () => {
-    expect(slotGodsOnSide(null, "left")).toEqual(["anubis"]);
-    expect(slotGodsOnSide(null, "right")).toEqual(["montu"]);
-    expect(slotGodsOnSide("anubis", "left")).toEqual([]);
-    expect(slotGodsOnSide("anubis", "right")).toEqual(["montu"]);
-    expect(slotGodsOnSide("montu", "right")).toEqual([]);
+  it("Anubis is never dismissed from the center — he is home there", () => {
+    expect(frontAfterDismiss("anubis", "anubis")).toBe("anubis");
+  });
+
+  it("the god at front has no resting circle; every other god's circle stands", () => {
+    expect(restingMedallionGods("anubis")).toEqual(["montu"]);
+    expect(restingMedallionGods("montu")).toEqual(["anubis"]);
+    expect(restingMedallionGods(null)).toEqual(["anubis", "montu"]);
   });
 
   it("the greeting: his name, his allegiance, and he asks what the Captain needs", () => {
     expect(GOD_GREETINGS.anubis).toContain("Anubis");
     expect(GOD_GREETINGS.montu).toContain("Montu");
-    for (const god of SLOT_GODS) {
+    for (const god of MEDALLION_GODS) {
       expect(GOD_GREETINGS[god]).toContain("Captain");
       expect(GOD_GREETINGS[god]).toContain("What do you need?");
     }
@@ -129,7 +137,7 @@ describe("the shared rig, each god's own motion (owner amendment 2026-11-24)", (
   });
 });
 
-describe("the side rail — small living medallions, fixed by the layout", () => {
+describe("the resting circles — small living medallions, fixed by the layout", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -137,33 +145,34 @@ describe("the side rail — small living medallions, fixed by the layout", () =>
     vi.useRealTimers();
   });
 
-  it("at rest both gods stand in their slots, one rail a side", () => {
-    const left = render(
-      <GodSideRail side="left" front={null} speakingGod={null} onSummon={() => undefined} />,
-    );
-    const anubis = left.container.querySelector('[data-god="anubis"]');
-    expect(anubis).not.toBeNull();
-    // A living face, not a button picture.
-    expect(anubis!.querySelector('[data-testid="living-face"]')).not.toBeNull();
-    left.unmount();
-    const right = render(
-      <GodSideRail side="right" front={null} speakingGod={null} onSummon={() => undefined} />,
-    );
-    expect(right.container.querySelector('[data-god="montu"]')).not.toBeNull();
-  });
-
-  it("the god at front has left his slot — his rail stands empty", () => {
+  it("at rest Montu stands in his circle — a round medallion, not an edge figure", () => {
     const { container } = render(
-      <GodSideRail side="left" front="anubis" speakingGod={null} onSummon={() => undefined} />,
+      <GodMedallions front="anubis" speakingGod={null} onSummon={() => undefined} />,
     );
+    const montu = container.querySelector('[data-god="montu"]');
+    expect(montu).not.toBeNull();
+    expect(montu!.classList.contains("god-medallion")).toBe(true);
+    // A living face, not a button picture.
+    expect(montu!.querySelector('[data-testid="living-face"]')).not.toBeNull();
+    // Anubis is at the front — he has no resting circle.
     expect(container.querySelector('[data-god="anubis"]')).toBeNull();
-    expect(container.firstChild).toBeNull();
+    // No rails, no slots, nothing addressed to a side.
+    expect(container.querySelector(".god-side-rail")).toBeNull();
+    expect(container.querySelector("[data-side]")).toBeNull();
   });
 
-  it("a click on a slot summons that god", () => {
+  it("while Montu holds the front, Anubis's circle stands in the row", () => {
+    const { container } = render(
+      <GodMedallions front="montu" speakingGod={null} onSummon={() => undefined} />,
+    );
+    expect(container.querySelector('[data-god="anubis"]')).not.toBeNull();
+    expect(container.querySelector('[data-god="montu"]')).toBeNull();
+  });
+
+  it("a click on a circle summons that god", () => {
     const onSummon = vi.fn();
     const { container } = render(
-      <GodSideRail side="right" front={null} speakingGod={null} onSummon={onSummon} />,
+      <GodMedallions front="anubis" speakingGod={null} onSummon={onSummon} />,
     );
     fireEvent.click(container.querySelector('[data-god="montu"]')!);
     expect(onSummon).toHaveBeenCalledWith("montu");

@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   Activity,
-  Anchor,
   BookOpen,
   ChevronDown,
   ChevronUp,
@@ -18,13 +17,9 @@ import {
   GripVertical,
   History,
   Menu,
-  MessageSquare,
   Mic,
   MicOff,
-  Minus,
-  MoreHorizontal,
   Plus,
-  RotateCcw,
   Settings,
   Smile,
   Sparkles,
@@ -60,25 +55,23 @@ const BOX_ENLARGED_SIZE_KEY = "augi.avatar.command-box.enlarged-size.v1";
  * fix): compact, anchored at the stage's corner, so the center of
  * the stage and the Captain's medallion stay clear. His own
  * stretches replace the size (saved under the v2 key — the v1
- * sizes belonged to the broken layout), and the rail's reset
- * button always brings the home form back in one click.
+ * sizes belonged to the broken layout), and the reset key always
+ * brings the home form back in one click.
  *
- * THE HOME MOVED TO THE TOP-LEFT (owner order 2026-11-24 ~10:40
- * EST — the clean-screen round, superseding the bottom-left home
- * of 2026-11-22): the folded chat is Osiris's head console, and
- * his head's home is the top-left corner, where the CORE panel
- * used to sit. The anchored box — console and open box alike —
- * seats at the top-left now; the anchor, the reset, and the
- * healing clamp all work to that corner.
+ * THE HOME IS THE BOTTOM-LEFT (owner order 2026-11-24 ~16:57
+ * EST — the Captain's refinement, superseding the top-left home
+ * of the clean-screen round the same morning): the chat window
+ * is THE CAPTAIN'S OWN WINDOW — it stands by itself along the
+ * bottom of the stage, no god inside it or heading it. The
+ * anchored box seats at the bottom-left now; the anchor, the
+ * reset, and the healing clamp all work to that corner. (The
+ * top-left belongs to Osiris's own medallion, standing bare —
+ * OsirisMedallion.tsx.)
  *
  * SMALLER STILL (owner eye-check 2026-11-23 ~06:51 EST): "It's
  * too big — make the box smaller for the PC." The home form comes
- * down again, to 420×360. The rail stack was tightened in the
- * same round (stage-fix-round.css, desktop widths) so everything
- * still sits inside the border at the smaller size — grip, the
- * 104px face, the title, and the four buttons keep ~10px of air.
- * His saved size still outranks this default the moment he sets
- * one himself.
+ * down again, to 420×360. His saved size still outranks this
+ * default the moment he sets one himself.
  */
 export const COMMAND_BOX_DEFAULT_SIZE = { w: 420, h: 360 } as const;
 
@@ -96,7 +89,7 @@ export const COMMAND_BOX_DEFAULT_SIZE = { w: 420, h: 360 } as const;
  */
 export const COMMAND_BOX_MIN_SIZE = { w: 320, h: 348 } as const;
 
-/** The anchored home spot: the top-left corner, in px margins. */
+/** The anchored home spot: the bottom-left corner, in px margins. */
 export const COMMAND_BOX_HOME_MARGIN = 16;
 
 /**
@@ -123,8 +116,9 @@ export const COMMAND_BOX_HOME_MARGIN = 16;
  * which gives more space and do it properly." The anchored box
  * sits at the left with a clear margin on every side, fully
  * on-screen at any window size, clear of the right-side selection
- * buttons. WHICH left corner is the clean-screen round's call
- * (2026-11-24): the top-left, the head console's home.
+ * buttons. WHICH left corner is the Captain's refinement call
+ * (2026-11-24 ~16:57 EST): the BOTTOM-left — his window stands
+ * along the bottom of the stage.
  */
 export function loadBoxAnchored(): boolean {
   try {
@@ -339,6 +333,19 @@ export const CHAT_EMOJIS = [
   "🛡️", "🦅", "🌟", "✅", "❗", "❓", "💬", "👀",
 ] as const;
 
+/**
+ * THE WINDOW CONTROLS HANDED TO OSIRIS'S KEYS (owner order
+ * 2026-11-24 ~16:57 EST): the anchor, the reset, the menu
+ * opener, and the anchor's state — registered by the box,
+ * driven from Osiris's three-lines menu on his own medallion.
+ */
+export interface CommandBoxWindowControls {
+  toggleAnchored: () => void;
+  resetLayout: () => void;
+  toggleMenu: () => void;
+  anchored: boolean;
+}
+
 export function CommandBox({
   accent,
   tabs,
@@ -358,7 +365,7 @@ export function CommandBox({
   userSource = "typed",
   history,
   onMinimizeShortcut,
-  presence,
+  onWindowControls,
   partnerSpeaking,
   away = false,
   onReturnToChat,
@@ -410,14 +417,19 @@ export function CommandBox({
   history?: ReplyHistoryEntry[] | undefined;
   /** Lets AvatarStage ("/minimize" etc.) collapse or restore the box. */
   onMinimizeShortcut?: (controls: { minimize: () => void; restore: () => void }) => void;
+  /**
+   * THE WINDOW'S KEYS, HANDED TO OSIRIS (owner order 2026-11-24
+   * ~16:57 EST): the four window keys — anchor, reset, the
+   * three-lines menu, minus — are Osiris's, and they live in
+   * HIS menu on his own medallion now (OsirisMedallion.tsx), not
+   * in this window. The box registers its window machinery here
+   * so the stage can wire his keys to it. NO GOD SITS IN THIS
+   * WINDOW: there is no presence slot anymore — the Captain's
+   * window carries no face.
+   */
+  onWindowControls?: (controls: CommandBoxWindowControls) => void;
   /** Slash-driven minimization from inside the box's own commands. */
   externalMinimize?: number;
-  /**
-   * Augie's living presence (owner order 2026-11-22): the circular
-   * animated face rendered at the head of the rail, beside the title.
-   * Supplied by AvatarStage; the box itself stays a dumb container.
-   */
-  presence?: ReactNode;
   /**
    * True while Anubis is actually speaking (bridge state SPEAKING):
    * the chat panel carries the speaking glow so the conversation is
@@ -444,13 +456,15 @@ export function CommandBox({
   onOpenHistory?: () => void;
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
-  // Minimized is session-only (the defect fix above). THE CONSOLE
-  // IS THE OPENING FORM AT EVERY WIDTH (clean-screen round, owner
-  // order 2026-11-24 ~10:40 EST — superseding the phone-only start
-  // of 2026-11-23): the stage opens CLEAN — Anubis, the wallpaper,
-  // Osiris's head alone at the top-left. The full chat box appears
-  // only when he asks for it: a tap on the head, a tap on a god's
-  // medallion, or the Open chat option behind the three dots.
+  // Minimized is session-only (the defect fix above). THE BAR IS
+  // THE OPENING FORM AT EVERY WIDTH (owner order 2026-11-24
+  // ~16:57 EST — superseding the clean-screen round's console of
+  // the same morning): the stage opens with the Captain's own
+  // chat window folded to its BAR along the bottom — the type
+  // field and its companions, no god inside it or heading it.
+  // The full window opens when he asks for it: a tap on the bar,
+  // a tap on a god's medallion or resting circle, or a god's own
+  // menu.
   const [minimized, setMinimized] = useState(true);
   const [enlarged, setEnlarged] = useState(loadBoxEnlarged);
   const [boxSize, setBoxSize] = useState(() =>
@@ -515,20 +529,11 @@ export function CommandBox({
    * button, in the menu it opens. This is that menu's state.
    */
   const [optionsOpen, setOptionsOpen] = useState(false);
-  /**
-   * THE OSIRIS CONSOLE MENU (clean-screen round, owner order
-   * 2026-11-24 ~10:40 EST): folded, the chat is Osiris's medallion
-   * alone — the four window options live behind his three-dots
-   * control, Anubis-style, never sitting out on the screen. This
-   * is that menu's open state.
-   */
-  const [consoleMenuOpen, setConsoleMenuOpen] = useState(false);
-  const consoleRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
-  /** The console face's click-vs-drag line: a press that TRAVELS
-   *  was a drag (moving the head), not a tap to open the chat. */
+  /** The folded bar's click-vs-drag line: a press that TRAVELS
+   *  was a drag (moving the window), not a tap to open it. */
   const dragStart = useRef({ x: 0, y: 0 });
   const dragMoved = useRef(false);
   const resizing = useRef<{
@@ -577,43 +582,25 @@ export function CommandBox({
     onMinimizeShortcut?.({ minimize: minimizeNow, restore: restoreNow });
   }, [onMinimizeShortcut, minimizeNow, restoreNow]);
 
-  // The console menu folds away on an outside press or Escape —
-  // the MedallionMenu discipline: a tool he opens, never furniture.
-  useEffect(() => {
-    if (!consoleMenuOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!consoleRef.current?.contains(event.target as Node)) setConsoleMenuOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setConsoleMenuOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [consoleMenuOpen]);
-
   const startDrag = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       // THE PHONE BAR IS DOCKED (owner phone spec 2026-11-23): it
       // never drags — a tap on the bar opens or folds it instead
       // (the rail's onClick below). He tried to push the floating
       // box out of the way on his phone and couldn't; the bar
-      // answers that by not being in the way to begin with.
-      // THE CONSOLE IS THE EXCEPTION (clean-screen round,
-      // 2026-11-24): the folded head is NOT the docked bar — it is
-      // a medallion he can place, on the phone exactly as on the
-      // PC, so a drag that starts on the console's face moves it.
-      if (phoneBar && event.currentTarget.dataset["consoleFace"] !== "true") return;
+      // answers that by not being in the way to begin with. The
+      // DESKTOP bar is a window like the open box: a genuine grab
+      // on its bare ground moves it (owner order 2026-11-24
+      // ~16:57 EST — the folded form is the bar at every width).
+      if (phoneBar) return;
       if ("button" in event && event.button !== 0) return;
-    // The grip's own minimize/expand button keeps its click: starting a
-    // drag here captures the pointer to the grip, and a captured pointer
-    // retargets the click to the grip — the button never receives it, so
-    // pressing minimize appeared to do nothing. Dragging starts from the
-    // grip itself, never from its button. (Same fix as FloatingWindow.)
-    if ((event.target as HTMLElement).closest?.("button")) return;
+    // The grip's own buttons keep their clicks, and the bar's
+    // field keeps its caret: starting a drag here captures the
+    // pointer to the grip, and a captured pointer retargets the
+    // click — the button never receives it. Dragging starts from
+    // the bare ground itself, never from a control or the field.
+    // (Same fix as FloatingWindow.)
+    if ((event.target as HTMLElement).closest?.("button, input, textarea, select")) return;
     const box = boxRef.current;
     if (!box) return;
     const rect = box.getBoundingClientRect();
@@ -683,9 +670,11 @@ export function CommandBox({
   /**
    * ONE-CLICK RESET (ForeverUI pattern, owner order 2026-11-22):
    * whatever he has dragged or stretched the panel into, one click
-   * on the rail's reset button restores the shipped home form —
-   * compact size, top-left home corner, anchored, expanded —
-   * and clears the saved size/position so a reload opens the same.
+   * on the reset key restores the shipped home form — compact
+   * size, bottom-left home corner, anchored, expanded — and
+   * clears the saved size/position so a reload opens the same.
+   * The key itself lives in Osiris's menu now (owner order
+   * 2026-11-24 ~16:57 EST); the machinery it drives is unchanged.
    */
   const resetBoxLayout = useCallback(() => {
     clearPersistedBoxLayout();
@@ -769,11 +758,13 @@ export function CommandBox({
   }, []);
 
   // THE ANCHOR TOGGLE: anchored, the box sits locked at its home
-  // corner — the stage's TOP-LEFT (clean-screen round 2026-11-24:
-  // the head console's home; the stage's center and the Captain's
-  // medallion stay clear). Unanchoring keeps it exactly where it
-  // sits and hands him the drag and the stretch; anchoring again
-  // returns it home. The state persists (loadBoxAnchored).
+  // corner — the stage's BOTTOM-LEFT (owner order 2026-11-24
+  // ~16:57 EST: his window stands along the bottom; the stage's
+  // center and Anubis's medallion stay clear). Unanchoring keeps
+  // it exactly where it sits and hands him the drag and the
+  // stretch; anchoring again returns it home. The toggle itself
+  // is Osiris's anchor key now; the state persists
+  // (loadBoxAnchored).
   const [anchorPos, setAnchorPos] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -789,18 +780,18 @@ export function CommandBox({
     }
     const height = boxRef.current?.offsetHeight || boxSize.h;
     const width = boxRef.current?.offsetWidth || boxSize.w;
-    // The anchor home: TOP-LEFT (clean-screen round, 2026-11-24 —
-    // the head console's home, where the CORE panel sat),
-    // WINDOW_MARGIN clear on every side, run through the window
-    // clamp so the ENTIRE box — input row included — sits inside
-    // the viewport at any window size, maximized or not, clear of
-    // the right-side buttons. Enlarging grows it from this top
-    // anchor (the effect re-runs on boxSize) and the clamp still
-    // holds it on-screen.
+    // The anchor home: BOTTOM-LEFT (owner order 2026-11-24
+    // ~16:57 EST — his window stands along the bottom of the
+    // stage), WINDOW_MARGIN clear on every side, run through the
+    // window clamp so the ENTIRE box — input row included — sits
+    // inside the viewport at any window size, maximized or not,
+    // clear of the right-side buttons. Enlarging grows it from
+    // this bottom anchor (the effect re-runs on boxSize) and the
+    // clamp still holds it on-screen.
     setAnchorPos(
       clampWindowPosition(
         WINDOW_MARGIN,
-        WINDOW_MARGIN,
+        viewport.h - height - WINDOW_MARGIN,
         width,
         height,
         viewport.w,
@@ -856,6 +847,25 @@ export function CommandBox({
       saveBoxAnchored(true);
     }
   }, [anchored, anchorPos]);
+
+  // OSIRIS'S KEYS, REGISTERED (owner order 2026-11-24 ~16:57
+  // EST): his anchor key toggles this window's anchor, his reset
+  // key restores its home form, his three-lines key opens the
+  // window with its machinery up, and his menu reads the anchor
+  // state off this registration. The keys live on HIS medallion;
+  // the machinery stays here, where it has always lived.
+  const toggleMenuNow = useCallback(() => {
+    setMinimized(false);
+    setMachineryOpen((open) => !open);
+  }, []);
+  useEffect(() => {
+    onWindowControls?.({
+      toggleAnchored,
+      resetLayout: resetBoxLayout,
+      toggleMenu: toggleMenuNow,
+      anchored,
+    });
+  }, [onWindowControls, toggleAnchored, resetBoxLayout, toggleMenuNow, anchored]);
 
   const lastEntry = history && history.length > 0 ? history[history.length - 1] : undefined;
   const showLiveUser = !liveHidden && Boolean(userLine) && userLine !== lastEntry?.question;
@@ -1027,9 +1037,9 @@ export function CommandBox({
         ? { left: anchorPos.x, top: anchorPos.y, right: "auto", bottom: "auto", transform: "none" }
         : {
             left: WINDOW_MARGIN,
-            top: WINDOW_MARGIN,
+            top: "auto",
             right: "auto",
-            bottom: "auto",
+            bottom: WINDOW_MARGIN,
             transform: "none",
           }
       : position
@@ -1039,32 +1049,34 @@ export function CommandBox({
     height: minimized ? undefined : boxSize.h,
   } as const;
 
-  // THE CONSOLE'S PLACE (clean-screen round, 2026-11-24): folded,
-  // the box is the head alone — it takes the head's place, not the
-  // box's size: anchored, the top-left home (or the anchor point
-  // the effect settled); free, the position he left it at. The
-  // record is the box's own (one window, one place on record), so
-  // where he parks the head is where the box stands when it opens.
-  const consoleStyle = {
+  // THE BAR'S PLACE (owner order 2026-11-24 ~16:57 EST): folded,
+  // the window is its bar along the bottom — it takes the
+  // window's place, not the open box's size: anchored, the
+  // bottom-left home (or the anchor point the effect settled);
+  // free, the position he left it at. The record is the window's
+  // own (one window, one place on record), so where he parks the
+  // bar is where the box stands when it opens.
+  const foldedStyle = {
     ...(anchored
       ? anchorPos
         ? { left: anchorPos.x, top: anchorPos.y, right: "auto", bottom: "auto", transform: "none" }
         : {
             left: WINDOW_MARGIN,
-            top: WINDOW_MARGIN,
+            top: "auto",
             right: "auto",
-            bottom: "auto",
+            bottom: WINDOW_MARGIN,
             transform: "none",
           }
       : position
         ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
         : {
             left: WINDOW_MARGIN,
-            top: WINDOW_MARGIN,
+            top: "auto",
             right: "auto",
-            bottom: "auto",
+            bottom: WINDOW_MARGIN,
             transform: "none",
           }),
+    width: boxSize.w,
   } as const;
 
   // THE MESSAGE FIELD — one element, shared by both forms below:
@@ -1256,128 +1268,51 @@ export function CommandBox({
   );
 
   /**
-   * THE OSIRIS CONSOLE (clean-screen round, owner order
-   * 2026-11-24 ~10:40 EST): folded, the chat box is Osiris's head
-   * ALONE — a medallion just like Anubis's, no name under it, no
-   * "Chat" word, no row of buttons standing out on the screen.
-   * The same grammar as every god's medallion: tap him and his
-   * chat opens; his THREE DOTS open his options — the four
-   * chat-window selections (Open chat, Menu, Anchor, Reset) live
-   * behind the dots, never sitting out. A press that travels is
-   * a drag — the head moves and anchors where he leaves it; a
-   * tap opens the chat. Desktop and phone alike: the head's home
-   * is the top-left corner, where the CORE panel used to sit.
+   * THE FOLDED BAR (owner order 2026-11-24 ~16:57 EST —
+   * superseding the clean-screen round's Osiris console of the
+   * same morning): folded, the Captain's window is its BAR along
+   * the bottom — the type field and its companions, and NO god
+   * in it or heading it. On the phone the bar is the one-button
+   * line (Part D); on the desktop it is the standard line (field,
+   * emoji, mic, send). A tap on the bar's bare ground opens the
+   * window; a press that travels is a drag — the window moves
+   * and anchors where he leaves it. The window's four keys are
+   * not here: they are Osiris's, in his menu on his medallion.
    */
-  const consoleFace = (
-    <div className="avatar-command-box__console" ref={consoleRef}>
-      <div
-        className="avatar-command-box__console-face"
-        data-console-face="true"
-        role="button"
-        tabIndex={0}
-        aria-label={`Open the chat with ${speakerName}`}
-        title="Open the chat — or press and drag to move the head"
-        onPointerDown={startDrag}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onClick={() => {
-          // A drag's trailing click is not a tap: the head was
-          // being PLACED, not asked to open.
-          if (dragMoved.current) {
-            dragMoved.current = false;
-            return;
-          }
-          restoreNow();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            restoreNow();
-          }
-        }}
-      >
-        {presence}
-      </div>
-      <button
-        type="button"
-        className="avatar-command-box__console-dots"
-        aria-label="Open Osiris's chat options"
-        aria-expanded={consoleMenuOpen}
-        title="Chat options — open chat, menu, anchor, reset"
-        onClick={(event) => {
-          event.stopPropagation();
-          setConsoleMenuOpen((open) => !open);
-        }}
-      >
-        <MoreHorizontal aria-hidden="true" />
-      </button>
-      {consoleMenuOpen && (
-        <div className="avatar-command-box__console-menu" role="menu" aria-label="Chat options">
-          <button
-            type="button"
-            className="avatar-command-box__console-option"
-            role="menuitem"
-            onClick={() => {
-              setConsoleMenuOpen(false);
-              restoreNow();
-            }}
-          >
-            <MessageSquare aria-hidden="true" />
-            <span>Open chat</span>
-          </button>
-          <button
-            type="button"
-            className="avatar-command-box__console-option"
-            role="menuitem"
-            onClick={() => {
-              setConsoleMenuOpen(false);
-              restoreNow();
-              setMachineryOpen(true);
-            }}
-          >
-            <Menu aria-hidden="true" />
-            <span>Menu — tools &amp; settings</span>
-          </button>
-          <button
-            type="button"
-            className="avatar-command-box__console-option"
-            role="menuitem"
-            onClick={() => {
-              setConsoleMenuOpen(false);
-              toggleAnchored();
-            }}
-            aria-pressed={anchored}
-          >
-            <Anchor aria-hidden="true" />
-            <span>{anchored ? "Anchored — tap to unanchor" : "Unanchored — anchor at home"}</span>
-          </button>
-          <button
-            type="button"
-            className="avatar-command-box__console-option"
-            role="menuitem"
-            onClick={() => {
-              setConsoleMenuOpen(false);
-              resetBoxLayout();
-            }}
-          >
-            <RotateCcw aria-hidden="true" />
-            <span>Reset — window back home</span>
-          </button>
-        </div>
-      )}
+  const foldedBar = (
+    <div
+      className="avatar-command-box__bar"
+      onPointerDown={startDrag}
+      onPointerMove={moveDrag}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onClick={(event) => {
+        // A drag's trailing click is not a tap: the window was
+        // being PLACED, not asked to open. Clicks on the field
+        // or a button keep their own jobs.
+        if (dragMoved.current) {
+          dragMoved.current = false;
+          return;
+        }
+        if ((event.target as HTMLElement).closest?.("button, input, textarea, select")) return;
+        restoreNow();
+      }}
+    >
+      {phoneBar ? phoneForm : standardForm}
+      {emojiPicker}
     </div>
   );
 
   // THE MMORPG CHAT PANEL (owner orders 2026-11-21 Part 28, and
-  // 2026-11-22 — the picked Drakensang-style reference): a slim rail
-  // of round controls down the left edge, a flowing chat log whose
-  // lines lead with the speaker's name (Captain / Anubis / System),
-  // and one clean input bar at the bottom. NO conversation dropdown,
-  // no thread machinery on the face — the log simply flows. All other
-  // machinery stays behind the rail's one Menu button. The window
-  // drags by its rail and stretches from its edges/corner; position
-  // and size both persist.
+  // 2026-11-22 — the picked Drakensang-style reference): a slim
+  // grip rail down the left edge, a flowing chat log whose lines
+  // lead with the speaker's name (Captain / Anubis / System), and
+  // one clean input bar at the bottom. NO conversation dropdown,
+  // no thread machinery on the face — the log simply flows. All
+  // other machinery stays behind the Menu key — Osiris's now, on
+  // his own medallion (owner order 2026-11-24 ~16:57 EST). The
+  // window drags by its rail and stretches from its edges/corner;
+  // position and size both persist.
 
   // TWO-MODE CHAT (owner order 2026-11-22): on another screen the
   // box leaves only this slim bottom strip — Osiris's face, the word
@@ -1398,7 +1333,6 @@ export function CommandBox({
           }
         }}
       >
-        {presence && <span className="avatar-chat-strip__presence">{presence}</span>}
         <span className="avatar-chat-strip__label">Chat</span>
         {stripPreview ? (
           <p
@@ -1423,21 +1357,21 @@ export function CommandBox({
   return (
     <section
       ref={boxRef}
-      className={`avatar-command-box${minimized ? " avatar-command-box--minimized avatar-command-box--console" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}${enlarged ? " avatar-command-box--enlarged" : ""}${phoneBar ? " avatar-command-box--phone-bar" : ""}${machineryOpen && !minimized ? " avatar-command-box--section-open" : ""}`}
-      style={minimized ? consoleStyle : phoneBar ? undefined : boxStyle}
+      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}${enlarged ? " avatar-command-box--enlarged" : ""}${phoneBar ? " avatar-command-box--phone-bar" : ""}${machineryOpen && !minimized ? " avatar-command-box--section-open" : ""}`}
+      style={phoneBar ? undefined : minimized ? foldedStyle : boxStyle}
       data-anchored={anchored ? "true" : "false"}
       data-enlarged={enlarged ? "true" : "false"}
       aria-label={`Chat with ${speakerName}`}
     >
       {minimized ? (
-        // THE CONSOLE (clean-screen round, 2026-11-24): folded —
-        // on the PC and on the phone alike — the box is Osiris's
-        // medallion alone at the top-left (or where he anchored
-        // it): tap him for the chat, his three dots for the four
-        // options. The docked phone bar's folded face is retired
-        // by this order; the OPEN phone chat keeps its bar form
-        // (the Part D one-button line) exactly as built.
-        consoleFace
+        // THE BAR (owner order 2026-11-24 ~16:57 EST): folded —
+        // on the PC and on the phone alike — the Captain's
+        // window is its bar along the bottom (or where he
+        // anchored it): the type field and its companions, no
+        // god inside it. The Osiris console that stood here for
+        // a morning is retired by this order; Osiris stands
+        // alone on the stage with his own keys.
+        foldedBar
       ) : (
       <>
       <div
@@ -1469,61 +1403,16 @@ export function CommandBox({
         >
           <GripVertical aria-hidden="true" />
         </button>
-        {presence}
-        {/* NO "CHAT" WORD, NO NAME (clean-screen round, owner
-            order 2026-11-24 ~10:40 EST): the rail carried a
-            vertical "Chat" title under the face and the face
-            carried his name — both are gone. He knows who Osiris
-            is and what the box is. The face stands alone. */}
-        <button
-          type="button"
-          className="avatar-command-box__window-button avatar-command-box__anchor-button"
-          onClick={toggleAnchored}
-          aria-pressed={anchored}
-          aria-label={anchored ? "Unanchor the chat window" : "Anchor the chat window at its home corner"}
-          title={
-            anchored
-              ? "Anchored at the top-left home corner — tap to unanchor, then drag and stretch it"
-              : "Unanchored — tap to anchor it back at the top-left home corner"
-          }
-        >
-          <Anchor aria-hidden="true" />
-          <span className="sr-only">{anchored ? "Unanchor" : "Anchor"}</span>
-        </button>
-        <button
-          type="button"
-          className="avatar-command-box__window-button avatar-command-box__reset-button"
-          onClick={resetBoxLayout}
-          aria-label="Reset the chat window to its home spot and size"
-          title="Reset — the chat window back to its compact home form, top-left"
-        >
-          <RotateCcw aria-hidden="true" />
-          <span className="sr-only">Reset</span>
-        </button>
-        <button
-          type="button"
-          className="avatar-command-box__window-button avatar-command-box__menu-button"
-          onClick={() => {
-            if (minimized) restoreNow();
-            setMachineryOpen((open) => !open);
-          }}
-          aria-expanded={machineryOpen}
-          aria-controls="avatar-command-machinery"
-          aria-label={machineryOpen ? "Close the tools menu" : "Open the tools menu"}
-          title="Menu — tools, rooms and settings"
-        >
-          <Menu aria-hidden="true" />
-          <span className="sr-only">Menu</span>
-        </button>
-        <button
-          type="button"
-          className="avatar-command-box__window-button"
-          onClick={toggleMinimized}
-          aria-label={minimized ? "Expand command box" : "Minimize command box"}
-          title={minimized ? "Expand" : "Minimize"}
-        >
-          {minimized ? <ChevronDown aria-hidden="true" /> : <Minus aria-hidden="true" />}
-        </button>
+        {/* THE RAIL IS A GRIP, NOTHING MORE (owner order
+            2026-11-24 ~16:57 EST): the rail once carried a god's
+            face and the window's four keys down its length. The
+            face is gone — no god sits in this window — and the
+            four keys (anchor, reset, three-lines menu, minus)
+            are Osiris's, in his three-lines menu on his own
+            medallion. What remains here is the window's own
+            furniture: the drag grip and the enlarge toggle. The
+            machinery opens from Osiris's menu key, from the
+            phone line's options, or by command. */}
       </div>
 
       {/* THE MAIN COLUMN (owner defect fix 2026-11-22): machinery on

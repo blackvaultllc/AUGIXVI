@@ -352,16 +352,20 @@ describe("chat two-mode behavior — the strip on other screens", () => {
     expect(onReturnToChat).toHaveBeenCalledTimes(1);
   });
 
-  it("back on the chat screen the console stands — and his tap returns the full box, bottom-up log, input at the bottom", () => {
-    // RESTAGED (clean-screen round, owner order 2026-11-24
-    // ~10:40 EST): back on the chat screen what stands is the
-    // console — Osiris's head alone; the full box returns on his
-    // tap, exactly as it left.
+  it("back on the chat screen the bar stands — and his tap returns the full box, bottom-up log, input at the bottom", () => {
+    // RESTAGED (owner order 2026-11-24 ~16:57 EST): back on the
+    // chat screen what stands is the BAR — the Captain's own
+    // window folded along the bottom, the field riding it; the
+    // full box returns on his tap, exactly as it left. (For one
+    // morning what stood here was Osiris's head console; before
+    // that, the folded bar kept no field on the desktop.)
     const { container } = renderChat({ history: [entry(1, "First answer.")] });
     expect(container.querySelector(".avatar-chat-strip")).toBeNull();
-    expect(container.querySelector(".avatar-command-box__console-face")).not.toBeNull();
-    expect(container.querySelector("#avatar-command-input")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Open the chat with Anubis" }));
+    expect(container.querySelector(".avatar-command-box__console-face")).toBeNull();
+    expect(container.querySelector(".avatar-command-box__bar")).not.toBeNull();
+    expect(container.querySelector("#avatar-command-input")).not.toBeNull();
+    expect(container.querySelector(".avatar-command-box__thread-flow")).toBeNull();
+    fireEvent.click(container.querySelector(".avatar-command-box__bar") as HTMLElement);
     expect(container.querySelector("#avatar-command-input")).not.toBeNull();
     expect(container.querySelector(".avatar-command-box__thread-flow")).not.toBeNull();
   });

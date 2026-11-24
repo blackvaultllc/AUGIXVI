@@ -1,22 +1,32 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Eye, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "@/avatar/CommandBox";
+import {
+  CommandBox,
+  COMMAND_TAB_ICONS,
+  type CommandBoxWindowControls,
+  type CommandTab,
+} from "@/avatar/CommandBox";
 import { ReplyHistoryWindow } from "@/avatar/ReplyHistoryWindow";
 import type { ReplyHistoryEntry } from "@/avatar/replyHistory";
 
 /**
- * THE CONSOLE OPENS THE BOX (clean-screen round, owner order
- * 2026-11-24 ~10:40 EST): the box starts FOLDED — Osiris's head
- * alone — at every width now. Tests that exercise the OPEN box
- * tap his face first, exactly as the Captain does; tests of the
- * folded form use the console's own face and three dots.
+ * THE BAR OPENS THE BOX (owner order 2026-11-24 ~16:57 EST):
+ * the box starts FOLDED — its bar along the bottom, the
+ * Captain's own window with no god in it — at every width now.
+ * Tests that exercise the OPEN box tap the bar's bare ground
+ * first, exactly as the Captain does; tests of the folded form
+ * use the bar itself. (For one morning the folded form was
+ * Osiris's head console — the clean-screen round — and before
+ * that, the phone-only bar of 2026-11-23.)
  */
-function openTheBox(speakerName = "Anubis") {
-  fireEvent.click(screen.getByRole("button", { name: `Open the chat with ${speakerName}` }));
+function openTheBox() {
+  const bar = document.querySelector(".avatar-command-box__bar");
+  if (!bar) throw new Error("the folded bar is not on screen");
+  fireEvent.click(bar);
 }
 
 /**
@@ -48,6 +58,8 @@ describe("command box grip controls", () => {
     fireEvent(node, ev);
   }
 
+  let windowControls: CommandBoxWindowControls | null = null;
+
   function renderBox() {
     const utils = render(
       <CommandBox
@@ -63,32 +75,36 @@ describe("command box grip controls", () => {
         onToggleVoice={vi.fn()}
         responseLine="Standing by."
         responseSource="test"
+        onWindowControls={(controls) => {
+          windowControls = controls;
+        }}
       >
         <p>panel body</p>
       </CommandBox>,
     );
-    // The console is the opening form (clean-screen round) — this
-    // describe exercises the open box, so tap his face open.
+    // The bar is the opening form (owner order 2026-11-24
+    // ~16:57 EST) — this describe exercises the open box, so
+    // tap the bar open.
     openTheBox();
     return utils;
   }
 
-  it("minimizes when the grip button is pressed — the press does not start a drag", () => {
-    renderBox();
-    // Part 28: the panel lives behind the Menu button — open it so the
-    // panel is on screen, then prove minimize hides it and expand
-    // brings it back, with no drag capture on either press.
-    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
-    expect(screen.getByText("panel body")).toBeInTheDocument();
-    const minimize = screen.getByRole("button", { name: "Minimize command box" });
-    pointerDown(minimize);
+  it("the grip toggle keeps its click — a press on it does not start a drag", () => {
+    // SUPERSEDED SUBJECT (owner order 2026-11-24 ~16:57 EST):
+    // this guard was born for the grip's MINIMIZE button
+    // (2026-11-21) — the window's keys (anchor, reset, menu,
+    // minimize) are Osiris's now and live in his menu, out of
+    // the box entirely. The regression class stands wherever a
+    // button rides a drag surface: the rail's one remaining
+    // button is the grip toggle, and a press on it must not be
+    // captured by the rail's drag — the toggle must land.
+    const { container } = renderBox();
+    const toggle = screen.getByRole("button", { name: "Enlarge the chat window" });
+    pointerDown(toggle);
     expect(captureSpy).not.toHaveBeenCalled();
-    fireEvent.click(minimize);
-    expect(screen.queryByText("panel body")).not.toBeInTheDocument();
-    // Folded, the box is the console again (clean-screen round):
-    // tapping Osiris's face is the expand now — no rail button.
-    openTheBox();
-    expect(screen.getByText("panel body")).toBeInTheDocument();
+    fireEvent.click(toggle);
+    const box = container.querySelector(".avatar-command-box") as HTMLElement;
+    expect(box.dataset["enlarged"]).toBe("true");
   });
 
   it("dragging starts from the rail itself — a genuine grab unanchors and moves", () => {
@@ -104,17 +120,17 @@ describe("command box grip controls", () => {
     expect(captureSpy).toHaveBeenCalled();
   });
 
-  it("opens anchored at the top-left — fully on screen, and the state persists", () => {
+  it("opens anchored at the bottom-left — fully on screen, and the state persists", () => {
     const { container } = renderBox();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
     expect(box.dataset["anchored"]).toBe("true");
-    // The anchored home: the LEFT side, TOP corner since the
-    // clean-screen round (owner order 2026-11-24 — the head
-    // console's home, where the CORE panel sat; before it, the
-    // bottom-left). jsdom is 1024×768 and the standard box is the
-    // compact 420×360, so home is x=16, y=16.
+    // The anchored home: the LEFT side, BOTTOM corner (owner
+    // order 2026-11-24 ~16:57 EST — his window stands along the
+    // bottom; the top-left home of the clean-screen morning is
+    // superseded). jsdom is 1024×768 and the standard box is
+    // the compact 420×360, so home is x=16, y=768−360−16=392.
     expect(box.style.left).toBe("16px");
-    expect(box.style.top).toBe("16px");
+    expect(box.style.top).toBe("392px");
     // A grab on the rail unanchors the box in place (eye-check
     // 2026-11-23) and the unanchored state persists. (Target
     // moved with the "Chat" title's removal — the rail itself.)
@@ -122,7 +138,9 @@ describe("command box grip controls", () => {
     expect(captureSpy).toHaveBeenCalled();
     expect(box.dataset["anchored"]).toBe("false");
     expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("unanchored");
-    fireEvent.click(screen.getByRole("button", { name: "Anchor the chat window at its home corner" }));
+    // The anchor key itself is Osiris's now — it drives the box
+    // through the registered window controls.
+    act(() => windowControls!.toggleAnchored());
     expect(box.dataset["anchored"]).toBe("true");
     expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("anchored");
   });
@@ -345,7 +363,7 @@ describe("command box routed speaker label", () => {
         <p>panel body</p>
       </CommandBox>,
     );
-    openTheBox(speakerName);
+    openTheBox();
     return utils;
   }
 
@@ -412,6 +430,7 @@ describe("command box resize", () => {
   }
 
   it("stretching the corner grows the window and saves the size", () => {
+    let windowControls: CommandBoxWindowControls | null = null;
     const { container } = render(
       <CommandBox
         accent="#d4af37"
@@ -426,6 +445,9 @@ describe("command box resize", () => {
         onToggleVoice={vi.fn()}
         responseLine="Standing by."
         responseSource="test"
+        onWindowControls={(controls) => {
+          windowControls = controls;
+        }}
       >
         <p>panel body</p>
       </CommandBox>,
@@ -433,13 +455,14 @@ describe("command box resize", () => {
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
     // The compact home default (owner order 2026-11-22, defect fix;
     // smaller again on his eye-check 2026-11-23 — 420×360 class).
-    // Measured on the OPEN box (clean-screen round: the folded
-    // console carries no size) — tap his face first.
+    // Measured on the OPEN box (the folded bar carries no size) —
+    // tap the bar first.
     openTheBox();
     expect(box.style.width).toBe("420px");
     expect(box.style.height).toBe("360px");
-    // Anchored boxes do not stretch — unanchor first.
-    fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
+    // Anchored boxes do not stretch — unanchor first, through
+    // Osiris's anchor key path (the registered window controls).
+    act(() => windowControls!.toggleAnchored());
     const corner = screen.getByRole("separator", { name: "Resize the chat window" });
     pointer(corner, "pointerdown", 100, 100);
     expect(captureSpy).toHaveBeenCalled();
@@ -550,11 +573,29 @@ describe("command box plain chat face", () => {
         responseSource="test"
         userLine="last thing I said"
         history={landed}
+        onMinimizeShortcut={(controls) => {
+          shortcutControls = controls;
+        }}
+        onWindowControls={(controls) => {
+          windowControls = controls;
+        }}
       >
         <p>{tab} panel body</p>
       </CommandBox>
     );
   }
+
+  // The window's keys are Osiris's now (owner order 2026-11-24
+  // ~16:57 EST): his menu drives the box through these
+  // registered controls, and the tests drive them the same way.
+  let shortcutControls: { minimize: () => void; restore: () => void } | null = null;
+  let windowControls: CommandBoxWindowControls | null = null;
+  const toggleTheMenu = () => {
+    act(() => windowControls!.toggleMenu());
+  };
+  const foldTheBox = () => {
+    act(() => shortcutControls!.minimize());
+  };
 
   const before = (a: HTMLElement, b: HTMLElement) =>
     Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
@@ -579,7 +620,7 @@ describe("command box plain chat face", () => {
     expect(zone).not.toContainElement(input);
   });
 
-  it("the one Menu button opens the machinery — the tab's display REPLACES the chat display", () => {
+  it("Osiris's menu key opens the machinery — the tab's display REPLACES the chat display", () => {
     // SUPERSEDED PIN (owner order 2026-11-24 ~01:45 CST, Part B):
     // this test used to pin "tabs and panel above the
     // conversation" — the chat display followed him into every
@@ -587,13 +628,15 @@ describe("command box plain chat face", () => {
     // the screen is the tab that's showing." Opening a section
     // now unmounts the conversation display; the input bar stays;
     // closing the section restores the chat whole.
+    // SUPERSEDED AGAIN (owner order 2026-11-24 ~16:57 EST): the
+    // Menu button itself left the box — the three-lines key is
+    // Osiris's, in his own menu, driving the box through the
+    // registered window controls. The machinery law stands.
     render(<StatefulBox />);
     openTheBox();
-    const menu = screen.getByRole("button", { name: /tools menu/i });
-    expect(menu).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
 
-    fireEvent.click(menu);
-    expect(menu).toHaveAttribute("aria-expanded", "true");
+    toggleTheMenu();
     expect(screen.getByRole("tablist")).toBeInTheDocument();
     expect(screen.getByText("scene panel body")).toBeInTheDocument();
     // The chat display is GONE while the section shows.
@@ -602,7 +645,7 @@ describe("command box plain chat face", () => {
     // The bottom input bar persists across sections.
     expect(screen.getByPlaceholderText(/Message Anubis/)).toBeInTheDocument();
 
-    fireEvent.click(menu);
+    toggleTheMenu();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
     // The chat never left the record — it is back, whole.
@@ -612,7 +655,7 @@ describe("command box plain chat face", () => {
   it("every tab still switches the panel — the input stays put, the chat display does not follow", () => {
     render(<StatefulBox />);
     openTheBox();
-    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
+    toggleTheMenu();
     const input = screen.getByPlaceholderText(/Message Anubis/);
 
     fireEvent.click(screen.getByRole("tab", { name: /Tools/ }));
@@ -633,7 +676,7 @@ describe("command box plain chat face", () => {
     // bottom input held — and the record returns whole on close.
     expect(screen.queryByText("Latest reply.")).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Message Anubis/)).toBe(input);
-    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
+    toggleTheMenu();
     expect(screen.getByText("Latest reply.")).toBeInTheDocument();
     expect(before(screen.getByText("Latest reply."), input)).toBe(true);
   });
@@ -641,7 +684,7 @@ describe("command box plain chat face", () => {
   it("the Commands tab still shows the full command document in the panel", () => {
     render(<StatefulBox />);
     openTheBox();
-    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
+    toggleTheMenu();
     fireEvent.click(screen.getByRole("tab", { name: /Commands/ }));
     expect(screen.getByText(/Every command Anubis can pass to AUGI/)).toBeInTheDocument();
     // The panel swapped; the chat display is the tab's now (Part
@@ -649,7 +692,7 @@ describe("command box plain chat face", () => {
     expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
     expect(screen.queryByText("Latest reply.")).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Message Anubis/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
+    toggleTheMenu();
     expect(
       before(screen.getByText("Latest reply."), screen.getByPlaceholderText(/Message Anubis/)),
     ).toBe(true);
@@ -672,6 +715,9 @@ describe("command box plain chat face", () => {
       onToggleVoice: vi.fn(),
       responseLine: "Latest reply.",
       responseSource: "test",
+      onWindowControls: (controls: CommandBoxWindowControls) => {
+        windowControls = controls;
+      },
     };
     const { rerender } = render(
       <CommandBox {...baseProps} history={history}>
@@ -679,7 +725,7 @@ describe("command box plain chat face", () => {
       </CommandBox>,
     );
     openTheBox();
-    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
+    toggleTheMenu();
     expect(screen.getByText("tools panel body")).toBeInTheDocument();
     rerender(
       <CommandBox
@@ -691,7 +737,7 @@ describe("command box plain chat face", () => {
     );
     // Still in the section: the arrived line is not forced over his tab.
     expect(screen.queryByText(/a report that waited/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
+    toggleTheMenu();
     expect(screen.getByText(/a report that waited/)).toBeInTheDocument();
     expect(screen.getByText("Latest reply.")).toBeInTheDocument();
   });
@@ -708,35 +754,38 @@ describe("command box plain chat face", () => {
     expect(before(reply, input)).toBe(true);
   });
 
-  it("minimizing folds the box to Osiris's head alone; opening restores the section, closing it restores the chat face", () => {
+  it("minimizing folds the box to its bar; opening restores the section, closing it restores the chat face", () => {
     // SUPERSEDED TAIL (Part B, 2026-11-24): expanding used to
     // restore the chat face directly because the conversation
     // rendered under the machinery. Now the display follows the
     // tab — the section he left open is the display he returns
     // to, and the chat face returns when the section closes.
-    // SUPERSEDED AGAIN (clean-screen round, 2026-11-24 ~10:40
-    // EST): minimized used to keep the input on the face — the
-    // folded box is now Osiris's HEAD ALONE, no input, no rail;
-    // opening is the tap on his face, not an Expand button.
-    render(<StatefulBox />);
+    // SUPERSEDED AGAIN (owner order 2026-11-24 ~16:57 EST): for
+    // one morning the folded box was Osiris's head alone; his
+    // window is his own again — the folded form is the BAR, the
+    // message line standing along the bottom with the field on
+    // it — and the fold itself is driven by Osiris's minus key
+    // through the registered controls, not a button in the box.
+    const { container } = render(<StatefulBox />);
     openTheBox();
-    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
+    toggleTheMenu();
     expect(screen.getByRole("tablist")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Minimize command box" }));
+    foldTheBox();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
     expect(screen.queryByRole("log")).not.toBeInTheDocument();
     expect(screen.queryByText("Latest reply.")).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText(/Message Anubis/)).not.toBeInTheDocument();
-    // The console is what stands in the box's place.
-    expect(screen.getByRole("button", { name: "Open the chat with Anubis" })).toBeInTheDocument();
+    // The bar is what stands in the box's place — and the field
+    // rides it, as it did on the phone bar before the console.
+    expect(container.querySelector(".avatar-command-box__bar")).not.toBeNull();
+    expect(screen.getByPlaceholderText(/Message Anubis/)).toBeInTheDocument();
 
     openTheBox();
     // The section he left is the display again (Part B)…
     expect(screen.getByText("scene panel body")).toBeInTheDocument();
     expect(screen.queryByText("Latest reply.")).not.toBeInTheDocument();
     // …and closing it restores the chat face, whole.
-    fireEvent.click(screen.getByRole("button", { name: /tools menu/i }));
+    toggleTheMenu();
     expect(screen.getByText("Latest reply.")).toBeInTheDocument();
     expect(
       before(screen.getByText("Latest reply."), screen.getByPlaceholderText(/Message Anubis/)),
@@ -797,6 +846,8 @@ describe("command box home form and bottom-stacked log", () => {
     { at: 2, question: "now fly", answer: "Flying." },
   ];
 
+  let windowControls: CommandBoxWindowControls | null = null;
+
   function renderHome() {
     const utils = render(
       <CommandBox
@@ -813,6 +864,9 @@ describe("command box home form and bottom-stacked log", () => {
         responseLine="Standing by."
         responseSource="test"
         history={history}
+        onWindowControls={(controls) => {
+          windowControls = controls;
+        }}
       >
         <p>panel body</p>
       </CommandBox>,
@@ -827,9 +881,9 @@ describe("command box home form and bottom-stacked log", () => {
     expect(box.style.width).toBe("420px");
     expect(box.style.height).toBe("360px");
     expect(box.dataset["anchored"]).toBe("true");
-    // Anchored home is the top-left (clean-screen round,
-    // 2026-11-24; bottom-left before it): left margin, no
-    // centering transform.
+    // Anchored home is the bottom-left (owner order 2026-11-24
+    // ~16:57 EST; the clean-screen morning's top-left is
+    // superseded): left margin, no centering transform.
     expect(box.style.left).toBe("16px");
     expect(box.style.transform).toBe("none");
   });
@@ -856,14 +910,15 @@ describe("command box home form and bottom-stacked log", () => {
       </CommandBox>,
     );
     // The stale record is never read: the box stands folded
-    // because the CONSOLE is the opening form by law now
-    // (clean-screen round, 2026-11-24) — the same law for every
-    // load, record or no record — and one tap on his face opens
+    // because the BAR is the opening form by law now (owner
+    // order 2026-11-24 ~16:57 EST; the clean-screen morning's
+    // head console is superseded) — the same law for every
+    // load, record or no record — and one tap on the bar opens
     // the conversation whole. The defect this test was born for
     // (a hidden conversation with no way back) stays dead: the
-    // way back is the head itself.
+    // way back is the bar itself.
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
-    expect(box.classList.contains("avatar-command-box--console")).toBe(true);
+    expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
     openTheBox();
     expect(screen.getByRole("log", { name: "Chat log" })).toBeInTheDocument();
     // The live line stands on the face…
@@ -955,7 +1010,11 @@ describe("command box home form and bottom-stacked log", () => {
     expect(screen.getByText("Flying.")).toBeInTheDocument();
   });
 
-  it("one click on the rail's reset restores the home form and clears the saved layout", () => {
+  it("Osiris's reset key restores the home form and clears the saved layout", () => {
+    // SUPERSEDED DRIVER (owner order 2026-11-24 ~16:57 EST): the
+    // anchor and reset keys left the rail — they are Osiris's
+    // now, in his menu, driving the box through the registered
+    // window controls. The reset law itself stands.
     localStorage.setItem(
       "augi.avatar.command-box.size.v2",
       JSON.stringify({ w: 900, h: 700 }),
@@ -963,16 +1022,14 @@ describe("command box home form and bottom-stacked log", () => {
     const { container } = renderHome();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
     expect(box.style.width).toBe("900px");
-    fireEvent.click(screen.getByRole("button", { name: "Unanchor the chat window" }));
+    act(() => windowControls!.toggleAnchored());
     const corner = screen.getByRole("separator", { name: "Resize the chat window" });
     pointer(corner, "pointerdown", 100, 100);
     pointer(corner, "pointermove", 160, 140);
     pointer(corner, "pointerup", 160, 140);
     expect(localStorage.getItem("augi.avatar.command-box.size.v2")).not.toBeNull();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Reset the chat window to its home spot and size" }),
-    );
+    act(() => windowControls!.resetLayout());
     expect(box.style.width).toBe("420px");
     expect(box.style.height).toBe("360px");
     expect(box.dataset["anchored"]).toBe("true");
@@ -1107,13 +1164,15 @@ describe("command box viewport heal + enlarge + phone form", () => {
     });
   });
 
-  it("at phone width the folded chat is the console — Osiris's head at the top-left, no bar face", () => {
-    // THE PHONE BAR'S FOLDED FACE IS SUPERSEDED (clean-screen
-    // round, owner order 2026-11-24 ~10:40 EST): folded on the
-    // phone is no longer the docked bottom bar — it is Osiris's
-    // head alone at the top-left, the same console as the PC
-    // (his order: phone identical, top LEFT corner). The OPEN
-    // phone chat keeps its bar form (the Part D one-button line).
+  it("at phone width the folded chat is the docked bar — the field and one button, in flow", () => {
+    // THE CONSOLE FOLD IS SUPERSEDED (owner order 2026-11-24
+    // ~16:57 EST): for one morning the phone fold was Osiris's
+    // head alone at the top-left; his window is his own again —
+    // folded on the phone is the docked bottom BAR (the Part D
+    // form of 2026-11-23, restored): the field and ONE button on
+    // the line, docked in flow with no inline geometry, so it
+    // can never cover his stage. The OPEN phone chat keeps the
+    // same one-button line.
     const widthSpy = vi
       .spyOn(window, "innerWidth", "get")
       .mockReturnValue(390);
@@ -1125,16 +1184,18 @@ describe("command box viewport heal + enlarge + phone form", () => {
       const box = boxOf(container);
       expect(box.classList.contains("avatar-command-box--phone-bar")).toBe(true);
       expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
-      expect(box.classList.contains("avatar-command-box--console")).toBe(true);
+      expect(box.classList.contains("avatar-command-box--console")).toBe(false);
       expect(box.style.width).toBe("");
       expect(box.style.height).toBe("");
-      // The head's home is the top-left margin, 16px on both axes.
-      expect(box.style.top).toBe("16px");
-      expect(box.style.left).toBe("16px");
-      // His face and his three dots stand there; the conversation
-      // and the input wait behind the tap.
-      expect(container.querySelector(".avatar-command-box__console-face")).not.toBeNull();
-      expect(screen.queryByLabelText("Message for Anubis")).not.toBeInTheDocument();
+      expect(box.style.top).toBe("");
+      expect(box.style.left).toBe("");
+      // The bar stands there: the field and the one options
+      // button on the line; the conversation waits behind the tap.
+      expect(container.querySelector(".avatar-command-box__bar")).not.toBeNull();
+      expect(screen.getByLabelText("Message for Anubis")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Open the message options/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Send command" })).not.toBeInTheDocument();
+      expect(container.querySelector(".avatar-command-box__console-face")).toBeNull();
       expect(container.querySelector(".avatar-command-box__conversation")).toBeNull();
     } finally {
       widthSpy.mockRestore();
@@ -1169,7 +1230,7 @@ describe("command box viewport heal + enlarge + phone form", () => {
     }
   });
 
-  it("the console opens on a tap of his face and folds back on a tap of the rail", () => {
+  it("the bar opens on a tap and folds back on a tap of the rail", () => {
     const widthSpy = vi
       .spyOn(window, "innerWidth", "get")
       .mockReturnValue(390);
@@ -1180,15 +1241,13 @@ describe("command box viewport heal + enlarge + phone form", () => {
       const { container } = renderBox();
       const box = boxOf(container);
       expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
-      // A tap on his face (the console) opens the chat upward.
-      // (Before the clean-screen round the tap landed on the
-      // docked bar's face; the bar's folded face is retired.)
-      const face = container.querySelector(".avatar-command-box__console-face") as HTMLElement;
-      expect(face).not.toBeNull();
-      fireEvent.click(face);
+      // A tap on the bar's bare ground opens the chat upward.
+      const bar = container.querySelector(".avatar-command-box__bar") as HTMLElement;
+      expect(bar).not.toBeNull();
+      fireEvent.click(bar);
       expect(box.classList.contains("avatar-command-box--minimized")).toBe(false);
       expect(container.querySelector(".avatar-command-box__conversation")).not.toBeNull();
-      // A tap on the open box's rail folds it back to the head.
+      // A tap on the open box's rail folds it back to the bar.
       fireEvent.click(container.querySelector(".avatar-command-box__rail") as HTMLElement);
       expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
       expect(container.querySelector(".avatar-command-box__conversation")).toBeNull();
@@ -1198,7 +1257,7 @@ describe("command box viewport heal + enlarge + phone form", () => {
     }
   });
 
-  it("the console folds with the box's minimize button too", () => {
+  it("the bar folds from the message options too", () => {
     const widthSpy = vi
       .spyOn(window, "innerWidth", "get")
       .mockReturnValue(390);
@@ -1208,43 +1267,44 @@ describe("command box viewport heal + enlarge + phone form", () => {
     try {
       const { container } = renderBox();
       const box = boxOf(container);
-      // Open with a tap on his face, then fold with the box's own
-      // minimize button.
-      fireEvent.click(container.querySelector(".avatar-command-box__console-face") as HTMLElement);
+      // Open with a tap on the bar, then fold from the options
+      // menu — the phone's own fold entry (Part D).
+      fireEvent.click(container.querySelector(".avatar-command-box__bar") as HTMLElement);
       expect(box.classList.contains("avatar-command-box--minimized")).toBe(false);
       expect(container.querySelector(".avatar-command-box__conversation")).not.toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Minimize command box" }));
+      fireEvent.click(screen.getByRole("button", { name: /Open the message options/ }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Fold to the bar" }));
       expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
       // The footprint collapses completely — no reserved height
-      // (the 2026-11-22 "big blue gap" symptom stays dead).
-      // SUPERSEDED CLAUSE (clean-screen round, 2026-11-24): the
-      // folded bar used to keep the input riding in it; the
-      // folded console is the head alone — the input lives in the
-      // open box and in the bottom strip on other screens.
+      // (the 2026-11-22 "big blue gap" symptom stays dead) — and
+      // the field rides the bar: that is the bar's whole point.
       expect(box.style.height).toBe("");
       expect(container.querySelector(".avatar-command-box__conversation")).toBeNull();
-      expect(screen.queryByLabelText("Message for Anubis")).not.toBeInTheDocument();
-      expect(container.querySelector(".avatar-command-box__console-face")).not.toBeNull();
+      expect(screen.getByLabelText("Message for Anubis")).toBeInTheDocument();
+      expect(container.querySelector(".avatar-command-box__bar")).not.toBeNull();
     } finally {
       widthSpy.mockRestore();
       heightSpy.mockRestore();
     }
   });
-  it("the stylesheet folds the minimized rail into a row — the bar is the whole footprint", () => {
-    // jsdom has no layout, so the collapse itself is pinned at the
-    // stylesheet: the effective (last, cascade-winning) minimized
-    // rules must give the box an automatic height and fold the rail
-    // from a column into a horizontal bar. If a future edit stands
-    // the rail back up, the big blue gap returns — this fails first.
+  it("the stylesheet folds the minimized window to its bar — the bar is the whole footprint", () => {
+    // jsdom has no layout, so the collapse itself is pinned at
+    // the stylesheet: the effective (last, cascade-winning)
+    // minimized rule must give the box an automatic height and
+    // the bar must flex to fill the row alone. (The console
+    // morning pinned a rail row carrying the head here;
+    // superseded 2026-11-24 ~16:57 EST with the console itself.)
+    // If a future edit reserves panel height for the fold, the
+    // big blue gap returns — this fails first.
     const css = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
     const boxRuleStart = css.lastIndexOf(".avatar-command-box--minimized {");
     expect(boxRuleStart).toBeGreaterThan(-1);
     const boxRule = css.slice(boxRuleStart, css.indexOf("}", boxRuleStart));
     expect(boxRule).toContain("height: auto");
-    const railRuleStart = css.indexOf(".avatar-command-box--minimized .avatar-command-box__rail {");
-    expect(railRuleStart).toBeGreaterThan(-1);
-    const railRule = css.slice(railRuleStart, css.indexOf("}", railRuleStart));
-    expect(railRule).toContain("flex-direction: row");
+    const barRuleStart = css.indexOf(".avatar-command-box__bar {");
+    expect(barRuleStart).toBeGreaterThan(-1);
+    const barRule = css.slice(barRuleStart, css.indexOf("}", barRuleStart));
+    expect(barRule).toContain("flex: 1");
   });
 
   it("the stylesheet keeps the phone rail inside the panel — a strip across the top, never a spilling column", () => {
@@ -1287,10 +1347,14 @@ describe("command box viewport heal + enlarge + phone form", () => {
  * opened box — one bar, one behavior, every tab (Part B).
  *
  * SUPERSEDED IN PART (clean-screen round, owner order 2026-11-24
- * ~10:40 EST): the FOLDED form is no longer the bar — folded is
- * Osiris's head alone (the console), on the phone exactly as on
- * the PC. The one-button line stands where Part B put it: on the
- * OPEN box's input row, and in the bottom strip on other screens.
+ * ~10:40 EST): the FOLDED form was not the bar for one morning —
+ * folded was Osiris's head alone (the console), on the phone
+ * exactly as on the PC.
+ *
+ * RESTORED (owner order 2026-11-24 ~16:57 EST): his window is
+ * his own again — no god sits in it — and the folded form IS
+ * the bar, phone exactly as written below. The one-button line
+ * stands on the folded bar and on the OPEN box's input row.
  */
 describe("command box phone bar — one button (Part D)", () => {
   beforeEach(() => {
@@ -1328,64 +1392,67 @@ describe("command box phone bar — one button (Part D)", () => {
     };
   }
 
-  it("the folded phone form is the console — his medallion and his three dots, nothing else on the line", () => {
-    // SUPERSEDED (clean-screen round, owner order 2026-11-24
-    // ~10:40 EST): Part D's folded bar — medallion, field, ONE
-    // button — was the folded form for a few hours. His clean-
-    // screen order retired it: folded is Osiris's head alone,
-    // phone exactly as PC, the four options behind his three
-    // dots. The one-button line survives where he put it in
-    // Part B/D — on the OPEN box's input row (next test).
-    const { container, restore } = renderPhoneBar({ presence: <span>THE FACE</span> });
+  it("the folded phone form is the bar — the field and ONE button, nothing else on the line", () => {
+    // RESTORED (owner order 2026-11-24 ~16:57 EST): Part D's
+    // folded bar — field, ONE button — is the folded form again;
+    // the clean-screen morning's head console is superseded and
+    // NO god rides this window at all now: the bar carries no
+    // medallion, no face, no three dots. The one-button line
+    // also stands on the OPEN box's input row (next tests).
+    const { container, restore } = renderPhoneBar();
     try {
       const box = container.querySelector(".avatar-command-box") as HTMLElement;
-      expect(box.classList.contains("avatar-command-box--console")).toBe(true);
-      const face = container.querySelector(".avatar-command-box__console-face") as HTMLElement;
-      expect(face).not.toBeNull();
-      // His medallion rides the console, untouched.
-      expect(face.textContent).toContain("THE FACE");
-      // His three dots stand at his corner.
+      expect(box.classList.contains("avatar-command-box--phone-bar")).toBe(true);
+      expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
+      expect(box.classList.contains("avatar-command-box--console")).toBe(false);
+      const bar = container.querySelector(".avatar-command-box__bar") as HTMLElement;
+      expect(bar).not.toBeNull();
+      // The field and the ONE button stand on the line.
+      expect(screen.getByLabelText("Message for Anubis")).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Open Osiris's chat options" }),
+        screen.getByRole("button", { name: /Open the message options/ }),
       ).toBeInTheDocument();
-      // NOTHING else on the folded line: no field, no options
-      // button, no send/mic/minimize furniture.
-      expect(screen.queryByLabelText("Message for Anubis")).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /Open the message options/ })).not.toBeInTheDocument();
+      // NOTHING else on the folded line: no send/mic/minimize
+      // furniture, and no god — no face, no console dots.
       expect(screen.queryByRole("button", { name: "Send command" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Start voice input" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Minimize command box" })).not.toBeInTheDocument();
-      // And the console menu starts closed.
-      expect(container.querySelector(".avatar-command-box__console-menu")).toBeNull();
+      expect(container.querySelector(".avatar-command-box__console-face")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Open Osiris's chat options" })).not.toBeInTheDocument();
+      // And the options menu starts closed.
+      expect(container.querySelector(".avatar-command-box__options")).toBeNull();
     } finally {
       restore();
     }
   });
 
-  it("the console's three dots open the four options — open chat among them", () => {
-    const { container, restore } = renderPhoneBar({ presence: <span>THE FACE</span> });
+  it("the window's four keys are not in this window — they are Osiris's now", () => {
+    // THE KEYS MOVED (owner order 2026-11-24 ~16:57 EST): anchor,
+    // reset, menu and minimize used to ride this box (the rail,
+    // then the console's three dots). They live in Osiris's own
+    // three-lines menu now — his medallion test pins them there.
+    // In THIS window the rail carries only the grip toggle, and
+    // no key answers anywhere in the box, folded or open.
+    const { container, restore } = renderPhoneBar();
     try {
-      fireEvent.click(screen.getByRole("button", { name: "Open Osiris's chat options" }));
-      const menu = container.querySelector(".avatar-command-box__console-menu") as HTMLElement;
-      expect(menu).not.toBeNull();
-      expect(screen.getByRole("menuitem", { name: /Open chat/ })).toBeInTheDocument();
-      expect(screen.getByRole("menuitem", { name: /Menu/ })).toBeInTheDocument();
-      expect(screen.getByRole("menuitem", { name: /Anchored/ })).toBeInTheDocument();
-      expect(screen.getByRole("menuitem", { name: /Reset/ })).toBeInTheDocument();
-      // Open chat unfolds the box off the console.
-      fireEvent.click(screen.getByRole("menuitem", { name: /Open chat/ }));
-      const box = container.querySelector(".avatar-command-box") as HTMLElement;
-      expect(box.classList.contains("avatar-command-box--minimized")).toBe(false);
+      openTheBox();
+      const rail = container.querySelector(".avatar-command-box__rail") as HTMLElement;
+      const railButtons = rail.querySelectorAll("button");
+      expect(railButtons.length).toBe(1);
+      expect(railButtons.item(0).getAttribute("aria-label")).toMatch(/Enlarge|Shrink/);
+      expect(screen.queryByRole("button", { name: "Minimize command box" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Reset the chat window/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /nchor the chat window/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /tools menu/i })).not.toBeInTheDocument();
     } finally {
       restore();
     }
   });
 
   it("the one button opens the menus — send, microphone, emoji, menus, fold", () => {
-    // Part D's one-button line now lives on the OPEN phone box
-    // (the folded form is the console — see the test above). The
-    // flow is unchanged from there: one button, one menu, every
-    // act inside it.
+    // Part D's one-button line lives on the folded bar AND on
+    // the OPEN phone box's input row — the same line, the same
+    // flow: one button, one menu, every act inside it.
     const onToggleVoice = vi.fn();
     const { container, restore } = renderPhoneBar({ onToggleVoice });
     try {
@@ -1404,13 +1471,13 @@ describe("command box phone bar — one button (Part D)", () => {
       fireEvent.click(screen.getByRole("menuitem", { name: /Microphone/ }));
       expect(onToggleVoice).toHaveBeenCalledTimes(1);
 
-      // The fold row returns the box to the console.
+      // The fold row returns the box to the bar.
       fireEvent.click(screen.getByRole("button", { name: /Close the message options/ }));
       fireEvent.click(screen.getByRole("button", { name: /Open the message options/ }));
       fireEvent.click(screen.getByRole("menuitem", { name: /Fold to the bar/ }));
       const box = container.querySelector(".avatar-command-box") as HTMLElement;
       expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
-      expect(box.classList.contains("avatar-command-box--console")).toBe(true);
+      expect(box.classList.contains("avatar-command-box--console")).toBe(false);
     } finally {
       restore();
     }

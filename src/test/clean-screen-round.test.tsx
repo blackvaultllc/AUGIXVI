@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Eye } from "lucide-react";
 import { CommandBox } from "../avatar/CommandBox";
-import { AugiePresence } from "../avatar/AugiePresence";
 
 /**
  * THE CLEAN-SCREEN ROUND (owner voice call 2026-11-24 ~10:40 EST,
@@ -22,6 +21,15 @@ import { AugiePresence } from "../avatar/AugiePresence";
  *    the same place on the phone.
  * 5. EVERY GOD HIS OWN CHAT: tapping any god's medallion routes
  *    the conversation to him AND opens his chat box.
+ *
+ * SUPERSEDED IN PART (owner order 2026-11-24 ~16:57 EST): items
+ * 2–4 are replaced. The chat window is the CAPTAIN'S OWN — no god
+ * sits in it or heads it; folded, it is its BAR along the bottom,
+ * and its home is the BOTTOM-LEFT again. OSIRIS STANDS ALONE on
+ * the stage, bare, top-left, animated as before; his four keys
+ * live in HIS OWN three-lines menu, with a message option that
+ * opens his small message screen under him. Items 1 and 5 stand
+ * untouched.
  */
 const stageSource = readFileSync(
   path.join(process.cwd(), "src/avatar/AvatarStage.tsx"),
@@ -33,6 +41,10 @@ const boxSource = readFileSync(
 );
 const presenceSource = readFileSync(
   path.join(process.cwd(), "src/avatar/AugiePresence.tsx"),
+  "utf8",
+);
+const osirisSource = readFileSync(
+  path.join(process.cwd(), "src/avatar/OsirisMedallion.tsx"),
   "utf8",
 );
 const fixCss = readFileSync(
@@ -55,15 +67,6 @@ function renderBox() {
       onToggleVoice={() => undefined}
       responseLine="Standing by."
       responseSource="test"
-      presence={
-        <AugiePresence
-          ready
-          avatarState="LISTENING"
-          voiceListening={false}
-          acting={false}
-          captioned={false}
-        />
-      }
     >
       <p>panel body</p>
     </CommandBox>,
@@ -101,32 +104,39 @@ describe("clean-screen round — the status tab", () => {
     expect(fixCss).toContain("31) THE CLEAN SCREEN");
     expect(fixCss).toContain(".avatar-status-tab");
     expect(fixCss).toContain(".avatar-status-panel");
-    expect(fixCss).toContain(".avatar-command-box__console-dots");
-    expect(fixCss).toContain(".avatar-command-box__console-menu");
+    // SUPERSEDED PINS (owner order 2026-11-24 ~16:57 EST): the
+    // console-dots/console-menu rules are deleted with the
+    // console itself; Osiris's own menu is dressed in section 32.
+    expect(fixCss).not.toContain(".avatar-command-box__console-dots");
+    expect(fixCss).not.toContain(".avatar-command-box__console-menu");
+    expect(fixCss).toContain("32) OSIRIS STANDS ALONE");
+    expect(fixCss).toContain(".osiris-medallion__menu-button");
+    expect(fixCss).toContain(".osiris-medallion__menu");
   });
 });
 
-describe("clean-screen round — the Osiris console", () => {
-  it("the box starts folded at every width: the console is the opening form", () => {
+describe("clean-screen round — the Captain's window, Osiris alone", () => {
+  it("the box starts folded at every width: the bar is the opening form", () => {
     expect(boxSource).toContain("const [minimized, setMinimized] = useState(true)");
-    expect(boxSource).toContain("IS THE OPENING FORM AT EVERY WIDTH");
+    expect(boxSource).toContain("THE BAR IS");
+    expect(boxSource).toContain("THE OPENING FORM AT EVERY WIDTH");
   });
 
-  it("folded, the box renders the console — medallion plus three dots, nothing else", () => {
+  it("folded, the box renders the bar — the message line, no god in it", () => {
     const html = renderBox();
-    expect(html).toContain("avatar-command-box--console");
-    expect(html).toContain("avatar-command-box__console-face");
-    expect(html).toContain('aria-label="Open the chat with Anubis"');
-    expect(html).toContain("Open Osiris");
-    expect(html).toContain("chat options");
-    // The retired forms must not render: no docked phone-bar face,
-    // no rail, no thread, no input row.
-    expect(html).not.toContain("avatar-command-box__phonebar");
+    expect(html).toContain("avatar-command-box--minimized");
+    expect(html).toContain("avatar-command-box__bar");
+    expect(html).toContain("Message for Anubis");
+    // The retired forms must not render: no console, no god's
+    // face, no rail, no thread.
+    expect(html).not.toContain("avatar-command-box--console");
+    expect(html).not.toContain("avatar-command-box__console-face");
+    expect(html).not.toContain("augie-presence");
     expect(html).not.toContain("avatar-command-box__rail");
     expect(html).not.toContain("avatar-command-box__thread");
   });
 
-  it("no name, no “Chat” word anywhere on the folded console", () => {
+  it("no name, no “Chat” word, no title anywhere on the folded window", () => {
     const html = renderBox();
     expect(html).not.toContain("osiris-presence__caption");
     expect(html).not.toContain(">Chat<");
@@ -135,25 +145,35 @@ describe("clean-screen round — the Osiris console", () => {
     expect(boxSource).not.toContain("avatar-command-box__title");
   });
 
-  it("the four options live behind the three dots, labeled and complete", () => {
-    expect(boxSource).toContain("avatar-command-box__console-menu");
-    expect(boxSource).toContain("<span>Open chat</span>");
-    expect(boxSource).toContain("Menu — tools &amp; settings");
-    expect(boxSource).toContain("Reset — window back home");
-    // The anchor option speaks both of its states.
-    expect(boxSource).toContain("Anchored — tap to unanchor");
-    expect(boxSource).toContain("Unanchored — anchor at home");
+  it("the four keys live in Osiris's three-lines menu now, with his message option", () => {
+    // The keys left the box entirely (owner order 2026-11-24
+    // ~16:57 EST): Osiris's own medallion carries them — anchor,
+    // reset, menu, fold — in a horizontal row behind his
+    // three-lines button, plus the message option that opens
+    // his direct-message screen under him.
+    expect(boxSource).not.toContain("avatar-command-box__console-menu");
+    expect(osirisSource).toContain("Open Osiris's menu");
+    expect(osirisSource).toContain("Anchor the chat window");
+    expect(osirisSource).toContain("Unanchor the chat window");
+    expect(osirisSource).toContain("Reset the chat window to its home form");
+    expect(osirisSource).toContain("Open the chat window's menu");
+    expect(osirisSource).toContain("Minimize the chat window");
+    expect(osirisSource).toContain("Message Osiris directly");
   });
 
-  it("the head's home is the top-left corner", () => {
-    // The anchor effect and the unmeasured fallback both place
-    // the box at the top margin now — never the viewport bottom.
-    expect(boxSource).toContain("The anchor home: TOP-LEFT");
-    expect(boxSource).not.toContain("viewport.h - height - WINDOW_MARGIN");
+  it("the window's home is the bottom-left corner again", () => {
+    // SUPERSEDED (owner order 2026-11-24 ~16:57 EST): the
+    // top-left home belonged to the console morning; the
+    // Captain's window stands along the bottom — the anchor
+    // effect and the unmeasured fallback both place it at the
+    // bottom margin now.
+    expect(boxSource).toContain("The anchor home: BOTTOM-LEFT");
+    expect(boxSource).toContain("viewport.h - height - WINDOW_MARGIN");
   });
 
-  it("the stage suppresses Osiris's caption where it builds his presence", () => {
-    expect(stageSource).toContain("captioned={false}");
+  it("Osiris stands alone on the stage, his caption suppressed", () => {
+    expect(stageSource).toContain("<OsirisMedallion");
+    expect(osirisSource).toContain("captioned={false}");
     // The presence still defaults to captioned for its other homes.
     expect(presenceSource).toContain("captioned = true");
   });
@@ -168,11 +188,13 @@ describe("clean-screen round — every god his own chat", () => {
 
   it("Anubis's and Montu's medallion taps route AND open the chat", () => {
     // SUPERSEDED IN PART (owner order 2026-11-24 ~11:27–11:31 EST,
-    // the gods-on-the-sides round): the tap that routes and opens
-    // is now the god's SIDE-SLOT tap — the slot is where a god
-    // rests and is tapped from; his big front face's tap now
-    // returns him to his place. The law itself is unchanged: tap
-    // a god, and his chat opens, addressed to him.
+    // the gods-on-the-sides round; refined again ~16:57 EST):
+    // the tap that routes and opens is the god's RESTING-CIRCLE
+    // tap — the small circle is where a god rests and is tapped
+    // from; his big front face's tap returns him to his place
+    // (and dismissal returns Anubis to the center). The law
+    // itself is unchanged: tap a god, and his chat opens,
+    // addressed to him.
     expect(stageSource).toContain("EVERY GOD HIS OWN CHAT");
     expect(stageSource).toContain("selectGod(god, { speakGreeting: true });");
     expect(stageSource.match(/openChatBox\(\);/g)?.length ?? 0).toBeGreaterThanOrEqual(2);

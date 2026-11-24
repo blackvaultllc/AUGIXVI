@@ -115,7 +115,6 @@ import {
   type FrameStore,
   type SnapGuides,
 } from "./builder/frames";
-import { AugiePresence } from "./AugiePresence";
 import { speakingMsForText } from "./LivingPortrait";
 import { AnubisPresence } from "./AnubisPresence";
 import { BlackHatterPresence } from "./BlackHatterPresence";
@@ -154,11 +153,13 @@ import { ANUBIS_BINDING, MONTU_BINDING } from "./medallionPortraits";
 import {
   FRONT_FACE_SIZE,
   GOD_GREETINGS,
+  RESTING_FRONT,
   frontAfterDismiss,
   frontAfterSummon,
   type FrontGod,
 } from "./godStage";
-import { GodSideRail } from "./GodSideRail";
+import { GodMedallions } from "./GodMedallions";
+import { OsirisMedallion } from "./OsirisMedallion";
 import { closeWithBlessing } from "./etiquette";
 import {
   applyNotificationInstruction,
@@ -688,16 +689,19 @@ export function AvatarStage({
   // render's closure (the file's standing ref pattern).
   const residencyRef = useRef(residency);
   residencyRef.current = residency;
-  // THE FRONT (gods-on-the-sides round, owner order 2026-11-24
-  // ~11:27–11:31 EST — the law in godStage.ts): the stage RESTS
-  // on its wallpaper. Every god, Anubis included, rests SMALL
-  // in his side slot; frontGod is the god a click has brought
-  // to the center, big — null is the resting stage. The
-  // greeting is his allegiance line, shown on the stage while
-  // he holds the front. The ref mirrors the state for the
-  // callbacks that must know the front synchronously.
-  const [frontGod, setFrontGod] = useState<FrontGod>(null);
-  const frontGodRef = useRef<FrontGod>(null);
+  // THE FRONT (owner order 2026-11-24 ~16:57 EST — the law in
+  // godStage.ts, superseding the gods-on-the-sides resting rule
+  // of the same morning): the stage RESTS WITH ANUBIS AT THE
+  // CENTER — frontGod starts on him, at his regular front size.
+  // A click on a god's resting circle brings that god to the
+  // center, big; sending him back returns Anubis to the center.
+  // frontGod is null only while the Owner seat stands. The
+  // greeting is the front god's allegiance line, shown on the
+  // stage while a SUMMONED god holds the front. The ref mirrors
+  // the state for the callbacks that must know the front
+  // synchronously.
+  const [frontGod, setFrontGod] = useState<FrontGod>(RESTING_FRONT);
+  const frontGodRef = useRef<FrontGod>(RESTING_FRONT);
   const [frontGreeting, setFrontGreeting] = useState<string | null>(null);
   const perspectiveRef = useRef(perspective);
   perspectiveRef.current = perspective;
@@ -705,11 +709,11 @@ export function AvatarStage({
   // the conversation. Under the no-overlap law he takes a clear
   // spot — if the spot he was left at would overlap someone already
   // standing, a clear spot is written for him BEFORE he mounts, so
-  // he never appears on top of another face. A FRONT summon (the
-  // gods-on-the-sides round, 2026-11-24) seats him at the center,
-  // big, instead: the clear-spot law yields to the front, because
-  // at the front he stands ALONE — whoever held it has stepped
-  // back to his slot.
+  // he never appears on top of another face. A FRONT summon (owner
+  // order 2026-11-24 ~16:57 EST) seats him at the center, big,
+  // instead: the clear-spot law yields to the front, because at
+  // the front he stands ALONE — whoever held it has stepped back
+  // to his resting circle.
   const summonGod = useCallback((god: GodPerspective, seat: "clear" | "front" = "clear") => {
     if (god !== "anubis") {
       const stageW = typeof window === "undefined" ? 0 : window.innerWidth;
@@ -738,21 +742,20 @@ export function AvatarStage({
   // presentation only: his anchored placements and sizes hold.
   const [council, setCouncil] = useState<StagePerspective[]>([]);
   const conversationView = conversationViewFor(perspective, council);
-  // SUMMON TO THE FRONT (gods-on-the-sides round, owner order
-  // 2026-11-24 ~11:27-11:31 EST — the law in godStage.ts; this
-  // SUPERSEDES the tap-seating and council formation of
-  // 2026-11-22 for taps): a tap on a god — his side slot, his
-  // medallion, his builder figure — turns the conversation to
-  // him (the routing law) and brings him FRONT: center, big.
-  // Whoever held the front returns to his side slot. On arrival
-  // he shows allegiance and asks what the Captain needs — the
-  // greeting shows on the stage, and on a TAP summon it is
-  // spoken in his voice; a routing summon (his name heading a
-  // typed line, the summon-by-name command) shows it without
-  // speaking, because the answer to his line is the reply.
-  // Anubis is first among the side gods and the conversation's
-  // default — but the stage RESTS on its wallpaper: he does not
-  // sit big un-summoned (his resting rule, godStage.ts).
+  // SUMMON TO THE FRONT (owner order 2026-11-24 ~16:57 EST —
+  // the law in godStage.ts; this SUPERSEDES the tap-seating and
+  // council formation of 2026-11-22 for taps): a tap on a god —
+  // his resting circle, his medallion, his builder figure —
+  // turns the conversation to him (the routing law) and brings
+  // him FRONT: center, big. Whoever held the front steps back
+  // to his resting circle. On arrival he shows allegiance and
+  // asks what the Captain needs — the greeting shows on the
+  // stage, and on a TAP summon it is spoken in his voice; a
+  // routing summon (his name heading a typed line, the
+  // summon-by-name command) shows it without speaking, because
+  // the answer to his line is the reply. Anubis is first among
+  // the gods and the conversation's default — and the stage
+  // RESTS with him at the center (his resting rule, godStage.ts).
   const selectGod = useCallback(
     (god: GodPerspective, opts?: { speakGreeting?: boolean }) => {
       // Turning to a god turns the CONVERSATION to him too
@@ -784,8 +787,8 @@ export function AvatarStage({
   const selectOwner = useCallback(() => {
     // The Owner seat brings the Black Hatter BACK onto the stage
     // from put-away — at his saved placement, with the perspective.
-    // The front empties with him: the summoned god steps back to
-    // his slot and the stage rests.
+    // The front empties with him: the gods step back to their
+    // resting circles while the Owner stands.
     setOwnerPresent(true);
     frontGodRef.current = null;
     setFrontGod(null);
@@ -795,16 +798,18 @@ export function AvatarStage({
   }, []);
   const selectGodRef = useRef(selectGod);
   selectGodRef.current = selectGod;
-  // RETURN TO HIS PLACE (the same round): the front god goes
-  // back to his side slot — a tap on his face at the front, or
-  // "Return to his place" in his menu — and the stage rests on
-  // its wallpaper again. A summoned Montu's residency is NOT
-  // ended by this: he stands down through the doctrine's own
-  // doors (the dismissal words), not by stepping back.
+  // RETURN TO HIS PLACE (owner order 2026-11-24 ~16:57 EST):
+  // the front god steps back to his resting circle — a tap on
+  // his face at the front, or "Return to his place" in his
+  // menu — and ANUBIS RETURNS TO THE CENTER, the default. For
+  // Anubis himself there is nothing to do: the center IS his
+  // place. A summoned Montu's residency is NOT ended by this:
+  // he stands down through the doctrine's own doors (the
+  // dismissal words), not by stepping back.
   const returnGodToSlot = useCallback((god: GodPerspective) => {
     if (frontGodRef.current !== god) return;
-    frontGodRef.current = null;
-    setFrontGod(null);
+    frontGodRef.current = frontAfterDismiss(frontGodRef.current, god);
+    setFrontGod(frontGodRef.current);
     setFrontGreeting(null);
   }, []);
   // PULSE WINDOW: presence + motion, the rPPG heart-rate estimate and
@@ -826,6 +831,19 @@ export function AvatarStage({
   const openChatBox = useCallback(() => {
     chatControlsRef.current?.restore();
   }, []);
+  // THE WINDOW'S KEYS, HELD FOR OSIRIS (owner order 2026-11-24
+  // ~16:57 EST): the chat window registers its anchor / reset /
+  // menu machinery here, and Osiris's three-lines menu drives
+  // it from his own medallion — the keys are his; the window is
+  // the Captain's. The anchor state rides as state so his menu
+  // reads it true.
+  const chatWindowControlsRef = useRef<{
+    toggleAnchored: () => void;
+    resetLayout: () => void;
+    toggleMenu: () => void;
+    anchored: boolean;
+  } | null>(null);
+  const [chatWindowAnchored, setChatWindowAnchored] = useState(true);
   // SOUND WATCH WINDOW: the room's ear — environmental sound events,
   // distance estimates, and the Captain's learned sound library
   // (owner order 2026-11-23). Shares the microphone with the voice
@@ -1923,12 +1941,13 @@ export function AvatarStage({
         setCouncil((current) => current.filter((entry) => entry !== god));
         setPerspective((current) => (current === god ? DEFAULT_STAGE_PERSPECTIVE : current));
         // The dismissed god leaves the FRONT with his bow
-        // (gods-on-the-sides round, 2026-11-24): when the bow
-        // ends he is back in his side slot, and if he was the
-        // last at front the stage rests on its wallpaper.
+        // (owner order 2026-11-24 ~16:57 EST): when the bow ends
+        // he is back in his resting circle, and ANUBIS RETURNS
+        // TO THE CENTER — the stage's default, never an empty
+        // wallpaper. His greeting goes with the dismissed god.
         frontGodRef.current = frontAfterDismiss(frontGodRef.current, god);
         setFrontGod(frontGodRef.current);
-        if (frontGodRef.current === null) setFrontGreeting(null);
+        setFrontGreeting(null);
       }, 1600);
     },
     [say, applyAddressee],
@@ -1965,9 +1984,9 @@ export function AvatarStage({
       // all read the new addressee for this very message. A stage
       // god not yet up is pulled up (the pop-in doctrine) through
       // the same seat a tap takes. Osiris is addressed in place:
-      // his seat is the chat window, and nothing on the stage moves
-      // for him. A passing mention never routes (detectAddressee is
-      // conservative by design).
+      // he stands alone at the top-left, and nothing on the stage
+      // moves for him. A passing mention never routes
+      // (detectAddressee is conservative by design).
       const addressedGod = detectAddressee(text);
       if (addressedGod && addressedGod !== addresseeRef.current) {
         applyAddressee(addressedGod);
@@ -3344,15 +3363,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onSelect={selectOwner}
         />
       )}
-      {/* THE FRONT (gods-on-the-sides round, owner order
-          2026-11-24): a god stands BIG at the center only while
-          he holds the front — brought there by a click on his
-          side slot. At rest NO god stands here: the stage rests
-          on its wallpaper and every god is small in his slot
-          (the side rails below). Anubis's seat at the front is
-          his locked factory home, as ever; a tap on his face at
-          the front, or "Return to his place" in his menu, sends
-          him back to his slot. */}
+      {/* THE FRONT (owner order 2026-11-24 ~16:57 EST): a god
+          stands BIG at the center while he holds the front —
+          and at REST that god is ANUBIS, at his regular front
+          size, the way he stood before the gods-on-the-sides
+          change. A click on a resting circle brings the other
+          god here; sending him back returns Anubis to the
+          center. Anubis's seat at the front is his locked
+          factory home, as ever; he has no "Return" — the center
+          IS his place. */}
       {!clearScreen && worldScreen === "live" && frontGod === "anubis" && (
         <AnubisPresence
           ready={ready}
@@ -3364,18 +3383,17 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           inCouncil={council.includes("anubis")}
           atAttention={perspective === "anubis"}
           onSelect={() => returnGodToSlot("anubis")}
-          onReturn={() => returnGodToSlot("anubis")}
           stageView={stageView}
           onStageViewChange={changeStageView}
           onRespectAsk={() => respectAsk("anubis")}
         />
       )}
-      {/* Montu at the FRONT (the same round): his medallion
+      {/* Montu at the FRONT (the same order): his medallion
           stands big at the center while he holds the front, and
           while he bows out under dismissal (the bow renders
-          through the dismissal, then his slot takes him back).
-          A report no longer brings him in (pop-up removal,
-          2026-11-24). */}
+          through the dismissal, then his resting circle takes
+          him back and Anubis returns to the center). A report
+          no longer brings him in (pop-up removal, 2026-11-24). */}
       {!clearScreen &&
         worldScreen === "live" &&
         ((frontGod === "montu" && godOnStage(residency, "montu")) || bowingGod === "montu") && (
@@ -3394,43 +3412,60 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             onRespectAsk={() => respectAsk("montu")}
           />
         )}
-      {/* THE SIDE SLOTS (the same round): every god NOT at front
-          rests small down the stage's sides — Anubis left, Montu
-          right — living faces in the small medallion format,
-          looking around the room. A click summons him to the
-          front with his greeting spoken, and opens his chat:
-          EVERY GOD HIS OWN CHAT (clean-screen round, 2026-11-24)
-          — the tap that routes and opens is now the SLOT tap,
-          because the slot is where a god is tapped from. */}
+      {/* THE RESTING CIRCLES (the same order): every god NOT at
+          front rests as a SMALL CIRCLE on the stage — round
+          like Osiris's medallion, face centered in the circle,
+          in the stage's lower-right field. Nothing stands on
+          the left/right edges: the side strips are gone. A
+          click summons him to the front with his greeting
+          spoken, and opens his chat: EVERY GOD HIS OWN CHAT
+          (clean-screen round, 2026-11-24) — the tap that routes
+          and opens is the CIRCLE tap, because the circle is
+          where a god is tapped from. */}
       {!clearScreen && worldScreen === "live" && (
-        <>
-          <GodSideRail
-            side="left"
-            front={frontGod}
-            speakingGod={
-              state === "SPEAKING" && (addressee === "anubis" || addressee === "montu")
-                ? addressee
-                : null
-            }
-            onSummon={(god) => {
-              selectGod(god, { speakGreeting: true });
-              openChatBox();
-            }}
-          />
-          <GodSideRail
-            side="right"
-            front={frontGod}
-            speakingGod={
-              state === "SPEAKING" && (addressee === "anubis" || addressee === "montu")
-                ? addressee
-                : null
-            }
-            onSummon={(god) => {
-              selectGod(god, { speakGreeting: true });
-              openChatBox();
-            }}
-          />
-        </>
+        <GodMedallions
+          front={frontGod}
+          speakingGod={
+            state === "SPEAKING" && (addressee === "anubis" || addressee === "montu")
+              ? addressee
+              : null
+          }
+          onSummon={(god) => {
+            selectGod(god, { speakGreeting: true });
+            openChatBox();
+          }}
+        />
+      )}
+      {/* OSIRIS STANDS ALONE (the same order): his medallion
+          sits BARE at the top-left — no box, no panel, no chat
+          attached — animated with his own clips. His four
+          window keys and his message option live in his
+          three-lines menu; his message screen opens under him.
+          The chat window below is the Captain's own and carries
+          no god; Osiris is reached there by addressing him
+          (/Osiris), or here, on his own face. */}
+      {!clearScreen && worldScreen === "live" && (
+        <OsirisMedallion
+          ready={ready}
+          avatarState={state}
+          voiceListening={voiceListening}
+          acting={presenting}
+          speaking={addressee === "osiris" && state === "SPEAKING"}
+          anchored={chatWindowAnchored}
+          onToggleAnchor={() => chatWindowControlsRef.current?.toggleAnchored()}
+          onResetWindow={() => chatWindowControlsRef.current?.resetLayout()}
+          onOpenMenu={() => chatWindowControlsRef.current?.toggleMenu()}
+          onMinimizeWindow={() => chatControlsRef.current?.minimize()}
+          onSelectFace={() => {
+            applyAddressee("osiris");
+            openChatBox();
+          }}
+          onDirectMessage={(text) => {
+            applyAddressee("osiris");
+            openChatBox();
+            void sendCommand(text);
+          }}
+        />
       )}
       {/* THE ALLEGIANCE GREETING (the same round): while a god
           holds the front, his greeting stands on the stage —
@@ -3662,15 +3697,14 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             chatControlsRef.current = controls;
           }}
           onOpenHistory={() => setHistoryOpen(true)}
-          presence={
-            <AugiePresence
-              ready={ready}
-              avatarState={state}
-              voiceListening={voiceListening}
-              acting={presenting || worldScreen === "entering" || worldScreen === "returning"}
-              captioned={false}
-            />
-          }
+          onWindowControls={(controls) => {
+            // Osiris's keys (owner order 2026-11-24 ~16:57 EST):
+            // the window hands its anchor / reset / menu
+            // machinery to the stage, and the stage wires it to
+            // Osiris's three-lines menu on his own medallion.
+            chatWindowControlsRef.current = controls;
+            setChatWindowAnchored(controls.anchored);
+          }}
         >
           {commandTab === "scene" && (
             <CommandGroup label="Seats — the stage turns to who you call">
