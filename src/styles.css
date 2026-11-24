@@ -4918,16 +4918,28 @@
 }
 .window-commands__howto h5,
 .window-commands__group h5,
+.window-commands__battery h5,
 .window-commands__receipts h5 {
   margin: 0;
   font-size: var(--dev-fs-body);
 }
-.window-commands__howto ol {
+.window-commands__howto ol,
+.window-commands__battery ol {
   margin: 0;
   padding-left: 1.2rem;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+.window-commands__battery {
+  background: var(--dev-field);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: var(--dev-fs-body);
 }
 .window-commands__group {
   display: flex;

@@ -554,7 +554,13 @@ const WEPWAWET_COMMANDS: DeviceCommand[] = [
     "light",
     "Light",
     128,
-    "The light command — the vendor app's light toggle. Whether the dog toggles, latches on, or needs a second frame shape is a live-test question (the app's code always sets the same bit).",
+    "The light command — the vendor app's light toggle frame, the only light frame the protocol has. It carries NO colour code: there is no 'steady red' frame to send. Whether one tap latches the light on, blinks it, or steps it through colours is an open question (protocol §10.6) that only a watched live session can answer — see the Light test note on this card.",
+  ),
+  dogMode(
+    "music",
+    "Music step",
+    1,
+    "Music — in the vendor app this frame (D3=1) appears as a step inside a recorded program. Sent on its own it is the dog's music trigger; which music he plays is his own built-in choice.",
   ),
   dogData2(
     "song",
@@ -591,6 +597,18 @@ const WEPWAWET_COMMANDS: DeviceCommand[] = [
  * pins the coverage, so a command added to the profile without a
  * group fails loudly instead of vanishing from the card.
  */
+/**
+ * The Sounds group label and its triggers — the pick list (owner
+ * order 2026-11-24): every built-in sound/content trigger the
+ * protocol defines, each one individually sendable, each carrying
+ * his Use / Never use pick on the card. The honest limit rides
+ * with it: the vendor app's content lists (Dance ×5, Song ×5,
+ * Story ×5, AI ×5) never encoded which item was tapped — each
+ * category sends ONE frame and the dog picks the track inside.
+ */
+export const WEPWAWET_SOUND_GROUP_LABEL = "Sounds — everything he can say";
+export const WEPWAWET_SOUND_TRIGGER_IDS = ["dance", "song", "learn", "ai-content", "music"];
+
 export const WEPWAWET_COMMAND_GROUPS: { label: string; commandIds: string[] }[] = [
   { label: "Stop & connect", commandIds: ["stop", "match"] },
   {
@@ -607,7 +625,6 @@ export const WEPWAWET_COMMAND_GROUPS: { label: string; commandIds: string[] }[] 
       "greet",
       "handstand",
       "push-ups",
-      "dance",
       "kung-fu",
       "swim",
       "bless",
@@ -618,10 +635,8 @@ export const WEPWAWET_COMMAND_GROUPS: { label: string; commandIds: string[] }[] 
     label: "Feeding — the eight pictured items",
     commandIds: ["feed-1", "feed-2", "feed-3", "feed-4", "feed-5", "feed-6", "feed-7", "feed-8"],
   },
-  {
-    label: "Sound, light & modes",
-    commandIds: ["light", "song", "ai-content", "learn", "fire"],
-  },
+  { label: WEPWAWET_SOUND_GROUP_LABEL, commandIds: WEPWAWET_SOUND_TRIGGER_IDS },
+  { label: "Light & modes", commandIds: ["light", "fire"] },
   { label: "Program", commandIds: ["program-record", "program-execute"] },
 ];
 
@@ -644,6 +659,7 @@ export const WEPWAWET_DOG_PROFILE: DeviceCommandProfile = {
     "TRANSMIT-ONLY: the dog never answers. A command marked sent means the frames went on air — never that the dog obeyed. The dog itself, watched, is the only confirmation there is.",
     "Every movement command is a timed burst followed by the zero frame; nothing latches. Stop is the first command on the profile and the sender leads with it in every test.",
     "The protocol has NO authentication — fixed address, fixed keys (protocol §4/§9). Anyone in Bluetooth range with this protocol can command the dog. That is the vendor's design, recorded plainly, not Augie's choice.",
+    "LIGHT: one toggle frame, and no colour selection exists anywhere in the protocol — a steady red cannot be commanded, only discovered. If repeated Light taps cycle the light's colours, a watched session will find the red; if they only blink it, no frame Augie can send will hold it steady (protocol §10.6).",
     "Augie cannot hear the dog, read its battery, or speak words through it — the protocol only triggers the dog's built-in actions and sounds (protocol §8).",
   ],
   builtin: true,

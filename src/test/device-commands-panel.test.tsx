@@ -169,12 +169,21 @@ describe("Device commands panel — Wepwawet's card", () => {
       "Move",
       "Tricks & poses",
       "Feeding — the eight pictured items",
-      "Sound, light & modes",
+      "Sounds — everything he can say",
+      "Light & modes",
       "Program",
     ]) {
       expect(screen.getByText(group)).toBeTruthy();
     }
-    for (const name of ["Stop", "Forward", "Dance", "Feed 8", "Song", "Program — execute"]) {
+    for (const name of [
+      "Stop",
+      "Forward",
+      "Dance",
+      "Feed 8",
+      "Song",
+      "Music step",
+      "Program — execute",
+    ]) {
       expect(screen.getByText(name, { exact: true })).toBeTruthy();
     }
     expect(screen.getByText("How to control Wepwawet")).toBeTruthy();
@@ -202,6 +211,42 @@ describe("Device commands panel — Wepwawet's card", () => {
     // The sender's own printed words land on the card as the receipt.
     expect(screen.getByText("The Parrot sender printed")).toBeTruthy();
     expect(screen.getAllByText(new RegExp(SENDER_WORDS.slice(0, 24))).length).toBeGreaterThan(0);
+  });
+
+  it("the sound pick list states its limit and a Never use pick switches that Send off", () => {
+    render(<DeviceCommandsPanel device={dogDevice()} />);
+    expect(screen.getByText(/These are all the sounds he has/)).toBeTruthy();
+    expect(screen.getByText(/the dog picks the track himself/)).toBeTruthy();
+    for (const name of ["Dance", "Song", "Learn / story", "AI content", "Music step"]) {
+      expect(
+        screen.getByRole("switch", { name: `Sound pick for ${name}` }),
+      ).toBeTruthy();
+    }
+    const songSend = sendButtonFor("Song");
+    expect((songSend as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByRole("switch", { name: "Sound pick for Song" }));
+    expect(screen.getByText(/never use this sound/)).toBeTruthy();
+    expect((sendButtonFor("Song") as HTMLButtonElement).disabled).toBe(true);
+    // The pick persists across a remount — it is his standing choice.
+    fireEvent.click(screen.getByRole("switch", { name: "Sound pick for Song" }));
+    expect((sendButtonFor("Song") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("the light carries no colour promise and the Light test note stands on the card", () => {
+    render(<DeviceCommandsPanel device={dogDevice()} />);
+    expect(screen.getAllByText(/no colour code/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Light test — still an open question/)).toBeTruthy();
+    expect(screen.getByText(/until a steady red is found or proven absent/)).toBeTruthy();
+  });
+
+  it("the battery test log starts empty and records a watched run", () => {
+    render(<DeviceCommandsPanel device={dogDevice()} />);
+    expect(screen.getByText(/Battery test — measure him, because he cannot report/)).toBeTruthy();
+    expect(screen.getByText(/No runs logged yet/)).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText("e.g. 47"), { target: { value: "47" } });
+    fireEvent.click(screen.getByRole("button", { name: /Add run/ }));
+    expect(screen.getByText(/Idle — awake, no commands · 47 min/)).toBeTruthy();
+    expect(screen.queryByText(/No runs logged yet/)).toBeNull();
   });
 
   it("flipping the switch makes the same tap a LIVE send with the proven 3000 ms movement hold", async () => {

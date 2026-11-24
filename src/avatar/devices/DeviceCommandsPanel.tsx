@@ -24,10 +24,21 @@ import { canControl, type DeviceProfile } from "./deviceRegistry";
 import {
   COMMAND_TRANSPORT_LABELS,
   WEPWAWET_COMMAND_GROUPS,
+  WEPWAWET_SOUND_GROUP_LABEL,
   type CommandTransport,
   type DeviceCommand,
   type DeviceCommandProfile,
 } from "./commandProfiles";
+import {
+  BATTERY_MODES,
+  addBatteryEntry,
+  batteryModeLabel,
+  loadBatteryLog,
+  loadSoundOff,
+  removeBatteryEntry,
+  saveSoundOff,
+  type BatteryModeId,
+} from "./wepwawetCard";
 import {
   allCommandProfiles,
   bindingCommands,
@@ -96,6 +107,13 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
   // switch is the Captain's own hand on the card, per session.
   const [dogLive, setDogLive] = useState(false);
   const [bridgeReceipts, setBridgeReceipts] = useState<string[]>([]);
+  // The Captain's sound picks (Use / Never use per sound trigger)
+  // and his battery-test log — his records, kept on this machine.
+  const [soundOff, setSoundOff] = useState(loadSoundOff);
+  const [batteryLog, setBatteryLog] = useState(loadBatteryLog);
+  const [batteryMode, setBatteryMode] = useState<BatteryModeId>("idle");
+  const [batteryMinutes, setBatteryMinutes] = useState("");
+  const [batteryNote, setBatteryNote] = useState("");
   const bridgeRef = useRef<{ live: boolean; channel: ParrotBroadcastChannel } | null>(null);
   const bridgeChannel = (live: boolean): ParrotBroadcastChannel => {
     if (!bridgeRef.current || bridgeRef.current.live !== live) {
@@ -273,8 +291,9 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
 
   const isDogProfile = profile?.id === "wepwawet-ble-broadcast";
 
-  const commandItem = (command: DeviceCommand) => {
+  const commandItem = (command: DeviceCommand, extra?: React.ReactNode) => {
     const outcome = outcomes[command.id];
+    const silenced = isDogProfile && soundOff[command.id] === true;
     return (
                 <li key={command.id} className="window-commands__item">
                   <div className="window-commands__head">
@@ -282,7 +301,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
                     <button
                       type="button"
                       className="window-btn"
-                      disabled={!granted || sending !== null}
+                      disabled={!granted || sending !== null || silenced}
                       onClick={() => void runSend(command)}
                     >
                       <Send aria-hidden="true" />{" "}
@@ -291,6 +310,12 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
                   </div>
                   <p className="window-hint">{command.help}</p>
                   {command.safety && <p className="window-hint">Safety: {command.safety}</p>}
+                  {silenced && (
+                    <p className="window-hint" role="status">
+                      Set to Never use by your sound pick — Send is off for this one.
+                    </p>
+                  )}
+                  {extra}
                   {command.params.map((param) => (
                     <label key={param.name} className="window-commands__param">
                       {param.label}
@@ -374,11 +399,47 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
     );
   };
 
+  const toggleSoundPick = (command: DeviceCommand) => {
+    setSoundOff((current) => {
+      const next = { ...current };
+      if (next[command.id]) {
+        delete next[command.id];
+      } else {
+        next[command.id] = true;
+      }
+      saveSoundOff(next);
+      return next;
+    });
+  };
+
+  const soundPickToggle = (command: DeviceCommand) => {
+    const off = soundOff[command.id] === true;
+    return (
+      <div className="window-devices__actions">
+        <button
+          type="button"
+          className="window-btn"
+          role="switch"
+          aria-checked={!off}
+          aria-label={`Sound pick for ${command.name}`}
+          onClick={() => toggleSoundPick(command)}
+        >
+          {off ? "Never use" : "Use"}
+        </button>
+        <span className="window-hint" role="status">
+          {off
+            ? "Your pick: never use this sound — its Send is off."
+            : "Your pick: this sound may be used."}
+        </span>
+      </div>
+    );
+  };
+
   const renderCommandLists = () => {
     if (!binding || !profile) return null;
     const commands = bindingCommands(binding, profile);
     if (!isDogProfile) {
-      return <ul className="window-commands__list">{commands.map(commandItem)}</ul>;
+      return <ul className="window-commands__list">{commands.map((c) => commandItem(c))}</ul>;
     }
     const byId = new Map(commands.map((c) => [c.id, c]));
     const grouped = new Set<string>();
@@ -388,10 +449,28 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
         .filter((c): c is DeviceCommand => c !== undefined);
       items.forEach((c) => grouped.add(c.id));
       if (!items.length) return null;
+      if (group.label === WEPWAWET_SOUND_GROUP_LABEL) {
+        return (
+          <div key={group.label} className="window-commands__group">
+            <h5>{group.label}</h5>
+            <p className="window-hint">
+              These are all the sounds he has — nothing beyond this list exists. Inside each
+              one, the dog picks the track himself: the vendor app's lists (five dances, five
+              songs, five stories, five AI pieces) never encoded which item was tapped — every
+              tap sent this one frame — so Augie cannot pick the track either. His trick
+              noises ride with the tricks themselves, under Tricks &amp; poses. Set each one
+              Use or Never use — that pick is yours and it sticks on this machine.
+            </p>
+            <ul className="window-commands__list">
+              {items.map((c) => commandItem(c, soundPickToggle(c)))}
+            </ul>
+          </div>
+        );
+      }
       return (
         <div key={group.label} className="window-commands__group">
           <h5>{group.label}</h5>
-          <ul className="window-commands__list">{items.map(commandItem)}</ul>
+          <ul className="window-commands__list">{items.map((c) => commandItem(c))}</ul>
         </div>
       );
     });
@@ -402,7 +481,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
         {rest.length > 0 && (
           <div className="window-commands__group">
             <h5>More commands</h5>
-            <ul className="window-commands__list">{rest.map(commandItem)}</ul>
+            <ul className="window-commands__list">{rest.map((c) => commandItem(c))}</ul>
           </div>
         )}
       </>
@@ -518,6 +597,14 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
                     Talk: Wepwawet speaks only his own built-in sounds and songs (Song, AI
                     content, Learn / story). Augie cannot put your words in his mouth.
                   </p>
+                  <p className="window-hint">
+                    Light test — still an open question: the light has ONE toggle frame and
+                    no colour code anywhere in the protocol, so there is no “steady red”
+                    frame to send. At the next watched session we step Light while you watch
+                    and write down what it does — latch on, blink, or step through colours —
+                    until a steady red is found or proven absent. Nothing about the light is
+                    guessed before that session.
+                  </p>
                 </section>
               )}
               {bridgeReceipts.length > 0 && (
@@ -531,6 +618,106 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
             </div>
           )}
           {renderCommandLists()}
+          {isDogProfile && (
+            <section className="window-commands__battery" aria-label="Wepwawet battery test log">
+              <h5>Battery test — measure him, because he cannot report</h5>
+              <p className="window-hint">
+                He sends nothing back — there is no battery reading to show, and no runtime
+                figure exists in the vendor's materials. His cell is one removable 3.7 V
+                battery, charged over USB. The only honest numbers are the ones you time
+                yourself:
+              </p>
+              <ol>
+                <li>Charge him full, then take the cell off the charger and put him together.</li>
+                <li>
+                  Pick ONE mode for the run: Idle (awake, no commands), Walking patrol (send
+                  Patrol and let him walk), or Lights on (send Light, then leave him awake).
+                </li>
+                <li>Start a timer the moment you switch him on.</li>
+                <li>Stop the timer when he turns himself off — that is the run's length.</li>
+                <li>Write the run in the log below. Three runs, one per mode, give you his real endurance picture.</li>
+              </ol>
+              {batteryLog.length > 0 ? (
+                <ul className="window-commands__list">
+                  {[...batteryLog].reverse().map((entry) => (
+                    <li key={entry.id} className="window-commands__item">
+                      <div className="window-commands__head">
+                        <strong>
+                          {entry.at} · {batteryModeLabel(entry.mode)} · {entry.minutes} min
+                        </strong>
+                        <button
+                          type="button"
+                          className="window-btn"
+                          aria-label={`Delete battery run ${entry.at} ${batteryModeLabel(entry.mode)}`}
+                          onClick={() => setBatteryLog(removeBatteryEntry(entry.id))}
+                        >
+                          <Trash2 aria-hidden="true" /> Delete
+                        </button>
+                      </div>
+                      {entry.note && <p className="window-hint">{entry.note}</p>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="window-hint" role="status">
+                  No runs logged yet — the log fills in from your watched sessions, never
+                  from a guess.
+                </p>
+              )}
+              <form
+                className="window-devices__actions"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const minutes = Number(batteryMinutes);
+                  if (!Number.isFinite(minutes) || minutes <= 0) return;
+                  setBatteryLog(
+                    addBatteryEntry({
+                      at: new Date().toISOString().slice(0, 10),
+                      mode: batteryMode,
+                      minutes,
+                      note: batteryNote.trim() || undefined,
+                    }),
+                  );
+                  setBatteryMinutes("");
+                  setBatteryNote("");
+                }}
+              >
+                <label>
+                  Mode{" "}
+                  <select
+                    value={batteryMode}
+                    onChange={(e) => setBatteryMode(e.target.value as BatteryModeId)}
+                  >
+                    {BATTERY_MODES.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Minutes until he turned off{" "}
+                  <input
+                    value={batteryMinutes}
+                    inputMode="decimal"
+                    onChange={(e) => setBatteryMinutes(e.target.value)}
+                    placeholder="e.g. 47"
+                  />
+                </label>
+                <label>
+                  Note (optional){" "}
+                  <input
+                    value={batteryNote}
+                    onChange={(e) => setBatteryNote(e.target.value)}
+                    placeholder="floor, room, anything you noticed"
+                  />
+                </label>
+                <button type="submit" className="window-btn">
+                  <Plus aria-hidden="true" /> Add run
+                </button>
+              </form>
+            </section>
+          )}
           {!showSetup && (
             <div className="window-devices__actions">
               <button type="button" className="window-btn" onClick={openSetup}>
