@@ -9,12 +9,14 @@ import { describe, expect, it } from "vitest";
  *
  * Part A — BOOT IS QUIET: "On boot up, I see the scepter and I
  * still see Anubis pop up and say something then disappear."
- * The proactive engine polls the moment it starts, so a report
- * raised in the first seconds of a load performed itself at
- * boot. The law: the in-person delivery (pop-up + the scepter it
- * raises) belongs to a report that arrives while he is PRESENT
- * — presence earned by his hand, never assumed at load — and a
- * report raised before that waits in the record instead.
+ * This round first answered it with a presence gate (the
+ * in-person delivery belonged to a report that arrived while he
+ * was PRESENT). SUPERSEDED THE SAME DAY (~09:57 EST, voice
+ * call): the Captain removed the pop-up ENTIRELY — "Stop having
+ * that pop up. I don't want to see that anymore." Part A now
+ * pins the removal: no pop-up, no scepter, no gate — because
+ * nothing performs at all. A report's whole delivery is the
+ * record (and its god's voice on the proactive path).
  *
  * Part C — TOOLS, CONTAINED: long action labels burst their
  * grid cells because the button's text span could not shrink.
@@ -31,15 +33,13 @@ const stageCss = readFileSync(
   "utf8",
 );
 
-describe("Part A — boot is quiet", () => {
-  it("presence is tracked from his hand — a press or a key — never assumed at load", () => {
-    expect(stageSource).toContain("const presentRef = useRef(false);");
-    expect(stageSource).toContain('window.addEventListener("pointerdown", markPresent);');
-    expect(stageSource).toContain('window.addEventListener("keydown", markPresent);');
-    // A command sent is presence itself.
+describe("Part A — boot is quiet (the pop-up itself is REMOVED, 2026-11-24 ~09:57 EST)", () => {
+  it("no presence gate exists — nothing is gated, because nothing performs", () => {
+    expect(stageSource).not.toContain("presentRef");
+    expect(stageSource).not.toContain("markPresent");
     const sendStart = stageSource.indexOf("const sendCommand = useCallback(");
     const sendHead = stageSource.slice(sendStart, sendStart + 900);
-    expect(sendHead).toContain("presentRef.current = true;");
+    expect(sendHead).not.toContain("presentRef");
   });
 
   it("notify keeps every report in the record — question-less, under its god's name", () => {
@@ -53,31 +53,28 @@ describe("Part A — boot is quiet", () => {
     expect(notifyBody).toContain("speaker: ADDRESSEE_NAMES[reportingGod],");
   });
 
-  it("notify raises the pop-up ONLY when he is present — the boot ambush is dead", () => {
+  it("notify raises NOTHING — no pop-up, no pop-in, at boot or any other time", () => {
     const notifyStart = stageSource.indexOf("const notify = useCallback(");
     const notifyBody = stageSource.slice(
       notifyStart,
       stageSource.indexOf("}, []);", notifyStart),
     );
-    const gate = notifyBody.indexOf("if (!presentRef.current) return;");
-    const raise = notifyBody.indexOf("setGodPopUp(");
-    expect(gate).toBeGreaterThan(-1);
-    expect(raise).toBeGreaterThan(gate);
-    // The record write stands BEFORE the gate: a report raised
-    // while he is away is kept, not dropped.
-    expect(notifyBody.indexOf("appendReplyHistory(prev, {")).toBeLessThan(gate);
+    expect(notifyBody).not.toContain("setGodPopUp(");
+    expect(notifyBody).not.toContain("setReportGod(");
+    // The record write is the WHOLE delivery — nothing follows it.
+    expect(notifyBody.indexOf("appendReplyHistory(prev, {")).toBeGreaterThan(-1);
   });
 
-  it("the reply pop-up is presence-gated too — nothing performs at an empty room", () => {
-    const effectStart = stageSource.indexOf('if (state !== "SPEAKING") return;');
-    const effectHead = stageSource.slice(effectStart, effectStart + 700);
-    expect(effectHead).toContain("if (!presentRef.current) return;");
+  it("no reply pop-up effect remains — a speaking line raises nothing on the stage", () => {
+    expect(stageSource).not.toContain("lastResponsePopRef");
+    expect(stageSource).not.toContain("notificationIdRef");
+    expect(stageSource).not.toContain("setGodPopUp({");
   });
 
-  it("the scepter still answers ONLY to a live pop-up — no pop-up at boot, no scepter at boot", () => {
-    expect(stageSource).toContain('scepter={godPopUp?.god === "anubis"}');
-    // The pop-up's initial state is empty; nothing seeds it.
-    expect(stageSource).toContain("useState<GodPopUpRequest | null>(null)");
+  it("no scepter driver and no pop-up state — boot has nothing to ambush with", () => {
+    expect(stageSource).not.toContain("scepter={");
+    expect(stageSource).not.toContain("useState<GodPopUpRequest | null>(null)");
+    expect(stageSource).not.toContain("<GodReportPopUp");
   });
 });
 

@@ -123,7 +123,6 @@ import {
   type StagePerspective,
 } from "./stagePerspective";
 import { loadStageView, saveStageView, type StageView } from "./stageView";
-import { loadSpeechBubble, saveSpeechBubble } from "./speechBubble";
 import {
   constructStandsOnStage,
   dismissalTarget,
@@ -155,10 +154,8 @@ import {
   saveNotificationPrefs,
   shouldNotify,
 } from "./notificationPrefs";
-import { GodReportPopUp, type GodPopUpRequest } from "./GodReportPopUp";
-import { godForReportTopic, type StageRect } from "./godPopUp";
+import { godForReportTopic } from "./godPopUp";
 import { capabilitiesBrief } from "./capabilities";
-import { MEDALLION_UNDER_FACE_HEIGHT } from "./medallionAnchor";
 import { loadSpeechVolume, saveSpeechVolume } from "./speechVoice";
 import {
   STAGE_BACKDROPS,
@@ -637,25 +634,14 @@ export function AvatarStage({
     saveStageView(view);
     rendRef.current?.setStageView(view);
   }, []);
-  // THE SPEECH-BUBBLE SWITCH (owner desk photos 2026-11-23 ~07:11
-  // EST): the anime reply bubble beside the speaking god's head
-  // is his to turn off — OFF leaves voice + the chat thread only.
-  // Persisted (speechBubble.ts), default ON; the response-model
-  // effect below reads it before raising a reply pop-up. Reports
-  // through notify() are not replies and are not governed by it.
-  const [speechBubble, setSpeechBubble] = useState<boolean>(() => loadSpeechBubble());
-  const changeSpeechBubble = useCallback((on: boolean) => {
-    setSpeechBubble(on);
-    saveSpeechBubble(on);
-  }, []);
   // THE ADDRESSEE — A ROUTING STATE (owner order 2026-11-23;
   // rules in addressee.ts): who the Captain is talking to. Anubis
   // by default; naming a god in address switches the conversation
   // to him until another is addressed. THREE readers, one state:
   // the reply prompt carries it per message (speakerDirective),
-  // the thread's speaker label renders it, and the reply pop-up
-  // rises on the addressed god's face — so the label and the words
-  // can never disagree again (the 2026-11-23 screenshots: a reply
+  // the thread's speaker label renders it, and the reply is spoken
+  // in the addressed god's voice — so the label and the words can
+  // never disagree again (the 2026-11-23 screenshots: a reply
   // labeled ANUBIS whose words denied being Anubis).
   const [addressee, setAddressee] = useState<Addressee>(DEFAULT_ADDRESSEE);
   const addresseeRef = useRef<Addressee>(DEFAULT_ADDRESSEE);
@@ -667,13 +653,15 @@ export function AvatarStage({
   // presenceDoctrine.ts): Anubis is resident — alone on the stage by
   // default. The Black Hatter is PUT AWAY until the Owner seat
   // brings him back. Every other god is on the stage only while
-  // summoned for a conversation, popped in for a report, or bowing
-  // out under dismissal.
+  // summoned for a conversation or bowing out under dismissal.
+  // (Reports used to pop a god in for 14 seconds; the pop-up
+  // removal of 2026-11-24 ended that — reportGod is never set by a
+  // report anymore and stands in the residency only so dismissal
+  // can clear it.)
   const [ownerPresent, setOwnerPresent] = useState(false);
   const [summonedGods, setSummonedGods] = useState<GodPerspective[]>([]);
   const [reportGod, setReportGod] = useState<GodPerspective | null>(null);
   const [bowingGod, setBowingGod] = useState<GodPerspective | null>(null);
-  const reportGodTimer = useRef<number | null>(null);
   const residency: StageResidency = {
     ownerPresent,
     summoned: summonedGods,
@@ -871,62 +859,33 @@ export function AvatarStage({
   // and no presence speaks or echoes for him.
   const [lastUserSource, setLastUserSource] = useState<"typed" | "voice">("typed");
   const lastUserSourceRef = useRef<"typed" | "voice">("typed");
-  // REPORTS (owner order 2026-11-22; PRESENTATION RESTATED by the
-  // Captain 2026-11-23 ~14:47 CST, from his live screen): a report
-  // is delivered by its god IN PERSON — his circular medallion,
-  // the same round circumference as Anubis's, with the comic-style
-  // chat box immediately beside the circle carrying the typed
-  // report (GodReportPopUp). The report is gated by his standing
-  // notification rules (notificationPrefs.ts) at raise time.
-  //
-  // THE CORNER CARD IS DEAD (his verdict, same day: "whenever he
-  // pops up and his face comes to the bottom right corner, it looks
-  // stupid. Stop doing that."): notify() used to ALSO stack the
-  // report text into a notification-card lane — and the lock-down
-  // round had parked that lane in the bottom-right corner, so every
-  // god's report landed there as a card. That lane no longer
-  // exists. Nothing of a god's renders in any corner: the medallion
-  // and its comic box, at the god's place on the stage, are the
-  // whole presentation.
-  const notificationIdRef = useRef(0);
-  const [godPopUp, setGodPopUp] = useState<GodPopUpRequest | null>(null);
-  const dismissGodPopUp = useCallback((id: number) => {
-    setGodPopUp((current) => (current && current.id === id ? null : current));
-  }, []);
-  // BOOT IS QUIET (owner order 2026-11-24 ~01:45 CST): "On boot up,
-  // I see the scepter and I still see Anubis pop up and say
-  // something then disappear." The proactive engine polls the
-  // moment it starts, so a report raised in the first seconds of a
-  // load performed itself at boot — medallion, comic box, scepter
-  // and all — before he had done a single thing. The law now: an
-  // in-person delivery (the pop-up, and the scepter it raises on
-  // Anubis) belongs to a report that arrives WHILE HE IS PRESENT
-  // in the session. Presence is earned by his hand — a press, a
-  // key, a command sent — never assumed at load. A report raised
-  // before that is still kept (notify writes it into the record,
-  // below); it simply never performs at an empty room, and it is
-  // never replayed as a pop-up later.
-  const presentRef = useRef(false);
-  useEffect(() => {
-    const markPresent = () => {
-      presentRef.current = true;
-    };
-    window.addEventListener("pointerdown", markPresent);
-    window.addEventListener("keydown", markPresent);
-    return () => {
-      window.removeEventListener("pointerdown", markPresent);
-      window.removeEventListener("keydown", markPresent);
-    };
-  }, []);
+  // REPORTS (owner order 2026-11-22; PRESENTATION SETTLED by the
+  // Captain 2026-11-24 ~09:57 EST, voice call, SUPERSEDING the
+  // 2026-11-23 medallion + comic-box presentation and the
+  // 2026-11-24 presence gate): "I see Anubis keeps popping up on
+  // the side and his scepter is getting in the way of the actual
+  // Anubis. Stop having that pop up. I don't want to see that
+  // anymore." So NO pop-up of a god's face renders on the stage,
+  // ever — not for a report, not for a reply, not at boot. The
+  // GodReportPopUp component, its state, and the was-scepter
+  // overlay are gone entirely. A report's whole delivery is:
+  // the god's voice (the proactive path speaks it) and the
+  // record — notify() writes it into the conversation record
+  // under its god's own name, where it waits in the thread and
+  // History. The report is gated by his standing notification
+  // rules (notificationPrefs.ts) at raise time.
   const notify = useCallback((topic: string, text: string, god?: GodPerspective) => {
     if (!shouldNotify(loadNotificationPrefs(), topic, Date.now())) return;
+    // Attribution: an explicitly attributed god wins; otherwise
+    // the topic decides (Montu for defense and security, Anubis
+    // in command for the rest) — the name signs the record entry.
     const reportingGod = god ?? godForReportTopic(topic);
     // THE REPORT WAITS IN THE RECORD (owner order 2026-11-24):
     // every report is written into the conversation record under
     // its god's own name — no question, dated like every entry —
-    // so what arrived while he was in another tab, or before he
-    // was present at all, is waiting in the thread when he comes
-    // back to chat. It is NOT a reply and never poses as one: the
+    // so what arrived while he was in another tab, or doing
+    // anything else, is waiting in the thread when he comes back
+    // to chat. It is NOT a reply and never poses as one: the
     // entry carries no question, and its speaker is the god who
     // reported, not an answer to anything he typed.
     setTranscript((prev) =>
@@ -937,110 +896,33 @@ export function AvatarStage({
         speaker: ADDRESSEE_NAMES[reportingGod],
       }),
     );
-    // The in-person delivery — medallion, comic box, scepter —
-    // only for a report that arrives while he is present (the
-    // boot-is-quiet law above).
-    if (!presentRef.current) return;
-    notificationIdRef.current += 1;
-    const id = notificationIdRef.current;
-    // The reporting god delivers the line himself, in the comic box
-    // beside his medallion: an explicitly attributed god wins;
-    // otherwise the topic decides (Montu for defense and security,
-    // Anubis in command for the rest).
-    setGodPopUp({ id, god: reportingGod, text });
-    // REPORT POP-IN (presence doctrine): a report attributed to a
-    // non-resident god brings HIM onto the stage with it — portrait
-    // up like the message itself — and he goes away on his own when
-    // the report's life ends, unless the Captain has since summoned
-    // him to stay. Anubis is resident; his reports need no pop-in.
-    if (god && god !== "anubis") {
-      setReportGod(god);
-      if (reportGodTimer.current !== null) window.clearTimeout(reportGodTimer.current);
-      reportGodTimer.current = window.setTimeout(() => {
-        reportGodTimer.current = null;
-        setReportGod((current) => (current === god ? null : current));
-      }, 14_000);
-    }
   }, []);
   /**
-   * THE RESPONSE MODEL (owner order 2026-11-22 ~20:02 EST): "the
-   * way that he popped up to chat, that's the way I want my AI to
-   * respond to me. Not do the chat box. I'll send the commands to
-   * the chat, it'll show me a chat window and talk to me."
-   *
-   * So a REPLY is delivered by Anubis himself: when a line of his
-   * starts SPEAKING, he pops up — face at a clear edge, the cream
-   * bubble beside his head typing the line, his mouth moving with
-   * it (GodReportPopUp) — and when the line is done he goes, and
-   * the stage settles back to the room and the resident face. The
-   * chat box is where the Captain SENDS and where the conversation
-   * can be read while it is live; the record waits behind the
-   * History button. The pop-up keys on the speaking STATE and the
-   * line itself — the same signals the medallion's mouth reads —
-   * never on the voice pipeline's internals.
-   *
-   * Not every line pops: microphone status lines are the room
-   * talking to itself, and idle-life musings keep to voice and
-   * text (his reports already pop through notify()). One pop per
-   * distinct line: the same words spoken twice in a row are one
-   * delivery.
+   * THE RESPONSE MODEL (owner order 2026-11-22 ~20:02 EST;
+   * PRESENTATION SETTLED 2026-11-24 ~09:57 EST): a REPLY reaches
+   * the Captain by the god's VOICE and by the chat thread — the
+   * record of it waits in the thread and behind History. The
+   * pop-up delivery that used to raise the speaking god's face
+   * beside a comic bubble is REMOVED by his order ("Stop having
+   * that pop up. I don't want to see that anymore"): no face but
+   * the resident medallions ever appears, and a reply raises
+   * nothing on the stage at all. The resident medallion's own
+   * mouth still moves while its god speaks — that is the face he
+   * seated, not a pop-up.
    */
-  const lastResponsePopRef = useRef("");
   /**
    * THE RESPECT ASK (owner order 2026-11-23 ~07:22 EST): when a
    * god's face is handled past the threshold, the god himself
-   * speaks the polite line and raises his bubble — once per
-   * session per god (the anchor hook keeps the count and the
-   * spent set). The line is marked so the response pop-up effect
-   * below does not raise a second bubble for the same words.
+   * speaks the polite line — once per session per god (the anchor
+   * hook keeps the count and the spent set). Voice only: since
+   * the pop-up removal (2026-11-24) the line raises nothing on
+   * the stage.
    */
-  const respectPopRef = useRef("");
   const respectAsk = useCallback((god: "anubis" | "montu") => {
+    void god;
     const line = "Please — I am not to be handled. Speak, and I will answer.";
-    respectPopRef.current = line;
     aiRef.current?.speak(line);
-    notificationIdRef.current += 1;
-    setGodPopUp({ id: notificationIdRef.current, god, text: line });
   }, []);
-  useEffect(() => {
-    if (worldScreen !== "live" || clearScreen) return;
-    if (state !== "SPEAKING") return;
-    // BOOT IS QUIET (owner order 2026-11-24): no pop-up of any
-    // kind — reply or report — before he is present in the
-    // session (see presentRef at notify). The line is still
-    // recorded; it just never performs at an empty room.
-    if (!presentRef.current) return;
-    // THE SPEECH-BUBBLE SWITCH (owner 2026-11-23): OFF = the
-    // reply is voice + thread only; no bubble is raised.
-    if (!speechBubble) return;
-    if (!lastWords || lastWords === "No response yet.") return;
-    if (
-      responseSource === "microphone" ||
-      responseSource === "awaiting response" ||
-      responseSource === "idle life"
-    ) {
-      return;
-    }
-    if (lastResponsePopRef.current === lastWords) return;
-    // The respect ask already raised its own bubble (above).
-    if (respectPopRef.current === lastWords) {
-      respectPopRef.current = "";
-      lastResponsePopRef.current = lastWords;
-      return;
-    }
-    // OSIRIS'S PLACE (routing law): the core speaks from the chat
-    // window — his lines never borrow a god's face for a pop-up.
-    if (addressee === "osiris") return;
-    lastResponsePopRef.current = lastWords;
-    notificationIdRef.current += 1;
-    // The reply is delivered by the ADDRESSED god's face (routing
-    // law): Montu's words rise on Montu, Anubis's on Anubis.
-    setGodPopUp({
-      id: notificationIdRef.current,
-      god: addressee === "montu" ? "montu" : "anubis",
-      text: lastWords,
-    });
-  }, [state, lastWords, responseSource, worldScreen, clearScreen, speechBubble, addressee]);
   const recordReply = useCallback((text: string) => {
     setTranscript((prev) =>
       appendReplyHistory(prev, {
@@ -1972,10 +1854,6 @@ export function AvatarStage({
   }
   const sendCommand = useCallback(
     async (text: string, source: "typed" | "voice" = "typed") => {
-      // A command sent is presence itself (the boot-is-quiet law):
-      // from his first command on, reports and replies may deliver
-      // in person.
-      presentRef.current = true;
       // Echo first: whatever he sent — typed or spoken — stays visible
       // in the Command box above the reply, even for commands that
       // return early (rooms, /help, wake greeting).
@@ -3381,18 +3259,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           inCall={conversationView === "call" && perspective === "anubis"}
           inCouncil={council.includes("anubis")}
           atAttention={perspective === "anubis"}
-          scepter={godPopUp?.god === "anubis"}
           onSelect={() => selectGod("anubis")}
           stageView={stageView}
           onStageViewChange={changeStageView}
-          speechBubble={speechBubble}
-          onSpeechBubbleChange={changeSpeechBubble}
           onRespectAsk={() => respectAsk("anubis")}
         />
       )}
       {/* Montu is NOT resident: his medallion stands on the stage
-          only while he is summoned, popped in with a report, or
-          bowing out under dismissal (presenceDoctrine.ts). */}
+          only while he is summoned for a conversation or bowing
+          out under dismissal (presenceDoctrine.ts). A report no
+          longer brings him in (pop-up removal, 2026-11-24). */}
       {!clearScreen && worldScreen === "live" && godOnStage(residency, "montu") && (
         <MontuPresence
           ready={ready}
@@ -3415,10 +3291,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           position orders it fires are the WALK orders of this round
           (walkConstructAside / bringConstructIn), passed down to the
           CommandBox below. */}
-      {/* NO NOTIFICATION LANE (Captain's verdict 2026-11-23): the
-          corner card stack that used to render here is gone — a
-          god's report is his medallion + comic box (GodReportPopUp,
-          below), never a card in a corner. */}
+      {/* NO NOTIFICATION LANE, NO POP-UP (Captain's verdicts
+          2026-11-23 and 2026-11-24): the corner card stack is gone,
+          and the god pop-up that replaced it is gone too — a god's
+          report renders NOTHING on the stage. It reaches him by
+          voice and waits in the thread and History (notify). */}
       {/* THE QUIET ACTIVITY LINE lives INSIDE the top-left box
           now (owner desk photos 2026-11-23 ~07:11 EST: "the
           activity on the side could be put up in one of the
@@ -3427,32 +3304,6 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           screen; conserve space"). No loose text parked on the
           stage's edges — the line renders in the CORE cluster
           below, beside the readouts it belongs with. */}
-      {!clearScreen && worldScreen === "live" && godPopUp && (
-        <GodReportPopUp
-          request={godPopUp}
-          stageSize={{
-            w: stageRootRef.current?.clientWidth ?? 1440,
-            h: stageRootRef.current?.clientHeight ?? 900,
-          }}
-          occupiedRects={[
-            ...["black-hatter", "anubis", "montu"].map((id): StageRect => {
-              const stageW = stageRootRef.current?.clientWidth ?? 1440;
-              const stageH = stageRootRef.current?.clientHeight ?? 900;
-              // The EFFECTIVE seat (the lock-down): for Anubis this
-              // is his centered locked seat, never a stale saved
-              // record — the pop-up clears the face as it stands.
-              const geometry = loadOrDefaultMedallionGeometry(id, stageW, stageH);
-              return {
-                x: geometry.x,
-                y: geometry.y,
-                w: geometry.size,
-                h: geometry.size + MEDALLION_UNDER_FACE_HEIGHT,
-              };
-            }),
-          ]}
-          onDone={dismissGodPopUp}
-        />
-      )}
       {!clearScreen && worldScreen === "live" && constructOpen && (
         <div className="avatar-frame" {...frameDragProps("construct-controls")}>
           <ConstructControls

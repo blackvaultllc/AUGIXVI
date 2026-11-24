@@ -63,17 +63,16 @@
  * lives inside Anubis's medallion only; the Room around it stays
  * light.
  *
- * THE SCEPTER (owner order 2026-11-23 — "Anubis can pull it out
- * when he needs to for a reason and put it back"): for significant
- * deliveries — a god report pop-up, an alert, a proclamation —
- * Anubis appears WITH his was-scepter raised at his side; normal
- * idle and talk carry no scepter, it is put away. The scepter is
- * its own asset (ANUBIS_SCEPTER_SRC) laid over the medallion, so
- * the portrait itself is never altered to hold it; the stage
- * raises it by driving the `scepter` prop from the pop-up state.
+ * THE SCEPTER — REMOVED (owner order 2026-11-24 ~09:57 EST,
+ * superseding the 2026-11-23 scepter order): the was-scepter
+ * overlay that rose at his side for a god report is gone with
+ * the pop-up it rode with — "his scepter is getting in the way
+ * of the actual Anubis. Stop having that pop up." The asset
+ * stays in the registry (medallionPortraits) unrendered; the
+ * portrait itself was never altered to hold it.
  */
 import { useState } from "react";
-import { ANUBIS_BINDING, ANUBIS_PORTRAIT_SRC, ANUBIS_SCEPTER_SRC } from "./medallionPortraits";
+import { ANUBIS_BINDING, ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
 import { ANUBIS_FEATURES, LivingPortrait } from "./LivingPortrait";
 import { MedallionMenu } from "./MedallionMenu";
 import {
@@ -93,7 +92,6 @@ export function AnubisPresence({
   speaking,
   listening,
   acting,
-  scepter = false,
   inPerspective = false,
   inCall = false,
   inCouncil = false,
@@ -101,8 +99,6 @@ export function AnubisPresence({
   onSelect,
   stageView,
   onStageViewChange,
-  speechBubble,
-  onSpeechBubbleChange,
   onRespectAsk,
 }: {
   /** False until the renderer's first frame — the stage is loading. */
@@ -113,13 +109,6 @@ export function AnubisPresence({
   listening: boolean;
   /** Augie is visibly carrying out work (thinking / presenting). */
   acting: boolean;
-  /**
-   * THE SCEPTER IS DRAWN (owner order 2026-11-23): a significant
-   * delivery is live — his report pop-up is on the stage — so the
-   * was-scepter stands raised at his side. Put away at all other
-   * times, ordinary talk included.
-   */
-  scepter?: boolean;
   /** The stage's focus is on Anubis's station right now. */
   inPerspective?: boolean;
   /** A one-god CALL conversation is live with Anubis (owner order 2026-11-22). */
@@ -143,16 +132,6 @@ export function AnubisPresence({
   stageView?: StageView;
   /** Switch the stage view (Left / Front / Right perspective). */
   onStageViewChange?: (view: StageView) => void;
-  /**
-   * THE SPEECH-BUBBLE SWITCH (owner desk photos 2026-11-23): a
-   * spoken reply raises the cream anime bubble beside his head —
-   * unless he turns it off here, in which case replies are voice
-   * + the chat thread only. Supplied by AvatarStage; without the
-   * handler the menu carries no switch.
-   */
-  speechBubble?: boolean;
-  /** Flip the speech-bubble switch. */
-  onSpeechBubbleChange?: (on: boolean) => void;
   /**
    * THE RESPECT ASK (owner order 2026-11-23 ~07:22 EST): fired
    * once per session when his face is handled past the threshold
@@ -182,7 +161,6 @@ export function AnubisPresence({
     anchor.lifted ? "medallion-anchor--lifted" : "",
     anchor.emergencyEdit ? "medallion-anchor--emergency-edit" : "",
     speaking ? "anubis-presence--speaking" : "",
-    scepter ? "anubis-presence--scepter" : "",
     listening ? "anubis-presence--listening" : "",
     acting ? "anubis-presence--acting" : "",
     !ready ? "anubis-presence--connecting" : "",
@@ -208,7 +186,7 @@ export function AnubisPresence({
       className={classes}
       role={onSelect ? "button" : "img"}
       tabIndex={onSelect ? 0 : undefined}
-      aria-label={`Anubis — ${state}${scepter ? " · scepter raised" : ""}`}
+      aria-label={`Anubis — ${state}`}
       title={
         onSelect
           ? anchor.emergencyEdit
@@ -252,20 +230,6 @@ export function AnubisPresence({
           />
         )}
       </div>
-      {/* THE SCEPTER (owner order 2026-11-23): his was-scepter,
-          its own asset laid over the medallion's right side —
-          raised while a significant delivery is live (the stage
-          drives the prop from his report pop-up), put away at
-          every other time. Always rendered so the draw and the
-          put-away animate; the portrait is never altered. */}
-      <img
-        aria-hidden="true"
-        data-testid="anubis-scepter"
-        className={`anubis-presence__scepter${scepter ? " is-drawn" : ""}`}
-        src={ANUBIS_SCEPTER_SRC}
-        alt=""
-        draggable={false}
-      />
       {/* FACE ONLY (owner eye-check 2026-11-22): no name plate, no
           controls row under the face — the controls live inside
           his box menu (MedallionMenu), opened from the small
@@ -316,49 +280,6 @@ export function AnubisPresence({
                   onClick={(event) => {
                     event.stopPropagation();
                     onStageViewChange(view);
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {/* THE SPEECH-BUBBLE SWITCH (owner desk photos 2026-11-23
-            ~07:11 EST): "when the AI talks… it's supposed to pop
-            up the chat box like an anime… If I want to turn that
-            box off I can, and just have it talk and look at the
-            chat to see what it's saying." One obvious switch,
-            beside Perspective — On raises the bubble on replies;
-            Off is voice + thread only. Persisted by the stage. */}
-        {onSpeechBubbleChange && (
-          <div
-            className="medallion-menu__perspective"
-            role="group"
-            aria-label="Speech bubble"
-          >
-            <span className="medallion-menu__perspective-label">Speech bubble</span>
-            <div className="medallion-menu__perspective-buttons">
-              {(
-                [
-                  [true, "On"],
-                  [false, "Off"],
-                ] as const
-              ).map(([on, label]) => (
-                <button
-                  key={label}
-                  type="button"
-                  className="medallion-menu__perspective-button"
-                  aria-pressed={(speechBubble ?? true) === on}
-                  aria-label={`Speech bubble ${label.toLowerCase()}`}
-                  title={
-                    on
-                      ? "Replies raise the anime bubble beside his head"
-                      : "Replies are voice and the chat thread only — no bubble"
-                  }
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onSpeechBubbleChange(on);
                   }}
                 >
                   {label}
