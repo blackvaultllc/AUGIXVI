@@ -458,21 +458,23 @@ describe("no empty gaps — Pulse sizes to its content (item 13)", () => {
     expect(historyWin).toContain("fitContentHeight");
   });
 
-  it("the panel no longer forces height:100% — it sizes to content; on stretch the CAMERA takes the room", () => {
+  it("the panel no longer forces height:100% — it sizes to content; on stretch the main row takes the room", () => {
     const body = ruleBody(styles, ".window-pulse {").replace(/\/\*[\s\S]*?\*\//g, "");
     // No standalone height declaration remains (min-height is the
     // deliberate fill, not the old forced stretch).
     expect(body).not.toContain("  height: 100%;");
     expect(body).toContain("min-height: 100%;");
-    // SUPERSEDED 2026-11-23 (Pulse round): the panes used to spread
-    // into the leftover height; the Captain ordered the camera into
-    // the big black opening instead — the panes sit at content
-    // height and the STAGE flexes. The detailed pins live in
-    // pulse-window.test.tsx ("layout (2026-11-23)").
-    const panes = ruleBody(styles, ".window-pulse__panes {");
-    expect(panes).toContain("flex: 0 0 auto");
+    // SUPERSEDED 2026-11-24 (Pulse layout round): the panes used to
+    // sit in a row of their own under the stage; the Captain ordered
+    // the screen consolidated instead — heart rate and frequencies
+    // flank the picture in ONE grid row (stacked under it when the
+    // panel is narrow) and the live summary rides inside the
+    // picture. The detailed pins live in pulse-window.test.tsx
+    // ("layout (2026-11-24)").
+    const main = ruleBody(styles, ".window-pulse__main {");
+    expect(main).toContain("display: grid");
     const stage = ruleBody(styles, ".window-pulse__stage {");
-    expect(stage).toContain("flex: 1 1 auto");
+    expect(stage).toContain("grid-area: stage");
   });
 });
 

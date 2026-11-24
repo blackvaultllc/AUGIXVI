@@ -4956,6 +4956,102 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* Wepwawet remote control — the clickable remote on the dog's
+   card: direction pad with Stop in the middle, action buttons
+   around it, the Feed row under. Every button is labelled in
+   plain words at bifocal size — no icon-only buttons. */
+.window-commands__remote {
+  background: var(--dev-field);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: var(--dev-fs-body);
+}
+.window-commands__remote h5 {
+  margin: 0;
+  font-size: var(--dev-fs-body);
+}
+.window-commands__remote-body {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.window-commands__pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(4.4rem, 1fr));
+  grid-template-areas:
+    ". up ."
+    "left center right"
+    ". down .";
+  gap: 0.4rem;
+}
+.window-commands__pad-cell {
+  display: flex;
+}
+.window-commands__pad-cell > button {
+  flex: 1;
+}
+.window-commands__pad-up {
+  grid-area: up;
+}
+.window-commands__pad-left {
+  grid-area: left;
+}
+.window-commands__pad-center {
+  grid-area: center;
+}
+.window-commands__pad-right {
+  grid-area: right;
+}
+.window-commands__pad-down {
+  grid-area: down;
+}
+.window-commands__remote-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.6rem, 1fr));
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 15rem;
+}
+.window-commands__remote-feed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.window-commands__remote-feedlabel {
+  font-weight: 600;
+}
+.window-commands__remote-btn {
+  font: inherit;
+  font-size: var(--dev-fs-body);
+  min-height: 2.75rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--avatar-hud-line);
+  background: var(--dev-panel);
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  text-align: center;
+}
+.window-commands__remote-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.window-commands__remote-stop {
+  border: 2px solid var(--avatar-hud-accent, #22d3ee);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .window-devices__formtitle {
   grid-column: 1 / -1;
   font-size: var(--dev-fs-title);
@@ -5317,43 +5413,65 @@
      content (the window fits it — see PulseWindow's
      fitContentHeight). min-height, never a forced 100%: when the
      Captain himself stretches or maximizes the box, the panel
-     fills the frame DELIBERATELY — the panes row below flexes and
-     the readout graphs take the room — instead of the content
-     huddling at the top over a void. */
+     fills the frame DELIBERATELY — the main row below flexes and
+     the picture and readout graphs take the room — instead of the
+     content huddling at the top over a void. */
   min-height: 100%;
   overflow-y: auto;
 }
 /* The source switch + panel wrapper carries the window's full
-   height so the camera stage inside can claim the frame (below). */
+   height so the camera stage inside can claim the frame (below).
+   It is also the CONTAINER the Pulse layout queries (2026-11-24):
+   the three-column row keys off the PANEL's own width, so a small
+   window on a big monitor stacks like the phone does. */
 .window-pulse__wrap {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  container-type: inline-size;
+  container-name: pulse;
 }
 .window-pulse__wrap > .window-pulse {
   flex: 1 1 auto;
   min-height: 0;
 }
+/* THE MAIN ROW (Captain, 2026-11-24, from his PC screenshot — the
+   layout this replaces wasted the screen: the picture sat in the
+   middle with two big black gaps beside it and every readout
+   stacked underneath in a long column). Base form (narrow panel,
+   the phone): picture on top, the two readouts stacked under it,
+   compact. Wide panel: ONE row — heart rate fills the left gap,
+   the picture stands big in its own box in the middle, frequencies
+   fill the right gap (see the container queries at the end of this
+   block). DOM order is picture, heart, frequencies; the grid areas
+   do the arranging, so the narrow stack reads in that same order. */
+.window-pulse__main {
+  display: grid;
+  grid-template-areas:
+    "stage"
+    "heart"
+    "freq";
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+  flex: 0 0 auto;
+  min-height: 0;
+}
 .window-pulse__stage {
+  grid-area: stage;
   position: relative;
   border: 1px solid var(--avatar-hud-line);
   border-radius: 0.35rem;
   overflow: hidden;
   background: #000;
-  /* CAMERA IS THE MAIN FEATURE (Captain, 2026-11-23): the stage
-     flexes to fill the panel — the big black opening his phone
-     showed under small readouts is now the camera itself. The old
-     320px cap is gone; the stage starts from the frame's own aspect
-     and grows into whatever height the window gives it. */
-  flex: 1 1 auto;
   min-height: 260px;
   /* Part 21: the camera opens in its NORMAL FULL FRAME — the whole
      feed visible, letterboxed, never cover-cropped tight on his
      face. Close framing is the analysis's internal business (the
-     face ROIs), not the default perspective. */
+     face ROIs), not the default perspective. In the wide row the
+     stage fills its column's height instead (container query
+     below) and the feed letterboxes inside its own box. */
   aspect-ratio: 4 / 3;
-  margin-inline: auto;
   width: 100%;
 }
 .window-pulse__video {
@@ -5394,6 +5512,7 @@
      displayed feed. */
   object-fit: contain;
   pointer-events: none;
+  z-index: 1;
 }
 .window-pulse__idle {
   position: absolute;
@@ -5405,9 +5524,13 @@
   gap: 0.6rem;
   padding: 1rem;
   text-align: center;
-  background: oklch(0.12 0.03 250 / 88%);
+  /* Solid, not translucent (2026-11-24): the stat boxes now ride
+     inside the frame under this cover — over the black stage a
+     solid cover looks identical and nothing ghosts through. */
+  background: oklch(0.12 0.03 250);
   font-size: 0.95rem;
   line-height: 1.45;
+  z-index: 3;
 }
 .window-pulse__idle p {
   margin: 0;
@@ -5421,15 +5544,6 @@
   font-size: 0.75rem;
   line-height: 1.45;
 }
-.window-pulse__panes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.55rem;
-  /* The leftover height belongs to the CAMERA now (2026-11-23):
-     the panes sit at their content height under it, bold and
-     readable, instead of stretching into a void of their own. */
-  flex: 0 0 auto;
-}
 .window-pulse__pane {
   border: 1px solid var(--avatar-hud-line);
   border-radius: 0.35rem;
@@ -5437,6 +5551,15 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
+}
+/* The two readouts flank the picture in the wide row (grid areas
+   on .window-pulse__main) and stack under it when narrow. */
+.window-pulse__pane--heart {
+  grid-area: heart;
+}
+.window-pulse__pane--freq {
+  grid-area: freq;
 }
 .window-pulse__pane h3 {
   margin: 0;
@@ -5446,12 +5569,22 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   opacity: 0.9;
+  /* FIXED DIMENSIONS (Captain, 2026-11-24): every live region
+     holds its size — a changing value never reflows the layout. */
+  height: 1.2rem;
+  overflow: hidden;
+  white-space: nowrap;
 }
 .window-pulse__reading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  align-content: center;
   gap: 0.45rem;
-  min-height: 2.6rem;
+  /* Fixed height (2026-11-24): the BPM number, its unit and the
+     signal-quality pill change text constantly; the box they sit
+     in never changes size, so nothing below it can jump. */
+  height: 4.4rem;
+  overflow: hidden;
   flex-wrap: wrap;
 }
 .window-pulse__bpm {
@@ -5497,18 +5630,96 @@
   font-size: 0.95rem;
   line-height: 1.45;
   opacity: 0.95;
+  /* Fixed height (2026-11-24): two lines, always — "person in
+     view" and "no face in view" take the same room, so the pane
+     never breathes when the words change. */
+  height: 2.9rem;
+  overflow: hidden;
+}
+/* STAT BOXES INSIDE THE PICTURE (Captain, 2026-11-24): the live
+   summary and the cues ride inside the camera frame as dark
+   overlay boxes — black backing, bifocal type, pinned to the
+   frame's corners/edges, NEVER over the center where the face
+   (and the pulse ROIs) live. Every box has a FIXED height: the
+   words inside change, the box never does, so a new number can
+   never push the page up or down. The idle cover (z-index 3)
+   hides them until sensing starts. */
+.window-pulse__hud-box {
+  position: absolute;
+  z-index: 2;
+  margin: 0;
+  background: oklch(0 0 0 / 78%);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  color: #fff;
+  overflow: hidden;
+  pointer-events: none;
 }
 .window-pulse__summary {
-  margin: 0;
+  left: 0.55rem;
+  bottom: 0.55rem;
+  width: min(34rem, calc(100% - 1.1rem));
+  height: 5.4rem;
+  display: flex;
+  align-items: center;
   font-size: 1rem;
-  border-top: 1px solid var(--avatar-hud-line);
-  padding-top: 0.5rem;
+  line-height: 1.4;
+}
+/* The cues box's own placement lives with its Part 25 rule near
+   the end of this file (it carries the box's font size there). */
+.window-pulse__hud-box .window-pulse__privacy {
+  font-size: 0.8rem;
+  opacity: 0.85;
 }
 .window-pulse__privacy {
   margin: 0;
   font-size: 0.66rem;
   line-height: 1.45;
   opacity: 0.65;
+}
+
+/* THE WIDE ROW (Captain, 2026-11-24): when the PANEL itself is
+   wide enough, the main grid becomes one row — heart rate in the
+   left gap, the picture big in its own box in the middle,
+   frequencies in the right gap — and the row takes the panel's
+   height, so the panes' graphs and the picture fill the frame
+   with no black waste and no long scroll stack. The stat boxes
+   inside the picture shrink to their wide-frame heights. */
+@container pulse (min-width: 60rem) {
+  .window-pulse__main {
+    grid-template-areas: "heart stage freq";
+    grid-template-columns: minmax(15rem, 1fr) minmax(0, 2.2fr) minmax(15rem, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    flex: 1 1 auto;
+  }
+  .window-pulse__stage {
+    height: 100%;
+    min-height: 0;
+  }
+  .window-pulse__summary {
+    height: 3.9rem;
+  }
+  .window-pulse__perception {
+    height: 5.2rem;
+  }
+}
+/* WIDEST (2026-11-24): the frame is broad enough for the two stat
+   boxes to share its bottom edge — summary bottom-left, cues
+   bottom-right, each capped so they can never meet in the middle
+   over the face. */
+@container pulse (min-width: 80rem) {
+  .window-pulse__summary {
+    width: min(34rem, 47%);
+  }
+  .window-pulse__perception {
+    left: auto;
+    top: auto;
+    right: 0.55rem;
+    bottom: 0.55rem;
+    width: min(36rem, 47%);
+    height: 6.2rem;
+  }
 }
 
 /* Sandbox window (2026-11-21) — attack simulation + antivirus design bench */
@@ -7689,7 +7900,20 @@
 .window-testarea__verdict.is-fails { color: #a33b1f; }
 .window-testarea__verdict.is-stale { color: #9a6a00; }
 .window-testarea__verdict.is-never { color: #6b6252; }
-.window-pulse__perception { margin: 0.2rem 0 0; padding-left: 1.1rem; line-height: 1.5; font-size: 0.88rem; }
+/* Part 25's cues line rides INSIDE the picture now (Captain,
+   2026-11-24): a dark overlay box at the frame's top-left corner
+   (bottom-right on the widest panels — see the container queries
+   in the Pulse block), sharing .window-pulse__hud-box's backing.
+   Fixed height, set per panel width up there: the words change,
+   the box never does. */
+.window-pulse__perception {
+  left: 0.55rem;
+  top: 0.55rem;
+  width: min(36rem, calc(100% - 1.1rem));
+  height: 7.2rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
 .phone-bridge { max-width: 44rem; margin: 0 auto; padding: 1rem; line-height: 1.55; }
 .phone-bridge section { border: 1px solid var(--border, #d8cdb4); border-radius: 0.7rem; padding: 0.7rem 0.9rem; margin: 0.7rem 0; }
 .phone-bridge__bpm { font-size: 1.05rem; }
