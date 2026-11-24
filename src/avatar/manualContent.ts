@@ -82,6 +82,18 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "The /avatar page — on the Parrot, on the phone, and online.",
       },
       {
+        id: "stage-earth",
+        title: "The Earth page — the spinning world and Anubis's face",
+        state: "live",
+        what: "Before the stage, Augie opens on the Earth: the real textured planet, spinning slowly over a starfield, with the sign-in card on top of it. The Earth spins ALONE — the decorative sun, moon, satellites, shooting stars and the moving orb were removed on the Captain's order (2026-11-24) because they did not look real. ANUBIS'S FACE stands on the LEFT side of the scene in a still circular medallion while the world spins — never in the middle, and the circle does not move. After sign-in the view flies down from orbit to the stage in one continuous flight; the face and the label step aside while the flight plays.",
+        steps: [
+          "Open Augie signed out — the Earth page is what you see, Anubis's medallion on the left.",
+          "Sign in — the flight down to the stage happens on its own; no button to press.",
+          "Ask to go back to orbit and the same scene returns, the Earth still spinning.",
+        ],
+        where: "The sign-in landing and the orbital view around the /avatar stage.",
+      },
+      {
         id: "stage-tools",
         title: "Opening tools — the command box tabs",
         state: "live",
