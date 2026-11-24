@@ -879,12 +879,8 @@
   box-shadow: 3px 3px 0 rgb(0 0 0 / 55%);
   font-weight: 800;
 }
-/* The god pop-up in full comic dress: the cream Bellwood bubble
-   with an ink frame, a hard offset shadow, and a bold name tag. */
-.avatar-stage .god-popup__bubble {
-  border: 3px solid #14100a;
-  box-shadow: 5px 5px 0 rgb(0 0 0 / 50%);
-}
+/* The god pop-up's comic-dress rule stood here; the pop-up is
+   REMOVED (owner order 2026-11-24 ~09:57 EST) — see styles.css. */
 
 /* 22. THE CORE BOX KEEPS ITS MEASURE (owner defect 2026-11-23
    ~15:43 EST): "activity is way too long, it's making the box go
