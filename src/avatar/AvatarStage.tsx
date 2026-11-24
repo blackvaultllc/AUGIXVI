@@ -773,6 +773,21 @@ export function AvatarStage({
   // the room-frequency readout in a small floating box (operator order
   // 2026-11-21). Opens from Tools → Rooms and from "open pulse".
   const [pulseOpen, setPulseOpen] = useState(false);
+  // THE STATUS TAB (clean-screen round, owner order 2026-11-24
+  // ~10:40 EST): the two HUD panels — CORE/PHONE/VOICE/FPS/sensors
+  // on the left, STATUS/INTENSITY/hearing on the right — are OFF
+  // the main screen. All of it lives behind this one tab; the
+  // stage at rest carries none of it. Session-only, like the
+  // other panels: the stage opens clean every load.
+  const [statusOpen, setStatusOpen] = useState(false);
+  // THE CHAT BOX'S CONTROLS, HELD FOR THE GODS (same order —
+  // every god his own chat): CommandBox registers its minimize /
+  // restore here, and a god's medallion tap restores the box so
+  // the conversation he just routed to that god has its window.
+  const chatControlsRef = useRef<{ minimize: () => void; restore: () => void } | null>(null);
+  const openChatBox = useCallback(() => {
+    chatControlsRef.current?.restore();
+  }, []);
   // SOUND WATCH WINDOW: the room's ear — environmental sound events,
   // distance estimates, and the Captain's learned sound library
   // (owner order 2026-11-23). Shares the microphone with the voice
@@ -3267,7 +3282,13 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           inCall={conversationView === "call" && perspective === "anubis"}
           inCouncil={council.includes("anubis")}
           atAttention={perspective === "anubis"}
-          onSelect={() => selectGod("anubis")}
+          onSelect={() => {
+            // EVERY GOD HIS OWN CHAT (owner order 2026-11-24
+            // ~10:40 EST): tapping his medallion routes the
+            // conversation to him AND opens his chat box.
+            selectGod("anubis");
+            openChatBox();
+          }}
           stageView={stageView}
           onStageViewChange={changeStageView}
           onRespectAsk={() => respectAsk("anubis")}
@@ -3286,7 +3307,13 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           inCall={conversationView === "call" && perspective === "montu"}
           inCouncil={council.includes("montu")}
           atAttention={perspective === "montu"}
-          onSelect={() => selectGod("montu")}
+          onSelect={() => {
+            // EVERY GOD HIS OWN CHAT (owner order 2026-11-24
+            // ~10:40 EST): his medallion tap routes the
+            // conversation to him AND opens his chat box.
+            selectGod("montu");
+            openChatBox();
+          }}
           onRespectAsk={() => respectAsk("montu")}
         />
       )}
@@ -3346,7 +3373,38 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onImport={(file) => void importKnowledgeFile(file)}
         />
       )}
-      <div className="avatar-hud avatar-hud--tr" style={frameStyle("hud-status")} {...frameDragProps("hud-status", true)}>
+      {/* STATUS — ONE TAB, OFF THE MAIN SCREEN (clean-screen
+          round, owner order 2026-11-24 ~10:40 EST): "where it
+          says core connected all that stuff and then the status
+          and everything else — put that in one tab which will
+          give me all that information if I want to click and look
+          at it. Take it off the main screen." Both HUD panels are
+          gone from the stage's resting face; every line they
+          carried — core, phone brain, voice cal, FPS, sensors,
+          activity, status, intensity, and the hearing truth with
+          its wording unchanged — lives in the ONE panel this tab
+          opens, at the bifocal measure the panels themselves set.
+          The tab is the only trace on the stage, top-right where
+          the status panel used to sit. */}
+      <button
+        type="button"
+        className="avatar-status-tab"
+        aria-expanded={statusOpen}
+        aria-controls="avatar-status-panel"
+        onClick={() => setStatusOpen((open) => !open)}
+        title="Status — core, phone brain, voice, sensors, activity, hearing"
+      >
+        <Activity aria-hidden="true" />
+        <span>Status</span>
+      </button>
+      {statusOpen && (
+      <div
+        id="avatar-status-panel"
+        className="avatar-status-panel"
+        role="region"
+        aria-label="Stage status — core, phone brain, voice, sensors, activity, hearing"
+      >
+      <div className="avatar-hud avatar-hud--tr">
         {aiOffline && !clearScreen && (
           <div className="avatar-hud__offline" role="status">
             <span>OFFLINE</span>
@@ -3383,7 +3441,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           addressee={ADDRESSEE_NAMES[addressee]}
         />
       </div>
-      <div className="avatar-hud avatar-hud--tl" style={frameStyle("hud-core")} {...frameDragProps("hud-core", true)}>
+      <div className="avatar-hud avatar-hud--tl">
         <div className="avatar-hud__db-status">CORE: {coreStatusLabel(coreStatus)}</div>
         <div className="avatar-hud__db-status">
           PHONE BRAIN: {phoneBrainState ? phoneBrainStatusLabel(phoneBrainState) : "CHECKING…"}
@@ -3421,6 +3479,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           </div>
         )}
       </div>
+      </div>
+      )}
       {!clearScreen && (
         <CommandBox
           accent={themeAccent}
@@ -3440,13 +3500,26 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           voiceListening={voiceListening}
           onToggleVoice={() => earRef.current?.toggle()}
           responseLine={
-            // BRAIN STATE IN PLAIN WORDS (2026-11-23): before the
-            // first exchange, when no brain path is ready, the thread
-            // stands on WHY nothing can answer and the doors that fix
-            // it — never a bare silent "No response yet." Once any
-            // reply lands, lastWords is the reply and this steps aside.
+            // NO PLACEHOLDER IN THE THREAD (owner order 2026-11-24
+            // ~11:00 EST, from his screenshot of the Parrot build —
+            // superseding the standing-line half of the 2026-11-23
+            // brain-state order): under his typed message a line
+            // read "SYSTEM: No response yet." while the status
+            // showed THINKING. His words: "It doesn't need to give
+            // me that notification in the chat window." The thread
+            // holds his words and the construct's ACTUAL replies,
+            // nothing else — while a construct thinks, the thinking
+            // shows in the status (STATUS: THINKING, the intensity
+            // readout), never as a fake SYSTEM message. Before the
+            // first exchange, the no-brain signpost may still stand
+            // (the 2026-11-23 order's case: a surface where nothing
+            // can answer says so in plain words); the moment he
+            // sends, it steps aside with the placeholder, and the
+            // reply machinery's own words are the next line.
             lastWords === "No response yet."
-              ? (brainStateLine({ core: coreStatus, phoneBrain: phoneBrainState }) ?? lastWords)
+              ? lastUserMessage
+                ? ""
+                : (brainStateLine({ core: coreStatus, phoneBrain: phoneBrainState }) ?? "")
               : lastWords
           }
           responseSource={responseSource}
@@ -3458,12 +3531,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           away={worldScreen !== "live"}
           onReturnToChat={returnToChat}
           onOpenHistory={() => setHistoryOpen(true)}
+          onMinimizeShortcut={(controls) => {
+            chatControlsRef.current = controls;
+          }}
           presence={
             <AugiePresence
               ready={ready}
               avatarState={state}
               voiceListening={voiceListening}
               acting={presenting || worldScreen === "entering" || worldScreen === "returning"}
+              captioned={false}
             />
           }
         >

@@ -223,7 +223,7 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         id: "yc-nobrain",
         title: "When the stage says “No brain can answer yet”",
         state: "live",
-        what: "WORKS NOW — THE HONEST SIGNPOST. On a surface with no brain path ready — the core not connected, the on-phone brain not downloaded, no cloud key entered — the chat thread stands on that plain-words line instead of a bare, silent “No response yet.” It is not an error message; it is the stage naming the three doors, because one of them is always the fix. The moment any reply lands, the line steps aside.",
+        what: "WORKS NOW — THE HONEST SIGNPOST. On a surface with no brain path ready — the core not connected, the on-phone brain not downloaded, no cloud key entered — the chat thread stands on that plain-words line before you have sent anything, instead of a bare, silent “No response yet.” It is not an error message; it is the stage naming the three doors, because one of them is always the fix. The moment you send a message the line steps aside: the thread never carries a placeholder under your words (your order 2026-11-24) — while a construct is thinking you see the thinking in the Status panel, and the next line in the thread is a real reply or a failure stated in words.",
         steps: [
           "Door one: connect the core — Settings → Brain address points this surface at your Parrot (its Tailscale or home Wi-Fi address).",
           "Door two: download the on-phone brain — Settings → On-phone brain; the size is shown before anything downloads, and the brain then lives on the device, grid-down included.",
@@ -300,6 +300,20 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
           "Reload Augie — the stage opens quiet: Anubis present, no pop-up, no scepter.",
         ],
         where: "The command box on the stage — computer and phone alike.",
+      },
+      {
+        id: "stage-clean-screen",
+        title: "The clean screen — status in one tab, Osiris's head alone",
+        state: "live",
+        what: "Your order (2026-11-24): the screen stays clean. The two readout panels that used to stand on the stage — core, phone brain, voice, FPS, sensors on one side; status, intensity, and the hearing state on the other — are OFF the main screen. All of it lives behind ONE tab marked Status at the top-right: tap it and the whole panel opens, tap it again and the stage is clean again. The hearing truth (HEARING / NOT HEARING with its reason) lives in that panel now, wording unchanged. The folded chat box is OSIRIS'S HEAD ALONE — a medallion just like Anubis's, standing at the top-left where the core panel used to sit. No name under him, no “Chat” word. Tap his head and the chat opens; the three dots at his corner open his four options — Open chat, the Menu, Anchor, and Reset. Press and drag his head to move it, then anchor it where you left it; the place is remembered. And EVERY GOD HIS OWN CHAT: tap any god's medallion — Anubis, Montu, Osiris, any of them — and that god's chat box opens, addressed to him; fold it and it goes back to the medallion. Your main chat box stays there alongside, for when you need it.",
+        steps: [
+          "Tap Status (top-right) to read core, phone, voice, sensors, activity, and hearing; tap it again to close the panel.",
+          "Tap Osiris's head (top-left) to open the chat; use the fold (the − button) to fold it back to the head.",
+          "Tap the three dots on Osiris's head for his four options: Open chat, Menu, Anchor, Reset.",
+          "Press and drag Osiris's head to move it; anchor it where you want it — it stays there.",
+          "Tap any god's medallion to open that god's chat box.",
+        ],
+        where: "The stage — computer and phone alike.",
       },
       {
         id: "stage-exit",
@@ -1059,7 +1073,7 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         id: "ts-nobrain",
         title: "“No brain can answer yet” on the stage",
         state: "live",
-        what: "The stage says this in plain words when no brain path is ready on that surface: the core is not connected, the on-phone brain is not downloaded, and no cloud key is entered. It replaces the old bare “No response yet.” — silence was the defect; the line names the three doors because one of them is the fix. The HUD's CORE and PHONE BRAIN lines carry the same truth in short form.",
+        what: "The stage says this in plain words when no brain path is ready on that surface: the core is not connected, the on-phone brain is not downloaded, and no cloud key is entered. It stands in the thread only before your first message — the thread never shows a “No response yet.” placeholder under your words (your order 2026-11-24); while a construct thinks, the Status panel shows THINKING. The Status panel's CORE and PHONE BRAIN lines carry the same truth in short form.",
         steps: [
           "Door one: connect the core — Settings → Brain address points this surface at your Parrot core (tailnet or LAN address).",
           "Door two: download the on-phone brain — Settings → On-phone brain; the size is shown before anything downloads, and the brain then lives on the device, grid-down included.",

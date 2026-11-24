@@ -1,4 +1,4 @@
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Eye } from "lucide-react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AugiePresence } from "@/avatar/AugiePresence";
@@ -152,7 +152,13 @@ describe("AugiePresence component", () => {
 });
 
 describe("CommandBox presence slot", () => {
-  it("renders the supplied presence inside the rail, ahead of the title", () => {
+  it("renders the supplied presence in the console face folded, and inside the rail when open", () => {
+    // RESTAGED (clean-screen round, owner order 2026-11-24
+    // ~10:40 EST): the box opens FOLDED — the presence stands in
+    // the console's face (Osiris's head alone); the rail — and
+    // its place at the rail's head — is the OPEN box's form. The
+    // "Chat" title this test once measured against is removed by
+    // the same order: no title exists to stand ahead of.
     const { container } = render(
       <CommandBox
         accent="#d4af37"
@@ -172,13 +178,24 @@ describe("CommandBox presence slot", () => {
         <div />
       </CommandBox>,
     );
-    const rail = container.querySelector(".avatar-command-box__rail");
+    const face = container.querySelector(".avatar-command-box__console-face");
     const slot = container.querySelector('[data-testid="presence-slot"]');
-    const title = container.querySelector(".avatar-command-box__title");
-    expect(rail).not.toBeNull();
+    expect(face).not.toBeNull();
     expect(slot).not.toBeNull();
-    expect(rail!.contains(slot)).toBe(true);
-    // The face sits at the head of the rail, before the "Chat" title.
-    expect(slot!.compareDocumentPosition(title!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(face!.contains(slot)).toBe(true);
+    expect(container.querySelector(".avatar-command-box__rail")).toBeNull();
+    expect(container.querySelector(".avatar-command-box__title")).toBeNull();
+    // Open the box: the same presence stands in the rail, ahead
+    // of the window controls (the grip toggle rides above it as
+    // the drag handle — the face is the rail's first CONTENT).
+    fireEvent.click(screen.getByRole("button", { name: "Open the chat with Anubis" }));
+    const rail = container.querySelector(".avatar-command-box__rail");
+    expect(rail).not.toBeNull();
+    expect(rail!.contains(container.querySelector('[data-testid="presence-slot"]'))).toBe(true);
+    const slotNow = container.querySelector('[data-testid="presence-slot"]') as HTMLElement;
+    const anchorBtn = screen.getByRole("button", { name: "Unanchor the chat window" });
+    expect(
+      slotNow.compareDocumentPosition(anchorBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

@@ -251,7 +251,12 @@ describe("terminal chat — clear, history, emoji", () => {
       children: <p>panel body</p>,
       ...over,
     };
-    return render(<CommandBox {...props} />);
+    const utils = render(<CommandBox {...props} />);
+    // The console is the opening form (clean-screen round,
+    // 2026-11-24): these tests exercise the open chat — tap his
+    // face first, as the Captain does.
+    fireEvent.click(screen.getByRole("button", { name: "Open the chat with Anubis" }));
+    return utils;
   }
 
   beforeEach(() => {

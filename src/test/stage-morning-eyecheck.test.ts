@@ -91,7 +91,11 @@ describe("the holder goes black — backdrop surround and HUD readability", () =
 
   it("the FPS and sensor lines carry the bright readout class", () => {
     expect(stage).toContain('className="avatar-hud__db-status"');
-    const fpsAt = stage.indexOf("FPS");
+    // ANCHOR MOVED (clean-screen round, 2026-11-24): the first
+    // bare "FPS" in the file is now the status tab's own comment —
+    // the pin anchors on the readout itself, inside the one
+    // status panel the clusters moved into.
+    const fpsAt = stage.indexOf("{perf.fps} FPS");
     expect(stage.slice(Math.max(0, fpsAt - 200), fpsAt)).toContain("avatar-hud__db-status");
   });
 

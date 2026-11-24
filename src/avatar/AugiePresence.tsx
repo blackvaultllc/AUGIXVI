@@ -29,11 +29,19 @@ export function AugiePresence({
   avatarState,
   voiceListening,
   acting,
+  captioned = true,
 }: {
   ready: boolean;
   avatarState: AvatarState;
   voiceListening: boolean;
   acting: boolean;
+  /**
+   * THE NAME LABEL IS GONE (owner order 2026-11-24 ~10:40 EST —
+   * the clean-screen round): "you don't even need to put his name
+   * there. I know who Osiris is." The chat box passes
+   * captioned={false}; the face stands alone, no caption under it.
+   */
+  captioned?: boolean;
 }) {
   const [milestone, setMilestone] = useState(false);
   const previousState = useRef<AvatarState>(avatarState);
@@ -79,9 +87,11 @@ export function AugiePresence({
           aria-hidden="true"
         />
       </div>
-      <span className="osiris-presence__caption" aria-hidden="true">
-        Osiris
-      </span>
+      {captioned && (
+        <span className="osiris-presence__caption" aria-hidden="true">
+          Osiris
+        </span>
+      )}
     </div>
   );
 }
