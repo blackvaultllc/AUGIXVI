@@ -343,6 +343,7 @@ import { SpaceView } from "./SpaceView";
 import { coreStatusLabel, type CoreStatus } from "./coreLink";
 import { brainStateLine } from "./brainState";
 import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
+import { fetchDaddyInboxView } from "./learner/daddyInboxClient";
 import { currentRenderCaps } from "./deviceProfile";
 
 type Settings = RenderSettings & {
@@ -976,6 +977,57 @@ export function AvatarStage({
       }),
     );
   }, []);
+
+  /**
+   * KHADIJA'S LINE (owner order 2026-11-24 ~17:13 CST): while the
+   * Captain is at his Augie, the stage polls his Daddy Inbox every
+   * 25 seconds. The poll itself stamps his presence on the core —
+   * that stamp is what her side reads as "Daddy is online". A new
+   * message from her, and a call from her, are raised here the
+   * moment they are seen: written into his record by notify() (and
+   * spoken by the proactive voice path like every report), waiting
+   * in his thread and History. The full thread, his reply box, and
+   * the call's Answer button live in the Logs window's Khadija tab.
+   * Seen ids are kept in refs so one arrival is raised once.
+   */
+  const daddySeenMessagesRef = useRef<Set<string> | null>(null);
+  const daddySeenCallRef = useRef<string | null>(null);
+  useEffect(() => {
+    let stopped = false;
+    const tick = async () => {
+      const view = await fetchDaddyInboxView().catch(() => null);
+      if (stopped || !view) return;
+      if (daddySeenMessagesRef.current === null) {
+        // First poll: everything already read is history; only her
+        // still-unread words are news.
+        daddySeenMessagesRef.current = new Set(
+          view.messages.filter((m) => m.from === "daddy" || m.readByDaddy).map((m) => m.id),
+        );
+      }
+      for (const message of view.unread) {
+        if (daddySeenMessagesRef.current.has(message.id)) continue;
+        daddySeenMessagesRef.current.add(message.id);
+        notify("family", `Message from Khadija: “${message.text}”`);
+      }
+      const call = view.call;
+      if (call && call.state === "ringing" && daddySeenCallRef.current !== call.id) {
+        daddySeenCallRef.current = call.id;
+        notify(
+          "family",
+          "Khadija is calling you. Open the Logs window — the Khadija tab — and tap Answer to be with her.",
+        );
+      }
+      if (!call || call.state !== "ringing") {
+        if (call?.state === "answered") daddySeenCallRef.current = call.id;
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 25_000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [notify]);
   /**
    * THE RESPONSE MODEL (owner order 2026-11-22 ~20:02 EST;
    * PRESENTATION SETTLED 2026-11-24 ~09:57 EST): a REPLY reaches

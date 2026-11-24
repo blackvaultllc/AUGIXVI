@@ -16,6 +16,12 @@ export const Route = createFileRoute("/api/learner/ask")({
         const { handleFlowerAskRequest } = await import("@/avatar/learner/flower.server");
         return handleFlowerAskRequest(request);
       },
+      // GET is her page's readiness check — real round trips to the
+      // books and the brain, so "ready" is earned, never painted on.
+      GET: async () => {
+        const { handleFlowerHealthRequest } = await import("@/avatar/learner/flower.server");
+        return handleFlowerHealthRequest();
+      },
     },
   },
 });

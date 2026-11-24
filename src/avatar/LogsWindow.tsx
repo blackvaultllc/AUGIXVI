@@ -24,6 +24,14 @@ import {
   type ServiceJournalView,
   type UpdateView,
 } from "./logs.server";
+import {
+  answerKhadijaCall,
+  endKhadijaCall,
+  listDaddyInbox,
+  markDaddyInboxRead,
+  replyToKhadija,
+  type DaddyInboxView,
+} from "./learner/daddyInbox.server";
 
 async function loadAuthClient(): Promise<SupabaseClient | null> {
   let url = import.meta.env["VITE_SUPABASE_URL"]?.trim();
@@ -45,12 +53,15 @@ async function accessToken(): Promise<string | null> {
   return (await client.auth.getSession()).data.session?.access_token ?? null;
 }
 
-type Tab = "service" | "updates";
+type Tab = "service" | "updates" | "khadija";
 
 export function LogsWindow({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("service");
   const [journal, setJournal] = useState<ServiceJournalView | null>(null);
   const [updates, setUpdates] = useState<UpdateView | null>(null);
+  const [inbox, setInbox] = useState<DaddyInboxView | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [replyNote, setReplyNote] = useState("");
   const [denied, setDenied] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [applyNote, setApplyNote] = useState("");
@@ -76,6 +87,75 @@ export function LogsWindow({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * KHADIJA'S TAB (owner order 2026-11-24): her messages and her
+   * calls, in his Logs where he reads his records. Opening the tab
+   * shows him the thread and marks her words read; the call's
+   * Answer button is here, and his reply box writes straight back
+   * to her Daddy cabinet. The tab refreshes itself while it is open
+   * so a ringing call cannot sit unseen behind a stale pane.
+   */
+  const loadInbox = useCallback(async () => {
+    const token = await accessToken().catch(() => null);
+    if (!token) {
+      setDenied(true);
+      return;
+    }
+    const view = await listDaddyInbox({ data: { accessToken: token } }).catch(() => null);
+    if (!view || !view.authorized) {
+      setDenied(true);
+      return;
+    }
+    setInbox(view);
+    if (view.available && view.unread.length > 0) {
+      await markDaddyInboxRead({ data: { accessToken: token } }).catch(() => null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab !== "khadija") return;
+    void loadInbox();
+    const timer = setInterval(() => void loadInbox(), 15_000);
+    return () => clearInterval(timer);
+  }, [tab, loadInbox]);
+
+  const actOnCall = useCallback(
+    async (action: "answer" | "end") => {
+      const token = await accessToken().catch(() => null);
+      if (!token) {
+        setDenied(true);
+        return;
+      }
+      if (action === "answer") {
+        await answerKhadijaCall({ data: { accessToken: token } }).catch(() => null);
+        setReplyNote("You answered. Khadija's page now shows you are with her — write her below.");
+      } else {
+        await endKhadijaCall({ data: { accessToken: token } }).catch(() => null);
+        setReplyNote("The call is ended.");
+      }
+      void loadInbox();
+    },
+    [loadInbox],
+  );
+
+  const sendReply = useCallback(async () => {
+    const text = replyDraft.trim();
+    if (!text) return;
+    const token = await accessToken().catch(() => null);
+    if (!token) {
+      setDenied(true);
+      return;
+    }
+    const res = await replyToKhadija({ data: { accessToken: token, text } }).catch(() => null);
+    if (res?.sent) {
+      setReplyDraft("");
+      setReplyNote("Sent to Khadija — it is on her Daddy cabinet now.");
+    } else {
+      setReplyNote("The reply could not be sent from this surface.");
+    }
+    void loadInbox();
+  }, [replyDraft, loadInbox]);
 
   const apply = useCallback(async () => {
     const token = await accessToken().catch(() => null);
@@ -116,6 +196,14 @@ export function LogsWindow({ onClose }: { onClose: () => void }) {
           >
             Updates
           </button>
+          <button
+            type="button"
+            className="window-btn"
+            aria-pressed={tab === "khadija"}
+            onClick={() => setTab("khadija")}
+          >
+            Khadija
+          </button>
           <button type="button" className="window-btn" onClick={() => void load()}>
             Refresh
           </button>
@@ -144,6 +232,76 @@ export function LogsWindow({ onClose }: { onClose: () => void }) {
                   </li>
                 ))}
               </ol>
+            )}
+          </>
+        )}
+
+        {!denied && tab === "khadija" && (
+          <>
+            {!inbox && <p className="window-logs__note">Reading Khadija's inbox…</p>}
+            {inbox && !inbox.available && (
+              <p className="window-logs__note">
+                Khadija's inbox lives in the core on the Parrot — it is not available on this
+                surface.
+              </p>
+            )}
+            {inbox && inbox.available && (
+              <div>
+                {inbox.call?.state === "ringing" && (
+                  <p className="window-logs__note" role="alert">
+                    <strong>Khadija is calling you.</strong>{" "}
+                    <button type="button" className="window-btn" onClick={() => void actOnCall("answer")}>
+                      Answer
+                    </button>{" "}
+                    <button type="button" className="window-btn" onClick={() => void actOnCall("end")}>
+                      Let it go to her inbox
+                    </button>
+                  </p>
+                )}
+                {inbox.call?.state === "answered" && (
+                  <p className="window-logs__note" role="status">
+                    <strong>You are with Khadija now.</strong> She sees that you answered.{" "}
+                    <button type="button" className="window-btn" onClick={() => void actOnCall("end")}>
+                      End the call
+                    </button>
+                  </p>
+                )}
+                {inbox.messages.length === 0 && (
+                  <p className="window-logs__note">No messages from Khadija yet.</p>
+                )}
+                <ol className="window-logs__list">
+                  {inbox.messages.map((message) => (
+                    <li key={message.id} className="window-logs__line">
+                      <strong>{message.from === "daddy" ? "You" : "Khadija"}:</strong>{" "}
+                      {message.text}
+                    </li>
+                  ))}
+                </ol>
+                <div className="window-logs__reply">
+                  <label>
+                    Write back to Khadija
+                    <input
+                      value={replyDraft}
+                      onChange={(event) => setReplyDraft(event.target.value)}
+                      placeholder="Your words for Khadija"
+                      maxLength={500}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="window-btn"
+                    onClick={() => void sendReply()}
+                    disabled={!replyDraft.trim()}
+                  >
+                    Send to Khadija
+                  </button>
+                </div>
+                {replyNote && (
+                  <p className="window-logs__note" role="status">
+                    {replyNote}
+                  </p>
+                )}
+              </div>
             )}
           </>
         )}

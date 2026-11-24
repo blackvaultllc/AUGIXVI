@@ -6754,6 +6754,59 @@
   font-weight: 700;
   color: #7a3e9d;
 }
+/* The Daddy cabinet — her line to her father (2026-11-24). Warm,
+   plain, big: a heart-red accent on the learner palette. */
+.learner-daddy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.learner-daddy h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #b3122f;
+  margin: 0;
+}
+.learner-daddy__live {
+  border: 3px solid #e5484d;
+  border-radius: 1.2rem;
+  background: #fff1f2;
+  padding: 0.7rem 1rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+}
+.learner-daddy__actions {
+  display: flex;
+  gap: 0.6rem;
+}
+.learner-daddy__thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  border: 3px solid #f3b8c6;
+  border-radius: 1.2rem;
+  background: #fff7f8;
+  padding: 0.7rem 1rem;
+}
+.learner-daddy__thread p {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.45;
+}
+.learner-daddy__from-daddy {
+  color: #7a1030;
+}
+.learner-daddy__from-me {
+  color: #4a3b47;
+}
+.learner-daddy__send {
+  display: flex;
+  gap: 0.6rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
 .learner-flower__note {
   font-size: 0.95rem !important;
   color: #7a5c3e;

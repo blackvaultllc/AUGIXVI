@@ -3,6 +3,7 @@ import {
   forwardLibraryArticle,
   forwardLibraryCatalog,
   forwardLibrarySearch,
+  kiwixBaseUrl,
   type LibraryBook,
   type LibrarySearchResult,
 } from "../library.server";
@@ -40,7 +41,7 @@ import {
 
 export type FlowerAnswer = {
   answer: string;
-  mode: "book" | "math" | "none" | "redirect" | "library-down";
+  mode: "book" | "math" | "none" | "redirect" | "library-down" | "daddy";
   source: { bookTitle: string; articleTitle: string } | null;
   /** True when the answer is grounded: a named book, or exact arithmetic. */
   verified: boolean;
@@ -220,11 +221,91 @@ async function askBrain(
   }
 }
 
+const DADDY_CALL_RINGING_TEXT =
+  "I am calling Daddy now — his Augie is ringing! When he answers, you can send him messages by the Daddy heart and he will write right back.";
+const DADDY_CALL_LEFT_TEXT =
+  "Daddy is not at his Augie right now, so his screen is not ringing. I left your call in his inbox — he will see that you called him. You can also send him a message by the Daddy heart, and he will see it there.";
+const DADDY_SENT_TEXT =
+  "Sent to Daddy! Your words are in his inbox on his Augie. When he writes back, you will see his words by the Daddy heart.";
+const DADDY_NO_WORDS_TEXT =
+  "Tell me the words for Daddy — say “Tell Daddy” and then what you want to say, like “Tell Daddy I did my homework”. Or tap the Daddy heart and type your words there.";
+const DADDY_UNREACHABLE_TEXT =
+  "I could not reach Daddy's inbox from this page — the big computer that holds it is not connected here. Tell Daddy, and he will fix it.";
+
+/**
+ * Her daddy wishes, carried out before any book is opened (owner
+ * order 2026-11-24): "call daddy", "tell daddy …", his full name —
+ * her AUGI knows Domenick Arlon Hall is her daddy and acts. Returns
+ * null when the question is not a daddy wish.
+ */
+async function answerDaddyWish(
+  q: string,
+  env: Record<string, string | undefined>,
+): Promise<FlowerAnswer | null> {
+  const { daddyIntentFor, carryOutDaddyIntent, DADDY_IDENTITY_ANSWER } = await import("./daddy.server");
+  const intent = daddyIntentFor(q);
+  if (!intent) return null;
+  if (intent.kind === "identity") {
+    return { answer: DADDY_IDENTITY_ANSWER, mode: "daddy", source: null, verified: true };
+  }
+  const result = await carryOutDaddyIntent(intent, env as NodeJS.ProcessEnv);
+  if (!result.ok) {
+    if (result.reason === "no-words") {
+      return { answer: DADDY_NO_WORDS_TEXT, mode: "daddy", source: null, verified: false };
+    }
+    return { answer: DADDY_UNREACHABLE_TEXT, mode: "daddy", source: null, verified: false };
+  }
+  if (result.kind === "message") {
+    return { answer: DADDY_SENT_TEXT, mode: "daddy", source: null, verified: true };
+  }
+  return {
+    answer: result.daddyOnline ? DADDY_CALL_RINGING_TEXT : DADDY_CALL_LEFT_TEXT,
+    mode: "daddy",
+    source: null,
+    verified: true,
+  };
+}
+
+/**
+ * THE ONE-CORE ROAD (defect fix, 2026-11-24): the Flower's books and
+ * brain live on the core. A surface that is not the core (the public
+ * copy) has no library and no brain on its own machine — asking its
+ * loopback is exactly the "model not connected" failure Khadija hit.
+ * When this surface's own library does not answer and a core address
+ * is configured (AUGIE_CORE_URL — the core's own ask doorway, e.g.
+ * its Tailscale/LAN address, the same road the operator's phone
+ * loads the app by), the question is forwarded to the core and the
+ * core's answer comes back. A forwarded question is never forwarded
+ * twice (the x-augie-forwarded header), and on the core itself the
+ * variable is simply unset — it answers its own questions.
+ */
+async function forwardToCore(
+  q: string,
+  fetchFn: FetchFn,
+  env: Record<string, string | undefined>,
+): Promise<FlowerAnswer | null> {
+  const coreUrl = env["AUGIE_CORE_URL"]?.trim().replace(/\/$/, "");
+  if (!coreUrl) return null;
+  try {
+    const response = await fetchFn(`${coreUrl}/api/learner/ask`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-augie-forwarded": "1" },
+      body: JSON.stringify({ question: q }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as FlowerAnswer;
+  } catch {
+    return null;
+  }
+}
+
 /** Answer one of her questions. See the module header for the order of paths. */
 export async function answerFlowerQuestion(
   question: string,
   fetchFn: FetchFn = fetch,
   env: Record<string, string | undefined> = process.env,
+  opts: { forwarded?: boolean } = {},
 ): Promise<FlowerAnswer> {
   const q = question.trim().slice(0, 300);
   if (!q) {
@@ -233,6 +314,8 @@ export async function answerFlowerQuestion(
   if (isOperatorTopic(q)) {
     return { answer: REDIRECT_TEXT, mode: "redirect", source: null, verified: false };
   }
+  const daddy = await answerDaddyWish(q, env);
+  if (daddy) return daddy;
   const math = evaluateSimpleMath(q);
   if (math) {
     return { answer: math, mode: "math", source: null, verified: true };
@@ -240,6 +323,10 @@ export async function answerFlowerQuestion(
 
   const catalogResponse = await forwardLibraryCatalog(fetchFn as typeof fetch);
   if (!catalogResponse.ok) {
+    if (!opts.forwarded) {
+      const forwarded = await forwardToCore(q, fetchFn, env);
+      if (forwarded) return forwarded;
+    }
     return { answer: LIBRARY_DOWN_TEXT, mode: "library-down", source: null, verified: false };
   }
   const { books } = (await catalogResponse.json()) as { books: LibraryBook[] };
@@ -302,6 +389,60 @@ export async function handleFlowerAskRequest(request: Request): Promise<Response
   if (!question.trim()) {
     return Response.json({ error: "No question was asked." }, { status: 400 });
   }
-  const answer = await answerFlowerQuestion(question);
+  const answer = await answerFlowerQuestion(question, fetch, process.env, {
+    forwarded: request.headers.get("x-augie-forwarded") === "1",
+  });
   return Response.json(answer);
+}
+
+export type FlowerHealth = {
+  ok: boolean;
+  /** The offline library answered a real catalog round trip. */
+  library: boolean;
+  /** The local brain answered a real tags round trip. */
+  brain: boolean;
+  /** A core address is configured for the forwarding road. */
+  coreRoad: boolean;
+};
+
+/**
+ * GET /api/learner/ask — her page's readiness check, earned by real
+ * round trips (the house rule: a status is earned, never painted
+ * on). Her page shows the Flower as ready only when the books or
+ * the brain answered — or when the core road is configured, in
+ * which case the ask itself will prove it.
+ */
+export async function flowerHealth(
+  fetchFn: FetchFn = fetch,
+  env: Record<string, string | undefined> = process.env,
+): Promise<FlowerHealth> {
+  const probe = async (run: () => Promise<boolean>): Promise<boolean> => {
+    try {
+      return await run();
+    } catch {
+      return false;
+    }
+  };
+  const [library, brain] = await Promise.all([
+    probe(async () => {
+      const response = await fetchFn(`${kiwixBaseUrl(env)}/catalog/v2/entries?count=1`, {
+        signal: AbortSignal.timeout(5_000),
+      });
+      return response.ok;
+    }),
+    probe(async () => {
+      const response = await fetchFn(`${ollamaBaseUrl(env)}/api/tags`, {
+        signal: AbortSignal.timeout(5_000),
+      });
+      return response.ok;
+    }),
+  ]);
+  const coreRoad = Boolean(env["AUGIE_CORE_URL"]?.trim());
+  return { ok: library || brain || coreRoad, library, brain, coreRoad };
+}
+
+/** GET handler for the ask doorway — the readiness round trip. */
+export async function handleFlowerHealthRequest(): Promise<Response> {
+  const health = await flowerHealth();
+  return Response.json(health, { status: health.ok ? 200 : 503 });
 }

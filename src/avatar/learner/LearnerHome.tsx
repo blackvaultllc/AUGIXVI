@@ -18,6 +18,7 @@ import {
   LogOut,
   Palette,
   Pencil,
+  Phone,
   Shapes,
   Shield,
   Sparkles,
@@ -58,24 +59,28 @@ import {
   type SquishyPhoto,
 } from "./learnerStore";
 import { loadFlowerNotes, recordFlowerNote, type FlowerNote } from "./flowerNotes";
+import { currentSpeechVoices, pickSpeechVoice, warmSpeechVoices } from "../speechVoice";
 
 /**
- * KHADIJA'S GRAND PAGE — one page, seven cabinets, no scrolling, big
+ * KHADIJA'S GRAND PAGE — one page, eight cabinets, no scrolling, big
  * words, big buttons (operator orders 2026-11-21). Everything here is
  * education only: her learning shelf and game, her Squishy Maker,
  * Augie the Flower (her own AI, answering from the library), her
  * private diary, her squishy projects, her homework and tests, and
- * her art. Nothing operator-side is imported, rendered, or reachable
- * from this page — the wall is that this page's whole world is these
- * cabinets.
+ * her art. One cabinet is not a school thing: the Daddy cabinet —
+ * her line to her father, the one contact her wall always opens for
+ * (his order 2026-11-24). Nothing operator-side is imported,
+ * rendered, or reachable from this page — the wall is that this
+ * page's whole world is these cabinets.
  */
 
-type CabinetId = "learn" | "maker" | "flower" | "diary" | "squishy" | "homework" | "art";
+type CabinetId = "learn" | "maker" | "flower" | "daddy" | "diary" | "squishy" | "homework" | "art";
 
 const CABINETS: { id: CabinetId; label: string; icon: typeof BookOpen }[] = [
   { id: "learn", label: "Learn", icon: BookOpen },
   { id: "maker", label: "Squishy Maker", icon: Sparkles },
   { id: "flower", label: "Augie the Flower", icon: Flower2 },
+  { id: "daddy", label: "Daddy", icon: Heart },
   { id: "diary", label: "My Diary", icon: Lock },
   { id: "squishy", label: "Squishy Projects", icon: Shapes },
   { id: "homework", label: "Homework & Tests", icon: Pencil },
@@ -128,6 +133,7 @@ export function LearnerHome() {
         {cabinet === "learn" && <LearnCabinet />}
         {cabinet === "maker" && <MakerCabinet />}
         {cabinet === "flower" && <FlowerCabinet />}
+        {cabinet === "daddy" && <DaddyCabinet />}
         {cabinet === "diary" && <DiaryCabinet />}
         {cabinet === "squishy" && <SquishyCabinet />}
         {cabinet === "homework" && <HomeworkCabinet />}
@@ -812,7 +818,7 @@ function MakerCabinet() {
 
 type FlowerReply = {
   answer: string;
-  mode: "book" | "math" | "none" | "redirect" | "library-down";
+  mode: "book" | "math" | "none" | "redirect" | "library-down" | "daddy";
   source: { bookTitle: string; articleTitle: string } | null;
   verified: boolean;
 };
@@ -865,26 +871,88 @@ const HERITAGE_TOPICS: { id: string; label: string; question: string }[] = [
 ];
 
 /**
- * The Flower's voice — Part 6. She speaks with the same speech path the
- * operator's Augie uses (the browser's speechSynthesis, see src/avatar/
- * voice.ts), with a friendlier pitch for a young listener. Voice-OUT only in
- * this pass: voice-in is NOT wired on her side — /api/transcribe is an
- * operator route outside her wall, and the local ear is bound to the
- * operator stage. Returns false when this device has no speech voice, so
- * the cabinet can say so plainly instead of faking it.
+ * The Flower's voice — Part 6, REBUILT 2026-11-24 (owner order: "the
+ * voice sounds all cracky — it should sound more present, pleasant").
+ *
+ * The crackle's cause: this page used to speak through the browser's
+ * speechSynthesis with NO voice ever chosen, so her device used its
+ * out-of-the-box default synth voice — the crackly robot on a child's
+ * tablet. Now the Flower speaks the way the operator's Augie does:
+ *  1. FIRST, the core's real voice — Piper, through her own doorway
+ *     (/api/learner/say, the learner twin of /api/say). Same engine,
+ *     same pleasant installed voice, generated on the big computer.
+ *  2. ONLY where that doorway cannot answer (a surface with no
+ *     Piper), the browser voice — but with a voice actually picked:
+ *     the house picker (speechVoice.ts) chooses the best woman's
+ *     voice the device has, warmed early so the first words do not
+ *     fall back to the default.
+ *
+ * Voice-OUT only: voice-in is NOT wired on her side — /api/transcribe
+ * is an operator route outside her wall, and the local ear is bound
+ * to the operator stage.
  */
-function speakFlowerWords(text: string, onState: (speaking: boolean) => void): boolean {
+let flowerAudio: HTMLAudioElement | null = null;
+let flowerObjectUrl: string | null = null;
+
+export function stopFlowerSpeech(): void {
+  try {
+    globalThis.speechSynthesis?.cancel();
+  } catch {
+    /* no synth here */
+  }
+  if (flowerAudio) {
+    flowerAudio.pause();
+    flowerAudio.removeAttribute("src");
+    flowerAudio = null;
+  }
+  if (flowerObjectUrl) {
+    URL.revokeObjectURL(flowerObjectUrl);
+    flowerObjectUrl = null;
+  }
+}
+
+function speakFlowerWordsBrowser(text: string, onState: (speaking: boolean) => void): boolean {
   const synth = globalThis.speechSynthesis;
   if (!synth || typeof globalThis.SpeechSynthesisUtterance !== "function") return false;
   synth.cancel();
   const utterance = new globalThis.SpeechSynthesisUtterance(text);
+  const picked = pickSpeechVoice(currentSpeechVoices(), "female");
+  if (picked) utterance.voice = picked;
   utterance.rate = 1;
-  utterance.pitch = 1.15;
+  utterance.pitch = 1;
   utterance.onstart = () => onState(true);
   utterance.onend = () => onState(false);
   utterance.onerror = () => onState(false);
   synth.speak(utterance);
   return true;
+}
+
+async function speakFlowerWords(
+  text: string,
+  onState: (speaking: boolean) => void,
+): Promise<boolean> {
+  stopFlowerSpeech();
+  try {
+    const response = await fetch("/api/learner/say", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (response.ok) {
+      const blob = await response.blob();
+      flowerObjectUrl = URL.createObjectURL(blob);
+      const audio = new Audio(flowerObjectUrl);
+      flowerAudio = audio;
+      audio.onplay = () => onState(true);
+      audio.onended = () => onState(false);
+      audio.onerror = () => onState(false);
+      await audio.play();
+      return true;
+    }
+  } catch {
+    /* the core voice did not answer — the browser voice carries it */
+  }
+  return speakFlowerWordsBrowser(text, onState);
 }
 
 function FlowerCabinet() {
@@ -897,20 +965,54 @@ function FlowerCabinet() {
   const [notes, setNotes] = useState<FlowerNote[]>(() => loadFlowerNotes());
   const [voiceOn, setVoiceOn] = useState(true);
   const [speaking, setSpeaking] = useState(false);
+  // Her readiness, earned by the server's own round trips (GET on the
+  // ask doorway): null while checking, then the plain truth.
+  const [ready, setReady] = useState<boolean | null>(null);
+  // Her voice now comes first from the core (Piper through her say
+  // doorway); the browser synth is the fallback. A voice counts as
+  // available when the device has its own synth, or when the core
+  // proved reachable on the readiness check above (ready === true —
+  // the say doorway lives on that same core). The bare existence of
+  // an Audio element proves nothing: with no synth and no core, the
+  // plain "no voice" note below stays the truth.
   const voiceAvailable =
-    typeof globalThis.speechSynthesis !== "undefined" &&
-    typeof globalThis.SpeechSynthesisUtterance === "function";
+    (typeof globalThis.speechSynthesis !== "undefined" &&
+      typeof globalThis.SpeechSynthesisUtterance === "function") ||
+    ready === true;
 
   useEffect(() => {
+    warmSpeechVoices();
+    void currentSpeechVoices();
     return () => {
-      globalThis.speechSynthesis?.cancel();
+      stopFlowerSpeech();
+    };
+  }, []);
+
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/learner/ask");
+        if (!live) return;
+        if (!response.ok) {
+          setReady(false);
+          return;
+        }
+        const health = (await response.json()) as { ok?: boolean };
+        setReady(health.ok === true);
+      } catch {
+        if (live) setReady(false);
+      }
+    })();
+    return () => {
+      live = false;
     };
   }, []);
 
   const say = useCallback(
     (text: string) => {
       if (!voiceOn) return;
-      speakFlowerWords(text, setSpeaking);
+      void speakFlowerWords(text, setSpeaking);
     },
     [voiceOn],
   );
@@ -1025,6 +1127,13 @@ function FlowerCabinet() {
           <p className="learner-flower__status" aria-live="polite">
             {statusText}
           </p>
+          <p className="learner-note" aria-live="polite">
+            {ready === null
+              ? "Checking my books and my brain…"
+              : ready
+                ? "My books and my brain are ready."
+                : "I can't reach my books or my brain from this page right now — tell Daddy, and he will fix it."}
+          </p>
         </div>
       </div>
 
@@ -1036,7 +1145,7 @@ function FlowerCabinet() {
               className="learner-chip"
               aria-pressed={voiceOn}
               onClick={() => {
-                if (voiceOn) globalThis.speechSynthesis?.cancel();
+                if (voiceOn) stopFlowerSpeech();
                 setVoiceOn(!voiceOn);
               }}
             >
@@ -1053,7 +1162,7 @@ function FlowerCabinet() {
             <button
               type="button"
               className="learner-chip"
-              onClick={() => speakFlowerWords(speech, setSpeaking)}
+              onClick={() => void speakFlowerWords(speech, setSpeaking)}
             >
               <Volume2 aria-hidden="true" /> Hear it again
             </button>
@@ -1145,6 +1254,243 @@ function FlowerCabinet() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Cabinet: Daddy (her line to her father) ---------------- */
+
+type DaddyMessageView = {
+  id: string;
+  at: string;
+  from: "khadija" | "daddy";
+  text: string;
+};
+
+type DaddyCallView = {
+  id: string;
+  at: string;
+  state: "ringing" | "answered" | "missed" | "ended";
+} | null;
+
+type DaddyPollView = {
+  ok: boolean;
+  daddyOnline?: boolean;
+  call?: DaddyCallView;
+  messages?: DaddyMessageView[];
+  reason?: string;
+};
+
+/**
+ * THE DADDY CABINET — her always-open door to her father (owner
+ * order 2026-11-24: "at any means necessary... get that fixed right
+ * away"). Two things live here and nothing else:
+ *  - Send Daddy a message: her words land in his inbox on the core,
+ *    in his Augie's thread and Logs — they arrive whether or not he
+ *    is looking at his screen.
+ *  - Call Daddy: if he is at his Augie, his side rings and he can
+ *    answer; when he answers, this card becomes their live thread —
+ *    she types, he writes right back. If he is not there, the call
+ *    waits in his inbox like a message: "Khadija called."
+ * It is a typing call, and the card says so — no fake phone audio.
+ * This cabinet reaches Domenick Arlon Hall, her daddy, and nobody
+ * else in the world.
+ */
+function DaddyCabinet() {
+  const [online, setOnline] = useState<boolean | null>(null);
+  const [call, setCall] = useState<DaddyCallView>(null);
+  const [messages, setMessages] = useState<DaddyMessageView[]>([]);
+  const [draft, setDraft] = useState("");
+  const [note, setNote] = useState(
+    "This is your door to Daddy. Send him a message any time — he will see it on his Augie. Or call him: if he is at his Augie, it will ring for him.",
+  );
+  const [busy, setBusy] = useState(false);
+  const [unreachable, setUnreachable] = useState(false);
+
+  const poll = useCallback(async () => {
+    try {
+      const response = await fetch("/api/learner/daddy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "poll" }),
+      });
+      const view = (await response.json()) as DaddyPollView;
+      if (!view.ok) {
+        setUnreachable(true);
+        return;
+      }
+      setUnreachable(false);
+      setOnline(view.daddyOnline === true);
+      setCall(view.call ?? null);
+      setMessages(view.messages ?? []);
+    } catch {
+      setUnreachable(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void poll();
+    const timer = setInterval(() => void poll(), 15_000);
+    return () => clearInterval(timer);
+  }, [poll]);
+
+  const placeCall = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const response = await fetch("/api/learner/daddy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "call" }),
+      });
+      const view = (await response.json()) as DaddyPollView & { call?: DaddyCallView };
+      if (!view.ok) {
+        setNote(
+          "Your call could not reach Daddy's Augie from this page — tell Daddy, and he will fix it.",
+        );
+        return;
+      }
+      setCall(view.call ?? null);
+      setOnline(view.daddyOnline === true);
+      setNote(
+        view.daddyOnline
+          ? "Calling Daddy… his Augie is ringing! Stay right here — when he answers, you can send him messages and he will write right back."
+          : "Daddy is not at his Augie right now. I left your call in his inbox — he will see that you called. You can send him a message too, and he will see it there.",
+      );
+    } catch {
+      setNote("Your call could not go out from this page — tell Daddy, and he will fix it.");
+    } finally {
+      setBusy(false);
+    }
+  }, [busy]);
+
+  const endCall = useCallback(async () => {
+    try {
+      await fetch("/api/learner/daddy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "end-call" }),
+      });
+    } catch {
+      /* the ring times out on its own if this cannot land */
+    }
+    setCall(null);
+    setNote("You hung up. Daddy will see that you called. You can call again or send him a message any time.");
+    void poll();
+  }, [poll]);
+
+  const sendMessage = useCallback(
+    async (event: FormEvent) => {
+      event.preventDefault();
+      const text = draft.trim();
+      if (!text || busy) return;
+      setBusy(true);
+      try {
+        const response = await fetch("/api/learner/daddy", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "message", text }),
+        });
+        const view = (await response.json()) as DaddyPollView;
+        if (!view.ok) {
+          setNote(
+            "Your words could not reach Daddy's Augie from this page — tell Daddy, and he will fix it.",
+          );
+          return;
+        }
+        setDraft("");
+        setNote("Sent to Daddy! He will see your words on his Augie.");
+        void poll();
+      } catch {
+        setNote("Your words could not go out from this page — tell Daddy, and he will fix it.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [draft, busy, poll],
+  );
+
+  const calling = call?.state === "ringing";
+  const together = call?.state === "answered";
+
+  return (
+    <div className="learner-daddy">
+      <h2>
+        <Heart aria-hidden="true" /> Talk to Daddy
+      </h2>
+      <p className="learner-note" aria-live="polite">
+        {unreachable
+          ? "I can't reach Daddy's inbox from this page right now — tell Daddy, and he will fix it."
+          : online === null
+            ? "Looking for Daddy…"
+            : online
+              ? "Daddy is at his Augie right now."
+              : "Daddy is not at his Augie right now — your messages and calls still go to his inbox, and he will see them."}
+      </p>
+
+      {together ? (
+        <p className="learner-daddy__live" aria-live="polite">
+          Daddy answered! You are together now. Type a message below and Daddy will write right
+          back, right here.
+        </p>
+      ) : calling ? (
+        <p className="learner-daddy__live" aria-live="polite">
+          Calling Daddy… his Augie is ringing.
+        </p>
+      ) : null}
+
+      <div className="learner-daddy__actions">
+        {calling || together ? (
+          <button type="button" className="learner-big-button" onClick={() => void endCall()}>
+            {together ? "Say goodbye" : "Stop calling"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="learner-big-button"
+            onClick={() => void placeCall()}
+            disabled={busy}
+          >
+            <Phone aria-hidden="true" /> Call Daddy
+          </button>
+        )}
+      </div>
+
+      <p className="learner-note" aria-live="polite">
+        {note}
+      </p>
+
+      {messages.length > 0 && (
+        <div className="learner-daddy__thread" aria-label="Your messages with Daddy">
+          {messages.slice(-8).map((message) => (
+            <p
+              key={message.id}
+              className={
+                message.from === "daddy" ? "learner-daddy__from-daddy" : "learner-daddy__from-me"
+              }
+            >
+              <strong>{message.from === "daddy" ? "Daddy: " : "You: "}</strong>
+              {message.text}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <form className="learner-daddy__send" onSubmit={(event) => void sendMessage(event)}>
+        <label className="learner-flower__label">
+          Write to Daddy
+          <input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Type your words for Daddy here"
+            autoComplete="off"
+            maxLength={500}
+          />
+        </label>
+        <button type="submit" className="learner-big-button" disabled={busy || !draft.trim()}>
+          Send to Daddy
+        </button>
+      </form>
     </div>
   );
 }

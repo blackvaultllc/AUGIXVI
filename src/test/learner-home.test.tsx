@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LearnerHome } from "@/avatar/learner/LearnerHome";
 import { LearnerGate } from "@/avatar/learner/LearnerGate";
@@ -258,7 +258,7 @@ describe("her new cabinets — Squishy Maker, the Flower, and her art", () => {
     expect(face).toHaveClass("is-listening");
   });
 
-  it("the Flower speaks her lessons aloud with her voice, and the toggle turns it off", () => {
+  it("the Flower speaks her lessons aloud with her voice, and the toggle turns it off", async () => {
     const spoken: string[] = [];
     class FakeUtterance {
       rate = 1;
@@ -280,7 +280,10 @@ describe("her new cabinets — Squishy Maker, the Flower, and her art", () => {
     render(<LearnerHome />);
     fireEvent.click(screen.getByRole("button", { name: "Augie the Flower" }));
     fireEvent.click(screen.getByRole("button", { name: "Please and Thank You" }));
-    expect(spoken).toHaveLength(1);
+    // Her voice tries the core first (Piper through /api/learner/say)
+    // and falls back to the device voice — either way the lesson is
+    // spoken aloud; the core try settles asynchronously.
+    await waitFor(() => expect(spoken).toHaveLength(1));
     expect(spoken[0]).toMatch(/Say “please” when you ask for something/);
     // Speaking state is visible while her voice is going.
     expect(screen.getByText("Speaking…")).toBeInTheDocument();

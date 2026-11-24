@@ -98,6 +98,15 @@ describe("the wall — learner route space", () => {
     expect(learnerCanAccess("/learner/racing")).toBe(true);
   });
 
+  it("allows her voice doorway and her daddy doorway — the one contact the wall opens for (2026-11-24)", () => {
+    expect(learnerCanAccess("/api/learner/say")).toBe(true);
+    expect(learnerCanAccess("/api/learner/daddy")).toBe(true);
+    // The operator's own say doorway stays outside her wall.
+    expect(learnerCanAccess("/api/say")).toBe(false);
+    expect(learnerCanAccess("/api/learner/daddy/extra")).toBe(false);
+    expect(learnerCanAccess("/api/learner/say/extra")).toBe(false);
+  });
+
   it("still denies the operator's APIs and every neighbouring path", () => {
     const denied = [
       "/api/transcribe",
