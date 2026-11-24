@@ -64,7 +64,12 @@ import {
 import { AvatarBridge, type AvatarState } from "./AvatarBridge";
 import { backdropById as builderBackdropById } from "./builder/backdrops";
 import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
-import { CommandBox, COMMAND_TAB_ICONS, type CommandTab } from "./CommandBox";
+import {
+  CommandBox,
+  COMMAND_BOX_PHONE_BREAKPOINT,
+  COMMAND_TAB_ICONS,
+  type CommandTab,
+} from "./CommandBox";
 import "./stage-fix-round.css";
 import { BuilderPanel } from "./builder/BuilderPanel";
 import { MapPanel } from "./builder/MapPanel";
@@ -1035,27 +1040,22 @@ export function AvatarStage({
     setPerspective(perspectiveAfterClose());
   }, []);
 
-  // He stands on the stage outside the live Room (the space view
-  // keeps him), when he has been brought on, inside his box while
-  // it is open and docked — and WHILE THE CAPTAIN IS EDITING
-  // (owner order 2026-11-22): with the Environment Builder open he
-  // stands IN the environment being edited, present and workable
-  // there — moved, positioned, adjusted under the same anchor law
-  // and the same saved spot as in his own sandbox — never exiled
-  // to the sandbox only. In the live Room with none of those true,
-  // the stage belongs to the resident commander and he is off
-  // stage. The rule itself lives in presenceDoctrine.ts.
+  // THE LAYERING LAW (owner order 2026-11-24): the sand
+  // construct renders NOWHERE on the main stage by default —
+  // behind Anubis is wallpaper only. He stands when he has been
+  // brought on (called onto the stage), and in his own box while
+  // it is open and docked. Nothing else raises him: not the
+  // space view, not the builder being open. The rule itself
+  // lives in presenceDoctrine.ts.
   useEffect(() => {
     rendRef.current?.setConstructVisible(
       constructStandsOnStage({
-        worldScreen,
         constructOnStage,
-        builderOpen,
         constructOpen,
         constructDocked: constructDock !== null,
       }),
     );
-  }, [worldScreen, constructOpen, constructDock, constructOnStage, builderOpen]);
+  }, [constructOpen, constructDock, constructOnStage]);
 
   // ONE VOICE AT A TIME: when Anubis starts answering, the Black
   // Hatter's line is done — his mouth stills and Anubis's medallion
@@ -1070,6 +1070,31 @@ export function AvatarStage({
   }, [state]);
 
   /* --------------------- the environment builder --------------------- */
+
+  // BUILDING NEEDS THE STAGE CLEAR (owner order 2026-11-24): the
+  // big chat box sits over the stage and leaves him no room to
+  // place or move pieces. Entering the builder folds the chat
+  // box away (the clean-screen fold: Osiris's head alone);
+  // leaving the builder restores it. The
+  // fold is the stage's doing, so the stage remembers it folded
+  // the box and only then restores — a box he folded himself, or
+  // opened himself mid-build, is never fought. On phone widths
+  // the chat already lives as the bottom bar, so there is
+  // nothing to fold and nothing to restore.
+  const chatBoxControlsRef = useRef<{ minimize: () => void; restore: () => void } | null>(null);
+  const builderFoldedChatRef = useRef(false);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth <= COMMAND_BOX_PHONE_BREAKPOINT) {
+      return;
+    }
+    if (builderOpen) {
+      builderFoldedChatRef.current = true;
+      chatBoxControlsRef.current?.minimize();
+    } else if (builderFoldedChatRef.current) {
+      builderFoldedChatRef.current = false;
+      chatBoxControlsRef.current?.restore();
+    }
+  }, [builderOpen]);
 
   // Save-as-you-go + the renderer always holds the active room.
   useEffect(() => {
@@ -2507,12 +2532,14 @@ export function AvatarStage({
     // THE BUILDER'S ROOM (owner order 2026-11-22): his saved design
     // stands in the Room from the first frame.
     r.setBuilderRoom(activeLayout(layoutStoreRef.current).room);
-    // CENTER STAGE (owner order 2026-11-22): in the live Room the
-    // construct starts OFF stage — the Black Hatter holds center —
-    // until the Captain opens the AUGI avatar box. (The space view
-    // keeps him; the visibility effect below owns the rule from
-    // here on.)
-    r.setConstructVisible(worldScreenRef.current !== "live");
+    // CENTER STAGE (owner orders 2026-11-22, tightened
+    // 2026-11-24): the construct starts OFF stage everywhere —
+    // in the live Room AND in the space view — until he is
+    // called (brought on, or his box opened). The renderer
+    // already created him invisible (no login flash); this line
+    // states the same law at the stage's own init, and the
+    // visibility effect above owns the rule from here on.
+    r.setConstructVisible(false);
     r.onFrame = (p) => {
       setPerf(p);
       setReady(true);
@@ -3530,10 +3557,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           partnerSpeaking={state === "SPEAKING"}
           away={worldScreen !== "live"}
           onReturnToChat={returnToChat}
-          onOpenHistory={() => setHistoryOpen(true)}
           onMinimizeShortcut={(controls) => {
+            // ONE REGISTRATION, TWO HOLDERS (merge of the two
+            // 2026-11-24 rounds): the builder fold (sibling pass)
+            // and the god-medallion chat opener (clean-screen
+            // round) both drive the same box controls.
+            chatBoxControlsRef.current = controls;
             chatControlsRef.current = controls;
           }}
+          onOpenHistory={() => setHistoryOpen(true)}
           presence={
             <AugiePresence
               ready={ready}

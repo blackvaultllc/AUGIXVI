@@ -561,13 +561,18 @@ export function CommandBox({
     setMinimized(false);
   }, []);
 
-  // THE STAGE'S HANDLE ON THE BOX (owner order 2026-11-24 ~10:40
-  // EST — every god his own chat): AvatarStage registers for these
-  // controls so tapping a god's medallion can OPEN that god's chat
-  // box from outside the box — the medallion click routes the
-  // conversation (selectGod) and this restores the box to receive
-  // it. Registered once per render of the callbacks; both are
-  // stable useCallbacks, so the registration is effectively once.
+  // THE STAGE'S HANDLE ON THE BOX — wired by BOTH rounds that
+  // landed 2026-11-24: (a) EVERY GOD HIS OWN CHAT (owner order
+  // ~10:40 EST): AvatarStage registers for these controls so
+  // tapping a god's medallion can OPEN that god's chat box from
+  // outside the box — the medallion click routes the conversation
+  // (selectGod) and this restores the box to receive it.
+  // (b) THE BUILDER'S FOLD (owner order ~10:20 EST, the sibling
+  // pass): building needs the stage clear, so the builder folds
+  // the chat out of the way through the same handle — and
+  // "/minimize" lands here too. The controls are stable (both
+  // callbacks are), so the stage receives them once and holds
+  // them in a ref.
   useEffect(() => {
     onMinimizeShortcut?.({ minimize: minimizeNow, restore: restoreNow });
   }, [onMinimizeShortcut, minimizeNow, restoreNow]);
