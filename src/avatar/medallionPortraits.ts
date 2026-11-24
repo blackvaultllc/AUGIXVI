@@ -25,11 +25,13 @@
  */
 export const ANUBIS_PORTRAIT_SRC = "/anubis-presence/face.webp";
 /**
- * ANUBIS'S SCEPTER (owner order 2026-11-23): the was-scepter asset
- * he raises for significant deliveries — a separate replaceable
- * file beside the portrait, never part of it: the face stays
- * Khadija's chosen raster, untouched, and the scepter is drawn
- * and put away around it.
+ * ANUBIS'S SCEPTER — RETIRED FROM RENDERING (owner order
+ * 2026-11-24 ~09:57 EST): the was-scepter asset that used to be
+ * laid over the medallion for significant deliveries. He ordered
+ * it gone with the god pop-up ("his scepter is getting in the
+ * way of the actual Anubis"). The asset stays registered here —
+ * a separate replaceable file beside the portrait, never part
+ * of it — but nothing renders it.
  */
 export const ANUBIS_SCEPTER_SRC = "/anubis-presence/scepter.webp";
 export const CAPTAIN_INFINITY_PORTRAIT_SRC = "/owner-presence/captain-infinity.webp";

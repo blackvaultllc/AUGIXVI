@@ -348,21 +348,20 @@ describe("nothing pops up on entry", () => {
   });
 });
 
-describe("the response model — Anubis pops up and talks (owner order 2026-11-22 ~20:02 EST)", () => {  it("a speaking reply raises the addressed god's pop-up, keyed on the SPEAKING state", () => {
+describe("the response model — voice + thread only; the pop-up is REMOVED (owner order 2026-11-24 ~09:57 EST, superseding 2026-11-22 ~20:02 EST)", () => {
+  it("a speaking reply raises NOTHING — no pop-up effect, no addressed-god pop-up, no pop-up guards", () => {
     const stage = readFileSync(resolve(process.cwd(), "src/avatar/AvatarStage.tsx"), "utf8");
-    // The pop-up keys on the speaking state and the line itself,
-    // delivered through the same GodReportPopUp the reports use.
-    expect(stage).toContain('if (state !== "SPEAKING") return;');
-    // ROUTING UPDATE (owner order 2026-11-23): the pop-up rises on
-    // the ADDRESSED god's face — Anubis by default, Montu when
-    // Montu is addressed — and Osiris never pops: the core speaks
-    // from the chat window. This pin supersedes the 2026-11-22
-    // always-Anubis shape, which was the visible half of the
-    // label/words mismatch in the Captain's screenshots.
-    expect(stage).toContain('god: addressee === "montu" ? "montu" : "anubis",');
-    expect(stage).toContain('if (addressee === "osiris") return;');
-    // Room status and idle musings do not pop — replies do.
-    expect(stage).toContain('responseSource === "idle life"');
+    // The 2026-11-22 model raised the addressed god's face through
+    // GodReportPopUp whenever a line started SPEAKING. His word
+    // on 2026-11-24: "Stop having that pop up. I don't want to
+    // see that anymore." The whole effect is deleted — the pins
+    // below are its absence, from every angle it used to occupy.
+    // (An unrelated SPEAKING effect survives — stilling the Black
+    // Hatter's mouth when Anubis answers; it raises nothing.)
+    expect(stage).not.toContain('god: addressee === "montu" ? "montu" : "anubis",');
+    expect(stage).not.toContain('if (addressee === "osiris") return;');
+    expect(stage).not.toContain("setGodPopUp(");
+    expect(stage).not.toContain("<GodReportPopUp");
   });
 });
 

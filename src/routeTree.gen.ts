@@ -29,6 +29,7 @@ import { Route as ApiDevicesPhoneSightingsRouteImport } from './routes/api.devic
 import { Route as ApiDevicesScanStateRouteImport } from './routes/api.devices.scan-state'
 import { Route as ApiDevicesSightingsRouteImport } from './routes/api.devices.sightings'
 import { Route as ApiDevicesWatchlistRouteImport } from './routes/api.devices.watchlist'
+import { Route as ApiDevicesWepwawetRouteImport } from './routes/api.devices.wepwawet'
 import { Route as ApiLearnerAskRouteImport } from './routes/api.learner.ask'
 import { Route as ApiLibraryArticleRouteImport } from './routes/api.library.article'
 import { Route as ApiLibraryCatalogRouteImport } from './routes/api.library.catalog'
@@ -148,6 +149,11 @@ const ApiDevicesWatchlistRoute = ApiDevicesWatchlistRouteImport.update({
   path: '/api/devices/watchlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDevicesWepwawetRoute = ApiDevicesWepwawetRouteImport.update({
+  id: '/api/devices/wepwawet',
+  path: '/api/devices/wepwawet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLearnerAskRoute = ApiLearnerAskRouteImport.update({
   id: '/api/learner/ask',
   path: '/api/learner/ask',
@@ -256,6 +262,7 @@ export interface FileRoutesByFullPath {
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
   '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
+  '/api/devices/wepwawet': typeof ApiDevicesWepwawetRoute
   '/api/learner/ask': typeof ApiLearnerAskRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
@@ -295,6 +302,7 @@ export interface FileRoutesByTo {
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
   '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
+  '/api/devices/wepwawet': typeof ApiDevicesWepwawetRoute
   '/api/learner/ask': typeof ApiLearnerAskRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
@@ -335,6 +343,7 @@ export interface FileRoutesById {
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
   '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
+  '/api/devices/wepwawet': typeof ApiDevicesWepwawetRoute
   '/api/learner/ask': typeof ApiLearnerAskRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
@@ -376,6 +385,7 @@ export interface FileRouteTypes {
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
     | '/api/devices/watchlist'
+    | '/api/devices/wepwawet'
     | '/api/learner/ask'
     | '/api/library/article'
     | '/api/library/catalog'
@@ -415,6 +425,7 @@ export interface FileRouteTypes {
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
     | '/api/devices/watchlist'
+    | '/api/devices/wepwawet'
     | '/api/learner/ask'
     | '/api/library/article'
     | '/api/library/catalog'
@@ -454,6 +465,7 @@ export interface FileRouteTypes {
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
     | '/api/devices/watchlist'
+    | '/api/devices/wepwawet'
     | '/api/learner/ask'
     | '/api/library/article'
     | '/api/library/catalog'
@@ -494,6 +506,7 @@ export interface RootRouteChildren {
   ApiDevicesScanStateRoute: typeof ApiDevicesScanStateRoute
   ApiDevicesSightingsRoute: typeof ApiDevicesSightingsRoute
   ApiDevicesWatchlistRoute: typeof ApiDevicesWatchlistRoute
+  ApiDevicesWepwawetRoute: typeof ApiDevicesWepwawetRoute
   ApiLearnerAskRoute: typeof ApiLearnerAskRoute
   ApiLibraryArticleRoute: typeof ApiLibraryArticleRoute
   ApiLibraryCatalogRoute: typeof ApiLibraryCatalogRoute
@@ -655,6 +668,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDevicesWatchlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/devices/wepwawet': {
+      id: '/api/devices/wepwawet'
+      path: '/api/devices/wepwawet'
+      fullPath: '/api/devices/wepwawet'
+      preLoaderRoute: typeof ApiDevicesWepwawetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/learner/ask': {
       id: '/api/learner/ask'
       path: '/api/learner/ask'
@@ -798,6 +818,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDevicesScanStateRoute: ApiDevicesScanStateRoute,
   ApiDevicesSightingsRoute: ApiDevicesSightingsRoute,
   ApiDevicesWatchlistRoute: ApiDevicesWatchlistRoute,
+  ApiDevicesWepwawetRoute: ApiDevicesWepwawetRoute,
   ApiLearnerAskRoute: ApiLearnerAskRoute,
   ApiLibraryArticleRoute: ApiLibraryArticleRoute,
   ApiLibraryCatalogRoute: ApiLibraryCatalogRoute,

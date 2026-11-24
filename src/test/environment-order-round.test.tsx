@@ -1,4 +1,6 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { BACKDROP_IMAGE_OPACITY } from "@/avatar/builder/backdrops";
 import { BuilderPanel, type BuilderPanelProps } from "@/avatar/builder/BuilderPanel";
@@ -15,15 +17,7 @@ import {
   CONNECTION_SLOTS,
   slotStateLine,
 } from "@/avatar/connections";
-import {
-  POPUP_BLOCK_HEIGHT,
-  POPUP_BLOCK_WIDTH,
-  godForReportTopic,
-  placePopUp,
-  rectsOverlap,
-  type StageRect,
-} from "@/avatar/godPopUp";
-import { GodReportPopUp } from "@/avatar/GodReportPopUp";
+import { godForReportTopic } from "@/avatar/godPopUp";
 
 /**
  * THE ENVIRONMENT + ORDER ROUND (owner orders 2026-11-22, from his
@@ -32,9 +26,9 @@ import { GodReportPopUp } from "@/avatar/GodReportPopUp";
  * dies) — and then, his final word the same day, THE GRID ASPECT IS
  * REMOVED ENTIRELY: no grid floor choice, no grid lines in the
  * room; legacy grid layouts migrate to a solid color floor. Panels
- * are categories + subcategories, the gods pop up to report
- * without overlapping anyone, and the Connections area holds
- * honest open slots.
+ * are categories + subcategories, a god's report is signed by its
+ * god in the record (the pop-up presentation was removed
+ * 2026-11-24), and the Connections area holds honest open slots.
  */
 
 describe("the backdrop is the picture itself", () => {
@@ -173,78 +167,20 @@ describe("CategorySection — the organization standard", () => {
   });
 });
 
-describe("the gods pop up — attribution and no-overlap placement", () => {
-  it("defense reports come through Montu; the rest through Anubis in command", () => {
+describe("report attribution — and the pop-up's removal", () => {
+  it("defense reports are signed by Montu; the rest by Anubis in command", () => {
     expect(godForReportTopic("security")).toBe("montu");
     expect(godForReportTopic("defense check")).toBe("montu");
     expect(godForReportTopic("business")).toBe("anubis");
     expect(godForReportTopic("employees")).toBe("anubis");
   });
 
-  it("places the pop-up clear of every avatar on an open stage", () => {
-    const stage = { w: 1440, h: 900 };
-    const occupied: StageRect[] = [
-      { x: 520, y: 170, w: 400, h: 480 }, // the Captain at center
-      { x: 636, y: 16, w: 168, h: 248 }, // Anubis top-center
-      { x: 1180, y: 300, w: 156, h: 236 }, // Montu on the right flank
-    ];
-    const placed = placePopUp(stage, occupied);
-    const block: StageRect = { x: placed.x, y: placed.y, w: POPUP_BLOCK_WIDTH, h: POPUP_BLOCK_HEIGHT };
-    for (const rect of occupied) {
-      expect(rectsOverlap(block, rect, 12)).toBe(false);
-    }
-    expect(placed.x).toBeGreaterThanOrEqual(0);
-    expect(placed.y).toBeGreaterThanOrEqual(0);
-    expect(placed.x + POPUP_BLOCK_WIDTH).toBeLessThanOrEqual(stage.w);
-    expect(placed.y + POPUP_BLOCK_HEIGHT).toBeLessThanOrEqual(stage.h);
-  });
-
-  it("moves off a ground an avatar is standing on", () => {
-    const stage = { w: 1440, h: 900 };
-    // An avatar parked exactly where the first candidate ground is.
-    const squatter: StageRect = {
-      x: stage.w - POPUP_BLOCK_WIDTH - 16,
-      y: stage.h - POPUP_BLOCK_HEIGHT - 120,
-      w: POPUP_BLOCK_WIDTH,
-      h: POPUP_BLOCK_HEIGHT,
-    };
-    const placed = placePopUp(stage, [squatter]);
-    const block: StageRect = { x: placed.x, y: placed.y, w: POPUP_BLOCK_WIDTH, h: POPUP_BLOCK_HEIGHT };
-    expect(rectsOverlap(block, squatter, 12)).toBe(false);
-  });
-
-  it("the bubble sits on the side away from the nearer edge, tail at the speaker", () => {
-    const stage = { w: 1440, h: 900 };
-    expect(placePopUp(stage, []).bubbleSide).toBe("left"); // lower-right ground: bubble left of the face
-  });
-});
-
-describe("GodReportPopUp — he speaks his line, then he goes", () => {
-  it("types the line slow, holds, and dismisses itself", () => {
-    vi.useFakeTimers();
-    try {
-      const onDone = vi.fn();
-      render(
-        <GodReportPopUp
-          request={{ id: 7, god: "anubis", text: "Done, Captain." }}
-          stageSize={{ w: 1440, h: 900 }}
-          occupiedRects={[]}
-          onDone={onDone}
-        />,
-      );
-      expect(screen.getByText("Anubis")).toBeInTheDocument();
-      act(() => {
-        vi.advanceTimersByTime(25 * "Done, Captain.".length + 100);
-      });
-      expect(screen.getByText(/Done, Captain\./)).toBeInTheDocument();
-      expect(onDone).not.toHaveBeenCalled();
-      act(() => {
-        vi.advanceTimersByTime(5000);
-      });
-      expect(onDone).toHaveBeenCalledWith(7);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("the placement machinery is deleted with the pop-up (removal 2026-11-24) — nothing can render a report on the stage", () => {
+    const godPopUpSource = readFileSync(resolve(process.cwd(), "src/avatar/godPopUp.ts"), "utf8");
+    expect(godPopUpSource).not.toContain("placePopUp");
+    expect(godPopUpSource).not.toContain("StageRect");
+    const stageSource = readFileSync(resolve(process.cwd(), "src/avatar/AvatarStage.tsx"), "utf8");
+    expect(stageSource).not.toContain("<GodReportPopUp");
   });
 });
 

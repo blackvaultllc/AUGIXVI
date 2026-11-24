@@ -18,15 +18,9 @@ import {
   saveStageView,
   stageViewCameraX,
 } from "@/avatar/stageView";
-import { loadSpeechBubble, saveSpeechBubble } from "@/avatar/speechBubble";
 import { COMMAND_BOX_MIN_SIZE } from "@/avatar/CommandBox";
 import { clampWindowSize } from "@/avatar/windows/windowGeometry";
-import {
-  POPUP_BLOCK_HEIGHT,
-  placePopUp,
-  rectsOverlap,
-  type StageRect as PopUpStageRect,
-} from "@/avatar/godPopUp";
+import { godForReportTopic } from "@/avatar/godPopUp";
 
 /**
  * STAGE LOCK-DOWN ROUND (owner eye-check 2026-11-23 ~06:51 EST,
@@ -327,21 +321,14 @@ describe("the phone composition = the desktop composition", () => {
   });
 });
 
-describe("desk photos round — consolidation, the tight panel, the bubble switch, box integrity", () => {
+describe("desk photos round — consolidation, the tight panel, the bubble switch (removed 2026-11-24), box integrity", () => {
   beforeEach(() => {
     localStorage.clear();
     Element.prototype.setPointerCapture = vi.fn();
     Element.prototype.releasePointerCapture = vi.fn();
   });
 
-  it("the speech-bubble switch rides in Anubis's menu and persists — default ON", () => {
-    expect(loadSpeechBubble()).toBe(true);
-    saveSpeechBubble(false);
-    expect(loadSpeechBubble()).toBe(false);
-    saveSpeechBubble(true);
-    expect(loadSpeechBubble()).toBe(true);
-
-    const onSpeechBubbleChange = vi.fn();
+  it("the speech-bubble switch is GONE with the pop-up (removal 2026-11-24) — no switch in his menu, no gate in the stage", () => {
     render(
       <AnubisPresence
         ready
@@ -349,22 +336,15 @@ describe("desk photos round — consolidation, the tight panel, the bubble switc
         listening={false}
         acting={false}
         onSelect={vi.fn()}
-        speechBubble
-        onSpeechBubbleChange={onSpeechBubbleChange}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Open Anubis's menu" }));
-    expect(screen.getByRole("button", { name: "Speech bubble on" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Speech bubble off" }));
-    expect(onSpeechBubbleChange).toHaveBeenCalledWith(false);
-    // And the stage's response model reads the switch before
-    // raising a reply bubble.
+    expect(screen.queryByRole("button", { name: /Speech bubble/ })).toBeNull();
+    // And the stage carries no bubble state or gate at all —
+    // replies are voice + thread only, unconditionally.
     const stage = readFileSync(resolve(process.cwd(), "src/avatar/AvatarStage.tsx"), "utf8");
-    expect(stage).toContain("loadSpeechBubble");
-    expect(stage).toContain("if (!speechBubble) return;");
+    expect(stage).not.toContain("loadSpeechBubble");
+    expect(stage).not.toContain("speechBubble");
   });
 
   it("the top-right is ONE tight panel — the indicator carries no panel of its own", () => {
@@ -426,42 +406,18 @@ describe("the overlap sweep at 1920×1080", () => {
     expect(medallionRectsOverlap(face, tr)).toBe(false);
   });
 
-  it("the speaking god's pop-up renders fully inside the stage — 1920×1080 and phone sizes", () => {
-    // Owner screenshot 2026-11-23 ~07:18 EST: the popped portrait
-    // hung half off the screen's edge. The placement math now
-    // counts the WHOLE block (bubble + face + dismiss) and the
-    // component renders at the placement's width — the block is
-    // inside the stage at every size, and at his resolution it
-    // also clears the command face it speaks beside.
-    const occupied1920: PopUpStageRect[] = [
-      { x: 680, y: 260, w: 560, h: 560 }, // Anubis, centered-big
-      { x: 16, y: 704, w: 420, h: 360 }, // the chat at home
-    ];
-    const placed = placePopUp({ w: 1920, h: 1080 }, occupied1920);
-    const block: PopUpStageRect = { x: placed.x, y: placed.y, w: placed.w, h: POPUP_BLOCK_HEIGHT };
-    expect(placed.x).toBeGreaterThanOrEqual(0);
-    expect(placed.y).toBeGreaterThanOrEqual(0);
-    expect(placed.x + placed.w).toBeLessThanOrEqual(1920);
-    expect(placed.y + POPUP_BLOCK_HEIGHT).toBeLessThanOrEqual(1080);
-    for (const rect of occupied1920) {
-      expect(rectsOverlap(block, rect, 12)).toBe(false);
-    }
-    // Phone sizes: the block may have to share ground with the
-    // big medallion (a phone stage is mostly face), but it is
-    // NEVER clipped by an edge.
-    for (const stage of [
-      { w: 390, h: 844 },
-      { w: 844, h: 390 },
-    ]) {
-      const seat = defaultMedallionGeometry("anubis", stage.w, stage.h);
-      const p = placePopUp(stage, [
-        { x: seat.x, y: seat.y, w: seat.size, h: seat.size },
-      ]);
-      expect(p.x).toBeGreaterThanOrEqual(0);
-      expect(p.y).toBeGreaterThanOrEqual(0);
-      expect(p.x + p.w).toBeLessThanOrEqual(stage.w);
-      expect(p.y + POPUP_BLOCK_HEIGHT).toBeLessThanOrEqual(stage.h);
-    }
+  it("no pop-up placement machinery remains — a report can never render on the stage (removal 2026-11-24)", () => {
+    // The clipped-portrait defect this test once pinned (owner
+    // screenshot 2026-11-23 ~07:18 EST: the popped portrait hung
+    // half off the screen's edge) is closed the final way: the
+    // pop-up and its placement math are deleted, so there is no
+    // portrait to clip. What remains in godPopUp.ts is the
+    // attribution — the name that signs a report in the record.
+    const godPopUpSource = readFileSync(resolve(process.cwd(), "src/avatar/godPopUp.ts"), "utf8");
+    expect(godPopUpSource).not.toContain("placePopUp");
+    expect(godPopUpSource).not.toContain("POPUP_");
+    expect(godForReportTopic("security sweep complete")).toBe("montu");
+    expect(godForReportTopic("morning briefing")).toBe("anubis");
   });
 });
 
@@ -584,7 +540,10 @@ describe("the 07:22 additions — lane, fit, respect, sync, comic", () => {
     expect(comic).toContain("#fff6da");
     expect(comic).toContain(".avatar-command-box__thread-who");
     expect(comic).toContain("text-transform: uppercase");
-    expect(comic).toContain(".god-popup__bubble");
+    // The pop-up's bubble wore this dress too, until the pop-up
+    // was REMOVED (2026-11-24) — the comic section dresses the
+    // conversation only now.
+    expect(comic).not.toContain(".god-popup__bubble");
     expect(comic).not.toContain("font-size");
   });
 });

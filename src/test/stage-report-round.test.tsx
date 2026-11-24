@@ -1,10 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { act } from "react";
-import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AvatarBridge } from "@/avatar/AvatarBridge";
-import { GodReportPopUp } from "@/avatar/GodReportPopUp";
 import {
   CAPABILITY_LINES,
   CAPABILITY_LINES_SHORT,
@@ -28,56 +25,39 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("DEFECT 1 — a god's report is his medallion + the comic box, never a corner card", () => {
-  it("renders ONE unit: circular medallion, comic box beside it, name tag INSIDE the box", () => {
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    act(() => {
-      root.render(
-        <GodReportPopUp
-          request={{ id: 1, god: "montu", text: "Report: business steady." }}
-          stageSize={{ w: 1200, h: 800 }}
-          occupiedRects={[]}
-          onDone={() => undefined}
-        />,
-      );
-    });
-    const popUp = container.querySelector(".god-popup");
-    expect(popUp).not.toBeNull();
-    // The medallion circle is part of the unit…
-    const face = container.querySelector(".god-popup__face");
-    expect(face).not.toBeNull();
-    expect(popUp!.contains(face)).toBe(true);
-    // …and the comic box sits in the SAME unit, carrying the name
-    // tag inside it (the comic-book standard) — not a plate drawn
-    // on the circle (the clean-circle law).
-    const bubble = container.querySelector(".god-popup__bubble");
-    expect(bubble).not.toBeNull();
-    expect(popUp!.contains(bubble)).toBe(true);
-    const tag = container.querySelector(".god-popup__tag");
-    expect(tag).not.toBeNull();
-    expect(bubble!.contains(tag)).toBe(true);
-    expect(tag!.textContent).toBe("Montu");
-    expect(container.querySelector(".god-popup__name")).toBeNull();
-    act(() => root.unmount());
-    container.remove();
+describe("DEFECT 1 — the god pop-up is REMOVED (owner order 2026-11-24 ~09:57 EST): no face pops up, ever", () => {
+  it("the stage mounts no pop-up: no component import, no JSX, no pop-up state, no scepter driver", () => {
+    expect(stageSource).not.toContain('from "./GodReportPopUp"');
+    expect(stageSource).not.toContain("<GodReportPopUp");
+    expect(stageSource).not.toContain("setGodPopUp");
+    expect(stageSource).not.toContain("GodPopUpRequest");
+    expect(stageSource).not.toContain("scepter={");
   });
 
-  it("the medallion wears the gold-ring medallion dress; the box wears the comic tag", () => {
-    const faceStart = baseCss.indexOf(".god-popup__face {");
-    const face = baseCss.slice(faceStart, baseCss.indexOf("}", faceStart));
-    expect(face).toContain("border-radius: 50%");
-    expect(face).toContain("#d4af37");
-    expect(baseCss).toContain(".god-popup__tag");
+  it("no pop-up or scepter CSS survives in either stylesheet", () => {
+    expect(baseCss).not.toContain(".god-popup {");
+    expect(baseCss).not.toContain(".god-popup__");
+    expect(stageCss).not.toContain(".god-popup");
+    expect(baseCss).not.toContain(".anubis-presence__scepter");
+    expect(baseCss).not.toContain("anubis-scepter");
   });
 
-  it("notify() delivers through the pop-up ONLY — no card stack is fed anywhere", () => {
+  it("notify() delivers through the record ONLY — the report waits in the thread under its god's name", () => {
     const notifyStart = stageSource.indexOf("const notify = useCallback(");
     const notifyBody = stageSource.slice(notifyStart, stageSource.indexOf("}, []);", notifyStart));
-    expect(notifyBody).toContain("setGodPopUp(");
+    expect(notifyBody).toContain("appendReplyHistory");
+    expect(notifyBody).toContain("ADDRESSEE_NAMES[reportingGod]");
+    expect(notifyBody).not.toContain("setGodPopUp(");
+    expect(notifyBody).not.toContain("setReportGod(");
     expect(notifyBody).not.toContain("setNotifications");
     expect(stageSource).not.toContain("<StageNotifications");
+  });
+
+  it("the reply path raises nothing either: no speaking-state pop-up effect, no presence gate remains", () => {
+    expect(stageSource).not.toContain("lastResponsePopRef");
+    expect(stageSource).not.toContain("respectPopRef");
+    expect(stageSource).not.toContain("presentRef");
+    expect(stageSource).not.toContain("loadSpeechBubble");
   });
 });
 
@@ -125,12 +105,16 @@ describe("DEFECT 3a — the capability brief is true, and stays true with the ma
     expect(brief).toContain("CANNOT speak through");
   });
 
-  it("states Wepwawet exactly: built and byte-verified, NOT yet proven live", () => {
+  it("states Wepwawet exactly: built, byte-verified, and PROVEN LIVE 2026-11-24", () => {
+    // Superseded the same day it landed: the first live test fired on
+    // the Captain's order (voice call 2026-11-24 ~10:02 EST) and he
+    // watched the dog move — the brief must never again say unproven.
     const brief = capabilitiesBrief();
     expect(brief).toContain("byte-verified");
-    expect(brief).toContain("NOT been fired");
-    expect(brief).toContain("not yet proven live");
-    expect(capabilitiesBrief("short")).toContain("NOT yet proven live");
+    expect(brief).toContain("PROVEN LIVE");
+    expect(brief).toContain("2026-11-24");
+    expect(brief).not.toContain("not yet proven live");
+    expect(capabilitiesBrief("short")).toContain("PROVEN LIVE");
   });
 
   it("every brief line mirrors a Master Manual entry that still exists", () => {

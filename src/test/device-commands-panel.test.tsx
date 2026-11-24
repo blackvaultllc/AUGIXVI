@@ -124,3 +124,97 @@ describe("Device commands panel", () => {
     expect(screen.getByText(/Status check · sent/)).toBeTruthy();
   });
 });
+
+describe("Device commands panel — Wepwawet's card", () => {
+  const SENDER_WORDS =
+    "DRY RUN — nothing transmitted. The bridge frame would air: [frame] 500 ms: 00 0c d0";
+  let fetchCalls: { url: string; body: { hex: string; holdMs: number; live: boolean } }[] = [];
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+    fetchCalls = [];
+    globalThis.fetch = vi.fn(async (url: unknown, init?: { body?: string }) => {
+      fetchCalls.push({
+        url: String(url),
+        body: JSON.parse(init?.body ?? "{}") as { hex: string; holdMs: number; live: boolean },
+      });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, mode: "dry", output: SENDER_WORDS }),
+      };
+    }) as unknown as typeof fetch;
+    saveBinding({
+      deviceId: "device-dog",
+      profileId: "wepwawet-ble-broadcast",
+      address: "A947C15E",
+    });
+  });
+
+  const dogDevice = () => device({ id: "device-dog", displayName: "Wepwawet" });
+
+  const sendButtonFor = (name: string) => {
+    const item = screen.getByText(name, { exact: true }).closest("li");
+    if (!item) throw new Error(`${name} command not rendered`);
+    const button = item.querySelector("button");
+    if (!button) throw new Error(`no send button for ${name}`);
+    return button;
+  };
+
+  it("shows the full function set grouped in plain words, instructions, and the practice switch", () => {
+    render(<DeviceCommandsPanel device={dogDevice()} />);
+    for (const group of [
+      "Stop & connect",
+      "Move",
+      "Tricks & poses",
+      "Feeding — the eight pictured items",
+      "Sound, light & modes",
+      "Program",
+    ]) {
+      expect(screen.getByText(group)).toBeTruthy();
+    }
+    for (const name of ["Stop", "Forward", "Dance", "Feed 8", "Song", "Program — execute"]) {
+      expect(screen.getByText(name, { exact: true })).toBeTruthy();
+    }
+    expect(screen.getByText("How to control Wepwawet")).toBeTruthy();
+    expect(screen.getByText(/press-and-hold the switch under the dog/)).toBeTruthy();
+    expect(screen.getByText(/speaks only his own built-in sounds and songs/)).toBeTruthy();
+    expect(screen.getByText(/your eyes confirm he obeyed/)).toBeTruthy();
+    const liveSwitch = screen.getByRole("switch", { name: "Live fire switch" });
+    expect(liveSwitch.getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByText(/Practice — nothing goes on air/)).toBeTruthy();
+  });
+
+  it("a practice send walks the bridge in dry mode — frames printed, live flag false", async () => {
+    render(<DeviceCommandsPanel device={dogDevice()} />);
+    fireEvent.click(sendButtonFor("Stop"));
+    await waitFor(() => {
+      expect(screen.getAllByText(/Practice run/).length).toBeGreaterThan(0);
+    });
+    // Stop airs its burst then the zero frame: two bridge calls.
+    expect(fetchCalls.length).toBe(2);
+    for (const call of fetchCalls) {
+      expect(call.url).toBe("/api/devices/wepwawet");
+      expect(call.body.live).toBe(false);
+      expect(call.body.hex).toMatch(/^[0-9a-f]{46}$/);
+    }
+    // The sender's own printed words land on the card as the receipt.
+    expect(screen.getByText("The Parrot sender printed")).toBeTruthy();
+    expect(screen.getAllByText(new RegExp(SENDER_WORDS.slice(0, 24))).length).toBeGreaterThan(0);
+  });
+
+  it("flipping the switch makes the same tap a LIVE send with the proven 3000 ms movement hold", async () => {
+    render(<DeviceCommandsPanel device={dogDevice()} />);
+    fireEvent.click(screen.getByRole("switch", { name: "Live fire switch" }));
+    expect(screen.getByText(/LIVE — taps move the dog/)).toBeTruthy();
+    fireEvent.click(sendButtonFor("Forward"));
+    await waitFor(() => {
+      expect(screen.getAllByText(/Broadcast on air/).length).toBeGreaterThan(0);
+    });
+    expect(fetchCalls.length).toBe(2);
+    expect(fetchCalls[0]!.body.live).toBe(true);
+    expect(fetchCalls[0]!.body.holdMs).toBe(3000);
+    expect(fetchCalls[1]!.body.holdMs).toBe(500);
+  });
+});

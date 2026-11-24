@@ -2,7 +2,6 @@ import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ANUBIS_FACE_SRC, AnubisPresence } from "@/avatar/AnubisPresence";
 import { ANUBIS_SCEPTER_SRC } from "@/avatar/medallionPortraits";
-
 /**
  * Anubis at Command: the medallion must keep reading the one
  * replaceable portrait asset, and its state classes must follow the
@@ -46,40 +45,30 @@ describe("AnubisPresence", () => {
 });
 
 /**
- * THE SCEPTER (owner order 2026-11-23): raised only for
- * significant deliveries — the stage drives the prop from his
- * report pop-up — and put away at every ordinary moment,
- * ordinary talk included. The scepter is its own asset beside
- * the portrait, never part of it.
+ * THE SCEPTER — REMOVED (owner order 2026-11-24 ~09:57 EST,
+ * superseding the 2026-11-23 scepter order): the was-scepter
+ * overlay is gone entirely — no element renders it at rest, in
+ * talk, or for any delivery. The asset stays registered in
+ * medallionPortraits (ANUBIS_SCEPTER_SRC), unrendered; the
+ * portrait itself is never altered.
  */
-describe("AnubisPresence — the scepter", () => {
-  it("the scepter asset stands by, put away, at rest", () => {
+describe("AnubisPresence — the scepter is REMOVED", () => {
+  it("no scepter element renders at rest, and the state never names one", () => {
     const { container } = render(
       <AnubisPresence ready speaking={false} listening={false} acting={false} />,
     );
-    const scepter = container.querySelector<HTMLImageElement>('[data-testid="anubis-scepter"]');
-    expect(scepter).not.toBeNull();
-    expect(scepter!.getAttribute("src")).toBe(ANUBIS_SCEPTER_SRC);
-    expect(scepter!.classList.contains("is-drawn")).toBe(false);
+    expect(container.querySelector('[data-testid="anubis-scepter"]')).toBeNull();
+    expect(container.querySelector(".anubis-presence__scepter")).toBeNull();
     const root = container.querySelector(".anubis-presence")!;
     expect(root.classList.contains("anubis-presence--scepter")).toBe(false);
     expect(root.getAttribute("aria-label")).not.toContain("scepter");
   });
 
-  it("ordinary talk does NOT draw it — speaking alone keeps it put away", () => {
+  it("no scepter element renders while he speaks either — nothing draws it anymore", () => {
     const { container } = render(<AnubisPresence ready speaking listening={false} acting={false} />);
-    const scepter = container.querySelector('[data-testid="anubis-scepter"]')!;
-    expect(scepter.classList.contains("is-drawn")).toBe(false);
-  });
-
-  it("a significant delivery draws it — raised at his side, named in his state", () => {
-    const { container } = render(
-      <AnubisPresence ready speaking listening={false} acting={false} scepter />,
-    );
-    const scepter = container.querySelector('[data-testid="anubis-scepter"]')!;
-    expect(scepter.classList.contains("is-drawn")).toBe(true);
-    const root = container.querySelector(".anubis-presence")!;
-    expect(root.classList.contains("anubis-presence--scepter")).toBe(true);
-    expect(root.getAttribute("aria-label")).toContain("scepter raised");
+    expect(container.querySelector('[data-testid="anubis-scepter"]')).toBeNull();
+    // The registered asset is never the src of anything he renders.
+    const images = [...container.querySelectorAll("img")];
+    expect(images.some((img) => img.getAttribute("src") === ANUBIS_SCEPTER_SRC)).toBe(false);
   });
 });
