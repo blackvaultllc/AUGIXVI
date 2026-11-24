@@ -3391,8 +3391,10 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           rests small down the stage's sides — Anubis left, Montu
           right — living faces in the small medallion format,
           looking around the room. A click summons him to the
-          front with his greeting spoken, and opens his chat
-          (every god his own chat, clean-screen round). */}
+          front with his greeting spoken, and opens his chat:
+          EVERY GOD HIS OWN CHAT (clean-screen round, 2026-11-24)
+          — the tap that routes and opens is now the SLOT tap,
+          because the slot is where a god is tapped from. */}
       {!clearScreen && worldScreen === "live" && (
         <>
           <GodSideRail
