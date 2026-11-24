@@ -893,15 +893,61 @@ export function AvatarStage({
   const dismissGodPopUp = useCallback((id: number) => {
     setGodPopUp((current) => (current && current.id === id ? null : current));
   }, []);
+  // BOOT IS QUIET (owner order 2026-11-24 ~01:45 CST): "On boot up,
+  // I see the scepter and I still see Anubis pop up and say
+  // something then disappear." The proactive engine polls the
+  // moment it starts, so a report raised in the first seconds of a
+  // load performed itself at boot — medallion, comic box, scepter
+  // and all — before he had done a single thing. The law now: an
+  // in-person delivery (the pop-up, and the scepter it raises on
+  // Anubis) belongs to a report that arrives WHILE HE IS PRESENT
+  // in the session. Presence is earned by his hand — a press, a
+  // key, a command sent — never assumed at load. A report raised
+  // before that is still kept (notify writes it into the record,
+  // below); it simply never performs at an empty room, and it is
+  // never replayed as a pop-up later.
+  const presentRef = useRef(false);
+  useEffect(() => {
+    const markPresent = () => {
+      presentRef.current = true;
+    };
+    window.addEventListener("pointerdown", markPresent);
+    window.addEventListener("keydown", markPresent);
+    return () => {
+      window.removeEventListener("pointerdown", markPresent);
+      window.removeEventListener("keydown", markPresent);
+    };
+  }, []);
   const notify = useCallback((topic: string, text: string, god?: GodPerspective) => {
     if (!shouldNotify(loadNotificationPrefs(), topic, Date.now())) return;
+    const reportingGod = god ?? godForReportTopic(topic);
+    // THE REPORT WAITS IN THE RECORD (owner order 2026-11-24):
+    // every report is written into the conversation record under
+    // its god's own name — no question, dated like every entry —
+    // so what arrived while he was in another tab, or before he
+    // was present at all, is waiting in the thread when he comes
+    // back to chat. It is NOT a reply and never poses as one: the
+    // entry carries no question, and its speaker is the god who
+    // reported, not an answer to anything he typed.
+    setTranscript((prev) =>
+      appendReplyHistory(prev, {
+        at: Date.now(),
+        question: "",
+        answer: text,
+        speaker: ADDRESSEE_NAMES[reportingGod],
+      }),
+    );
+    // The in-person delivery — medallion, comic box, scepter —
+    // only for a report that arrives while he is present (the
+    // boot-is-quiet law above).
+    if (!presentRef.current) return;
     notificationIdRef.current += 1;
     const id = notificationIdRef.current;
     // The reporting god delivers the line himself, in the comic box
     // beside his medallion: an explicitly attributed god wins;
     // otherwise the topic decides (Montu for defense and security,
     // Anubis in command for the rest).
-    setGodPopUp({ id, god: god ?? godForReportTopic(topic), text });
+    setGodPopUp({ id, god: reportingGod, text });
     // REPORT POP-IN (presence doctrine): a report attributed to a
     // non-resident god brings HIM onto the stage with it — portrait
     // up like the message itself — and he goes away on his own when
@@ -959,6 +1005,11 @@ export function AvatarStage({
   useEffect(() => {
     if (worldScreen !== "live" || clearScreen) return;
     if (state !== "SPEAKING") return;
+    // BOOT IS QUIET (owner order 2026-11-24): no pop-up of any
+    // kind — reply or report — before he is present in the
+    // session (see presentRef at notify). The line is still
+    // recorded; it just never performs at an empty room.
+    if (!presentRef.current) return;
     // THE SPEECH-BUBBLE SWITCH (owner 2026-11-23): OFF = the
     // reply is voice + thread only; no bubble is raised.
     if (!speechBubble) return;
@@ -1921,6 +1972,10 @@ export function AvatarStage({
   }
   const sendCommand = useCallback(
     async (text: string, source: "typed" | "voice" = "typed") => {
+      // A command sent is presence itself (the boot-is-quiet law):
+      // from his first command on, reports and replies may deliver
+      // in person.
+      presentRef.current = true;
       // Echo first: whatever he sent — typed or spoken — stays visible
       // in the Command box above the reply, even for commands that
       // return early (rooms, /help, wake greeting).

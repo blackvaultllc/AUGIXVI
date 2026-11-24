@@ -12,6 +12,7 @@ import {
   Anchor,
   BookOpen,
   ChevronDown,
+  ChevronUp,
   Eraser,
   Eye,
   GripVertical,
@@ -20,6 +21,7 @@ import {
   Mic,
   MicOff,
   Minus,
+  Plus,
   RotateCcw,
   Settings,
   Smile,
@@ -495,6 +497,15 @@ export function CommandBox({
   const [liveHidden, setLiveHidden] = useState(false);
   /** The emoji picker's open state (owner order 2026-11-22). */
   const [emojiOpen, setEmojiOpen] = useState(false);
+  /**
+   * THE PHONE BAR'S ONE BUTTON (owner order 2026-11-24 ~01:46
+   * CST): the docked bar carried every control on its line —
+   * emoji, mic, send, menu — crowded around a type field too
+   * small to tap. His design: the bar's line holds the type
+   * field and ONE button; everything else lives behind that
+   * button, in the menu it opens. This is that menu's state.
+   */
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -823,11 +834,13 @@ export function CommandBox({
     [chat, onChatChange],
   );
 
-  // Keep the newest line in view as the conversation flows.
+  // Keep the newest line in view as the conversation flows — and
+  // when he comes BACK to chat from a section (Part B: the display
+  // follows the tab), the thread stands at its newest line again.
   useEffect(() => {
     const thread = threadRef.current;
     if (!minimized && thread) thread.scrollTop = thread.scrollHeight;
-  }, [minimized, history, responseLine, userLine, hiddenCount]);
+  }, [minimized, machineryOpen, history, responseLine, userLine, hiddenCount]);
 
   /**
    * THE STRIP'S MESSAGE PREVIEWS (owner order 2026-11-22, his
@@ -932,6 +945,7 @@ export function CommandBox({
     const text = chat.trim();
     if (!text) return;
     setEmojiOpen(false);
+    setOptionsOpen(false);
     onChatChange("");
     onSubmit(text);
   };
@@ -953,6 +967,194 @@ export function CommandBox({
     width: boxSize.w,
     height: minimized ? undefined : boxSize.h,
   } as const;
+
+  // THE MESSAGE FIELD — one element, shared by both forms below:
+  // the desktop row and the phone bar's line carry the same field,
+  // the same slash-menu keys, the same submit.
+  const messageInput = (
+    <>
+      <label className="sr-only" htmlFor="avatar-command-input">
+        Message for {speakerName}
+      </label>
+      <input
+        id="avatar-command-input"
+        ref={inputRef}
+        className="avatar-command-box__input"
+        placeholder={`Message ${speakerName} — / for commands`}
+        value={chat}
+        onChange={(event) => onChatChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (!menuOpen || suggestions.length === 0) return;
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setHighlightedIndex((i) => (i + 1) % suggestions.length);
+          } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setHighlightedIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+          } else if (event.key === "Enter" && suggestions[highlightedIndex]) {
+            event.preventDefault();
+            applySuggestion(suggestions[highlightedIndex]!);
+          } else if (event.key === "Escape") {
+            onChatChange(chat.replace(/(^|\s)\/[^\s]*$/, "$1"));
+          }
+        }}
+        autoComplete="off"
+      />
+    </>
+  );
+
+  // THE EMOJI PICKER (owner order 2026-11-22): a key tap inserts
+  // the emoji into the message at the caret — from there it sends
+  // and renders like any character he typed. The picker stays up
+  // for more picks; the toggle, a send, or minimize folds it away.
+  const emojiPicker = emojiOpen ? (
+    <div className="avatar-command-box__emoji" role="group" aria-label="Emoji picker">
+      {CHAT_EMOJIS.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          className="avatar-command-box__emoji-key"
+          onClick={() => insertEmoji(emoji)}
+          aria-label={`Insert ${emoji}`}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  /**
+   * THE PHONE FORM — ONE BUTTON (owner order 2026-11-24 ~01:46
+   * CST, Part D): on the docked bar the type field takes the
+   * line — full width, a real tap target at bifocal size — and
+   * ONE button stands beside it. Everything that crowded the
+   * line (send, microphone, emoji, the menus, the fold) lives in
+   * the panel that button opens, each as a labeled row he can
+   * hit without aiming. Same form in the folded bar and in the
+   * opened box: one bar, one behavior, every tab (Part B).
+   */
+  const phoneForm = (
+    <form className="avatar-command-box__form avatar-command-box__form--phone" onSubmit={submit}>
+      {messageInput}
+      <button
+        className="avatar-command-box__options-toggle"
+        type="button"
+        onClick={() => setOptionsOpen((open) => !open)}
+        aria-expanded={optionsOpen}
+        aria-label={
+          optionsOpen
+            ? "Close the message options"
+            : "Open the message options — send, microphone, emoji, menus"
+        }
+        title="Options — send, microphone, emoji, menus"
+      >
+        <Plus aria-hidden="true" />
+      </button>
+      {optionsOpen && (
+        <div className="avatar-command-box__options" role="menu" aria-label="Message options">
+          <button
+            className="avatar-command-box__option"
+            type="submit"
+            disabled={!chat.trim()}
+            role="menuitem"
+          >
+            <Sparkles aria-hidden="true" />
+            <span>Send</span>
+          </button>
+          <button
+            className="avatar-command-box__option"
+            type="button"
+            role="menuitem"
+            onClick={onToggleVoice}
+            disabled={!voiceAvailable}
+          >
+            {voiceListening ? <MicOff aria-hidden="true" /> : <Mic aria-hidden="true" />}
+            <span>{voiceListening ? "Stop microphone" : "Microphone"}</span>
+          </button>
+          <button
+            className="avatar-command-box__option"
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOptionsOpen(false);
+              setEmojiOpen((open) => !open);
+            }}
+            aria-expanded={emojiOpen}
+          >
+            <Smile aria-hidden="true" />
+            <span>Emoji</span>
+          </button>
+          <button
+            className="avatar-command-box__option"
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOptionsOpen(false);
+              if (minimized) {
+                restoreNow();
+                setMachineryOpen(true);
+              } else {
+                setMachineryOpen((open) => !open);
+              }
+            }}
+          >
+            <Menu aria-hidden="true" />
+            <span>{machineryOpen && !minimized ? "Back to chat" : "Menus — tools & settings"}</span>
+          </button>
+          <button
+            className="avatar-command-box__option"
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOptionsOpen(false);
+              toggleMinimized();
+            }}
+          >
+            {minimized ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
+            <span>{minimized ? "Open the chat" : "Fold to the bar"}</span>
+          </button>
+        </div>
+      )}
+    </form>
+  );
+
+  // THE DESKTOP FORM: the field and its three companions in a
+  // row — at desktop widths there is room for them, and they stay.
+  const standardForm = (
+    <form className="avatar-command-box__form" onSubmit={submit}>
+      {messageInput}
+      <button
+        className="avatar-command-box__icon-button"
+        type="button"
+        onClick={() => setEmojiOpen((open) => !open)}
+        aria-expanded={emojiOpen}
+        aria-label={emojiOpen ? "Close the emoji picker" : "Add an emoji"}
+        title="Add an emoji"
+      >
+        <Smile aria-hidden="true" />
+      </button>
+      <button
+        className="avatar-command-box__icon-button"
+        type="button"
+        onClick={onToggleVoice}
+        disabled={!voiceAvailable}
+        aria-label={voiceListening ? "Stop voice input" : "Start voice input"}
+        title={
+          voiceAvailable ? "Toggle voice input" : "Voice input is unavailable in this browser"
+        }
+      >
+        {voiceListening ? <MicOff aria-hidden="true" /> : <Mic aria-hidden="true" />}
+      </button>
+      <button
+        className="avatar-command-box__send"
+        type="submit"
+        disabled={!chat.trim()}
+        aria-label="Send command"
+      >
+        <Sparkles aria-hidden="true" />
+      </button>
+    </form>
+  );
 
   // THE MMORPG CHAT PANEL (owner orders 2026-11-21 Part 28, and
   // 2026-11-22 — the picked Drakensang-style reference): a slim rail
@@ -1008,12 +1210,41 @@ export function CommandBox({
   return (
     <section
       ref={boxRef}
-      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}${enlarged ? " avatar-command-box--enlarged" : ""}${phoneBar ? " avatar-command-box--phone-bar" : ""}`}
+      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}${enlarged ? " avatar-command-box--enlarged" : ""}${phoneBar ? " avatar-command-box--phone-bar" : ""}${machineryOpen && !minimized ? " avatar-command-box--section-open" : ""}`}
       style={phoneBar ? undefined : boxStyle}
       data-anchored={anchored ? "true" : "false"}
       data-enlarged={enlarged ? "true" : "false"}
       aria-label={`Chat with ${speakerName}`}
     >
+      {phoneBar && minimized ? (
+        // THE PHONE BAR (owner orders 2026-11-23 phone spec;
+        // 2026-11-24 Part D): folded, the docked bar is three
+        // things and nothing else — his medallion (the picture,
+        // untouched), the type field at full width, and the ONE
+        // options button. A tap on the bar's own face (not the
+        // field, not a button) opens the chat upward; the options
+        // button opens its menu. The bar is the persistent bottom
+        // line of every tab (Part B): this same face rides under
+        // Tools, Settings, everywhere.
+        <div
+          className="avatar-command-box__phonebar"
+          aria-label="Chat bar — tap to open or close the chat"
+          onClick={(event) => {
+            if (
+              (event.target as HTMLElement).closest?.(
+                "button, input, textarea, a, .avatar-command-box__options, .avatar-command-box__emoji",
+              )
+            )
+              return;
+            toggleMinimized();
+          }}
+        >
+          {presence && <span className="avatar-command-box__phonebar-face">{presence}</span>}
+          {phoneForm}
+          {emojiPicker}
+        </div>
+      ) : (
+      <>
       <div
         className="avatar-command-box__rail avatar-command-box__grip"
         onPointerDown={startDrag}
@@ -1131,7 +1362,20 @@ export function CommandBox({
         </div>
       )}
 
-      {!minimized && (
+      {/* THE DISPLAY FOLLOWS THE TAB (owner order 2026-11-24
+          ~01:45 CST, Part B): "if I click off chat I'm going to
+          somewhere else — the chat window does not need to stay
+          there the whole time. The bottom part for me to type can
+          stay there, but the display that's on the screen is the
+          tab that's showing." So while a section is open, the
+          conversation display is GONE — unmounted, not hidden
+          under the panel — and the section owns the box's display
+          alone, with the input bar still pinned under it. Closing
+          the section brings the chat face back whole: the record
+          was never touched, and everything that arrived meanwhile
+          (replies by voice and pop-up, reports kept by notify) is
+          standing in the thread. */}
+      {!minimized && !machineryOpen && (
         <div className="avatar-command-box__conversation" role="group" aria-label="Chat">
           {/* TERMINAL TOOLS (owner order 2026-11-22): Clear wipes
               the SCREEN only — the record is never touched — and
@@ -1251,87 +1495,12 @@ export function CommandBox({
         </ul>
       )}
 
-      {/* THE EMOJI PICKER (owner order 2026-11-22): a key tap
-          inserts the emoji into the message at the caret — from
-          there it sends and renders like any character he typed.
-          The picker stays up for more picks; the toggle, a send,
-          or minimize folds it away. */}
-      {!minimized && emojiOpen && (
-        <div className="avatar-command-box__emoji" role="group" aria-label="Emoji picker">
-          {CHAT_EMOJIS.map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              className="avatar-command-box__emoji-key"
-              onClick={() => insertEmoji(emoji)}
-              aria-label={`Insert ${emoji}`}
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-      )}
+      {!minimized && emojiPicker}
 
-      <form className="avatar-command-box__form" onSubmit={submit}>
-        <label className="sr-only" htmlFor="avatar-command-input">
-          Message for {speakerName}
-        </label>
-        <input
-          id="avatar-command-input"
-          ref={inputRef}
-          className="avatar-command-box__input"
-          placeholder={`Message ${speakerName} — / for commands`}
-          value={chat}
-          onChange={(event) => onChatChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (!menuOpen || suggestions.length === 0) return;
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
-              setHighlightedIndex((i) => (i + 1) % suggestions.length);
-            } else if (event.key === "ArrowUp") {
-              event.preventDefault();
-              setHighlightedIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
-            } else if (event.key === "Enter" && suggestions[highlightedIndex]) {
-              event.preventDefault();
-              applySuggestion(suggestions[highlightedIndex]!);
-            } else if (event.key === "Escape") {
-              onChatChange(chat.replace(/(^|\s)\/[^\s]*$/, "$1"));
-            }
-          }}
-          autoComplete="off"
-        />
-        <button
-          className="avatar-command-box__icon-button"
-          type="button"
-          onClick={() => setEmojiOpen((open) => !open)}
-          aria-expanded={emojiOpen}
-          aria-label={emojiOpen ? "Close the emoji picker" : "Add an emoji"}
-          title="Add an emoji"
-        >
-          <Smile aria-hidden="true" />
-        </button>
-        <button
-          className="avatar-command-box__icon-button"
-          type="button"
-          onClick={onToggleVoice}
-          disabled={!voiceAvailable}
-          aria-label={voiceListening ? "Stop voice input" : "Start voice input"}
-          title={
-            voiceAvailable ? "Toggle voice input" : "Voice input is unavailable in this browser"
-          }
-        >
-          {voiceListening ? <MicOff aria-hidden="true" /> : <Mic aria-hidden="true" />}
-        </button>
-        <button
-          className="avatar-command-box__send"
-          type="submit"
-          disabled={!chat.trim()}
-          aria-label="Send command"
-        >
-          <Sparkles aria-hidden="true" />
-        </button>
-      </form>
+      {phoneBar ? phoneForm : standardForm}
       </div>
+      </>
+      )}
       {!minimized && !phoneBar && (
         <>
           <div

@@ -527,7 +527,13 @@ describe("the 07:22 additions — lane, fit, respect, sync, comic", () => {
     // (bifocal type outranks style).
     const comicStart = stageCss.indexOf("/* 21. FULL COMIC STYLE");
     expect(comicStart).toBeGreaterThan(-1);
-    const comic = stageCss.slice(comicStart);
+    // Bounded to the section itself (2026-11-24): later sections
+    // (the stage-law round's 26–28) follow it in this file and DO
+    // set type — the phone bar's field at 1rem, by the Captain's
+    // own bifocal order. The pin's intent stands: THIS section
+    // sets no font size. The next section is 22 by number in
+    // every merge order, so it is the boundary.
+    const comic = stageCss.slice(comicStart, stageCss.indexOf("/* 22.", comicStart));
     expect(comic).toContain("border: 3px solid #0b0e14");
     expect(comic).toContain(".avatar-command-box__thread-a");
     expect(comic).toContain("#fff6da");
