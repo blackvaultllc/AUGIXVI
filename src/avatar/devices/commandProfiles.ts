@@ -448,7 +448,10 @@ export const GENERIC_HTTP_PROFILE: DeviceCommandProfile = {
 /**
  * One dog action as profile data: sendData(0, N) → D3=0, D4=N,
  * the protocol's §6.1 encoding. Burst 500 ms, then the zero frame —
- * the send engine appends the trailing zero itself.
+ * the send engine appends the trailing zero itself. Movement
+ * bursts hold 3000 ms: the protocol's voice-command hold (§3.4),
+ * and the hold the first live test proved on the real dog
+ * (2026-11-24) — a shorter movement burst is unproven.
  */
 function dogAction(
   id: string,
@@ -456,13 +459,14 @@ function dogAction(
   d4: number,
   help: string,
   safety?: string,
+  holdMs = 500,
 ): DeviceCommand {
   return {
     id,
     name,
     help,
     params: [],
-    payload: { kind: "ble-broadcast", cmd: 0xe0, data: [0, 0, 0, 0, d4], holdMs: 500 },
+    payload: { kind: "ble-broadcast", cmd: 0xe0, data: [0, 0, 0, 0, d4], holdMs },
     ...(safety ? { safety } : {}),
   };
 }
@@ -522,10 +526,10 @@ const WEPWAWET_COMMANDS: DeviceCommand[] = [
     params: [],
     payload: { kind: "ble-broadcast", cmd: 0xd0, data: [0, 0, 0, 0, 0], holdMs: 500 },
   },
-  dogAction("forward", "Forward", 2, "Walk forward. A timed burst, then the zero frame — the dog walks for the burst, it does not latch on.", "Movement. The dog must be in sight, on the floor, with room ahead of it."),
-  dogAction("back", "Back", 3, "Walk backward, one timed burst, then the zero frame.", "Movement. The dog cannot see behind itself — neither can this protocol. Clear the space behind it first."),
-  dogAction("turn-left", "Turn left", 4, "Turn left, one timed burst, then the zero frame.", "Movement. Keep the dog in sight while it turns."),
-  dogAction("turn-right", "Turn right", 5, "Turn right, one timed burst, then the zero frame.", "Movement. Keep the dog in sight while it turns."),
+  dogAction("forward", "Forward", 2, "Walk forward. A timed burst, then the zero frame — the dog walks for the burst, it does not latch on.", "Movement. The dog must be in sight, on the floor, with room ahead of it.", 3000),
+  dogAction("back", "Back", 3, "Walk backward, one timed burst, then the zero frame.", "Movement. The dog cannot see behind itself — neither can this protocol. Clear the space behind it first.", 3000),
+  dogAction("turn-left", "Turn left", 4, "Turn left, one timed burst, then the zero frame.", "Movement. Keep the dog in sight while it turns.", 3000),
+  dogAction("turn-right", "Turn right", 5, "Turn right, one timed burst, then the zero frame.", "Movement. Keep the dog in sight while it turns.", 3000),
   dogAction("sit", "Sit", 6, "Sit down."),
   dogAction("lie-down", "Lie down", 7, "Lie down (get down)."),
   dogAction("coquetry", "Act cute", 8, "Act coquettishly — the dog's act-cute routine."),
@@ -579,6 +583,48 @@ const WEPWAWET_COMMANDS: DeviceCommand[] = [
   },
 ];
 
+/**
+ * The dog's commands grouped for his card, in plain words (owner
+ * order 2026-11-24: the full function set, grouped and labeled so
+ * he can run the dog himself). Stop stands first, always. Every
+ * command on the profile appears in exactly one group — a test
+ * pins the coverage, so a command added to the profile without a
+ * group fails loudly instead of vanishing from the card.
+ */
+export const WEPWAWET_COMMAND_GROUPS: { label: string; commandIds: string[] }[] = [
+  { label: "Stop & connect", commandIds: ["stop", "match"] },
+  {
+    label: "Move",
+    commandIds: ["forward", "back", "turn-left", "turn-right", "rotate-left", "rotate-right"],
+  },
+  {
+    label: "Tricks & poses",
+    commandIds: [
+      "sit",
+      "lie-down",
+      "coquetry",
+      "pee",
+      "greet",
+      "handstand",
+      "push-ups",
+      "dance",
+      "kung-fu",
+      "swim",
+      "bless",
+      "patrol",
+    ],
+  },
+  {
+    label: "Feeding — the eight pictured items",
+    commandIds: ["feed-1", "feed-2", "feed-3", "feed-4", "feed-5", "feed-6", "feed-7", "feed-8"],
+  },
+  {
+    label: "Sound, light & modes",
+    commandIds: ["light", "song", "ai-content", "learn", "fire"],
+  },
+  { label: "Program", commandIds: ["program-record", "program-execute"] },
+];
+
 export const WEPWAWET_DOG_PROFILE: DeviceCommandProfile = {
   id: "wepwawet-ble-broadcast",
   name: "Wepwawet — robot dog (Bluetooth broadcast)",
@@ -591,8 +637,8 @@ export const WEPWAWET_DOG_PROFILE: DeviceCommandProfile = {
   setupSteps: [
     "The dog's registry card carries the grant: owner-confirmed, and control granted by the Captain on 2026-11-23 — his standing order that Augie control this dog directly.",
     "Bind this profile to the dog's card. The address is Augie's AppID: A947C15E.",
-    "Sending runs from the Parrot: the sender at ~/augie-tools/wepwawet/ on the Parrot holds the dog's frames and puts them on air from the Parrot's Bluetooth. A browser cannot advertise, so the panel here configures and records — the Parrot fires.",
-    "First live test happens only on the Captain's word, with him watching the dog: Stop first, one Forward burst, Stop. The full procedure is written in the manual's Wepwawet entry.",
+    "Sending runs from inside Augie now: tap a command on this card and Augie's server hands the frame to the sender at ~/augie-tools/wepwawet/ on the Parrot, which puts it on air from the Parrot's Bluetooth (the bridge — a browser cannot advertise, so the Parrot fires). The card's switch chooses Practice (the sender prints the frames, nothing on air) or LIVE (the dog moves). Augie must be open through the Parrot's own server for the buttons to reach the sender.",
+    "First live test happened on the Captain's word on 2026-11-24 — Stop, one Forward burst, Stop — and he watched the dog move. The full procedure is written in the manual's Wepwawet entry.",
   ],
   safetyNotes: [
     "TRANSMIT-ONLY: the dog never answers. A command marked sent means the frames went on air — never that the dog obeyed. The dog itself, watched, is the only confirmation there is.",

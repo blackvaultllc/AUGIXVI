@@ -53,7 +53,9 @@ import {
   framesForBroadcastCommand,
   parseAppId,
   payloadHex,
+  WEPWAWET_COMPANY_ID,
 } from "./wepwawetFrame";
+import { WEPWAWET_BRIDGE_ROUTE } from "./wepwawetBridge";
 
 /* ------------------------------ bindings ------------------------------ */
 
@@ -302,6 +304,13 @@ export type BroadcastChannel = {
   /** The manufacturer company ID the payload rides under. */
   companyId: number;
   advertise: (payload: Uint8Array, holdMs: number) => Promise<void>;
+  /**
+   * What a completed send means on THIS channel, in the send
+   * outcome's words. The default (the send engine's) says the
+   * frames were transmitted; a channel that does not transmit —
+   * the bridge in practice mode — must say so here instead.
+   */
+  sentNote?: string;
 };
 
 export type CommandChannel = LineChannel | HttpChannel | BroadcastChannel;
@@ -399,6 +408,77 @@ export function createSimulatedBroadcastChannel(companyId: number): BroadcastCha
     aired,
     advertise: async (payload, holdMs) => {
       aired.push({ payload, hex: payloadHex(payload), holdMs });
+    },
+  };
+}
+
+/**
+ * THE PARROT BRIDGE CHANNEL — the dog's real send path from inside
+ * Augie (operator order 2026-11-24). A browser cannot advertise, so
+ * each frame the send engine builds is handed to Augie's own
+ * server (the bridge door, /api/devices/wepwawet), which runs the
+ * staged sender on the Parrot: the sender airs the frame from the
+ * Parrot's Bluetooth — or, in practice mode, prints it and airs
+ * NOTHING. The sender's own printed words are kept as receipts so
+ * the Captain sees what the Parrot side actually did.
+ *
+ * The live flag is the Captain's switch on the dog's card, passed
+ * in at construction: practice is the default everywhere this is
+ * built; live is chosen by his hand, on the card, each session.
+ */
+export type ParrotBroadcastChannel = BroadcastChannel & {
+  /** The sender's printed words, one entry per frame it handled. */
+  receipts: string[];
+};
+
+export function createParrotBroadcastChannel(options: {
+  live: boolean;
+}): ParrotBroadcastChannel {
+  const receipts: string[] = [];
+  return {
+    kind: "broadcast",
+    transportLabel: options.live
+      ? "Parrot Bluetooth sender — LIVE (frames go on air)"
+      : "Parrot Bluetooth sender — practice (frames printed, nothing on air)",
+    companyId: WEPWAWET_COMPANY_ID,
+    receipts,
+    ...(options.live
+      ? {}
+      : {
+          sentNote:
+            "Practice run — the Parrot sender printed these exact frames and transmitted NOTHING. The dog did not hear anything. Flip the switch on the card to LIVE when you want a tap to move him.",
+        }),
+    advertise: async (payload, holdMs) => {
+      let response: Response;
+      try {
+        response = await fetch(WEPWAWET_BRIDGE_ROUTE, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            hex: payloadHex(payload).replace(/ /g, ""),
+            holdMs,
+            live: options.live,
+          }),
+        });
+      } catch {
+        throw new Error(
+          "The Parrot sender door did not answer. The dog buttons work where Augie's server and the sender live — on the Parrot. Nothing was sent.",
+        );
+      }
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        output?: string;
+        error?: string;
+      } | null;
+      if (!response.ok || !data?.ok) {
+        throw new Error(
+          data?.error ??
+            `The Parrot sender door refused the frame (HTTP ${response.status}). Nothing was sent.`,
+        );
+      }
+      if (typeof data.output === "string" && data.output) {
+        receipts.push(data.output);
+      }
     },
   };
 }
@@ -666,7 +746,9 @@ export async function sendDeviceCommand(req: SendRequest): Promise<SendOutcome> 
       }
       return finish({
         result: "sent",
-        note: "Broadcast on air. This protocol is one-way — the dog never answers back, so 'sent' means the frames were transmitted, never that the dog obeyed. The dog itself, watched, is the only confirmation.",
+        note:
+          channel.sentNote ??
+          "Broadcast on air. This protocol is one-way — the dog never answers back, so 'sent' means the frames were transmitted, never that the dog obeyed. The dog itself, watched, is the only confirmation.",
         detail: frames.map((f) => `${f.role}: ${payloadHex(f.payload)} (${f.holdMs} ms)`).join("\n"),
         replies: [],
       });

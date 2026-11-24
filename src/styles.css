@@ -4961,6 +4961,51 @@
   margin: 0;
   flex-wrap: wrap;
 }
+/* Wepwawet bridge — the practice/LIVE switch, the how-to panel,
+   the sender receipts, and the grouped command sections */
+.window-commands__bridge {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.window-commands__howto {
+  background: var(--dev-field);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: var(--dev-fs-body);
+}
+.window-commands__howto h5,
+.window-commands__group h5,
+.window-commands__receipts h5 {
+  margin: 0;
+  font-size: var(--dev-fs-body);
+}
+.window-commands__howto ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.window-commands__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.window-commands__receipt {
+  margin: 0;
+  background: var(--dev-panel);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .window-devices__formtitle {
   grid-column: 1 / -1;
   font-size: var(--dev-fs-title);

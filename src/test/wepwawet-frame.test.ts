@@ -19,6 +19,7 @@ import {
   zeroPayload,
 } from "@/avatar/devices/wepwawetFrame";
 import {
+  WEPWAWET_COMMAND_GROUPS,
   WEPWAWET_DOG_PROFILE,
   sanitizeCommandProfile,
   type DeviceCommand,
@@ -195,7 +196,9 @@ describe("frames for a command — the burst shape (§3.4)", () => {
     expect(frames.map((f) => f.role)).toEqual(["command", "zero"]);
     expect(payloadHex(frames[0]!.payload)).toBe(DOC_EXAMPLES["forward"]);
     expect(payloadHex(frames[1]!.payload)).toBe(DOC_EXAMPLES["zero"]);
-    expect(frames[0]!.holdMs).toBe(500);
+    // Movement holds 3000 ms — the protocol's voice-command hold
+    // (§3.4) and the burst the first live test proved (2026-11-24).
+    expect(frames[0]!.holdMs).toBe(3000);
   });
 
   it("Stop is trailed by the zero frame like every command — and Stop itself is D4=1", () => {
@@ -262,6 +265,14 @@ describe("the Wepwawet profile — the full command map as data", () => {
     }
   });
 
+  it("the card's groups cover every command exactly once, Stop's group first", () => {
+    const grouped = WEPWAWET_COMMAND_GROUPS.flatMap((g) => g.commandIds);
+    const ids = WEPWAWET_DOG_PROFILE.commands.map((c) => c.id);
+    expect([...grouped].sort()).toEqual([...ids].sort());
+    expect(new Set(grouped).size).toBe(grouped.length);
+    expect(WEPWAWET_COMMAND_GROUPS[0]!.commandIds[0]).toBe("stop");
+  });
+
   it("every command's frame decodes back to exactly the bytes its entry claims", () => {
     for (const command of WEPWAWET_DOG_PROFILE.commands) {
       if (command.payload.kind !== "ble-broadcast") {
@@ -321,7 +332,7 @@ describe("the Wepwawet profile — the full command map as data", () => {
       kind: "ble-broadcast",
       cmd: 0xe0,
       data: [0, 0, 0, 0, 2],
-      holdMs: 500,
+      holdMs: 3000,
     });
   });
 });
@@ -378,7 +389,7 @@ describe("sending under the Permission Law — simulated broadcast peer", () => 
       DOC_EXAMPLES["forward"],
       DOC_EXAMPLES["zero"],
     ]);
-    expect(channel.aired.map((a) => a.holdMs)).toEqual([500, 500]);
+    expect(channel.aired.map((a) => a.holdMs)).toEqual([3000, 500]);
     // One-way protocol: the note must never claim the dog obeyed.
     expect(outcome.note).toMatch(/never that the dog obeyed/i);
     const log = logForDevice(loadCommandLog(), "device-wepwawet");

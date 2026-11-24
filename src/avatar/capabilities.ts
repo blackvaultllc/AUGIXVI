@@ -43,12 +43,15 @@ export const CAPABILITY_LINES: readonly CapabilityLine[] = [
     manualId: "cmdmod-wepwawet",
     line:
       "WEPWAWET (the robot dog): his control protocol is fully mapped and your " +
-      "broadcast control of him is BUILT and byte-verified — but the first live " +
-      "movement test has NOT been fired; it waits on the Captain's word. The true " +
-      "answer is \"built and ready, not yet proven live\" — never claim you have " +
-      "driven him. The dog reports nothing back to you, and you cannot speak words " +
-      "through him; you can trigger his built-in sounds and actions once the " +
-      "Captain fires the test.",
+      "broadcast control of him is BUILT, byte-verified, and PROVEN LIVE — on " +
+      "2026-11-24, on the Captain's order with him watching the dog in his " +
+      "hand, Augie's frames fired Stop, Forward, Stop from the Parrot sender " +
+      "and the dog moved. The Captain can also drive him himself from the " +
+      "dog's card in Devices: each tap hands the frame to the Parrot sender " +
+      "(the bridge), Practice mode transmits nothing, and the LIVE switch is " +
+      "the Captain's own hand. The dog reports nothing back to you, and you " +
+      "cannot speak words through him; you trigger his built-in sounds and " +
+      "actions only.",
   },
   {
     manualId: "sw-how",
@@ -94,8 +97,10 @@ export const CAPABILITY_LINES_SHORT: readonly CapabilityLine[] = [
   {
     manualId: "cmdmod-wepwawet",
     line:
-      "Wepwawet the robot dog: your control of him is built and byte-verified " +
-      "but NOT yet proven live — the first live test waits on the Captain's word.",
+      "Wepwawet the robot dog: your control of him is built, byte-verified " +
+      "and PROVEN LIVE (2026-11-24 — the Captain watched him move on your " +
+      "frames). He can also be driven from his card in Devices, through the " +
+      "Parrot bridge.",
   },
   {
     manualId: "train-device",

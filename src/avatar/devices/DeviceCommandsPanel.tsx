@@ -23,6 +23,7 @@ import { Cable, Plus, Send, Settings2, Trash2, X } from "lucide-react";
 import { canControl, type DeviceProfile } from "./deviceRegistry";
 import {
   COMMAND_TRANSPORT_LABELS,
+  WEPWAWET_COMMAND_GROUPS,
   type CommandTransport,
   type DeviceCommand,
   type DeviceCommandProfile,
@@ -31,6 +32,7 @@ import {
   allCommandProfiles,
   bindingCommands,
   createFetchHttpChannel,
+  createParrotBroadcastChannel,
   loadBindings,
   loadCommandLog,
   logForDevice,
@@ -44,6 +46,7 @@ import {
   type CommandChannel,
   type DeviceCommandBinding,
   type LineChannel,
+  type ParrotBroadcastChannel,
   type SendOutcome,
 } from "./commandModule";
 
@@ -89,6 +92,17 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
   const [sending, setSending] = useState<string | null>(null);
   const serialRef = useRef<LineChannel | null>(null);
   serialRef.current = serialChannel;
+  // The dog bridge: practice is the standing default — the LIVE
+  // switch is the Captain's own hand on the card, per session.
+  const [dogLive, setDogLive] = useState(false);
+  const [bridgeReceipts, setBridgeReceipts] = useState<string[]>([]);
+  const bridgeRef = useRef<{ live: boolean; channel: ParrotBroadcastChannel } | null>(null);
+  const bridgeChannel = (live: boolean): ParrotBroadcastChannel => {
+    if (!bridgeRef.current || bridgeRef.current.live !== live) {
+      bridgeRef.current = { live, channel: createParrotBroadcastChannel({ live }) };
+    }
+    return bridgeRef.current.channel;
+  };
 
   const binding = bindings[device.id];
   const profiles = useMemo(() => allCommandProfiles(bindings), [bindings]);
@@ -192,6 +206,12 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
     if (p.transport === "network-http") {
       return { channel: createFetchHttpChannel() };
     }
+    if (p.transport === "bluetooth-broadcast") {
+      // The Parrot bridge: Augie's server hands each frame to the
+      // staged sender on the Parrot. Practice or LIVE follows the
+      // switch on the card — the Captain's hand, never a default.
+      return { channel: bridgeChannel(dogLive) };
+    }
     return {
       channel: null,
       reason: `The ${COMMAND_TRANSPORT_LABELS[p.transport]} path has no send route in the browser yet. The commands are configured and saved; sending waits for that path (a NODS session or the Parrot bridge). Nothing was sent.`,
@@ -227,6 +247,9 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
     } finally {
       setSending(null);
       setLog(loadCommandLog());
+      if (profile.transport === "bluetooth-broadcast" && bridgeRef.current) {
+        setBridgeReceipts([...bridgeRef.current.channel.receipts].slice(-4));
+      }
     }
   };
 
@@ -247,66 +270,12 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
     setChannelNote("Disconnected. The printer is off the line.");
   };
 
-  return (
-    <section className="window-commands" aria-label={`Commands for ${device.displayName}`}>
-      <h4>Commands — send to this device</h4>
-      {!binding || !profile ? (
-        <>
-          <p className="window-hint">
-            No command setup yet for this device. Set it up once — how Augie reaches it, which
-            commands it understands, its address — and the commands live here from then on. Adding
-            a new kind of device later is the same setup, never a rebuild.
-          </p>
-          {!showSetup && (
-            <button type="button" className="window-btn" onClick={openSetup}>
-              <Settings2 aria-hidden="true" /> Set up commands for this device
-            </button>
-          )}
-        </>
-      ) : (
-        <>
-          <p className="window-devices__meta">
-            Command set: {profile.name} · {COMMAND_TRANSPORT_LABELS[profile.transport]}
-            {binding.address ? ` · address: ${binding.address}` : " · no address set"}
-          </p>
-          {!granted && (
-            <p className="window-devices__unavailable" role="status">
-              Control is not granted for this device — commands cannot be sent. The Permission Law:
-              Osiris may control a device only when its card is owner-confirmed AND control is
-              granted for that exact device. Set both in this card's Edit form, and the commands
-              open.
-            </p>
-          )}
-          {profile.transport === "usb-serial" &&
-            (serialChannel ? (
-              <div className="window-devices__actions">
-                <span className="window-hint" role="status">
-                  Printer connected over USB serial.
-                </span>
-                <button type="button" className="window-btn" onClick={() => void disconnectSerial()}>
-                  <X aria-hidden="true" /> Disconnect
-                </button>
-              </div>
-            ) : (
-              <div className="window-devices__actions">
-                <button type="button" className="window-btn" onClick={() => void connectSerial()}>
-                  <Cable aria-hidden="true" /> Connect over USB
-                </button>
-                <span className="window-hint">
-                  Help: plug the printer's USB cable in and turn it on first — the browser will
-                  ask you to pick its port.
-                </span>
-              </div>
-            ))}
-          {channelNote && (
-            <p className="window-hint" role="status">
-              {channelNote}
-            </p>
-          )}
-          <ul className="window-commands__list">
-            {bindingCommands(binding, profile).map((command) => {
-              const outcome = outcomes[command.id];
-              return (
+
+  const isDogProfile = profile?.id === "wepwawet-ble-broadcast";
+
+  const commandItem = (command: DeviceCommand) => {
+    const outcome = outcomes[command.id];
+    return (
                 <li key={command.id} className="window-commands__item">
                   <div className="window-commands__head">
                     <strong>{command.name}</strong>
@@ -402,9 +371,166 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
                     </p>
                   )}
                 </li>
-              );
-            })}
-          </ul>
+    );
+  };
+
+  const renderCommandLists = () => {
+    if (!binding || !profile) return null;
+    const commands = bindingCommands(binding, profile);
+    if (!isDogProfile) {
+      return <ul className="window-commands__list">{commands.map(commandItem)}</ul>;
+    }
+    const byId = new Map(commands.map((c) => [c.id, c]));
+    const grouped = new Set<string>();
+    const sections = WEPWAWET_COMMAND_GROUPS.map((group) => {
+      const items = group.commandIds
+        .map((id) => byId.get(id))
+        .filter((c): c is DeviceCommand => c !== undefined);
+      items.forEach((c) => grouped.add(c.id));
+      if (!items.length) return null;
+      return (
+        <div key={group.label} className="window-commands__group">
+          <h5>{group.label}</h5>
+          <ul className="window-commands__list">{items.map(commandItem)}</ul>
+        </div>
+      );
+    });
+    const rest = commands.filter((c) => !grouped.has(c.id));
+    return (
+      <>
+        {sections}
+        {rest.length > 0 && (
+          <div className="window-commands__group">
+            <h5>More commands</h5>
+            <ul className="window-commands__list">{rest.map(commandItem)}</ul>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  return (
+    <section className="window-commands" aria-label={`Commands for ${device.displayName}`}>
+      <h4>Commands — send to this device</h4>
+      {!binding || !profile ? (
+        <>
+          <p className="window-hint">
+            No command setup yet for this device. Set it up once — how Augie reaches it, which
+            commands it understands, its address — and the commands live here from then on. Adding
+            a new kind of device later is the same setup, never a rebuild.
+          </p>
+          {!showSetup && (
+            <button type="button" className="window-btn" onClick={openSetup}>
+              <Settings2 aria-hidden="true" /> Set up commands for this device
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="window-devices__meta">
+            Command set: {profile.name} · {COMMAND_TRANSPORT_LABELS[profile.transport]}
+            {binding.address ? ` · address: ${binding.address}` : " · no address set"}
+          </p>
+          {!granted && (
+            <p className="window-devices__unavailable" role="status">
+              Control is not granted for this device — commands cannot be sent. The Permission Law:
+              Osiris may control a device only when its card is owner-confirmed AND control is
+              granted for that exact device. Set both in this card's Edit form, and the commands
+              open.
+            </p>
+          )}
+          {profile.transport === "usb-serial" &&
+            (serialChannel ? (
+              <div className="window-devices__actions">
+                <span className="window-hint" role="status">
+                  Printer connected over USB serial.
+                </span>
+                <button type="button" className="window-btn" onClick={() => void disconnectSerial()}>
+                  <X aria-hidden="true" /> Disconnect
+                </button>
+              </div>
+            ) : (
+              <div className="window-devices__actions">
+                <button type="button" className="window-btn" onClick={() => void connectSerial()}>
+                  <Cable aria-hidden="true" /> Connect over USB
+                </button>
+                <span className="window-hint">
+                  Help: plug the printer's USB cable in and turn it on first — the browser will
+                  ask you to pick its port.
+                </span>
+              </div>
+            ))}
+          {channelNote && (
+            <p className="window-hint" role="status">
+              {channelNote}
+            </p>
+          )}
+          {profile.transport === "bluetooth-broadcast" && (
+            <div className="window-commands__bridge">
+              <div className="window-devices__actions">
+                <button
+                  type="button"
+                  className="window-btn"
+                  role="switch"
+                  aria-checked={dogLive}
+                  aria-label="Live fire switch"
+                  onClick={() => setDogLive((v) => !v)}
+                >
+                  {dogLive ? "LIVE — taps move the dog" : "Practice — nothing goes on air"}
+                </button>
+                <span className="window-hint" role="status">
+                  {dogLive
+                    ? "LIVE: a tap hands the frame to the Parrot sender and it goes on air. The dog will move."
+                    : "Practice: a tap makes the Parrot sender print the exact frames — nothing is transmitted, the dog hears nothing."}
+                </span>
+              </div>
+              {isDogProfile && (
+                <section className="window-commands__howto" aria-label="How to control Wepwawet">
+                  <h5>How to control Wepwawet</h5>
+                  <ol>
+                    <li>
+                      Wake him: press-and-hold the switch under the dog until he answers with
+                      his voice prompt.
+                    </li>
+                    <li>
+                      Keep him near the Parrot, in the same room — the commands ride the
+                      Parrot's Bluetooth, and Augie must be open through the Parrot's own
+                      server for the buttons to reach him.
+                    </li>
+                    <li>
+                      Just woke him? Tap “Match / connect” once first — the knock the vendor
+                      app sends when it starts.
+                    </li>
+                    <li>
+                      Tap a command below. STOP is always at the top — tap it any time he
+                      does something unexpected.
+                    </li>
+                    <li>
+                      Adding your own: “Change command setup” below lets you add commands to
+                      his card, and every command on the card runs the same way.
+                    </li>
+                  </ol>
+                  <p className="window-hint">
+                    He never answers back: a sent command means the frames went on air — your
+                    eyes confirm he obeyed.
+                  </p>
+                  <p className="window-hint">
+                    Talk: Wepwawet speaks only his own built-in sounds and songs (Song, AI
+                    content, Learn / story). Augie cannot put your words in his mouth.
+                  </p>
+                </section>
+              )}
+              {bridgeReceipts.length > 0 && (
+                <div className="window-commands__receipts">
+                  <h5>The Parrot sender printed</h5>
+                  {bridgeReceipts.map((receipt, i) => (
+                    <pre key={i} className="window-commands__receipt">{receipt}</pre>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {renderCommandLists()}
           {!showSetup && (
             <div className="window-devices__actions">
               <button type="button" className="window-btn" onClick={openSetup}>
