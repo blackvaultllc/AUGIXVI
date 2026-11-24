@@ -167,9 +167,14 @@ describe("clean-screen round — every god his own chat", () => {
   });
 
   it("Anubis's and Montu's medallion taps route AND open the chat", () => {
+    // SUPERSEDED IN PART (owner order 2026-11-24 ~11:27–11:31 EST,
+    // the gods-on-the-sides round): the tap that routes and opens
+    // is now the god's SIDE-SLOT tap — the slot is where a god
+    // rests and is tapped from; his big front face's tap now
+    // returns him to his place. The law itself is unchanged: tap
+    // a god, and his chat opens, addressed to him.
     expect(stageSource).toContain("EVERY GOD HIS OWN CHAT");
-    expect(stageSource).toContain('selectGod("anubis");');
-    expect(stageSource).toContain('selectGod("montu");');
+    expect(stageSource).toContain("selectGod(god, { speakGreeting: true });");
     expect(stageSource.match(/openChatBox\(\);/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 });

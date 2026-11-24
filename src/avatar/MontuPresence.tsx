@@ -29,6 +29,7 @@ import { useState } from "react";
 import { MONTU_BINDING } from "./medallionPortraits";
 import { MedallionMenu } from "./MedallionMenu";
 import { LivingPortrait, MONTU_FEATURES } from "./LivingPortrait";
+import { MONTU_MOTION_PROFILE } from "./godMotion";
 import {
   availablePresenceViews,
   effectivePresenceView,
@@ -49,6 +50,7 @@ export function MontuPresence({
   inCouncil = false,
   atAttention = false,
   onSelect,
+  onReturn,
   onRespectAsk,
 }: {
   /** False until the renderer's first frame — the stage is loading. */
@@ -75,6 +77,14 @@ export function MontuPresence({
   atAttention?: boolean;
   /** Tapping the medallion brings Montu into perspective. */
   onSelect?: () => void;
+  /**
+   * RETURN TO HIS PLACE (gods-on-the-sides round, owner order
+   * 2026-11-24): while Montu holds the FRONT, his menu carries
+   * the way back to his side slot. Supplied by the stage only
+   * in the front state; a face tap on the front medallion does
+   * the same.
+   */
+  onReturn?: () => void;
   /**
    * THE RESPECT ASK (owner order 2026-11-23 ~07:22 EST): fired
    * once per session when his face is handled past the threshold.
@@ -151,12 +161,16 @@ export function MontuPresence({
              portrait's colors over the falcon's eyes, and the beak's
              seam moves while he speaks (LivingPortrait). He was the
              one face left frozen; that defect is closed here. The
-             body view carries no feature map and stays a portrait. */
+             body view carries no feature map and stays a portrait.
+             HIS OWN MOTION (2026-11-24): the shared rig bent to the
+             falcon — the stage's sharpest blink, a darting gaze
+             that checks the room's corners, clipped quick speech. */
           <LivingPortrait
             src={MONTU_FACE_SRC}
             features={MONTU_FEATURES}
             speaking={speaking}
             imgClassName="montu-presence__img"
+            motion={MONTU_MOTION_PROFILE}
           />
         )}
       </div>
@@ -172,6 +186,24 @@ export function MontuPresence({
         size={anchor.geometry.size}
         onSizeChange={anchor.setSize}
       >
+        {/* RETURN TO HIS PLACE (gods-on-the-sides round,
+            2026-11-24): the front is a summons, not a seat —
+            this sends him back to his side slot and the stage
+            back to its wallpaper. */}
+        {onReturn && (
+          <button
+            type="button"
+            className="medallion-menu__lock-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onReturn();
+            }}
+            aria-label="Return Montu to his place"
+            title="Return to his place — back to his side slot; the stage rests on the wallpaper"
+          >
+            <span>Return to his place</span>
+          </button>
+        )}
         {views.length > 1 && (
           <button
             type="button"

@@ -74,6 +74,7 @@
 import { useState } from "react";
 import { ANUBIS_BINDING, ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
 import { ANUBIS_FEATURES, LivingPortrait } from "./LivingPortrait";
+import { ANUBIS_MOTION_PROFILE } from "./godMotion";
 import { MedallionMenu } from "./MedallionMenu";
 import {
   availablePresenceViews,
@@ -97,6 +98,7 @@ export function AnubisPresence({
   inCouncil = false,
   atAttention = false,
   onSelect,
+  onReturn,
   stageView,
   onStageViewChange,
   onRespectAsk,
@@ -123,6 +125,14 @@ export function AnubisPresence({
   atAttention?: boolean;
   /** Tapping the medallion brings Anubis into perspective. */
   onSelect?: () => void;
+  /**
+   * RETURN TO HIS PLACE (gods-on-the-sides round, owner order
+   * 2026-11-24): while Anubis holds the FRONT, his menu carries
+   * the way back — he returns to his side slot and the stage to
+   * its wallpaper. Supplied by the stage only in the front
+   * state; a face tap on the front medallion does the same.
+   */
+  onReturn?: () => void;
   /**
    * THE STAGE VIEW (owner eye-check 2026-11-23): the perspective
    * the stage is viewed from — switched by the buttons in his
@@ -221,12 +231,17 @@ export function AnubisPresence({
              plus blinking eyelids and a mouth that moves while Anubis
              speaks — a face, not a frozen picture (LivingPortrait).
              The body view carries no feature map, so it stays a plain
-             portrait; the head is the living face. */
+             portrait; the head is the living face. HIS OWN MOTION
+             (2026-11-24): the shared rig bent to the commander —
+             the stage's slowest, weightiest blink (rebuilt in
+             phases, lower lid rising, lids fitted to the jackal
+             eye's slant), a deliberate gaze, a measured speech. */
           <LivingPortrait
             src={ANUBIS_FACE_SRC}
             features={ANUBIS_FEATURES}
             speaking={speaking}
             imgClassName="anubis-presence__img"
+            motion={ANUBIS_MOTION_PROFILE}
           />
         )}
       </div>
@@ -250,6 +265,24 @@ export function AnubisPresence({
         onEnterEmergencyEdit={anchor.enterEmergencyEdit}
         onExitEmergencyEdit={anchor.exitEmergencyEdit}
       >
+        {/* RETURN TO HIS PLACE (gods-on-the-sides round,
+            2026-11-24): the front is a summons, not a seat —
+            this sends him back to his side slot and the stage
+            back to its wallpaper. */}
+        {onReturn && (
+          <button
+            type="button"
+            className="medallion-menu__lock-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onReturn();
+            }}
+            aria-label="Return Anubis to his place"
+            title="Return to his place — back to his side slot; the stage rests on the wallpaper"
+          >
+            <span>Return to his place</span>
+          </button>
+        )}
         {/* PERSPECTIVE BY BUTTON (owner eye-check 2026-11-23):
             "have a button I can do left perspective, right
             perspective" — the stage's view steps left or right
