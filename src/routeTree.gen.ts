@@ -31,6 +31,8 @@ import { Route as ApiDevicesSightingsRouteImport } from './routes/api.devices.si
 import { Route as ApiDevicesWatchlistRouteImport } from './routes/api.devices.watchlist'
 import { Route as ApiDevicesWepwawetRouteImport } from './routes/api.devices.wepwawet'
 import { Route as ApiLearnerAskRouteImport } from './routes/api.learner.ask'
+import { Route as ApiLearnerDaddyRouteImport } from './routes/api.learner.daddy'
+import { Route as ApiLearnerSayRouteImport } from './routes/api.learner.say'
 import { Route as ApiLibraryArticleRouteImport } from './routes/api.library.article'
 import { Route as ApiLibraryCatalogRouteImport } from './routes/api.library.catalog'
 import { Route as ApiLibrarySearchRouteImport } from './routes/api.library.search'
@@ -159,6 +161,16 @@ const ApiLearnerAskRoute = ApiLearnerAskRouteImport.update({
   path: '/api/learner/ask',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLearnerDaddyRoute = ApiLearnerDaddyRouteImport.update({
+  id: '/api/learner/daddy',
+  path: '/api/learner/daddy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLearnerSayRoute = ApiLearnerSayRouteImport.update({
+  id: '/api/learner/say',
+  path: '/api/learner/say',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLibraryArticleRoute = ApiLibraryArticleRouteImport.update({
   id: '/api/library/article',
   path: '/api/library/article',
@@ -264,6 +276,8 @@ export interface FileRoutesByFullPath {
   '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
   '/api/devices/wepwawet': typeof ApiDevicesWepwawetRoute
   '/api/learner/ask': typeof ApiLearnerAskRoute
+  '/api/learner/daddy': typeof ApiLearnerDaddyRoute
+  '/api/learner/say': typeof ApiLearnerSayRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -304,6 +318,8 @@ export interface FileRoutesByTo {
   '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
   '/api/devices/wepwawet': typeof ApiDevicesWepwawetRoute
   '/api/learner/ask': typeof ApiLearnerAskRoute
+  '/api/learner/daddy': typeof ApiLearnerDaddyRoute
+  '/api/learner/say': typeof ApiLearnerSayRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -345,6 +361,8 @@ export interface FileRoutesById {
   '/api/devices/watchlist': typeof ApiDevicesWatchlistRoute
   '/api/devices/wepwawet': typeof ApiDevicesWepwawetRoute
   '/api/learner/ask': typeof ApiLearnerAskRoute
+  '/api/learner/daddy': typeof ApiLearnerDaddyRoute
+  '/api/learner/say': typeof ApiLearnerSayRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
   '/api/library/search': typeof ApiLibrarySearchRoute
@@ -387,6 +405,8 @@ export interface FileRouteTypes {
     | '/api/devices/watchlist'
     | '/api/devices/wepwawet'
     | '/api/learner/ask'
+    | '/api/learner/daddy'
+    | '/api/learner/say'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -427,6 +447,8 @@ export interface FileRouteTypes {
     | '/api/devices/watchlist'
     | '/api/devices/wepwawet'
     | '/api/learner/ask'
+    | '/api/learner/daddy'
+    | '/api/learner/say'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -467,6 +489,8 @@ export interface FileRouteTypes {
     | '/api/devices/watchlist'
     | '/api/devices/wepwawet'
     | '/api/learner/ask'
+    | '/api/learner/daddy'
+    | '/api/learner/say'
     | '/api/library/article'
     | '/api/library/catalog'
     | '/api/library/search'
@@ -508,6 +532,8 @@ export interface RootRouteChildren {
   ApiDevicesWatchlistRoute: typeof ApiDevicesWatchlistRoute
   ApiDevicesWepwawetRoute: typeof ApiDevicesWepwawetRoute
   ApiLearnerAskRoute: typeof ApiLearnerAskRoute
+  ApiLearnerDaddyRoute: typeof ApiLearnerDaddyRoute
+  ApiLearnerSayRoute: typeof ApiLearnerSayRoute
   ApiLibraryArticleRoute: typeof ApiLibraryArticleRoute
   ApiLibraryCatalogRoute: typeof ApiLibraryCatalogRoute
   ApiLibrarySearchRoute: typeof ApiLibrarySearchRoute
@@ -682,6 +708,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLearnerAskRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/learner/daddy': {
+      id: '/api/learner/daddy'
+      path: '/api/learner/daddy'
+      fullPath: '/api/learner/daddy'
+      preLoaderRoute: typeof ApiLearnerDaddyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/learner/say': {
+      id: '/api/learner/say'
+      path: '/api/learner/say'
+      fullPath: '/api/learner/say'
+      preLoaderRoute: typeof ApiLearnerSayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/library/article': {
       id: '/api/library/article'
       path: '/api/library/article'
@@ -820,6 +860,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDevicesWatchlistRoute: ApiDevicesWatchlistRoute,
   ApiDevicesWepwawetRoute: ApiDevicesWepwawetRoute,
   ApiLearnerAskRoute: ApiLearnerAskRoute,
+  ApiLearnerDaddyRoute: ApiLearnerDaddyRoute,
+  ApiLearnerSayRoute: ApiLearnerSayRoute,
   ApiLibraryArticleRoute: ApiLibraryArticleRoute,
   ApiLibraryCatalogRoute: ApiLibraryCatalogRoute,
   ApiLibrarySearchRoute: ApiLibrarySearchRoute,

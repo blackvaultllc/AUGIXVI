@@ -157,8 +157,11 @@ export function forgetLearnerDevice(storageOverride?: LocalStorageLike): void {
  *
  * The exact paths: her page, her two game rooms, the two game files,
  * her Squishy Maker's action doorway (the game's own saves, nothing
- * else), and Augie the Flower's ask doorway (school questions,
- * answered from the library). The prefixes cover only static files
+ * else), Augie the Flower's ask doorway (school questions, answered
+ * from the library), the Flower's say doorway (her voice, spoken by
+ * the core), and the daddy doorway — her line to her father, the one
+ * contact the wall opens for by his order (2026-11-24); it reaches
+ * Domenick Arlon Hall and nobody else. The prefixes cover only static files
  * that belong to her: the Squishy Maker bundle's assets and her art
  * pictures. No prefix reaches an operator route or an operator API —
  * /api/learner/ask is an exact path, so /api/transcribe and the rest
@@ -173,6 +176,11 @@ export const LEARNER_ALLOWED_PATHS = [
   "/games/squishy-maker/index.html",
   "/games/squishy-maker/actions",
   "/api/learner/ask",
+  // The Flower's real voice (Piper on the core) — her speech doorway.
+  "/api/learner/say",
+  // Her line to Daddy — the one contact the wall always opens for
+  // (owner order 2026-11-24). It reaches her father and nobody else.
+  "/api/learner/daddy",
 ];
 
 export const LEARNER_ALLOWED_PREFIXES = ["/games/squishy-maker/assets/", "/learner-art/"];
