@@ -339,29 +339,12 @@ export function SpinningEarth({
       {chromeVisible && (
         /* ANUBIS ON THE LEFT (owner order 2026-11-24): his face in a still
            circular medallion on the LEFT side of the scene — never the
-           middle — while the Earth spins. The circle does not move. */
-        <div
-          className="spinning-earth__anubis-medallion pointer-events-none absolute z-20"
-          style={{
-            left: "clamp(0.75rem, 3vw, 2.5rem)",
-            top: "50%",
-            transform: "translateY(-50%)",
-            width: "clamp(5.5rem, 17vmin, 11rem)",
-            height: "clamp(5.5rem, 17vmin, 11rem)",
-          }}
-          aria-hidden="true"
-        >
-          <img
-            src={ANUBIS_PORTRAIT_SRC}
-            alt=""
-            className="h-full w-full rounded-full object-cover"
-            style={{
-              border: "3px solid oklch(0.78 0.14 82 / 0.9)",
-              boxShadow:
-                "0 0 0 2px oklch(0.08 0.02 265 / 0.9), 0 0 34px oklch(0.78 0.14 82 / 0.35)",
-              background: "#000",
-            }}
-          />
+           middle — while the Earth spins. The circle does not move.
+           Placement lives in styles.css (.spinning-earth__anubis-medallion);
+           on phone widths it steps up to the upper left so the centered
+           sign-in card never covers the face. */
+        <div className="spinning-earth__anubis-medallion" aria-hidden="true">
+          <img src={ANUBIS_PORTRAIT_SRC} alt="" />
         </div>
       )}
     </div>

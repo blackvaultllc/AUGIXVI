@@ -18,6 +18,7 @@ const sceneSource = readFileSync(
   resolve(process.cwd(), "src/components/SpinningEarth.tsx"),
   "utf8",
 );
+const css = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 
 describe("earth scene — the dressing is gone, the Earth stays", () => {
   it("no satellites, no meteor/shooting star, no whoosh, no moving orb in the scene source", () => {
@@ -51,8 +52,9 @@ describe("earth scene — Anubis's face on the left", () => {
     expect(medallion).not.toBeNull();
     const img = medallion?.querySelector("img");
     expect(img?.getAttribute("src")).toBe("/anubis-presence/face.webp");
-    // Circular presentation.
-    expect(img?.className).toContain("rounded-full");
+    // Circular presentation, carried by the stylesheet's medallion rule.
+    expect(css).toContain(".spinning-earth__anubis-medallion img");
+    expect(css).toContain("border-radius: 9999px");
   });
 
   it("the medallion sits on the LEFT side — pinned left, vertically centered, never centered horizontally", () => {
@@ -61,16 +63,21 @@ describe("earth scene — Anubis's face on the left", () => {
       ".spinning-earth__anubis-medallion",
     );
     expect(medallion).not.toBeNull();
-    // Placement is pinned in the scene source (jsdom's CSS parser drops
-    // clamp() declarations, so the parsed style cannot carry this pin —
-    // the rendered page is verified separately in a real browser):
-    // left edge pinned near the scene's left side, vertically centered
-    // by a Y-only transform — no X centering, it is NOT in the middle.
-    expect(sceneSource).toContain('left: "clamp(0.75rem, 3vw, 2.5rem)"');
-    expect(sceneSource).toContain('top: "50%"');
-    expect(sceneSource).toContain('transform: "translateY(-50%)"');
-    expect(sceneSource).not.toContain("translateX(-50%)");
+    // Placement is pinned in the stylesheet (the rendered page is
+    // verified separately in a real browser): left edge pinned near the
+    // scene's left side, vertically centered by a Y-only transform — no
+    // X centering in the medallion's own rule, it is NOT in the middle.
+    const ruleStart = css.indexOf(".spinning-earth__anubis-medallion {");
+    const rule = css.slice(ruleStart, css.indexOf("}", ruleStart));
+    expect(rule).toContain("left: clamp(0.75rem, 3vw, 2.5rem)");
+    expect(rule).toContain("top: 50%");
+    expect(rule).toContain("transform: translateY(-50%)");
+    expect(rule).not.toContain("translateX");
     expect(sceneSource).toContain("ANUBIS_PORTRAIT_SRC");
+    // Phone widths: the medallion steps up to the upper left so the
+    // centered sign-in card never covers the face.
+    expect(css).toContain("@media (max-width: 640px)");
+    expect(css).toContain("top: 10%");
   });
 
   it("renders the medallion on the landing view too, and hides it with the chrome during the flight", () => {
