@@ -1,7 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DeviceCommandsPanel } from "@/avatar/devices/DeviceCommandsPanel";
 import { saveBinding } from "@/avatar/devices/commandModule";
+import { WEPWAWET_DOG_PROFILE } from "@/avatar/devices/commandProfiles";
+import { WEPWAWET_REMOTE_IDS } from "@/avatar/devices/wepwawetRemote";
 import type { DeviceProfile } from "@/avatar/devices/deviceRegistry";
 
 /**
@@ -155,7 +157,12 @@ describe("Device commands panel — Wepwawet's card", () => {
   const dogDevice = () => device({ id: "device-dog", displayName: "Wepwawet" });
 
   const sendButtonFor = (name: string) => {
-    const item = screen.getByText(name, { exact: true }).closest("li");
+    // The remote repeats the command names on its own buttons; the
+    // Send button lives in the grouped list's <li>, so pick the
+    // match that stands inside a list item.
+    const matches = screen.getAllByText(name, { exact: true });
+    const el = matches.find((m) => m.closest("li"));
+    const item = el?.closest("li");
     if (!item) throw new Error(`${name} command not rendered`);
     const button = item.querySelector("button");
     if (!button) throw new Error(`no send button for ${name}`);
@@ -184,7 +191,9 @@ describe("Device commands panel — Wepwawet's card", () => {
       "Music step",
       "Program — execute",
     ]) {
-      expect(screen.getByText(name, { exact: true })).toBeTruthy();
+      // Names stand on the grouped list AND on the remote — both
+      // surfaces carry them; presence is what this check pins.
+      expect(screen.getAllByText(name, { exact: true }).length).toBeGreaterThan(0);
     }
     expect(screen.getByText("How to control Wepwawet")).toBeTruthy();
     expect(screen.getByText(/press-and-hold the switch under the dog/)).toBeTruthy();
@@ -261,5 +270,107 @@ describe("Device commands panel — Wepwawet's card", () => {
     expect(fetchCalls[0]!.body.live).toBe(true);
     expect(fetchCalls[0]!.body.holdMs).toBe(3000);
     expect(fetchCalls[1]!.body.holdMs).toBe(500);
+  });
+
+  const remote = () => screen.getByRole("region", { name: "Wepwawet remote control" });
+
+  it("the remote layout names only commands the dog profile really has", () => {
+    const profileIds = new Set(WEPWAWET_DOG_PROFILE.commands.map((c) => c.id));
+    expect(new Set(WEPWAWET_REMOTE_IDS).size).toBe(WEPWAWET_REMOTE_IDS.length);
+    for (const id of WEPWAWET_REMOTE_IDS) {
+      expect(profileIds.has(id)).toBe(true);
+    }
+  });
+
+  it("the remote renders a labelled pad, the actions, and the Feed row — no icon-only buttons", () => {
+    render(<DeviceCommandsPanel device={dogDevice()} />);
+    const r = within(remote());
+    expect(r.getByText(/Remote control — click to drive him/)).toBeTruthy();
+    expect(r.getByText(/No talking needed/)).toBeTruthy();
+    for (const name of [
+      "Forward",
+      "Back",
+      "Turn left",
+      "Turn right",
+      "Stop",
+      "Greet",
+      "Sit",
+      "Lie down",
+      "Dance",
+      "Kung fu",
+      "Swim",
+      "Bless",
+      "Act cute",
+      "Handstand",
+      "Push-ups",
+      "Patrol",
+      "Pee",
+      "Light",
+      "Song",
+      "Learn / story",
+      "AI content",
+      "Feed 1",
+      "Feed 8",
+    ]) {
+      expect(r.getByRole("button", { name })).toBeTruthy();
+    }
+    // Every button on the remote carries words a person can read.
+    for (const button of r.getAllByRole("button")) {
+      expect(button.textContent?.trim().length).toBeGreaterThan(0);
+    }
+    expect(r.getByText(/Remote is in Practice/)).toBeTruthy();
+  });
+
+  it("a remote click in Practice walks the same bridge, dry — frames printed, live flag false", async () => {
+    render(<DeviceCommandsPanel device={dogDevice()} />);
+    fireEvent.click(within(remote()).getByRole("button", { name: "Forward" }));
+    await waitFor(() => {
+      expect(screen.getAllByText(/Practice run/).length).toBeGreaterThan(0);
+    });
+    expect(fetchCalls.length).toBe(2);
+    for (const call of fetchCalls) {
+      expect(call.url).toBe("/api/devices/wepwawet");
+      expect(call.body.live).toBe(false);
+    }
+    expect(fetchCalls[0]!.body.holdMs).toBe(3000);
+    // The remote reports its own click's outcome under itself.
+    expect(within(remote()).getByText(/Remote — Forward:/)).toBeTruthy();
+  });
+
+  it("the LIVE switch governs the remote exactly as it governs the card", async () => {
+    render(<DeviceCommandsPanel device={dogDevice()} />);
+    fireEvent.click(screen.getByRole("switch", { name: "Live fire switch" }));
+    expect(within(remote()).getByText(/Remote is LIVE/)).toBeTruthy();
+    fireEvent.click(within(remote()).getByRole("button", { name: "Back" }));
+    await waitFor(() => {
+      expect(screen.getAllByText(/Broadcast on air/).length).toBeGreaterThan(0);
+    });
+    expect(fetchCalls.length).toBe(2);
+    expect(fetchCalls[0]!.body.live).toBe(true);
+    expect(fetchCalls[0]!.body.holdMs).toBe(3000);
+  });
+
+  it("a Never use sound pick disables that button on the remote too", () => {
+    render(<DeviceCommandsPanel device={dogDevice()} />);
+    const r = within(remote());
+    expect(
+      (r.getByRole("button", { name: "Song" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+    fireEvent.click(screen.getByRole("switch", { name: "Sound pick for Song" }));
+    expect(
+      (r.getByRole("button", { name: /Song — set to Never use/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("without the control grant every remote button is disabled", () => {
+    render(
+      <DeviceCommandsPanel
+        device={device({ id: "device-dog", displayName: "Wepwawet", controlGranted: false })}
+      />,
+    );
+    for (const button of within(remote()).getAllByRole("button")) {
+      expect((button as HTMLButtonElement).disabled).toBe(true);
+    }
   });
 });
