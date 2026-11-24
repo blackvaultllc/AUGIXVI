@@ -1423,3 +1423,108 @@
   width: 1.05rem;
   height: 1.05rem;
 }
+
+/* ================================================================
+   33) THE CAPTAIN'S WINDOW — EGYPTIAN DRESS (owner order
+   2026-11-24 ~17:26 EST: "the chat box, I don't like it — I need
+   it to be more Egyptian," and the interface cleaner and more
+   organized). The standalone chat window wears the stage's own
+   dress: a gold trim on a deep blue-black frame, gold on its
+   controls, a clean lean face — no new clutter, nothing moved.
+   Clean outranks decoration: this section only finishes the
+   frame and its controls; every layout rule above stands.
+   ================================================================ */
+.avatar-stage .avatar-command-box {
+  border: 1px solid rgb(216 178 90 / 78%);
+  border-radius: 0.7rem;
+  background: linear-gradient(180deg, rgb(14 18 38 / 97%), rgb(8 10 22 / 98%));
+  box-shadow:
+    0 0 0 1px rgb(4 6 14 / 95%),
+    0 0 0 3px rgb(216 178 90 / 26%),
+    0 18px 44px rgb(0 0 0 / 55%);
+}
+.avatar-stage .avatar-command-box__rail {
+  border-right: 1px solid rgb(216 178 90 / 38%);
+  background: linear-gradient(180deg, rgb(216 178 90 / 10%), rgb(216 178 90 / 3%));
+}
+.avatar-stage .avatar-command-box__grip-toggle {
+  color: #f3d27a;
+  border-color: rgb(216 178 90 / 45%);
+}
+.avatar-stage .avatar-command-box__tab {
+  color: #cfd8e6;
+}
+.avatar-stage .avatar-command-box__tab[aria-selected="true"] {
+  color: #f3d27a;
+  border-color: rgb(216 178 90 / 65%);
+  background: rgb(216 178 90 / 12%);
+}
+.avatar-stage .avatar-command-box__input {
+  border: 1px solid rgb(216 178 90 / 45%);
+  background: rgb(6 8 18 / 85%);
+  color: #eef2f6;
+}
+.avatar-stage .avatar-command-box__input:focus {
+  border-color: rgb(243 210 122 / 90%);
+  box-shadow: 0 0 0 2px rgb(216 178 90 / 35%);
+  outline: none;
+}
+.avatar-stage .avatar-command-box__send {
+  background: linear-gradient(180deg, #e8c766, #b98a2e);
+  border: 1px solid rgb(120 84 16 / 80%);
+  color: #1a1405;
+}
+.avatar-stage .avatar-command-box__icon-button {
+  color: #f3d27a;
+}
+.avatar-stage .avatar-command-box__options-toggle {
+  color: #f3d27a;
+  border-color: rgb(216 178 90 / 45%);
+}
+.avatar-stage .avatar-command-box__menu-item:hover,
+.avatar-stage .avatar-command-box__option:hover {
+  background: rgb(216 178 90 / 12%);
+}
+
+/* ================================================================
+   34) THE WALLPAPER PICKER (owner order 2026-11-24 ~17:26 EST):
+   the tiles the menu's "Change wallpaper" entry opens — his own
+   stage pictures, big enough to read at a glance, the set one
+   ringed in gold. Tapping sets the wallpaper at once.
+   ================================================================ */
+.avatar-stage .wallpaper-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.avatar-stage .wallpaper-picker__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border: 1px solid rgb(216 178 90 / 35%);
+  border-radius: 0.6rem;
+  background: rgb(10 12 24 / 60%);
+  color: #eef2f6;
+  cursor: pointer;
+  text-align: left;
+}
+.avatar-stage .wallpaper-picker__tile.is-picked {
+  border-color: rgb(216 178 90 / 95%);
+  box-shadow: 0 0 0 1px rgb(216 178 90 / 65%);
+}
+.avatar-stage .wallpaper-picker__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.35rem;
+}
+.avatar-stage .wallpaper-picker__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.avatar-stage .wallpaper-picker__blurb {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}

@@ -34,6 +34,7 @@ import {
   Hammer,
   History,
   Home,
+  Image as ImageIcon,
   LandPlot,
   Map as MapIcon,
   Network,
@@ -160,6 +161,7 @@ import {
 } from "./godStage";
 import { GodMedallions } from "./GodMedallions";
 import { OsirisMedallion } from "./OsirisMedallion";
+import { WallpaperPicker } from "./WallpaperPicker";
 import { closeWithBlessing } from "./etiquette";
 import {
   applyNotificationInstruction,
@@ -1057,6 +1059,11 @@ export function AvatarStage({
   // a failed load and the layer simply never covers anything).
   const [backdrop, setBackdrop] = useState<StageBackdropId>(loadStageBackdrop);
   const [backdropArtReady, setBackdropArtReady] = useState(true);
+  // CHANGE WALLPAPER (owner order 2026-11-24 ~17:26 EST): he went
+  // looking in the menu for the wallpaper and could not find it —
+  // the Scene tab now opens with a plainly labeled "Change
+  // wallpaper" entry, and this state is its picker standing open.
+  const [wallpaperPickerOpen, setWallpaperPickerOpen] = useState(false);
   const applyBackdrop = useCallback((id: StageBackdropId) => {
     setBackdrop(id);
     saveStageBackdrop(id);
@@ -1185,6 +1192,27 @@ export function AvatarStage({
       setRoomSurfaces(room, { ...room.surfaces, backdropImage: image, backdropFit: fit }),
     );
   }, [updateRoom]);
+
+  // The menu's wallpaper pick: applies at once (the room follows
+  // immediately) and syncs exactly like the builder's pick — the
+  // settings carry it to his other devices (owner decision
+  // 2026-11-23, surfaced in the menu 2026-11-24 ~17:26 EST).
+  const pickWallpaper = useCallback(
+    (image: string | null) => {
+      const fit = activeLayout(layoutStoreRef.current).room.surfaces.backdropFit;
+      applyBackdropPick(image, fit);
+      const current = settingsRef.current;
+      if (current.backdropImage !== image || current.backdropFit !== fit || !current.backdropSynced) {
+        persistSettings({
+          ...current,
+          backdropImage: image,
+          backdropFit: fit,
+          backdropSynced: true,
+        });
+      }
+    },
+    [applyBackdropPick, persistSettings],
+  );
 
   // On load, this device's own settings copy may already carry
   // the last-synced pick (saved on this device or pulled from the
@@ -3797,6 +3825,31 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   }}
                 />
               </div>
+            </CommandGroup>
+          )}
+          {commandTab === "scene" && (
+            <CommandGroup label="Wallpaper — the picture behind everything">
+              <div className="avatar-command-box__grid">
+                <CommandAction
+                  icon={ImageIcon}
+                  label="Change wallpaper"
+                  onClick={() => setWallpaperPickerOpen((open) => !open)}
+                />
+              </div>
+              {wallpaperPickerOpen && (
+                <WallpaperPicker
+                  picked={stageSurfaces.backdropImage}
+                  onPick={(image) => {
+                    pickWallpaper(image);
+                    setWallpaperPickerOpen(false);
+                    say(
+                      image
+                        ? "Wallpaper set, Captain — it is behind everything now."
+                        : "Wallpaper cleared, Captain — the plain stage.",
+                    );
+                  }}
+                />
+              )}
             </CommandGroup>
           )}
           {commandTab === "scene" && (
