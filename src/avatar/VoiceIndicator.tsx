@@ -150,7 +150,19 @@ export function VoiceIndicator({
         width={WIDTH}
         height={HEIGHT}
         aria-hidden="true"
-        style={{ display: "block", width: WIDTH, height: HEIGHT }}
+        style={{
+          display: "block",
+          // PHONE LANE (owner phone screenshots 2026-11-24): the
+          // graph scales DOWN to the panel's measure on narrow
+          // stages instead of holding the panel at graph width —
+          // at full width it was the widest thing in the right
+          // cluster and pushed that panel across the left one's
+          // words. The bitmap (and the drawing on it) is unchanged;
+          // on any panel wide enough it renders at its full 168.
+          width: "100%",
+          maxWidth: WIDTH,
+          height: "auto",
+        }}
       />
       <div style={{ fontWeight: 700, letterSpacing: 0.4, fontSize: 16 }}>
         <span style={{ color: hearing ? "#7ee2a8" : "#f0a35e" }}>

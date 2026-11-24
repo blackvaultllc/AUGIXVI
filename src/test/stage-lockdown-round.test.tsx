@@ -229,7 +229,16 @@ describe("content-sized clusters, bifocal type", () => {
     expect(phoneStart).toBeGreaterThan(-1);
     const phone = stageCss.slice(phoneStart);
     expect(phone).toContain("font-size: 0.85rem");
-    expect(phone).toContain("max-width: 62vw");
+    // SUPERSEDED (owner phone screenshots 2026-11-24 ~01:43 CST):
+    // the shared 62vw cap let the two panels' boxes overlap
+    // mid-stage — the left panel's HANDS line ran under the right
+    // panel. The caps are split now (48vw left + 46vw right +
+    // the stage margins sum to less than the full width) so the
+    // boxes can never meet; the hearing block stands in its own
+    // lane at the right panel's foot (section 23).
+    expect(phone).toContain("max-width: 48vw");
+    expect(phone).toContain("max-width: 46vw");
+    expect(phone).toContain(".avatar-stage .voice-indicator");
   });
 
   it("the lock, the perspective row, and the emergency ring are styled", () => {
@@ -238,6 +247,34 @@ describe("content-sized clusters, bifocal type", () => {
     expect(stageCss).toContain(".medallion-menu__perspective-button");
     expect(stageCss).toContain('.medallion-menu__perspective-button[aria-pressed="true"]');
     expect(stageCss).toContain("medallion-anchor--emergency-edit");
+  });
+});
+
+describe("the phone stage fix (owner phone screenshots 2026-11-24)", () => {
+  it("the construct panel has ONE scroll region on the phone bar — no nested clip", () => {
+    // DEFECT 2: the machinery wrapper's 46% cap clipped the panel
+    // mid-row (CONSTRUCT POSITION's second row half-shown). The
+    // phone bar sizes the machinery to its content and lets the
+    // panel alone scroll, past the Motion tab's full height.
+    const fixStart = stageCss.indexOf("23. THE PHONE STAGE");
+    expect(fixStart).toBeGreaterThan(-1);
+    const fix = stageCss.slice(fixStart);
+    const machineryStart = fix.indexOf(".avatar-command-box__machinery {");
+    const machinery = fix.slice(machineryStart, fix.indexOf("}", machineryStart));
+    expect(machinery).toContain("max-height: none");
+    expect(machinery).toContain("overflow: visible");
+    const panelStart = fix.indexOf(".avatar-command-box__panel {");
+    const panel = fix.slice(panelStart, fix.indexOf("}", panelStart));
+    expect(panel).toContain("max-height: 16rem");
+  });
+
+  it("the hearing graph scales to its lane instead of forcing the panel wide", () => {
+    const indicator = readFileSync(
+      resolve(process.cwd(), "src/avatar/VoiceIndicator.tsx"),
+      "utf8",
+    );
+    expect(indicator).toContain('width: "100%"');
+    expect(indicator).toContain("maxWidth: WIDTH");
   });
 });
 

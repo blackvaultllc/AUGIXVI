@@ -1078,6 +1078,18 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         ],
         where: "Picture Analysis window and the /avatar/analyze page.",
       },
+      {
+        id: "ts-phone-stage",
+        title: "The phone stage — panels apart, controls whole",
+        state: "live",
+        what: "Fixed from the Captain's own phone screenshots (2026-11-24). The two top panels can no longer overlap: on phone widths the left panel is capped at 48% of the stage width and the right at 46%, so their boxes always stand apart with stage showing between them — no panel's words ever run under the other again. The hearing state stands in its own lane at the foot of the right panel, under a hairline: the level graph (which now scales to the lane on narrow screens), the HEARING YOU / NOT HEARING line, and the reason in plain words when he is not heard — all fully visible, covering nothing, clear of Anubis. In the construct panel, the machinery sizes to its content and the tab panel alone scrolls, so CONSTRUCT POSITION shows every control whole — Bring in, Left, Right, Home — nothing half-cut above the Clear / History row. Desktop geometry is unchanged.",
+        steps: [
+          "On the phone, look at the top of the stage: the CORE panel (left) and the STATUS panel (right) stand apart, and the hearing lane under STATUS reads whole.",
+          "Open the construct panel → Motion: every CONSTRUCT POSITION control stands whole; longer tabs scroll inside their panel.",
+          "If anything still overlaps or clips on your screen, screenshot it and report it — no overlaps anywhere is the standing law.",
+        ],
+        where: "The stage on the phone. The Parrot copy carries the fix; the online copy follows when its deploy runs.",
+      },
     ],
   },
   {

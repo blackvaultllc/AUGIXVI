@@ -463,10 +463,27 @@
   .avatar-stage div.avatar-hud {
     font-size: 0.85rem;
     line-height: 1.7;
+    /* PHONE STAGE FIX (owner phone screenshots 2026-11-24 ~01:43
+       CST): the tracking tightens a step at phone widths so the
+       standing lines keep their line count at the narrower panel
+       measure below. The bifocal terms — 0.85rem type, 1.7
+       line-height — are untouched. */
+    letter-spacing: 0.08em;
   }
-  .avatar-stage .avatar-hud--tl,
+  /* THE TWO PANELS CAN NEVER MEET (same screenshots): at 62vw
+     EACH, the two top panels' boxes overlapped across the middle
+     of a phone stage — the left panel's lower lines (the HANDS
+     line) ran underneath the right panel, and the hearing block
+     read as a card pasted across both. The caps now sum with the
+     stage margins to less than the full width — 48vw left, 46vw
+     right — so the boxes stand apart at every phone width, each
+     panel's words its own. (Supersedes the lock-down's shared
+     62vw cap.) */
+  .avatar-stage .avatar-hud--tl {
+    max-width: 48vw;
+  }
   .avatar-stage .avatar-hud--tr {
-    max-width: 62vw;
+    max-width: 46vw;
   }
 }
 
@@ -883,7 +900,9 @@
    inside it, and a long warning line (sensor, knowledge) wraps
    the same way instead of stretching its panel. Both top
    clusters carry the cap — the failure mode is the same in
-   either. The phone keeps its own 62vw cap below. */
+   either. The phone keeps its own caps (48vw / 46vw — the
+   phone block above, narrowed 2026-11-24 so the two panels can
+   never meet; see section 23). */
 @media (min-width: 701px) {
   .avatar-stage .avatar-hud--tl,
   .avatar-stage .avatar-hud--tr {
@@ -895,4 +914,49 @@
 }
 .avatar-stage .avatar-hud__warning {
   overflow-wrap: break-word;
+}
+
+/* 23. THE PHONE STAGE — THE HEARING LANE + THE CONSTRUCT PANEL
+   (owner phone screenshots 2026-11-24 ~01:43–01:44 CST) --------
+   Two defects from his own phone, one pass:
+
+   DEFECT 1 — the hearing state ("NOT HEARING · ANUBIS / THE
+   MICROPHONE IS OFF.") rendered ON TOP of both top HUD panels:
+   the panels' boxes overlapped mid-stage (their caps are fixed
+   in the phone block above — 48vw + 46vw + the stage margins
+   sum to less than the full width, so the boxes can never meet
+   again), and the hearing block now stands in its OWN LANE at
+   the foot of the right panel — a hairline above it, a breath
+   of space — a system state card inside the one panel, clear
+   of every other panel's words and of Anubis's medallion. The
+   truth display itself is untouched: the graph (now scaling to
+   its lane instead of forcing the panel wide — VoiceIndicator),
+   the NOT HEARING line at 16px, the reason in words at 14px.
+
+   DEFECT 2 — in the open construct panel, CONSTRUCT POSITION
+   clipped: "Bring in / ← Left / → Right" showed with the second
+   row (Home) half-cut beneath it. The cause was two nested
+   caps: the panel scrolls at 14rem, but the machinery wrapper
+   around it was capped at 46% of the box with hidden
+   scrollbars, so the wrapper clipped the panel mid-row and the
+   panel's own scroll never engaged. On the phone bar there is
+   now ONE scroll region: the machinery sizes to its content,
+   and the panel alone scrolls when a tab's content runs past
+   its cap — a cap set past the Motion tab's full height, so
+   every position control stands whole. The desktop box keeps
+   its own geometry, untouched. */
+@media (max-width: 700px) {
+  .avatar-stage .voice-indicator {
+    border-top: 1px solid rgb(148 197 255 / 28%);
+    margin-top: 0.35rem;
+    padding-top: 0.5rem;
+  }
+  .avatar-stage .avatar-command-box--phone-bar .avatar-command-box__machinery {
+    flex: 0 0 auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .avatar-stage .avatar-command-box--phone-bar .avatar-command-box__panel {
+    max-height: 16rem;
+  }
 }
