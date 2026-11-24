@@ -1101,3 +1101,56 @@
   flex: none;
 
 }
+
+/* ---- 29) THE ACTIVITY LINE NEVER LEAVES ITS PANEL (owner phone
+   screenshots 2026-11-24, online copy) ------------------------------
+   The ACTIVITY musing in the top-left panel ran BEHIND Anubis's
+   medallion ring and was cut mid-word ("Watching the business
+   producti… stea… re…"). The panel's box stands clear of the
+   medallion — the leak was the text flow inside it. At phone sizes
+   the panel now clips its contents to its own bounds and every
+   line inside it wraps within the panel's width: no glyph of the
+   panel can paint outside the panel, so no word can slide under
+   the ring again. The bifocal terms (0.85rem type, 1.7 line-height)
+   are untouched — the words simply take another line inside the
+   box, whole. */
+@media (max-width: 700px) {
+  .avatar-stage .avatar-hud--tl {
+    overflow: hidden;
+  }
+  .avatar-stage .avatar-hud--tl > * {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .avatar-stage .avatar-hud__activity {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ---- 30) THE PLACEMENT CARD ENDS ABOVE THE BAR (owner phone
+   screenshot 2026-11-24 09:18 CST) ----------------------------------
+   With Anubis's placement card open (Centered · locked / Emergency
+   edit / PERSPECTIVE), the card's lower half slid UNDER the folded
+   bottom chat bar — the perspective buttons sat behind the bar,
+   unreachable. The card hangs below its medallion anchor, and on a
+   phone the medallion's lower half is already near the bar. The
+   law, same family as section 29: an open card above the bar ENDS
+   above the bar. At phone sizes the card docks to the viewport
+   just above the folded bar (whose top edge stands ~6.65rem off
+   the stage bottom: 1.25rem offset + the bar's own ~5.4rem),
+   centered, capped in height with its own scroll — every control
+   inside it reachable. Desktop keeps the anchored drop-down: the
+   desktop stage has the room, and no defect was seen there. */
+@media (max-width: 700px) {
+  .medallion-menu__panel {
+    position: fixed;
+    top: auto;
+    bottom: calc(7.25rem + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100dvh - 9.5rem);
+    overflow-y: auto;
+  }
+}

@@ -639,6 +639,78 @@
 .avatar-space-view__landing-overlay > * {
   pointer-events: auto;
 }
+/* MONTU GUARDS THE GATE (owner order 2026-11-24 ~10:00 EST): the
+   spinning Earth is OFF the front intro. Montu, the war god, stands
+   at the login surface in a big circular medallion presented exactly
+   like Anubis's — gold ring, living face — on the left, while the
+   sign-in card holds the center. Nobody reaches Anubis without
+   signing in. The Earth scene itself is untouched: it still renders
+   for the orbital view inside the app. */
+.avatar-space-view__montu-guard {
+  position: absolute;
+  z-index: 5;
+  left: clamp(1rem, 4vw, 3.5rem);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  pointer-events: none;
+}
+.avatar-space-view__montu-ring {
+  position: relative;
+  display: block;
+  width: clamp(13rem, 30vmin, 21rem);
+  height: clamp(13rem, 30vmin, 21rem);
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 3px solid oklch(0.78 0.14 82 / 0.9);
+  box-shadow:
+    0 0 0 2px oklch(0.08 0.02 265 / 0.9),
+    0 0 44px oklch(0.78 0.14 82 / 0.35);
+  background: #000;
+}
+.avatar-space-view__montu-ring .living-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.avatar-space-view__montu-face {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 9999px;
+}
+.avatar-space-view__montu-name {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.22em;
+  color: oklch(0.78 0.14 82);
+  text-align: center;
+  white-space: nowrap;
+}
+/* Phone widths: the centered sign-in card would cover him at
+   mid-left, so the guardian steps up to the top center — still
+   big, still watching — and the overlay's content box starts below
+   him so the card never covers the medallion. */
+@media (max-width: 640px) {
+  .avatar-space-view__montu-guard {
+    left: 50%;
+    top: max(2.75rem, env(safe-area-inset-top));
+    transform: translateX(-50%);
+  }
+  .avatar-space-view__montu-ring {
+    width: 7.5rem;
+    height: 7.5rem;
+  }
+  .avatar-space-view__montu-name {
+    font-size: 0.68rem;
+  }
+  .avatar-space-view--landing .avatar-space-view__landing-overlay {
+    padding-top: 12rem;
+  }
+}
 /* ANUBIS ON THE LEFT (owner order 2026-11-24): his face in a still
    circular medallion on the LEFT side of the earth scene — never the
    middle — while the world spins. The circle does not move. */
@@ -7803,7 +7875,8 @@
    sampled tones; nothing is regenerated. */
 .anubis-presence__face,
 .black-hatter-presence__face,
-.montu-presence__face {
+.montu-presence__face,
+.avatar-space-view__montu-face {
   position: relative;
 }
 .living-face__jaw {

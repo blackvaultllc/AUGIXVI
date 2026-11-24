@@ -254,15 +254,27 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
       },
       {
         id: "stage-earth",
-        title: "The Earth page — the spinning world and Anubis's face",
+        title: "The gate and the Earth page — Montu guards the login, the Earth waits inside",
         state: "live",
-        what: "Before the stage, Augie opens on the Earth: the real textured planet, spinning slowly over a starfield, with the sign-in card on top of it. The Earth spins ALONE — the decorative sun, moon, satellites, shooting stars and the moving orb were removed on the Captain's order (2026-11-24) because they did not look real. ANUBIS'S FACE stands on the LEFT side of the scene in a still circular medallion while the world spins — never in the middle, and the circle does not move. After sign-in the view flies down from orbit to the stage in one continuous flight; the face and the label step aside while the flight plays.",
+        what: "The front door changed on the Captain's order (2026-11-24): the login surface no longer spins the Earth. MONTU, the war god, guards the gate — his living face in a big circular gold medallion presented exactly like Anubis's, standing on the left at desktop sizes and at the top on a phone, where the sign-in card sits below him and never covers him. Nobody reaches Anubis without signing in; sign in and the stage is Anubis's, as always. THE EARTH IS NOT GONE: the orbital view inside the app still renders the real textured planet, spinning slowly over a starfield, with ANUBIS'S FACE on the LEFT side of that scene in a still circular medallion while the world spins — never in the middle, and the circle does not move. The decorative sun, moon, satellites, shooting stars and the moving orb were removed on the Captain's order (2026-11-24) because they did not look real. After sign-in the view flies down from orbit to the stage in one continuous flight; the face and the label step aside while the flight plays.",
         steps: [
-          "Open Augie signed out — the Earth page is what you see, Anubis's medallion on the left.",
-          "Sign in — the flight down to the stage happens on its own; no button to press.",
-          "Ask to go back to orbit and the same scene returns, the Earth still spinning.",
+          "Open Augie signed out — Montu's medallion guards the sign-in card. That is the gate; Anubis is behind it.",
+          "Sign in — you land on Anubis's stage; the flight down from orbit happens on its own, no button to press.",
+          "Ask to go back to orbit and the Earth scene returns, the Earth still spinning, Anubis's medallion on its left.",
         ],
-        where: "The sign-in landing and the orbital view around the /avatar stage.",
+        where: "The sign-in landing (Montu) and the orbital view around the /avatar stage (the Earth).",
+      },
+      {
+        id: "stage-phone-perf",
+        title: "The phone runs steady — the phone render profile, and hands that load",
+        state: "live",
+        what: "From the Captain's live use (2026-11-24): the stage ran rough on his phone, and turning CAM on answered “hand tracking failed to load — using mouse/touch.” Both are fixed at the root. (1) THE PHONE RENDER PROFILE: the renderer was built desktop-first — a 120,000-particle ceiling, near-retina pixel ratio, and an adaptive governor that could never step below 15,000 particles. A phone-class device now builds its particle buffer at 45,000, caps its pixel ratio at 1.5, and lets the governor step down to 8,000 when the phone is struggling — the HUD's PTS readout shows the phone's real count. The desktop profile is untouched: same ceiling, same ratio, same floor. A narrow desktop window is not mistaken for a phone, and tablets keep the desktop profile. (2) HAND TRACKING: MediaPipe's GPU delegate throws at creation on a large class of Android phones, and the loader asked for GPU only, so the whole load died. It now tries GPU first and falls back to CPU inference — slower per frame, but hands actually start on those phones; the failure line now appears only when every path truly fails, and the pointer fallback it names is real. The camera itself was never the problem — the camera started; only the hand model had failed to load.",
+        steps: [
+          "Open Augie on the phone — the stage should hold a steadier frame rate; the HUD's FPS/PTS lines show the phone profile at work (PTS at or under 45K).",
+          "Turn CAM on from the HUD, then HANDS — hand tracking should load (HANDS ON) instead of the failure line.",
+          "If the stage still runs rough on your phone, screenshot the HUD lines and report — the numbers on screen are the evidence.",
+        ],
+        where: "The stage on the phone. The Parrot copy carries the fix after its update runs; the online copy follows when its deploy runs.",
       },
       {
         id: "stage-tools",
@@ -1095,7 +1107,7 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         id: "ts-phone-stage",
         title: "The phone stage — panels apart, controls whole",
         state: "live",
-        what: "Fixed from the Captain's own phone screenshots (2026-11-24). The two top panels can no longer overlap: on phone widths the left panel is capped at 48% of the stage width and the right at 46%, so their boxes always stand apart with stage showing between them — no panel's words ever run under the other again. The hearing state stands in its own lane at the foot of the right panel, under a hairline: the level graph (which now scales to the lane on narrow screens), the HEARING YOU / NOT HEARING line, and the reason in plain words when he is not heard — all fully visible, covering nothing, clear of Anubis. In the construct panel, a section now takes the box's full display while it is open (the chat display follows the tab — the stage-law fix from the same screenshots' hour) and its panel scrolls inside itself, so CONSTRUCT POSITION shows every control whole — Bring in, Left, Right, Home — nothing half-cut; Clear and History wait on the chat face you return to. Desktop geometry is unchanged.",
+        what: "Fixed from the Captain's own phone screenshots (2026-11-24). The two top panels can no longer overlap: on phone widths the left panel is capped at 48% of the stage width and the right at 46%, so their boxes always stand apart with stage showing between them — no panel's words ever run under the other again. The ACTIVITY line inside the left panel is contained the same way: the panel clips its contents to its own bounds and the line wraps inside them, so no word ever slides behind Anubis's medallion ring and gets cut mid-word again — the musing takes another line inside the box, whole. And an open card above the bottom bar ends above it: the medallion's placement card (Centered · locked / Emergency edit / PERSPECTIVE) used to slide its lower half under the folded chat bar, hiding the perspective buttons — at phone sizes it now docks just above the bar, height-capped with its own scroll, every control reachable. The hearing state stands in its own lane at the foot of the right panel, under a hairline: the level graph (which now scales to the lane on narrow screens), the HEARING YOU / NOT HEARING line, and the reason in plain words when he is not heard — all fully visible, covering nothing, clear of Anubis. In the construct panel, a section now takes the box's full display while it is open (the chat display follows the tab — the stage-law fix from the same screenshots' hour) and its panel scrolls inside itself, so CONSTRUCT POSITION shows every control whole — Bring in, Left, Right, Home — nothing half-cut; Clear and History wait on the chat face you return to. Desktop geometry is unchanged.",
         steps: [
           "On the phone, look at the top of the stage: the CORE panel (left) and the STATUS panel (right) stand apart, and the hearing lane under STATUS reads whole.",
           "Open the construct panel → Motion: every CONSTRUCT POSITION control stands whole; longer tabs scroll inside their panel.",

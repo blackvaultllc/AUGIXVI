@@ -328,6 +328,7 @@ import { SpaceView } from "./SpaceView";
 import { coreStatusLabel, type CoreStatus } from "./coreLink";
 import { brainStateLine } from "./brainState";
 import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
+import { currentRenderCaps } from "./deviceProfile";
 
 type Settings = RenderSettings & {
   sensitivity: number;
@@ -2586,7 +2587,14 @@ export function AvatarStage({
 
   useEffect(() => {
     const bridge = bridgeRef.current;
-    const r = new AvatarRenderer(host.current!, bridge, { ...settingsRef.current });
+    // DEVICE RENDER CAPS (deviceProfile.ts, owner order 2026-11-24):
+    // a phone-class device builds its particle buffer at the phone
+    // ceiling and caps its pixel ratio, whatever the saved settings
+    // carry; the desktop profile is the pre-existing behavior.
+    const r = new AvatarRenderer(host.current!, bridge, {
+      ...settingsRef.current,
+      ...currentRenderCaps(),
+    });
     rendRef.current = r;
     // THE SAVED STAGE VIEW (perspective by button, owner eye-check
     // 2026-11-23): the camera opens where he left it — front, or

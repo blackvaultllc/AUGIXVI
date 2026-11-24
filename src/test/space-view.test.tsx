@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SpaceView } from "@/avatar/SpaceView";
 
 describe("one world, one Earth, one flight", () => {
-  it("supports an Earth-only landing view with an interactive sign-in overlay", () => {
+  it("supports a Montu-guarded landing view with an interactive sign-in overlay", () => {
     render(
       <SpaceView isLanding isEnteringLiveMode={false} isReturningToSpace={false}>
         <section aria-label="Operator sign-in">Sign in</section>
@@ -11,8 +11,12 @@ describe("one world, one Earth, one flight", () => {
     );
 
     expect(screen.getByRole("main", { name: "Operator sign-in landing view" })).toBeInTheDocument();
-    // The real textured SpinningEarth is the stage; the CSS circle planet is gone.
-    expect(document.querySelector(".avatar-space-view__real-earth canvas")).not.toBeNull();
+    // THE LOGIN GUARDIAN IS MONTU (owner order 2026-11-24 ~10:00 EST,
+    // superseding the Earth on the front intro): no spinning Earth
+    // on the landing surface — Montu's medallion stands guard, and
+    // the Earth waits inside the app. The CSS circle planet stays gone.
+    expect(document.querySelector(".avatar-space-view__real-earth canvas")).toBeNull();
+    expect(document.querySelector("[data-testid='montu-guard']")).not.toBeNull();
     expect(document.querySelector(".avatar-space-view__earth")).toBeNull();
     expect(screen.getByLabelText("Operator sign-in")).toBeInTheDocument();
     // ENTER BUTTON IS GONE (owner order 2026-11-11): the flight is automatic.

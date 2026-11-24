@@ -41,6 +41,17 @@ export function getVisionAssetCandidates(wasmRoot?: string, handModelUrl?: strin
   return hasOverride ? [configured, defaults] : [defaults];
 }
 
+/**
+ * The delegates hand tracking tries, in order (owner's phone,
+ * 2026-11-24: CAM on → "hand tracking failed to load"). MediaPipe's
+ * GPU delegate throws at creation on a large class of Android
+ * phones — flaky WebGL stacks, driver blocklists — and the old code
+ * asked for GPU only, so the whole load died and hands never
+ * started. CPU inference is slower per frame but it WORKS on those
+ * phones; the hand loop only needs palm position, not 60fps ML.
+ */
+export const HAND_DELEGATE_ORDER = ["GPU", "CPU"] as const;
+
 /** Owns camera + mic streams (one of each), hand tracking and snap detection. */
 export class Sensors {
   video = document.createElement("video");
@@ -118,12 +129,19 @@ export class Sensors {
         for (const candidate of candidates) {
           try {
             const fs = await FilesetResolver.forVisionTasks(candidate.wasmRoot);
-            this.landmarker = await HandLandmarker.createFromOptions(fs, {
-              baseOptions: { modelAssetPath: candidate.handModelUrl, delegate: "GPU" },
-              runningMode: "VIDEO",
-              numHands: 1,
-            });
-            break;
+            for (const delegate of HAND_DELEGATE_ORDER) {
+              try {
+                this.landmarker = await HandLandmarker.createFromOptions(fs, {
+                  baseOptions: { modelAssetPath: candidate.handModelUrl, delegate },
+                  runningMode: "VIDEO",
+                  numHands: 1,
+                });
+                break;
+              } catch (error) {
+                console.warn(`Hand tracking ${delegate} delegate failed to load.`, error);
+              }
+            }
+            if (this.landmarker) break;
           } catch (error) {
             console.warn("Hand tracking asset configuration failed to load.", error);
           }

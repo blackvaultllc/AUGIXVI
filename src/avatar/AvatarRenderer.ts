@@ -41,6 +41,16 @@ export type RenderSettings = {
   glitch: number;
   theme: ThemeChoice;
   customColor: string;
+  /**
+   * DEVICE RENDER CAPS (deviceProfile.ts, owner order 2026-11-24):
+   * the device-class ceilings the stage enforces no matter what the
+   * saved settings say — the phone's saved copy may carry the desktop
+   * numbers (account sync), and the phone must still run steady.
+   * Absent = the desktop profile, byte-identical to before.
+   */
+  particleCap?: number;
+  particleFloor?: number;
+  pixelRatioCap?: number;
 };
 
 const vert = /* glsl */ `
@@ -380,7 +390,9 @@ export class AvatarRenderer {
       antialias: false,
       powerPreference: "high-performance",
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    this.renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio, settings.pixelRatioCap ?? 1.75),
+    );
     this.renderer.setClearColor(0x02040a, 1);
     host.appendChild(this.renderer.domElement);
     this.applyCamera();
@@ -400,7 +412,7 @@ export class AvatarRenderer {
     this.builderScenes = new BuilderSceneManager(this.scene);
     this.builderScenes.setVisible(DEFAULT_WORLD_SCENE === "room");
     this.sceneManager.setEnvironmentVisible(false);
-    const data = source(settings.maxParticles);
+    const data = source(Math.min(settings.maxParticles, settings.particleCap ?? Infinity));
     this.drawCount = data.count;
     this.geo = new THREE.BufferGeometry();
     this.geo.setAttribute("position", new THREE.BufferAttribute(data.positions, 3));
@@ -681,6 +693,7 @@ export class AvatarRenderer {
       this.drawCount = Math.min(
         this.drawCount,
         s.maxParticles,
+        this.settings.particleCap ?? Infinity,
         this.geo.getAttribute("position").count,
       );
   }
@@ -1413,8 +1426,16 @@ export class AvatarRenderer {
     if (this.frameTimes.length < 60) return;
     const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
     this.frameTimes = [];
-    const max = Math.min(this.settings.maxParticles, this.geo.getAttribute("position").count);
-    if (avg > 20) this.drawCount = Math.max(15000, Math.floor(this.drawCount * 0.85));
+    const max = Math.min(
+      this.settings.maxParticles,
+      this.settings.particleCap ?? Infinity,
+      this.geo.getAttribute("position").count,
+    );
+    if (avg > 20)
+      this.drawCount = Math.max(
+        this.settings.particleFloor ?? 15000,
+        Math.floor(this.drawCount * 0.85),
+      );
     else if (avg < 15) this.drawCount = Math.min(max, Math.floor(this.drawCount * 1.08));
     this.onFrame?.({ fps: Math.round(1000 / avg), particles: this.drawCount });
   }

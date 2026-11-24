@@ -80,7 +80,12 @@ describe("earth scene — Anubis's face on the left", () => {
     expect(css).toContain("top: 10%");
   });
 
-  it("renders the medallion on the landing view too, and hides it with the chrome during the flight", () => {
+  it("the landing view is guarded by Montu now — no Earth, no Anubis medallion — and the flight still hides the chrome", () => {
+    // SUPERSEDED (owner order 2026-11-24 ~10:00 EST): the landing used
+    // to render the Earth scene with Anubis's medallion. The front
+    // intro now drops the spinning Earth entirely — MONTU guards the
+    // gate, and Anubis is reached only after sign-in. The Earth scene
+    // (and its medallion) lives on in the orbital view, tested above.
     const landing = render(
       <SpaceView isLanding isEnteringLiveMode={false} isReturningToSpace={false}>
         <section aria-label="Operator sign-in">Sign in</section>
@@ -88,12 +93,29 @@ describe("earth scene — Anubis's face on the left", () => {
     );
     expect(
       landing.container.querySelector(".spinning-earth__anubis-medallion"),
-    ).not.toBeNull();
+    ).toBeNull();
+    expect(landing.container.querySelector("[data-testid='montu-guard']")).not.toBeNull();
+    expect(
+      landing.container.querySelector(".avatar-space-view__montu-face")?.getAttribute("src"),
+    ).toBe("/montu-presence/face.webp");
     landing.unmount();
 
     const flying = render(<SpaceView isEnteringLiveMode isReturningToSpace={false} />);
     expect(
       flying.container.querySelector(".spinning-earth__anubis-medallion"),
     ).toBeNull();
+  });
+
+  it("the Montu guard medallion is placed clear of the sign-in card at phone sizes", () => {
+    // Same care as the earth-page medallion: at phone widths the
+    // guardian steps to the top center and the landing overlay's
+    // content box starts below him, so the card never covers him.
+    const ruleStart = css.indexOf(".avatar-space-view__montu-guard {");
+    const rule = css.slice(ruleStart, css.indexOf("}", ruleStart));
+    expect(rule).toContain("left: clamp(1rem, 4vw, 3.5rem)");
+    expect(rule).toContain("top: 50%");
+    const phoneBlock = css.slice(css.indexOf("@media (max-width: 640px)", ruleStart));
+    expect(phoneBlock).toContain(".avatar-space-view__montu-guard");
+    expect(phoneBlock).toContain("padding-top: 12rem");
   });
 });
