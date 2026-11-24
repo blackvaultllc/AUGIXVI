@@ -4956,6 +4956,102 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* Wepwawet remote control — the clickable remote on the dog's
+   card: direction pad with Stop in the middle, action buttons
+   around it, the Feed row under. Every button is labelled in
+   plain words at bifocal size — no icon-only buttons. */
+.window-commands__remote {
+  background: var(--dev-field);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: var(--dev-fs-body);
+}
+.window-commands__remote h5 {
+  margin: 0;
+  font-size: var(--dev-fs-body);
+}
+.window-commands__remote-body {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.window-commands__pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(4.4rem, 1fr));
+  grid-template-areas:
+    ". up ."
+    "left center right"
+    ". down .";
+  gap: 0.4rem;
+}
+.window-commands__pad-cell {
+  display: flex;
+}
+.window-commands__pad-cell > button {
+  flex: 1;
+}
+.window-commands__pad-up {
+  grid-area: up;
+}
+.window-commands__pad-left {
+  grid-area: left;
+}
+.window-commands__pad-center {
+  grid-area: center;
+}
+.window-commands__pad-right {
+  grid-area: right;
+}
+.window-commands__pad-down {
+  grid-area: down;
+}
+.window-commands__remote-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.6rem, 1fr));
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 15rem;
+}
+.window-commands__remote-feed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.window-commands__remote-feedlabel {
+  font-weight: 600;
+}
+.window-commands__remote-btn {
+  font: inherit;
+  font-size: var(--dev-fs-body);
+  min-height: 2.75rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--avatar-hud-line);
+  background: var(--dev-panel);
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  text-align: center;
+}
+.window-commands__remote-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.window-commands__remote-stop {
+  border: 2px solid var(--avatar-hud-accent, #22d3ee);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .window-devices__formtitle {
   grid-column: 1 / -1;
   font-size: var(--dev-fs-title);
