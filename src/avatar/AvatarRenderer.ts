@@ -397,6 +397,16 @@ export class AvatarRenderer {
     host.appendChild(this.renderer.domElement);
     this.applyCamera();
     this.scene.add(this.figureAnchor);
+    // NO FLASH (owner order 2026-11-24): the construct starts
+    // INVISIBLE — set here, at creation, before the first frame
+    // can render. A THREE.Group is visible by default, so without
+    // this line the sand figure stood on the stage for the frames
+    // between construction and the stage's first visibility
+    // effect — the flash of AUGI he saw at every login, before
+    // Anubis. The stage's rule (presenceDoctrine's
+    // constructStandsOnStage) owns his visibility from here: he
+    // appears only when called.
+    this.figureAnchor.visible = false;
     this.figureAnchor.add(this.avatarRoot);
     this.avatarRoot.add(this.character);
     this.locomotion = new AvatarLocomotion(this.avatarRoot);
@@ -1261,13 +1271,16 @@ export class AvatarRenderer {
     this.locomotion.setFullBodyHold(held);
   }
   /**
-   * CONSTRUCT ON STAGE OR IN HIS BOX (owner order 2026-11-22): the
-   * sand construct no longer holds center stage by default — the
-   * stage sets him invisible until the Captain opens the AUGI avatar
-   * window, where the canvas docks and he stands in his own
-   * container. Hiding the figure anchor hides every form of him
-   * (body, eyes, cape, hands, and the morph shapes, which are his
-   * own particles); the world behind him keeps rendering either way.
+   * CONSTRUCT ON STAGE OR IN HIS BOX (owner orders 2026-11-22,
+   * tightened 2026-11-24): the sand construct holds NO default
+   * place on the stage — he is invisible until he is called
+   * (brought onto the stage, or his box is opened and the canvas
+   * docks into it, where he stands in his own container). The
+   * decision lives in presenceDoctrine.constructStandsOnStage;
+   * this is only the switch. Hiding the figure anchor hides every
+   * form of him (body, eyes, cape, hands, and the morph shapes,
+   * which are his own particles); the world behind him keeps
+   * rendering either way.
    */
   setConstructVisible(visible: boolean) {
     this.figureAnchor.visible = visible;

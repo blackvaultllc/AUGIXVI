@@ -126,11 +126,16 @@ export function BuilderPanel(props: BuilderPanelProps) {
     <div className="builder-panel">
       <p className="builder-panel__count">{variantCountLine()}</p>
       <p className="builder-panel__hint">
-        Tap a piece to place it; tap a placed piece to move or delete it.
+        To place a piece: tap Add on it below — or drag it from the library onto the stage.
       </p>
       <p className="builder-panel__hint">
-        Everything lives in one category below. Anchored pieces are locked in place until you
-        unanchor them.
+        To move a piece: 1. Tap the piece standing in the room to pick it. 2. Drag it across
+        the floor — mouse or finger — to where it belongs. 3. Let go to set it down. 4. Tap
+        Anchor on the piece's own controls to lock it there. An anchored piece will not move
+        until you unanchor it.
+      </p>
+      <p className="builder-panel__hint">
+        Everything lives in one category below.
       </p>
 
       {/* ------------------------- pieces for the room ------------------------ */}

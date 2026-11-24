@@ -539,6 +539,16 @@ export function CommandBox({
     setMinimized(false);
   }, []);
 
+  // THE STAGE'S HAND ON THE FOLD: the onMinimizeShortcut prop was
+  // declared for this and never wired — AvatarStage's "/minimize"
+  // and the builder's fold-the-chat-out-of-the-way (owner order
+  // 2026-11-24: building needs the stage clear) both land here.
+  // The controls are stable (both callbacks are), so the stage
+  // receives them once and holds them in a ref.
+  useEffect(() => {
+    onMinimizeShortcut?.({ minimize: minimizeNow, restore: restoreNow });
+  }, [onMinimizeShortcut, minimizeNow, restoreNow]);
+
   const startDrag = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       // THE PHONE BAR IS DOCKED (owner phone spec 2026-11-23): it

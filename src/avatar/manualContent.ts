@@ -302,6 +302,19 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "The command box on the stage — computer and phone alike.",
       },
       {
+        id: "stage-construct-law",
+        title: "AUGI stays in his box — the layering law, and no flash at login",
+        state: "live",
+        what: "The Captain's law (2026-11-24): the sand-code AUGI — Anubis's mummy power, the sand itself — renders NOWHERE on the main stage by default. Not in front of Anubis, not behind him, no edge of him peeking above Anubis's circle: behind Anubis is the wallpaper, and nothing else. AUGI lives in his own box. He appears only when called — Anubis summons him, or you call for him: bring him onto the stage from his box, and he stands until he is sent back; open his box and he stands in it, in his own container, not on the stage. Two defects died with this law: the old away doctrine stood him on the stage by default outside the live Room, and his figure was visible from the moment the renderer was created, before any rule ran — together they put a flash of the sand figure on the screen at every login, before Anubis. He is now invisible from creation, before the first frame: a fresh login — Montu at the gate, then Anubis — shows no sand code at all, not even one frame. The same hour's companion law: BUILDING NEEDS THE STAGE CLEAR — opening the Environment Builder folds the chat box to its bottom bar so the whole stage is yours to build on, and closing the builder brings the box back. A box you folded yourself is never fought.",
+        steps: [
+          "Log in fresh — Montu, then Anubis. No sand figure appears, at any point.",
+          "Open his box (Scene tab → “AUGI avatar · open his box”) — he stands in his box. Close it and he is gone from the stage.",
+          "Call him onto the stage: Motion tab → CONSTRUCT POSITION → Bring in. He walks to his mark and stands there until he is sent back to his box.",
+          "Open the Environment Builder — the chat box folds to the bar on its own; close the builder and it comes back.",
+        ],
+        where: "The stage and the AUGI avatar box — computer and phone alike.",
+      },
+      {
         id: "stage-exit",
         title: "Getting back — the “← Augie” exit",
         state: "live",
@@ -642,10 +655,10 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         state: "live",
         what: "The builder holds the pieces — buildings, trees, structures, in many forms, sizes, and colors (over two thousand combinations). You place them on your ground, and what you place is yours to work: select a placed piece and you can move it, rotate it, lock it in place (anchor), or delete it. Nothing you placed is ever stuck.",
         steps: [
-          "Open Tools → Environment Builder.",
+          "Open Tools → Environment Builder — the chat box folds to the bottom bar on its own, so the whole stage is yours to build on.",
           "Pick a piece, a form, a size, a color — place it on the ground.",
-          "Tap a placed piece to select it: drag to move, use Rotate for its facing, Anchor to lock it, Delete to remove it.",
-          "One Help line in the builder states the whole interaction — it is always there.",
+          "To move a piece: 1. Tap the piece standing in the room to pick it. 2. Drag it across the floor — mouse or finger — to where it belongs. 3. Let go to set it down. 4. Tap Anchor on the piece's own controls to lock it there; an anchored piece will not move until you unanchor it.",
+          "The builder's Help line at the top of the panel states this same flow — it is always there.",
         ],
         where: "Environment Builder panel on the stage.",
         note: "The tap-to-select control cluster (Move / Rotate / Delete / Done, at the piece itself) has landed — it is on the stage now, in this build.",
