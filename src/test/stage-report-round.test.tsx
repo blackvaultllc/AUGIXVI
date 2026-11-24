@@ -104,7 +104,16 @@ describe("DEFECT 2 — the CORE box keeps its measure; the Activity line wraps",
     const warning = section.slice(warningStart, section.indexOf("}", warningStart));
     expect(warning).toContain("overflow-wrap: break-word");
     // The bifocal floor stands: the cap section never shrinks the type.
-    const section22 = stageCss.slice(stageCss.indexOf("22. THE CORE BOX KEEPS ITS MEASURE"));
+    // (Slice bounded to section 22 itself, 2026-11-24: later
+    // sections follow in this file now — the stage-law round's
+    // display-law section among them, and the phone bar's section
+    // sets its own 1rem field type by the Captain's order. The
+    // boundary is that section's title, stable in any merge
+    // order.)
+    const section22 = stageCss.slice(
+      stageCss.indexOf("22. THE CORE BOX KEEPS ITS MEASURE"),
+      stageCss.indexOf("THE DISPLAY FOLLOWS THE TAB"),
+    );
     expect(section22).not.toContain("font-size");
   });
 });

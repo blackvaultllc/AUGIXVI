@@ -278,6 +278,19 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "The command box on the stage.",
       },
       {
+        id: "stage-display-law",
+        title: "The display follows the tab — and boot is quiet",
+        state: "live",
+        what: "Two laws from the Captain's live use (2026-11-24). (1) THE DISPLAY FOLLOWS THE TAB: when you open Tools, Settings, or any section, that section is the display — the chat thread steps off the screen instead of following you around. The typing bar at the bottom never leaves. Come back to chat and the whole thread is there, including everything that arrived while you were away; while you are in a tab, a reply reaches you by voice and by the god's medallion pop-up on the stage, never by forcing the chat open over your tab. (2) BOOT IS QUIET: the stage opens with Anubis present and nothing popping up — no greeting that appears and vanishes, and the was-scepter shows ONLY while a real god report is being delivered to you in person. A report that arrives before you have touched anything waits in the thread under its god's name; it never ambushes at load. On the phone, the bottom bar is one line: Anubis's medallion, the type field at full width, and ONE button — tap that button and the menu opens with Send, Microphone, Emoji, the Menus, and the fold, each a big labeled row.",
+        steps: [
+          "Open a section (Tools, Settings…) — the section is the whole display; the typing bar stays at the bottom.",
+          "Tap the Menu button again to come back — the chat thread is whole, with anything that arrived meanwhile standing in it.",
+          "On the phone: type in the bottom bar's field; tap the + button for Send, Microphone, Emoji, or the Menus.",
+          "Reload Augie — the stage opens quiet: Anubis present, no pop-up, no scepter.",
+        ],
+        where: "The command box on the stage — computer and phone alike.",
+      },
+      {
         id: "stage-exit",
         title: "Getting back — the “← Augie” exit",
         state: "live",
@@ -1082,7 +1095,7 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         id: "ts-phone-stage",
         title: "The phone stage — panels apart, controls whole",
         state: "live",
-        what: "Fixed from the Captain's own phone screenshots (2026-11-24). The two top panels can no longer overlap: on phone widths the left panel is capped at 48% of the stage width and the right at 46%, so their boxes always stand apart with stage showing between them — no panel's words ever run under the other again. The hearing state stands in its own lane at the foot of the right panel, under a hairline: the level graph (which now scales to the lane on narrow screens), the HEARING YOU / NOT HEARING line, and the reason in plain words when he is not heard — all fully visible, covering nothing, clear of Anubis. In the construct panel, the machinery sizes to its content and the tab panel alone scrolls, so CONSTRUCT POSITION shows every control whole — Bring in, Left, Right, Home — nothing half-cut above the Clear / History row. Desktop geometry is unchanged.",
+        what: "Fixed from the Captain's own phone screenshots (2026-11-24). The two top panels can no longer overlap: on phone widths the left panel is capped at 48% of the stage width and the right at 46%, so their boxes always stand apart with stage showing between them — no panel's words ever run under the other again. The hearing state stands in its own lane at the foot of the right panel, under a hairline: the level graph (which now scales to the lane on narrow screens), the HEARING YOU / NOT HEARING line, and the reason in plain words when he is not heard — all fully visible, covering nothing, clear of Anubis. In the construct panel, a section now takes the box's full display while it is open (the chat display follows the tab — the stage-law fix from the same screenshots' hour) and its panel scrolls inside itself, so CONSTRUCT POSITION shows every control whole — Bring in, Left, Right, Home — nothing half-cut; Clear and History wait on the chat face you return to. Desktop geometry is unchanged.",
         steps: [
           "On the phone, look at the top of the stage: the CORE panel (left) and the STATUS panel (right) stand apart, and the hearing lane under STATUS reads whole.",
           "Open the construct panel → Motion: every CONSTRUCT POSITION control stands whole; longer tabs scroll inside their panel.",

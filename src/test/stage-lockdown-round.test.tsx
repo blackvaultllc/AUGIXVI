@@ -251,21 +251,29 @@ describe("content-sized clusters, bifocal type", () => {
 });
 
 describe("the phone stage fix (owner phone screenshots 2026-11-24)", () => {
-  it("the construct panel has ONE scroll region on the phone bar — no nested clip", () => {
-    // DEFECT 2: the machinery wrapper's 46% cap clipped the panel
-    // mid-row (CONSTRUCT POSITION's second row half-shown). The
-    // phone bar sizes the machinery to its content and lets the
-    // panel alone scroll, past the Motion tab's full height.
-    const fixStart = stageCss.indexOf("23. THE PHONE STAGE");
+  it("the construct panel has ONE scroll region — no nested clip", () => {
+    // DEFECT 2 (owner phone screenshots 2026-11-24): the
+    // machinery wrapper's 46% cap clipped the panel mid-row
+    // (CONSTRUCT POSITION's second row half-shown). In the merged
+    // tree the stage-law round's section geometry (section 26)
+    // closes it: while a section is open the machinery takes the
+    // main column's full height and the panel scrolls inside
+    // itself — no nested cap remains to cut a row in half.
+    const fixStart = stageCss.indexOf("26. THE DISPLAY FOLLOWS THE TAB");
     expect(fixStart).toBeGreaterThan(-1);
     const fix = stageCss.slice(fixStart);
-    const machineryStart = fix.indexOf(".avatar-command-box__machinery {");
+    const machineryStart = fix.indexOf(
+      ".avatar-command-box--section-open .avatar-command-box__machinery {",
+    );
     const machinery = fix.slice(machineryStart, fix.indexOf("}", machineryStart));
+    expect(machinery).toContain("flex: 1");
     expect(machinery).toContain("max-height: none");
-    expect(machinery).toContain("overflow: visible");
-    const panelStart = fix.indexOf(".avatar-command-box__panel {");
+    const panelStart = fix.indexOf(
+      ".avatar-command-box--section-open .avatar-command-box__panel {",
+    );
     const panel = fix.slice(panelStart, fix.indexOf("}", panelStart));
-    expect(panel).toContain("max-height: 16rem");
+    expect(panel).toContain("flex: 1");
+    expect(panel).toContain("max-height: none");
   });
 
   it("the hearing graph scales to its lane instead of forcing the panel wide", () => {
@@ -564,7 +572,13 @@ describe("the 07:22 additions — lane, fit, respect, sync, comic", () => {
     // (bifocal type outranks style).
     const comicStart = stageCss.indexOf("/* 21. FULL COMIC STYLE");
     expect(comicStart).toBeGreaterThan(-1);
-    const comic = stageCss.slice(comicStart);
+    // Bounded to the section itself (2026-11-24): later sections
+    // (the stage-law round's 26–28) follow it in this file and DO
+    // set type — the phone bar's field at 1rem, by the Captain's
+    // own bifocal order. The pin's intent stands: THIS section
+    // sets no font size. The next section is 22 by number in
+    // every merge order, so it is the boundary.
+    const comic = stageCss.slice(comicStart, stageCss.indexOf("/* 22.", comicStart));
     expect(comic).toContain("border: 3px solid #0b0e14");
     expect(comic).toContain(".avatar-command-box__thread-a");
     expect(comic).toContain("#fff6da");

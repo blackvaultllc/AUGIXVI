@@ -916,10 +916,8 @@
   overflow-wrap: break-word;
 }
 
-/* 23. THE PHONE STAGE — THE HEARING LANE + THE CONSTRUCT PANEL
-   (owner phone screenshots 2026-11-24 ~01:43–01:44 CST) --------
-   Two defects from his own phone, one pass:
-
+/* 23. THE PHONE STAGE — THE HEARING LANE (owner phone
+   screenshots 2026-11-24 ~01:43–01:44 CST) ----------------------
    DEFECT 1 — the hearing state ("NOT HEARING · ANUBIS / THE
    MICROPHONE IS OFF.") rendered ON TOP of both top HUD panels:
    the panels' boxes overlapped mid-stage (their caps are fixed
@@ -933,30 +931,173 @@
    its lane instead of forcing the panel wide — VoiceIndicator),
    the NOT HEARING line at 16px, the reason in words at 14px.
 
-   DEFECT 2 — in the open construct panel, CONSTRUCT POSITION
-   clipped: "Bring in / ← Left / → Right" showed with the second
-   row (Home) half-cut beneath it. The cause was two nested
-   caps: the panel scrolls at 14rem, but the machinery wrapper
-   around it was capped at 46% of the box with hidden
-   scrollbars, so the wrapper clipped the panel mid-row and the
-   panel's own scroll never engaged. On the phone bar there is
-   now ONE scroll region: the machinery sizes to its content,
-   and the panel alone scrolls when a tab's content runs past
-   its cap — a cap set past the Motion tab's full height, so
-   every position control stands whole. The desktop box keeps
-   its own geometry, untouched. */
+   DEFECT 2 from the same screenshots — CONSTRUCT POSITION
+   clipping in the open construct panel ("Bring in / ← Left /
+   → Right" whole, the Home row half-cut) — is closed in this
+   merged tree by the stage-law round's section geometry
+   (section 26 below): while a section is open the conversation
+   display leaves, the machinery takes the main column's full
+   height, and the panel scrolls inside itself — no nested cap
+   remains to cut a row in half. This round's earlier phone-bar
+   machinery cap was dropped at the merge rather than fight
+   that geometry; the rendered phone check is the proof. */
 @media (max-width: 700px) {
   .avatar-stage .voice-indicator {
     border-top: 1px solid rgb(148 197 255 / 28%);
     margin-top: 0.35rem;
     padding-top: 0.5rem;
   }
-  .avatar-stage .avatar-command-box--phone-bar .avatar-command-box__machinery {
-    flex: 0 0 auto;
-    max-height: none;
-    overflow: visible;
-  }
-  .avatar-stage .avatar-command-box--phone-bar .avatar-command-box__panel {
-    max-height: 16rem;
-  }
+}
+
+/* 26. THE DISPLAY FOLLOWS THE TAB (owner order 2026-11-24
+   ~01:45 CST, Part B): "if I click off chat I'm going to
+   somewhere else — the chat window does not need to stay there
+   the whole time. The bottom part for me to type can stay there,
+   but the display that's on the screen is the tab that's
+   showing." CommandBox now unmounts the conversation while a
+   section is open; what remains is geometry: the section takes
+   the display the conversation used to share, full height of
+   the main column, its panel scrolling inside itself — and the
+   input bar stays pinned under it, as ever. */
+.avatar-stage .avatar-command-box--section-open .avatar-command-box__machinery {
+  flex: 1;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+}
+.avatar-stage .avatar-command-box--section-open .avatar-command-box__panel {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+/* 27. THE PHONE BAR — ONE BUTTON (owner order 2026-11-24
+   ~01:46 CST, Part D): the folded bar's line is the medallion,
+   the type field, and ONE options button — nothing else. The
+   field is a real tap target at bifocal size (a full 3.25rem
+   tall, 1rem type); the button matches it. The options panel
+   opens IN FLOW above the line (flex order), so the docked bar
+   simply grows upward — nothing floats, nothing clips against
+   the box's own border, and every option inside is a labeled
+   row at the same readable size. The opened box wears the same
+   form: one bar, one behavior, every tab. */
+.avatar-stage .avatar-command-box__phonebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+}
+.avatar-stage .avatar-command-box__phonebar-face {
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+.avatar-stage .avatar-command-box__phonebar .avatar-command-box__emoji {
+  order: -1;
+  flex: 1 1 100%;
+}
+.avatar-stage .avatar-command-box__form--phone {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  margin-top: 0;
+  gap: 0.45rem;
+}
+.avatar-stage .avatar-command-box__form--phone .avatar-command-box__input {
+  min-height: 3.25rem;
+  padding: 0.7rem 0.8rem;
+  font-size: 1rem;
+}
+.avatar-stage .avatar-command-box__options-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  padding: 0;
+  border: 2px solid #0b0e14;
+  border-radius: 0.5rem;
+  background: #1d2a52;
+  color: #ffd94d;
+  box-shadow: 3px 3px 0 rgb(0 0 0 / 55%);
+  cursor: pointer;
+}
+.avatar-stage .avatar-command-box__options-toggle svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+.avatar-stage .avatar-command-box__options {
+  order: -1;
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.45rem;
+  padding: 0.45rem;
+  border: 2px solid #0b0e14;
+  border-radius: 0.6rem;
+  background: rgb(10 16 30 / 97%);
+  box-shadow: 4px 4px 0 rgb(0 0 0 / 55%);
+}
+.avatar-stage .avatar-command-box__option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 0.45rem;
+  background: #1d2a52;
+  color: #f8fbff;
+  font: inherit;
+  font-size: 1rem;
+  text-align: left;
+  cursor: pointer;
+}
+.avatar-stage .avatar-command-box__option svg {
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  color: #ffd94d;
+}
+.avatar-stage .avatar-command-box__option:hover:not(:disabled) {
+  border-color: #ffd94d;
+}
+.avatar-stage .avatar-command-box__option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 28. TOOLS, CONTAINED (owner order 2026-11-24 ~01:45 CST,
+   Part C): on the Tools surface, long action labels ("Phone
+   Bridge — Ghost Protocol One") burst their grid cells — the
+   button is an inline-flex whose text span could not shrink,
+   so the words ran past the cell's edge, unaligned with every
+   other box. The containment law for the whole panel: grid
+   cells may shrink, buttons fill their cell, labels wrap
+   INSIDE the button, icons never shrink, and every action in
+   a grid stands at the same height so rows align. */
+.avatar-stage .avatar-command-box__panel {
+  overflow-x: hidden;
+}
+.avatar-stage .avatar-command-box__grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(6.5rem, 100%), 1fr));
+}
+.avatar-stage .avatar-command-box__grid .avatar-command-box__action {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.1rem;
+}
+.avatar-stage .avatar-command-box__action > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+.avatar-stage .avatar-command-box__action-thumb {
+  flex: none;
+
 }
