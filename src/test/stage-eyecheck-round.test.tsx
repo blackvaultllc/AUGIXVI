@@ -129,24 +129,32 @@ describe("the blink cannot blur the face", () => {
   });
 });
 
-describe("Osiris in the panel — bigger, on black", () => {
-  it("the full-box size is 104px — the old 3rem shrink is gone from the cascade", () => {
+describe("Osiris standing alone — full size, on black", () => {
+  it("his medallion stands at 104px (84px on the phone) — the old 3rem shrink stays gone", () => {
+    // RESTAGED (owner order 2026-11-24 ~16:57 EST): Osiris is
+    // out of the panel entirely — he stands alone on the stage,
+    // and his size law moved with him into section 32 of the fix
+    // sheet. The sizes are the ones this pin has always guarded:
+    // 104px standing, 84px at phone width, and NO rule anywhere
+    // shrinks him to 3rem or 2.5rem (the silent override his
+    // eye-check caught in 2026-11-22).
     const bodies: string[] = [];
     let from = 0;
     for (;;) {
-      const start = styles.indexOf(".avatar-command-box .augie-presence {", from);
+      const start = stageCss.indexOf(".osiris-medallion .augie-presence {", from);
       if (start === -1) break;
-      const open = styles.indexOf("{", start);
-      bodies.push(styles.slice(open, styles.indexOf("}", open)));
+      const open = stageCss.indexOf("{", start);
+      bodies.push(stageCss.slice(open, stageCss.indexOf("}", open)));
       from = start + 1;
     }
-    // One of the cascade's rules carries the new full-box size, the
-    // phone rule carries 84px, and NO rule shrinks him to 3rem or
-    // 2.5rem anymore (the silent override his eye-check caught).
     expect(bodies.some((body) => body.includes("width: 104px"))).toBe(true);
     expect(bodies.some((body) => body.includes("width: 84px"))).toBe(true);
     expect(bodies.some((body) => body.includes("width: 3rem"))).toBe(false);
     expect(bodies.some((body) => body.includes("width: 2.5rem"))).toBe(false);
+    // And the in-box sizing rules are gone from the main sheet
+    // for good — nothing in the window sizes him anymore.
+    expect(styles).not.toContain(".avatar-command-box .augie-presence");
+    expect(styles).not.toContain(".avatar-command-box.augie-presence");
   });
 
   it("his frame's ground is black", () => {
@@ -252,10 +260,12 @@ describe("terminal chat — clear, history, emoji", () => {
       ...over,
     };
     const utils = render(<CommandBox {...props} />);
-    // The console is the opening form (clean-screen round,
-    // 2026-11-24): these tests exercise the open chat — tap his
-    // face first, as the Captain does.
-    fireEvent.click(screen.getByRole("button", { name: "Open the chat with Anubis" }));
+    // The bar is the opening form (owner order 2026-11-24
+    // ~16:57 EST): these tests exercise the open chat — tap the
+    // bar's bare ground first, as the Captain does.
+    const bar = utils.container.querySelector(".avatar-command-box__bar");
+    if (!bar) throw new Error("the folded bar is not on screen");
+    fireEvent.click(bar);
     return utils;
   }
 

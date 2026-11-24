@@ -2244,9 +2244,6 @@
   width: 1.1rem;
   height: 1.1rem;
 }
-.avatar-command-box .augie-presence {
-  border: 2px solid #d4af37;
-}
 .avatar-command-box__title {
   color: #ffd75e;
   font-size: 0.82rem;
@@ -2644,43 +2641,35 @@
   flex: none;
   margin-top: 0.45rem;
 }
-/* MINIMIZED = A SLIM BAR (defect fix 2026-11-22): the rail folds
-   to a row, the face shrinks, and the input rides the bar — never
-   a tall empty panel with the conversation hidden inside it. */
+/* MINIMIZED = THE CAPTAIN'S BAR (owner order 2026-11-24 ~16:57
+   EST — the slim bar of the 2026-11-22 defect fix restored as
+   the folded form at EVERY width, superseding the clean-screen
+   round's Osiris console of the same morning): the window folds
+   to its bar along the bottom, the type field rides the bar,
+   and NO god sits inside it — never a tall empty panel with
+   the conversation hidden inside it. */
 .avatar-command-box--minimized {
   height: auto;
   align-items: center;
 }
-.avatar-command-box--minimized .avatar-command-box__rail {
-  flex-direction: row;
-  width: auto;
-  padding: 0;
-}
-.avatar-command-box--minimized .avatar-command-box__title,
-.avatar-command-box--minimized .osiris-presence__caption {
-  display: none;
-}
-.avatar-command-box.avatar-command-box--minimized .augie-presence {
-  /* The minimized rail keeps a readable face too — 64px, up from
-     the 44px he could not make out (owner eye-check 2026-11-22). */
-  width: 64px;
-  height: 64px;
+.avatar-command-box__bar {
+  flex: 1;
+  min-width: 0;
 }
 .avatar-command-box--minimized .avatar-command-box__form {
   margin-top: 0;
 }
-/* OSIRIS IN THE PANEL (owner order 2026-11-22): the construct's
-   face at a size he can SEE working — 76px, captioned — at the
-   head of the rail. */
+/* OSIRIS'S FACE WRAPPER (owner order 2026-11-22; his home is
+   his own medallion on the stage since 2026-11-24 ~16:57 EST —
+   OsirisMedallion.tsx, dressed in stage-fix-round.css §32):
+   the construct's animated face, captioned where a home asks
+   for the caption. His medallion's size lives with the
+   medallion, never in the chat window — no god sits in it. */
 .osiris-presence {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.2rem;
-}
-.avatar-command-box .augie-presence {
-  width: 76px;
-  height: 76px;
 }
 .osiris-presence__caption {
   color: #ffd75e;
@@ -8218,37 +8207,42 @@
    is a fixed feathered window over the eye; the portrait copy
    inside it slides by the god's gaze offset, so the eye moves
    in its socket while the window, and the face, stay put. */
-/* THE SIDE SLOTS + THE FRONT GREETING (gods-on-the-sides round,
-   2026-11-24): the gods rest SMALL down the stage's left and
-   right sides while the stage rests on its wallpaper. The rails
-   begin below the top corners (the Osiris console's corner on
-   the left, the STATUS tab's corner on the right) and end above
-   the bottom bar — no overlap with either, desktop or phone.
-   A slot is a round living medallion, fixed by the layout: no
-   dragging, no anchor (the Respect Doctrine). The greeting is
-   the front god's allegiance line, shown over the wallpaper at
-   the stage's top center while he holds the front. */
-.god-side-rail {
+/* THE RESTING CIRCLES + THE FRONT GREETING (owner order
+   2026-11-24 ~16:57 EST — superseding the side slots of the
+   gods-on-the-sides round the same morning): the gods who are
+   not at the front rest as SMALL CIRCLES in the stage's
+   lower-right field — never on the edges, never as strips.
+   ONE CIRCLE FORMAT FOR EVERY GOD (the Captain's
+   reinforcement, 2026-11-24 ~17:05 EST: "both of the other
+   guards should look like Osiris looks"): the same format as
+   Osiris's medallion — a true round circle, square box,
+   border-radius 50%, clipped, the face centered inside it
+   with its aspect kept (object-fit: cover, centered). Not
+   oval, not tall, not a strip, not a rounded rectangle.
+   THE OLD DEFECT, NAMED: the living face layer is absolutely
+   positioned (inset 0), and the old slot button was NOT a
+   positioned box — so the face escaped the button and filled
+   the whole tall rail, and the god rendered as a tall strip.
+   The circle below is position: relative and its face wrapper
+   is absolute inset 0, so the face can only ever fill the
+   circle. The greeting is the front god's allegiance line,
+   shown over the wallpaper at the stage's top center while a
+   summoned god holds the front. */
+.god-medallions {
   position: absolute;
-  top: clamp(150px, 24vh, 230px);
-  bottom: clamp(120px, 20vh, 190px);
+  right: clamp(18px, 3vw, 44px);
+  bottom: clamp(18px, 4vh, 40px);
   display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: clamp(12px, 2.4vh, 22px);
+  flex-direction: row;
+  align-items: flex-end;
+  gap: clamp(12px, 2vw, 20px);
   z-index: 6;
-  pointer-events: none;
 }
-.god-side-rail--left {
-  left: clamp(10px, 1.6vw, 22px);
-}
-.god-side-rail--right {
-  right: clamp(10px, 1.6vw, 22px);
-}
-.god-slot {
-  pointer-events: auto;
-  width: clamp(64px, 11vmin, 104px);
-  height: clamp(64px, 11vmin, 104px);
+.god-medallion {
+  position: relative;
+  width: clamp(72px, 12vmin, 104px);
+  height: clamp(72px, 12vmin, 104px);
+  aspect-ratio: 1;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -8259,28 +8253,30 @@
   cursor: pointer;
   overflow: hidden;
 }
-.god-slot:hover,
-.god-slot:focus-visible {
+.god-medallion:hover,
+.god-medallion:focus-visible {
   box-shadow:
     0 0 0 3px rgb(232 197 110 / 85%),
     0 12px 26px rgb(0 0 0 / 60%);
 }
-.god-slot--speaking {
+.god-medallion--speaking {
   box-shadow:
     0 0 0 2px rgb(232 197 110 / 90%),
     0 0 22px rgb(216 178 90 / 45%),
     0 10px 22px rgb(0 0 0 / 55%);
 }
-.god-slot__face,
-.god-slot__face .living-face {
+.god-medallion__face {
+  position: absolute;
+  inset: 0;
   display: block;
-  width: 100%;
-  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
 }
-.god-slot__img {
+.god-medallion__img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: 50% 50%;
   border-radius: 50%;
 }
 .god-front-greeting {
@@ -8301,13 +8297,9 @@
   pointer-events: none;
 }
 @media (max-width: 640px) {
-  .god-side-rail {
-    top: clamp(120px, 22vh, 180px);
-    bottom: clamp(96px, 18vh, 150px);
-  }
-  .god-slot {
-    width: clamp(52px, 15vmin, 72px);
-    height: clamp(52px, 15vmin, 72px);
+  .god-medallion {
+    width: clamp(56px, 16vmin, 72px);
+    height: clamp(56px, 16vmin, 72px);
   }
   .god-front-greeting {
     top: 56px;
@@ -8629,14 +8621,6 @@
 .avatar-command-box__machinery::-webkit-scrollbar {
   display: none;
 }
-.avatar-command-box .augie-presence {
-  /* OSIRIS, BIGGER (owner eye-check 2026-11-22): 76px was ordered
-     earlier the same day and this rule silently overrode it back
-     down to 3rem — he could not see Osiris working in the box.
-     104px now: plainly visible at the head of the rail. */
-  width: 104px;
-  height: 104px;
-}
 .avatar-command-box__form {
   align-items: center;
 }
@@ -8800,13 +8784,6 @@
     min-height: 2.6rem;
     padding: 0;
     border-radius: 9999px;
-  }
-  .avatar-command-box .augie-presence {
-    /* Phone: still clearly bigger than the old 2.5rem — Osiris
-       readable in the box on the phone too (owner eye-check
-       2026-11-22). */
-    width: 84px;
-    height: 84px;
   }
   /* HUD containment: narrow wrapped columns at the top corners,
      ending before the command medallion's span begins. */

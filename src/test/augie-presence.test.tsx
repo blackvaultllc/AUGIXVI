@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Eye } from "lucide-react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -151,14 +153,14 @@ describe("AugiePresence component", () => {
   });
 });
 
-describe("CommandBox presence slot", () => {
-  it("renders the supplied presence in the console face folded, and inside the rail when open", () => {
-    // RESTAGED (clean-screen round, owner order 2026-11-24
-    // ~10:40 EST): the box opens FOLDED — the presence stands in
-    // the console's face (Osiris's head alone); the rail — and
-    // its place at the rail's head — is the OPEN box's form. The
-    // "Chat" title this test once measured against is removed by
-    // the same order: no title exists to stand ahead of.
+describe("CommandBox — the Captain's own window carries no god", () => {
+  it("the folded window is the bar — no presence slot, no console face; open, the rail carries only the grip toggle", () => {
+    // SUPERSEDED (owner order 2026-11-24 ~16:57 EST): this
+    // describe pinned the presence slot — Osiris's head standing
+    // in the box, folded in the console face and open at the
+    // rail's head. His window is his own now: the box takes no
+    // presence at all. Osiris stands alone on the stage
+    // (OsirisMedallion); the folded form is the bar.
     const { container } = render(
       <CommandBox
         accent="#d4af37"
@@ -173,29 +175,33 @@ describe("CommandBox presence slot", () => {
         onToggleVoice={() => {}}
         responseLine=""
         responseSource=""
-        presence={<span data-testid="presence-slot" />}
       >
         <div />
       </CommandBox>,
     );
-    const face = container.querySelector(".avatar-command-box__console-face");
-    const slot = container.querySelector('[data-testid="presence-slot"]');
-    expect(face).not.toBeNull();
-    expect(slot).not.toBeNull();
-    expect(face!.contains(slot)).toBe(true);
+    expect(container.querySelector(".avatar-command-box__console-face")).toBeNull();
+    expect(container.querySelector(".avatar-command-box__bar")).not.toBeNull();
+    // The bar carries the field — he can type from the fold.
+    expect(screen.getByLabelText("Message for Anubis")).toBeInTheDocument();
     expect(container.querySelector(".avatar-command-box__rail")).toBeNull();
-    expect(container.querySelector(".avatar-command-box__title")).toBeNull();
-    // Open the box: the same presence stands in the rail, ahead
-    // of the window controls (the grip toggle rides above it as
-    // the drag handle — the face is the rail's first CONTENT).
-    fireEvent.click(screen.getByRole("button", { name: "Open the chat with Anubis" }));
+    // Open the box by tapping the bar: the rail's only button is
+    // the grip toggle — no god, no window keys in this window.
+    fireEvent.click(container.querySelector(".avatar-command-box__bar") as HTMLElement);
     const rail = container.querySelector(".avatar-command-box__rail");
     expect(rail).not.toBeNull();
-    expect(rail!.contains(container.querySelector('[data-testid="presence-slot"]'))).toBe(true);
-    const slotNow = container.querySelector('[data-testid="presence-slot"]') as HTMLElement;
-    const anchorBtn = screen.getByRole("button", { name: "Unanchor the chat window" });
+    expect(rail!.querySelectorAll("button").length).toBe(1);
     expect(
-      slotNow.compareDocumentPosition(anchorBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      screen.getByRole("button", { name: /Enlarge the chat window|Shrink the chat window/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("the box's source carries no presence prop and no console at all", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/avatar/CommandBox.tsx"),
+      "utf8",
+    );
+    expect(source).not.toContain("presence?:");
+    expect(source).not.toContain("avatar-command-box__console");
+    expect(source).not.toContain("__console");
   });
 });

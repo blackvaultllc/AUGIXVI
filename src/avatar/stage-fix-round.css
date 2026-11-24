@@ -1168,7 +1168,14 @@
    medallion-menu button's dress, at his corner) open the four
    chat-window options. The head's home is the TOP-LEFT, where
    the CORE panel used to sit — the same place on the phone,
-   where the folded console replaces the docked bar's face. */
+   where the folded console replaces the docked bar's face.
+   SUPERSEDED IN PART (owner order 2026-11-24 ~16:57 EST, the
+   Captain's refinement): part (1) stands untouched. Part (2)
+   is replaced by section 32 below — Osiris stands alone at
+   the top-left with his keys in his three-lines menu, and the
+   chat window is the Captain's own, folded to its bar along
+   the bottom. The console rules that stood here are gone with
+   the console. */
 .avatar-stage .avatar-status-tab {
   position: absolute;
   top: 1.25rem;
@@ -1252,52 +1259,34 @@
   }
 }
 
-/* THE CONSOLE: the section sheds the box's dress entirely — no
-   panel, no border, no backdrop — the medallion stands on the
-   stage like any god's. */
-.avatar-stage .avatar-command-box.avatar-command-box--console {
-  background: transparent;
-  border-color: transparent;
-  backdrop-filter: none;
-  box-shadow: none;
-  padding: 0;
-  width: auto;
-  height: auto;
-  max-height: none;
-  overflow: visible;
+/* ---- 32) OSIRIS STANDS ALONE — HIS KEYS IN HIS THREE-LINES
+   MENU, HIS MESSAGE SCREEN UNDER HIM (owner order 2026-11-24
+   ~16:57 EST) ---------------------------------------------------
+   Osiris's medallion sits BARE at the top-left — no panel, no
+   border, no backdrop, no chat attached: the face alone, in
+   the ONE CIRCLE FORMAT every god shares (square box,
+   border-radius full circle, clipped, face centered with its
+   aspect kept — his own .augie-presence dress, the format the
+   other gods' medallions now match). His three-lines button
+   stands at his corner; its pop-up carries his four window
+   keys in ONE HORIZONTAL ROW of round icons (anchor, reset,
+   menu, minus) and the MESSAGE option; the message screen
+   opens directly under him. While Osiris speaks, the glow
+   rides his face. */
+.avatar-stage .osiris-medallion {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 44;
 }
-/* The docked phone bar's geometry (§17) must not reach the
-   console: folded on the phone is the head at the top-left, not
-   a bar at the bottom. */
-@media (max-width: 700px) {
-  .avatar-stage .avatar-command-box.avatar-command-box--console {
-    right: auto;
-    bottom: auto;
-    width: auto;
-    max-width: none;
-    border: none;
-    border-radius: 0;
-  }
-}
-.avatar-stage .avatar-command-box__console {
-  position: relative;
-  display: flex;
-}
-.avatar-stage .avatar-command-box__console-face {
-  cursor: grab;
+.avatar-stage .osiris-medallion__face {
+  cursor: pointer;
   border-radius: 9999px;
-  touch-action: none;
 }
-.avatar-stage .avatar-command-box__console-face:active {
-  cursor: grabbing;
-}
-.avatar-stage
-  .avatar-command-box.avatar-command-box--minimized.avatar-command-box--console
-  .augie-presence {
-  /* The head at the rail's own measure — 104px, the size his
-     face stands at in the open box; 84px on the phone (the
-     presence sizes AugiePresence records). A gold ring, like a
-     medallion's. */
+.avatar-stage .osiris-medallion .augie-presence {
+  /* His face at the medallion's own measure — 104px, the size
+     his face has stood at; 84px on the phone. A gold ring,
+     like every medallion's. */
   width: 104px;
   height: 104px;
   border: 1px solid rgb(212 175 55 / 55%);
@@ -1306,28 +1295,20 @@
     0 0 0 1px rgb(212 175 55 / 35%);
 }
 @media (max-width: 700px) {
-  .avatar-stage
-    .avatar-command-box.avatar-command-box--minimized.avatar-command-box--console
-    .augie-presence {
+  .avatar-stage .osiris-medallion .augie-presence {
     width: 84px;
     height: 84px;
   }
 }
-/* While the addressed god speaks, the glow rides the face (the
-   box's own speaking animation has no panel to glow here). */
-.avatar-stage
-  .avatar-command-box--console.avatar-command-box--partner-speaking
-  .augie-presence {
+/* While Osiris speaks, the glow rides his face. */
+.avatar-stage .osiris-medallion--speaking .augie-presence {
   box-shadow:
     0 10px 28px rgb(10 20 40 / 28%),
     0 0 22px 2px rgb(255 215 94 / 45%);
 }
-.avatar-stage .avatar-command-box--console {
-  animation: none;
-}
-/* His three dots — the medallion-menu button's dress, at the
-   face's top-right corner. */
-.avatar-stage .avatar-command-box__console-dots {
+/* His three-lines button — at the face's top-right corner, in
+   the medallion-menu button's dress. */
+.avatar-stage .osiris-medallion__menu-button {
   position: absolute;
   top: -4px;
   right: -4px;
@@ -1343,58 +1324,102 @@
   color: #f3d27a;
   cursor: pointer;
 }
-.avatar-stage .avatar-command-box__console-dots svg {
+.avatar-stage .osiris-medallion__menu-button svg {
   width: 15px;
   height: 15px;
 }
-.avatar-stage .avatar-command-box__console-dots:hover,
-.avatar-stage .avatar-command-box__console-dots:focus-visible {
+.avatar-stage .osiris-medallion__menu-button:hover,
+.avatar-stage .osiris-medallion__menu-button:focus-visible {
   background: rgb(24 32 52 / 95%);
   border-color: rgb(212 175 55 / 95%);
   outline: none;
 }
-/* The four options — a panel under the head, labeled rows at a
-   size he can hit without aiming. */
-.avatar-stage .avatar-command-box__console-menu {
+/* His keys — one HORIZONTAL row of round icons under him,
+   with the message option at the row's end. */
+.avatar-stage .osiris-medallion__menu {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
   z-index: 30;
   display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  min-width: 16rem;
-  max-width: calc(100vw - 2rem);
-  padding: 0.55rem 0.6rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.55rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 55%);
+  background: rgb(5 8 16 / 96%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 50%);
+}
+.avatar-stage .osiris-medallion__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 45%);
+  background: rgb(24 32 52 / 92%);
+  color: #f3d27a;
+  cursor: pointer;
+}
+.avatar-stage .osiris-medallion__key svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.avatar-stage .osiris-medallion__key:hover,
+.avatar-stage .osiris-medallion__key:focus-visible {
+  background: rgb(38 52 84 / 95%);
+  border-color: rgb(212 175 55 / 95%);
+  outline: none;
+}
+/* His message screen — a small composer directly under him:
+   a field and a send key, nothing more. */
+.avatar-stage .osiris-medallion__dm {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 0.5rem 0.55rem;
   border-radius: 0.7rem;
   border: 1px solid rgb(212 175 55 / 55%);
   background: rgb(5 8 16 / 96%);
   box-shadow: 0 16px 40px rgb(0 0 0 / 50%);
 }
-.avatar-stage .avatar-command-box__console-option {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.5rem 0.6rem;
-  border: 1px solid rgb(212 175 55 / 30%);
+.avatar-stage .osiris-medallion__dm-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.6rem;
   border-radius: 0.5rem;
-  background: transparent;
+  border: 1px solid rgb(212 175 55 / 35%);
+  background: rgb(10 14 24 / 95%);
   color: #eef2f6;
   font-family: var(--font-mono);
-  font-size: 0.85rem;
-  letter-spacing: 0.03em;
-  text-align: left;
+  font-size: 0.95rem;
+}
+.avatar-stage .osiris-medallion__dm-send {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 55%);
+  background: rgb(24 32 52 / 92%);
+  color: #f3d27a;
   cursor: pointer;
 }
-.avatar-stage .avatar-command-box__console-option svg {
-  flex: none;
-  width: 1rem;
-  height: 1rem;
-  color: #f3d27a;
+.avatar-stage .osiris-medallion__dm-send:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
-.avatar-stage .avatar-command-box__console-option:hover,
-.avatar-stage .avatar-command-box__console-option:focus-visible {
-  background: rgb(24 32 52 / 92%);
-  border-color: rgb(212 175 55 / 90%);
-  outline: none;
+.avatar-stage .osiris-medallion__dm-send svg {
+  width: 1.05rem;
+  height: 1.05rem;
 }

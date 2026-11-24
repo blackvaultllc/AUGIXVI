@@ -78,11 +78,11 @@ export function MontuPresence({
   /** Tapping the medallion brings Montu into perspective. */
   onSelect?: () => void;
   /**
-   * RETURN TO HIS PLACE (gods-on-the-sides round, owner order
-   * 2026-11-24): while Montu holds the FRONT, his menu carries
-   * the way back to his side slot. Supplied by the stage only
-   * in the front state; a face tap on the front medallion does
-   * the same.
+   * RETURN TO HIS PLACE (owner order 2026-11-24 ~16:57 EST):
+   * while Montu holds the FRONT, his menu carries the way back
+   * to his resting circle — and Anubis returns to the center.
+   * Supplied by the stage only in the front state; a face tap
+   * on the front medallion does the same.
    */
   onReturn?: () => void;
   /**
@@ -186,10 +186,10 @@ export function MontuPresence({
         size={anchor.geometry.size}
         onSizeChange={anchor.setSize}
       >
-        {/* RETURN TO HIS PLACE (gods-on-the-sides round,
-            2026-11-24): the front is a summons, not a seat —
-            this sends him back to his side slot and the stage
-            back to its wallpaper. */}
+        {/* RETURN TO HIS PLACE (owner order 2026-11-24
+            ~16:57 EST): the front is a summons, not a seat —
+            this sends him back to his resting circle, and
+            Anubis returns to the center. */}
         {onReturn && (
           <button
             type="button"
@@ -199,7 +199,7 @@ export function MontuPresence({
               onReturn();
             }}
             aria-label="Return Montu to his place"
-            title="Return to his place — back to his side slot; the stage rests on the wallpaper"
+            title="Return to his place — back to his resting circle; Anubis returns to the center"
           >
             <span>Return to his place</span>
           </button>

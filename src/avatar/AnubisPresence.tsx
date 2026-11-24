@@ -126,11 +126,11 @@ export function AnubisPresence({
   /** Tapping the medallion brings Anubis into perspective. */
   onSelect?: () => void;
   /**
-   * RETURN TO HIS PLACE (gods-on-the-sides round, owner order
-   * 2026-11-24): while Anubis holds the FRONT, his menu carries
-   * the way back — he returns to his side slot and the stage to
-   * its wallpaper. Supplied by the stage only in the front
-   * state; a face tap on the front medallion does the same.
+   * RETURN TO HIS PLACE (owner order 2026-11-24 ~16:57 EST):
+   * while a god holds the FRONT away from his resting place,
+   * his menu carries the way back. For Anubis the stage never
+   * supplies it: the center IS his place — he is the default
+   * the front returns to, never a god sent back from it.
    */
   onReturn?: () => void;
   /**
@@ -265,10 +265,10 @@ export function AnubisPresence({
         onEnterEmergencyEdit={anchor.enterEmergencyEdit}
         onExitEmergencyEdit={anchor.exitEmergencyEdit}
       >
-        {/* RETURN TO HIS PLACE (gods-on-the-sides round,
-            2026-11-24): the front is a summons, not a seat —
-            this sends him back to his side slot and the stage
-            back to its wallpaper. */}
+        {/* RETURN TO HIS PLACE (owner order 2026-11-24
+            ~16:57 EST): the front is a summons, not a seat —
+            this sends him back to his resting circle, and
+            Anubis returns to the center. */}
         {onReturn && (
           <button
             type="button"
@@ -278,7 +278,7 @@ export function AnubisPresence({
               onReturn();
             }}
             aria-label="Return Anubis to his place"
-            title="Return to his place — back to his side slot; the stage rests on the wallpaper"
+            title="Return to his place — back to his resting circle; Anubis returns to the center"
           >
             <span>Return to his place</span>
           </button>
