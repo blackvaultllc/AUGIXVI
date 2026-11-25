@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Battle Box — Emulator</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #07090f;
+        overflow: hidden;
+      }
+      #game {
+        width: 100%;
+        height: 100%;
+      }
+      #nogame {
+        color: #cfe3ff;
+        font-family: system-ui, sans-serif;
+        padding: 2rem;
+        font-size: 1.1rem;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <p id="nogame" hidden>Pick a game from the shelf and it will start here.</p>
+    <script>
+      // Battle Box emulator host (owner order 2026-11-25). The Augie
+      // app points this frame at a shelf game (or a game file the
+      // owner picked from his own device) and EmulatorJS — open
+      // source, bundled with the app — does the rest, entirely on
+      // this machine.
+      var q = new URLSearchParams(location.search);
+      var rom = q.get("rom") || "";
+      if (!rom) {
+        document.getElementById("nogame").hidden = false;
+      } else {
+        window.EJS_player = "#game";
+        window.EJS_core = q.get("core") || "snes";
+        window.EJS_gameUrl = rom;
+        window.EJS_gameName = q.get("name") || "";
+        window.EJS_pathtodata = "/emulatorjs/";
+        window.EJS_startOnLoaded = true;
+        var s = document.createElement("script");
+        s.src = "/emulatorjs/loader.js";
+        document.body.appendChild(s);
+      }
+    </script>
+  </body>
+</html>

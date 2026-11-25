@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   BookOpen,
+  Box,
   CarFront,
   ChevronLeft,
   ChevronRight,
@@ -21,6 +22,7 @@ import {
   Phone,
   Shapes,
   Shield,
+  Shirt,
   Sparkles,
   Star,
   Sun,
@@ -60,9 +62,12 @@ import {
 } from "./learnerStore";
 import { loadFlowerNotes, recordFlowerNote, type FlowerNote } from "./flowerNotes";
 import { currentSpeechVoices, pickSpeechVoice, warmSpeechVoices } from "../speechVoice";
+import { LearnerCube } from "./LearnerCube";
+import { LearnerDressUp } from "./LearnerDressUp";
+import { LearnerPlay } from "./LearnerPlay";
 
 /**
- * KHADIJA'S GRAND PAGE — one page, eight cabinets, no scrolling, big
+ * KHADIJA'S GRAND PAGE — one page, her cabinets, no scrolling, big
  * words, big buttons (operator orders 2026-11-21). Everything here is
  * education only: her learning shelf and game, her Squishy Maker,
  * Augie the Flower (her own AI, answering from the library), her
@@ -72,9 +77,29 @@ import { currentSpeechVoices, pickSpeechVoice, warmSpeechVoices } from "../speec
  * (his order 2026-11-24). Nothing operator-side is imported,
  * rendered, or reachable from this page — the wall is that this
  * page's whole world is these cabinets.
+ *
+ * HER SPACE GREW (the Captain's order 2026-11-25, with 007 beside
+ * him): this page is her own space inside his Anubis — NOT DIJA'S
+ * Academy the school — where she tests things she may later keep on
+ * her site. Three new cabinets are hers from that order: Dress-Up
+ * (animated girls, dresses, magic, lots of pink), My Cube (her own
+ * logic cube to turn and decipher), and Play Games (the emulators,
+ * click and play, legal shelf only). Her final say governs: what
+ * she doesn't like comes off.
  */
 
-type CabinetId = "learn" | "maker" | "flower" | "daddy" | "diary" | "squishy" | "homework" | "art";
+type CabinetId =
+  | "learn"
+  | "maker"
+  | "flower"
+  | "daddy"
+  | "diary"
+  | "squishy"
+  | "homework"
+  | "art"
+  | "dressup"
+  | "cube"
+  | "play";
 
 const CABINETS: { id: CabinetId; label: string; icon: typeof BookOpen }[] = [
   { id: "learn", label: "Learn", icon: BookOpen },
@@ -85,6 +110,9 @@ const CABINETS: { id: CabinetId; label: string; icon: typeof BookOpen }[] = [
   { id: "squishy", label: "Squishy Projects", icon: Shapes },
   { id: "homework", label: "Homework & Tests", icon: Pencil },
   { id: "art", label: "My Art", icon: Palette },
+  { id: "dressup", label: "Dress-Up", icon: Shirt },
+  { id: "cube", label: "My Cube", icon: Box },
+  { id: "play", label: "Play Games", icon: Gamepad2 },
 ];
 
 export function LearnerHome() {
@@ -138,6 +166,9 @@ export function LearnerHome() {
         {cabinet === "squishy" && <SquishyCabinet />}
         {cabinet === "homework" && <HomeworkCabinet />}
         {cabinet === "art" && <ArtCabinet />}
+        {cabinet === "dressup" && <LearnerDressUp />}
+        {cabinet === "cube" && <LearnerCube />}
+        {cabinet === "play" && <LearnerPlay />}
       </section>
     </div>
   );

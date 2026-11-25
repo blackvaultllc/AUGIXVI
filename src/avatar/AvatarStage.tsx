@@ -32,6 +32,7 @@ import {
   Gamepad2,
   Globe,
   Hammer,
+  Hexagon,
   History,
   Home,
   Image as ImageIcon,
@@ -227,6 +228,8 @@ import { Sensors, type SensorStatus } from "./sensors";
 import { attachOllamaAI, type OllamaAIOptions } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
 import { ArCubeWindow } from "./ArCubeWindow";
+import { HexoWindow } from "./HexoWindow";
+import { EmulatorWindow } from "./EmulatorWindow";
 import { PulseWindow } from "./PulseWindow";
 import { SoundWatchWindow } from "./SoundWatchWindow";
 import { AnalyticWindow } from "./AnalyticWindow";
@@ -584,6 +587,11 @@ export function AvatarStage({
   // standing UI rule — tools in contained boxes, not full-screen takeovers).
   // The full room at /avatar/cube stays for the spoken "open the cube".
   const [arCubeOpen, setArCubeOpen] = useState(false);
+  // HEXO + EMULATORS (owner order 2026-11-25): the HEXO cube is back
+  // in his area, and Battle Box emulators live here and in Khadija's
+  // space — click and play.
+  const [hexoOpen, setHexoOpen] = useState(false);
+  const [emulatorOpen, setEmulatorOpen] = useState(false);
   // THE CONSTRUCT IN HIS OWN BOX (owner order 2026-11-22): the sand
   // construct no longer holds center stage — he stands in a floating
   // container window, and the renderer's canvas docks into that
@@ -4115,6 +4123,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                 <div className="avatar-command-box__grid">
                   <CommandAction icon={Box} label="AR Cube" onClick={() => setArCubeOpen(true)} />
                   <CommandAction
+                    icon={Hexagon}
+                    label="HEXO — the Core"
+                    onClick={() => setHexoOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Gamepad2}
+                    label="Emulators — Battle Box"
+                    onClick={() => setEmulatorOpen(true)}
+                  />
+                  <CommandAction
                     icon={Gamepad2}
                     label="Legend of Logic"
                     onClick={() => void navigate({ to: "/avatar/game" })}
@@ -4490,6 +4508,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         />
       )}
       {arCubeOpen && <ArCubeWindow onClose={() => setArCubeOpen(false)} />}
+      {hexoOpen && <HexoWindow onClose={() => setHexoOpen(false)} />}
+      {emulatorOpen && <EmulatorWindow onClose={() => setEmulatorOpen(false)} />}
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
       {soundWatchOpen && (
         <SoundWatchWindow
