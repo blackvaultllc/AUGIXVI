@@ -7,10 +7,12 @@
  *
  * First birth: when no file exists yet, the store is born as the
  * SEED (deviceStoreCore.seedDeviceCoreState) — Wepwawet, device #1,
- * with the Captain's 2026-11-23 control grant — and the seed is
- * persisted on the first write. A browser cache that already holds
- * his real cards merges over the seed on first sync
- * (mergeLocalIntoCore): his data wins, nothing he set up is lost.
+ * RETIRED since the Captain sold the dog on 2026-11-24, its grant
+ * ended — and the seed is persisted on the first write. A browser
+ * cache that already holds his real cards merges over the seed on
+ * first sync (mergeLocalIntoCore): his data wins, nothing he set
+ * up is lost — and the sold dog lands retired on every road, so a
+ * stale cache can never resurrect its live grant.
  *
  * Writes are serialized on a promise chain — no read-modify-write
  * races between the window's sync and a construct send. Where
@@ -42,7 +44,8 @@ export async function readDeviceCore(
   } catch (err) {
     if ((err as { code?: string } | null)?.code === "ENOENT") {
       // Not born yet on this core — the seed is the honest first
-      // state (the dog's grant is a matter of record, not a guess).
+      // state (the dog's retired card is a matter of record, not
+      // a guess).
       return { available: true, state: seedDeviceCoreState() };
     }
     return { available: false, state: seedDeviceCoreState() };

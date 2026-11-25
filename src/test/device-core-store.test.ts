@@ -15,17 +15,24 @@ import {
   seedDeviceCoreState,
   stateCommandsFor,
   WEPWAWET_DEVICE_ID,
+  WEPWAWET_SOLD_AT,
   type DeviceCoreState,
 } from "@/avatar/devices/deviceStoreCore";
-import { WEPWAWET_DOG_PROFILE } from "@/avatar/devices/commandProfiles";
+import { BUILTIN_COMMAND_PROFILES, WEPWAWET_DOG_PROFILE } from "@/avatar/devices/commandProfiles";
 
 /**
  * THE DEVICE CORE STORE (2026-11-24) — the registry, bindings,
  * profiles, and log live in the core now. These pins hold the
- * migration (his existing cards — the dog's grant above all —
- * survive the move untouched), the one-control-map merge, and the
- * Permission Law's flag-request road: Anubis proposes, only the
- * Captain's hand applies.
+ * migration (his existing cards survive the move), the
+ * one-control-map merge, and the Permission Law's flag-request
+ * road: Anubis proposes, only the Captain's hand applies.
+ *
+ * THE RETIREMENT (2026-11-24, later the same day): the Captain
+ * sold Wepwawet. The pins below hold the new truth — the dog's
+ * entry is RETIRED everywhere it can appear (the seed, a stored
+ * state, a merged browser cache): marker set, both flags gone,
+ * canControl false — while the card, its map, and the dog command
+ * PROFILE (the seed template) all stay as the record.
  */
 
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -61,13 +68,25 @@ const localDog = (over: Partial<DeviceProfile> = {}): DeviceProfile => ({
 });
 
 describe("the seed", () => {
-  it("device #1 is the dog, with the Captain's recorded grant", () => {
+  it("device #1 is the dog — RETIRED, both flags false, no grant to resurrect", () => {
     const seed = seedDeviceCoreState();
     const dog = seed.registry.find((d) => d.id === WEPWAWET_DEVICE_ID);
     expect(dog).toBeTruthy();
-    expect(canControl(dog!)).toBe(true);
+    expect(dog!.retired).toBeTruthy();
+    expect(dog!.retired!.at).toBe(WEPWAWET_SOLD_AT);
+    expect(dog!.retired!.note).toContain("Sold on 2026-11-24");
+    expect(dog!.ownerConfirmed).toBeUndefined();
+    expect(dog!.controlGranted).toBeUndefined();
+    expect(canControl(dog!)).toBe(false);
+    // The binding stays — it is the template road for the next
+    // dog-class device, not a live grant.
     expect(seed.bindings[WEPWAWET_DEVICE_ID]?.profileId).toBe(WEPWAWET_DOG_PROFILE.id);
     expect(seed.bindings[WEPWAWET_DEVICE_ID]?.address).toBe("A947C15E");
+  });
+
+  it("the dog's command PROFILE still exists as a seed template", () => {
+    expect(BUILTIN_COMMAND_PROFILES.some((p) => p.id === WEPWAWET_DOG_PROFILE.id)).toBe(true);
+    expect(WEPWAWET_DOG_PROFILE.commands.length).toBeGreaterThan(0);
   });
 
   it("the dog's control map is generated from his profile — one map", () => {
@@ -84,7 +103,7 @@ describe("the seed", () => {
 });
 
 describe("migration — mergeLocalIntoCore", () => {
-  it("his real dog card steps over the seed, grant intact", () => {
+  it("his real dog card steps over the seed — and lands RETIRED, grant ended", () => {
     const local = emptyDeviceCoreState();
     const mine = localDog();
     local.registry = [mine];
@@ -95,9 +114,46 @@ describe("migration — mergeLocalIntoCore", () => {
     expect(merged.registry.some((d) => d.id === WEPWAWET_DEVICE_ID)).toBe(false);
     const dog = merged.registry.find((d) => d.id === mine.id);
     expect(dog).toBeTruthy();
-    expect(canControl(dog!)).toBe(true);
+    // The card itself survives — it is the record — but the sale
+    // is enforced on the merge: marker set, both flags stripped.
+    expect(dog!.retired).toBeTruthy();
+    expect(dog!.ownerConfirmed).toBeUndefined();
+    expect(dog!.controlGranted).toBeUndefined();
+    expect(canControl(dog!)).toBe(false);
     expect(merged.bindings[WEPWAWET_DEVICE_ID]).toBeUndefined();
     expect(merged.bindings[mine.id]?.profileId).toBe(WEPWAWET_DOG_PROFILE.id);
+  });
+
+  it("a stored state still carrying the dog's live grant sanitizes to retired", () => {
+    // The Parrot migration shape: the store file was written
+    // while the dog was his — owner-confirmed, control granted,
+    // no marker. One pass through the store's own sanitize road
+    // (every read and write takes it) retires him.
+    const stored = seedDeviceCoreState();
+    stored.registry = [localDog({ id: WEPWAWET_DEVICE_ID })];
+    const clean = sanitizeDeviceCoreState(JSON.parse(JSON.stringify(stored)));
+    const dog = clean.registry.find((d) => d.id === WEPWAWET_DEVICE_ID);
+    expect(dog!.retired).toBeTruthy();
+    expect(dog!.ownerConfirmed).toBeUndefined();
+    expect(dog!.controlGranted).toBeUndefined();
+    expect(canControl(dog!)).toBe(false);
+  });
+
+  it("a dog-named entry born AFTER the sale is a different animal — left alone", () => {
+    const state = emptyDeviceCoreState();
+    const pup = localDog({
+      id: "device-new-1",
+      firstSeen: WEPWAWET_SOLD_AT + 86_400_000,
+      lastSeen: WEPWAWET_SOLD_AT + 86_400_000,
+    });
+    state.registry = [pup];
+    state.bindings = {
+      [pup.id]: { deviceId: pup.id, profileId: WEPWAWET_DOG_PROFILE.id, address: "A947C15E" },
+    };
+    const merged = mergeLocalIntoCore(emptyDeviceCoreState(), state);
+    const dog = merged.registry.find((d) => d.id === pup.id);
+    expect(dog!.retired).toBeUndefined();
+    expect(canControl(dog!)).toBe(true);
   });
 
   it("unions registry, bindings, and log; the incoming entry wins a clash", () => {
@@ -125,13 +181,14 @@ describe("migration — mergeLocalIntoCore", () => {
     expect(merged.log).toHaveLength(1);
   });
 
-  it("the browser cache round-trips through the state shape", () => {
+  it("the browser cache round-trips through the state shape — the dog retired", () => {
     const storage = memoryStorage();
     const state = seedDeviceCoreState();
     applyStateToStorage(state, storage);
     const back = localStateFromStorage(storage);
     expect(back.registry).toHaveLength(1);
-    expect(canControl(back.registry[0]!)).toBe(true);
+    expect(back.registry[0]!.retired).toBeTruthy();
+    expect(canControl(back.registry[0]!)).toBe(false);
     expect(back.bindings[WEPWAWET_DEVICE_ID]?.address).toBe("A947C15E");
   });
 
@@ -227,14 +284,30 @@ describe("flag requests — Anubis proposes, the Captain applies", () => {
   });
 
   it("a proposal that changes nothing files nothing", () => {
-    const state = seedDeviceCoreState();
+    const state = emptyDeviceCoreState();
+    state.registry = [
+      localDog({ id: "wand-1", displayName: "Magic Wand" }),
+    ];
     const proposed = proposeFlagChange(state, {
-      deviceId: WEPWAWET_DEVICE_ID,
+      deviceId: "wand-1",
       ownerConfirmed: true,
       controlGranted: true,
       reason: "already so",
       now: 100,
     });
     expect(proposed).toBeNull();
+  });
+
+  it("no flag request is ever filed for the retired dog", () => {
+    const state = seedDeviceCoreState();
+    const proposed = proposeFlagChange(state, {
+      deviceId: WEPWAWET_DEVICE_ID,
+      ownerConfirmed: true,
+      controlGranted: true,
+      reason: "grant it back",
+      now: 100,
+    });
+    expect(proposed).toBeNull();
+    expect(pendingFlagRequests(state)).toHaveLength(0);
   });
 });

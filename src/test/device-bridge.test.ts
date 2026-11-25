@@ -10,6 +10,7 @@ import {
   emptyDeviceCoreState,
   seedDeviceCoreState,
   WEPWAWET_DEVICE_ID,
+  type DeviceCoreState,
 } from "@/avatar/devices/deviceStoreCore";
 import { createParrotBroadcastChannel } from "@/avatar/devices/commandModule";
 import {
@@ -30,6 +31,25 @@ import { WEPWAWET_DOG_PROFILE } from "@/avatar/devices/commandProfiles";
 
 const HOME = "/home/captain";
 const A_FRAME = "00".repeat(23);
+
+/**
+ * The seed dog as he stood while the Captain owned him — retired
+ * marker lifted, the recorded grant restored — for the tests that
+ * exercise the bridge's live roads. The seed itself is retired
+ * now (the sale, 2026-11-24) and the bridge refuses it.
+ */
+const liveDogState = (): DeviceCoreState => {
+  const state = seedDeviceCoreState();
+  return {
+    ...state,
+    registry: state.registry.map((d) => ({
+      ...d,
+      retired: undefined,
+      ownerConfirmed: true as const,
+      controlGranted: true as const,
+    })),
+  };
+};
 
 describe("sanitizeDeviceBridgeRequest", () => {
   it("accepts a device id, one exact frame, its hold, and the live flag", () => {
@@ -94,8 +114,19 @@ describe("sender args — the live flag is the whole safety shape", () => {
 });
 
 describe("resolveDeviceSender", () => {
-  it("the dog resolves to his staged sender from the seed state", () => {
+  it("the RETIRED seed dog is refused — the bridge does not fire for a retired device", () => {
     const resolved = resolveDeviceSender(seedDeviceCoreState(), WEPWAWET_DEVICE_ID, HOME);
+    expect(resolved.ok).toBe(false);
+    if (!resolved.ok) {
+      expect(resolved.status).toBe(410);
+      expect(resolved.error).toContain("retired");
+      expect(resolved.error).toContain("sold on 2026-11-24");
+      expect(resolved.error).toContain("Nothing was sent");
+    }
+  });
+
+  it("a live dog resolves to his staged sender", () => {
+    const resolved = resolveDeviceSender(liveDogState(), WEPWAWET_DEVICE_ID, HOME);
     expect(resolved.ok).toBe(true);
     if (resolved.ok) {
       expect(resolved.senderPath).toBe("/home/captain/augie-tools/wepwawet/wepwawet-send.py");
@@ -120,7 +151,7 @@ describe("resolveDeviceSender", () => {
       },
     ];
     state.registry = [
-      { ...state.registry[0]!, id: "evil-1" },
+      { ...state.registry[0]!, id: "evil-1", retired: undefined },
     ];
     state.bindings = {
       "evil-1": { deviceId: "evil-1", profileId: "evil-broadcast", address: "" },
@@ -137,7 +168,7 @@ describe("runDeviceFrame", () => {
     const seen: string[] = [];
     const run = await runDeviceFrame(req, {
       env: { HOME },
-      state: seedDeviceCoreState(),
+      state: liveDogState(),
       senderRunner: async (senderPath) => {
         seen.push(senderPath);
         return "DRY RUN — printed";
@@ -147,16 +178,32 @@ describe("runDeviceFrame", () => {
     expect(seen).toEqual(["/home/captain/augie-tools/wepwawet/wepwawet-send.py"]);
   });
 
+  it("a frame for the RETIRED dog is refused and the sender never runs", async () => {
+    const runner = vi.fn(async () => "never");
+    const run = await runDeviceFrame(req, {
+      env: { HOME },
+      state: seedDeviceCoreState(),
+      senderRunner: runner,
+    });
+    expect(run.ok).toBe(false);
+    if (!run.ok) {
+      expect(run.status).toBe(410);
+      expect(run.error).toContain("retired");
+      expect(run.error).toContain("sold on 2026-11-24");
+    }
+    expect(runner).not.toHaveBeenCalled();
+  });
+
   it("the kill switches close the door", async () => {
     const off = await runDeviceFrame(req, {
       env: { HOME, DEVICE_BRIDGE: "off" },
-      state: seedDeviceCoreState(),
+      state: liveDogState(),
       senderRunner: async () => "never",
     });
     expect(off.ok).toBe(false);
     const dogOff = await runDeviceFrame(req, {
       env: { HOME, WEPWAWET_BRIDGE: "off" },
-      state: seedDeviceCoreState(),
+      state: liveDogState(),
       senderRunner: async () => "never",
     });
     expect(dogOff.ok).toBe(false);

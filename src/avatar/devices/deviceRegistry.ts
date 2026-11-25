@@ -152,6 +152,29 @@ export type MeasuredConstraints = {
   notes?: string;
 };
 
+/** The retirement marker on a gone device's card: when it left
+ *  the Captain's hands, and the plain note that says why. */
+export type DeviceRetired = {
+  /** When the device was retired (ms since epoch). */
+  at: number;
+  /** Plain words: what happened ("Sold on 2026-11-24 — …"). */
+  note: string;
+};
+
+/**
+ * The retirement date as the Captain lives it — America/Chicago,
+ * YYYY-MM-DD — so a card, a brief line, and a bridge refusal all
+ * name the same day no matter what timezone the machine runs in.
+ */
+export function retiredDateLabel(retired: DeviceRetired): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(retired.at);
+}
+
 export type DeviceInfo = {
   manufacturer?: string;
   model?: string;
@@ -221,6 +244,18 @@ export type DeviceProfile = {
   ownerConfirmed?: boolean | undefined;
   /** His explicit grant that Osiris may CONTROL this device. */
   controlGranted?: boolean | undefined;
+  /**
+   * RETIRED (owner order 2026-11-24): the device is gone from the
+   * Captain's hands — sold, given away, destroyed. Retirement is
+   * NOT deletion: the card, its control map, and its command
+   * record stay as the record of the device he owned. But a
+   * retired device is not a device anymore: canControl is false
+   * whatever the flags say, the bridge refuses it in words, its
+   * card's controls are dead, and the construct never offers to
+   * drive it. Set once, by the Captain's word, and nothing in the
+   * system un-retires a card.
+   */
+  retired?: DeviceRetired | undefined;
   /** Signal strength (dBm) at the last sighting, when a scan or the
    *  operator recorded one. Absent = never recorded. */
   lastSeenRssi?: number | undefined;
@@ -472,6 +507,15 @@ function sanitizeControls(v: unknown): ControlAction[] | undefined {
   return out.length ? out : undefined;
 }
 
+function sanitizeRetired(v: unknown): DeviceRetired | undefined {
+  if (!isRecord(v)) return undefined;
+  if (typeof v["at"] !== "number" || !Number.isFinite(v["at"])) return undefined;
+  return {
+    at: v["at"],
+    note: typeof v["note"] === "string" ? v["note"].slice(0, 300) : "",
+  };
+}
+
 export function sanitizeProfile(v: unknown): DeviceProfile | null {
   if (!isRecord(v) || typeof v["id"] !== "string" || typeof v["displayName"] !== "string")
     return null;
@@ -521,6 +565,7 @@ export function sanitizeProfile(v: unknown): DeviceProfile | null {
     beaconRole: v["beaconRole"] === true ? true : undefined,
     ownerConfirmed: v["ownerConfirmed"] === true ? true : undefined,
     controlGranted: v["controlGranted"] === true ? true : undefined,
+    retired: sanitizeRetired(v["retired"]),
     lastSeenRssi:
       typeof v["lastSeenRssi"] === "number" && v["lastSeenRssi"] >= -120 && v["lastSeenRssi"] <= 0
         ? v["lastSeenRssi"]
@@ -607,9 +652,12 @@ export function newDeviceId(): string {
  * The Permission Law as a check: Osiris may CONTROL a device only
  * when the operator has both confirmed it is his AND granted
  * control for that device. Anything less — mapped, seen, even
- * owner-confirmed without the grant — is observation only.
+ * owner-confirmed without the grant — is observation only. A
+ * RETIRED device is beyond the law entirely: it is no longer his,
+ * so control is impossible whatever its flags say.
  */
 export function canControl(profile: DeviceProfile): boolean {
+  if (profile.retired) return false;
   return profile.ownerConfirmed === true && profile.controlGranted === true;
 }
 

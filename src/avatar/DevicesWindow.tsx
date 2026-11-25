@@ -36,6 +36,7 @@ import {
   formatPortsText,
   parseControlsText,
   parsePortsText,
+  retiredDateLabel,
   type DeviceProfile,
   type DeviceTransport,
   type MeasuredConstraints,
@@ -880,6 +881,7 @@ export function DevicesWindow({
                       {d.displayName}
                       <span>
                         {DEVICE_KIND_LABELS[d.kind]} · {TRANSPORT_LABELS[d.transport]}
+                        {d.retired ? ` · SOLD — retired ${retiredDateLabel(d.retired)}` : ""}
                       </span>
                     </button>
                   </li>
@@ -939,6 +941,13 @@ export function DevicesWindow({
                 Permission Law: {selected.ownerConfirmed ? "owner-confirmed" : "not owner-confirmed"}{" "}
                 · control {selected.controlGranted ? "GRANTED by the operator" : "not granted — observation only"}.
               </p>
+              {selected.retired && (
+                <p className="window-devices__meta" role="status">
+                  <strong>SOLD — retired {retiredDateLabel(selected.retired)}.</strong>{" "}
+                  {selected.retired.note} Its grant is ended and it cannot be controlled —
+                  the card below is the record, not a live device.
+                </p>
+              )}
               {flagRequests
                 .filter((r) => r.deviceId === selected.id)
                 .map((request) => (

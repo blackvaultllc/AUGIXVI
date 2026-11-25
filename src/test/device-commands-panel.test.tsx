@@ -442,4 +442,28 @@ describe("Device commands panel — Wepwawet's card", () => {
       expect((button as HTMLButtonElement).disabled).toBe(true);
     }
   });
+
+  it("the RETIRED dog's card: the SOLD banner stands, the switch and remote are gone, every Send is dead", () => {
+    render(
+      <DeviceCommandsPanel
+        device={device({
+          id: "device-dog",
+          displayName: "Wepwawet",
+          retired: {
+            at: Date.parse("2026-11-24T20:42:00-06:00"),
+            note: "Sold on 2026-11-24 — retired the same day.",
+          },
+        })}
+      />,
+    );
+    // The retired state, plainly, with the date.
+    expect(screen.getByText(/SOLD — retired 2026-11-24/)).toBeTruthy();
+    // No Practice / LIVE switch for this device — not hidden, gone.
+    expect(screen.queryByRole("switch", { name: "Live fire switch" })).toBeNull();
+    // No remote to drive a dog that is not his anymore.
+    expect(screen.queryByRole("region", { name: "Wepwawet remote control" })).toBeNull();
+    // The command list stays as the record — with every Send dead.
+    expect((sendButtonFor("Stop") as HTMLButtonElement).disabled).toBe(true);
+    expect((sendButtonFor("Forward") as HTMLButtonElement).disabled).toBe(true);
+  });
 });
