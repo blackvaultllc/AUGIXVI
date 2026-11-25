@@ -160,11 +160,18 @@ describe("the circle does not move", () => {
   });
 });
 
-describe("the chat box — movable and contained", () => {
-  it("a genuine grab unanchors in place instead of refusing the drag", () => {
-    expect(commandBox).not.toContain("if (anchored) return;");
-    expect(commandBox).toContain("A GENUINE GRAB MOVES THE BOX");
-    expect(commandBox).toContain("saveBoxAnchored(false)");
+describe("the chat box — docked and contained", () => {
+  it("the box cannot be grabbed or moved — the dock holds it to the bottom", () => {
+    // SUPERSEDED LAW (owner order 2026-11-25 ~01:39 EST): the
+    // grab law below was the floating window's — a genuine grab
+    // unanchored it in place (owner eye-check 2026-11-23). The
+    // window is a bottom dock now: there is no drag to refuse
+    // or allow, because there is no drag machinery at all —
+    // no pointer capture anywhere in the box, and no inline
+    // geometry for a grab to move.
+    expect(commandBox).not.toContain("startDrag");
+    expect(commandBox).not.toContain("setPointerCapture");
+    expect(commandBox).not.toContain("A GENUINE GRAB MOVES THE BOX");
   });
 
   it("the rail is wide enough to hold Osiris inside the border", () => {

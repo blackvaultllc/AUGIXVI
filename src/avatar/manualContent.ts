@@ -270,6 +270,21 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "Her page: /learner (the Flower cabinet and the Daddy cabinet). The core: the Daddy Inbox store at ~/.local/share/augie/daddy-inbox.json on the Parrot; her events also land in your Logs (the events log). Doorways: /api/learner/ask (ask + readiness), /api/learner/say (her voice), /api/learner/daddy (message/call/poll).",
         note: "Built and proven on the Parrot server-side 2026-11-24 (her ask answers, her voice doorway returns real Piper audio, a test message landed in the inbox, a test call rang). Her own retest — the voice in her ears, the ring on your screen while she calls — is the final proof, as always.",
       },
+      {
+        id: "yc-chatdock",
+        title: "The chat dock — the chat lives on the bottom edge",
+        state: "live",
+        what: "YOUR ORDER 2026-11-25: “the chat should be attached to the bottom.” The chat used to be a window that could be dragged and parked — your screenshot showed the folded bar floating over the lower middle of Anubis's medallion with dead black stage below it. Now the chat is a DOCK: it runs the full width of the stage and sits flat on the bottom edge, the same on the computer and the phone. Folded, it is the bar alone, on the edge. Open, the window rises up from the edge — nothing floats, nothing hangs over Anubis, and there is no gap under it. The chat cannot be dragged or stretched anymore, because a dock does not travel. Everything inside it is unchanged: the gold Egyptian dress, the type field, emoji, mic, the gold send button, the slash commands, and the enlarge key on the rail, which now makes the risen panel taller instead of wider. Montu's resting circle moved up just enough to stand in the open stage above the dock, fully visible — nothing else on the stage moved. Osiris's keys (his three-lines menu: anchor, reset, menu, fold) still work and still keep their records; the records just no longer move the chat.",
+        steps: [
+          "Look at the bottom of the stage: the chat bar sits flat on the bottom edge, full width.",
+          "Tap the bar (not the field or a button) — the chat window rises from the bottom edge.",
+          "Tap the fold key, or the bar on the phone, to fold it back down to the bar.",
+          "The enlarge key on the chat's left rail makes the open window taller; tap it again to go back.",
+          "Montu's small circle at the lower right stands above the bar now — always fully visible.",
+        ],
+        where: "The chat on the /avatar stage — the Parrot copy carries it after its update runs; the online copy follows when its deploy runs.",
+        note: "Built 2026-11-25. Your screenshot of the docked bar is the final proof, as always.",
+      },
     ],
   },
   {

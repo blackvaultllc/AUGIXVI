@@ -1528,3 +1528,68 @@
   font-size: 0.85rem;
   opacity: 0.8;
 }
+
+/* ================================================================
+   35) THE CHAT DOCKS TO THE BOTTOM (owner order 2026-11-25
+   ~01:39 EST, with his Parrot screenshot): "the chat should be
+   attached to the bottom." His screenshot showed the folded bar
+   FLOATING over the lower middle of Anubis's medallion — a
+   parked position from the floating-window years — with dead
+   black stage below it. That ends here: the Captain's window
+   is a DOCK at every width (the phone bar of section 17 was
+   this law's first form; it is the whole stage's law now).
+
+   - The dock spans the stage's FULL WIDTH and sits FLUSH on
+     its bottom edge: bottom 0, no offset, no centering
+     transform, no side or bottom border to lift it off the
+     edge. The gold Egyptian dress of section 33 keeps its
+     trim — the top border and the top corners ride along.
+   - Folded, the dock is the bar alone at its own height.
+   - Open, the window RISES FROM the bottom edge: its height
+     is the dock's own (the phone bar's measure), and the
+     enlarged state stands taller — never a floating panel,
+     never a gap under it.
+   - CommandBox renders NO inline geometry at any width now,
+     and the drag / stretch machinery is retired with the
+     floating window: nothing — no saved position, no saved
+     size, no grab — can float this window again. Osiris's
+     keys keep their other jobs (the menu, the fold); the
+     anchor / size records remain records, nothing more.
+
+   MONTU'S CLEARANCE: the resting circles (.god-medallions in
+   styles.css) stood 18–40px off the stage's bottom — the
+   dock's bar would have covered them. The row now rests in
+   the stage area ABOVE the dock, its bottom edge at the
+   clearance below. One number, read by both rules: the
+   folded bar's own height is a measured stack — the field's
+   2.9rem measure plus the folded box's 0.5rem padding top
+   and bottom, ≈3.9rem with its border — so 4.5rem of
+   clearance holds the circle fully visible with a clear gap
+   over the bar, at the lower-right where he rests.
+   ================================================================ */
+.avatar-stage {
+  --chat-dock-clearance: 4.5rem;
+}
+.avatar-stage .avatar-command-box {
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: 0;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  transform: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 0.7rem 0.7rem 0 0;
+}
+.avatar-stage .avatar-command-box:not(.avatar-command-box--minimized) {
+  height: min(62dvh, 36rem);
+}
+.avatar-stage .avatar-command-box--enlarged:not(.avatar-command-box--minimized) {
+  height: min(80dvh, 44rem);
+}
+.avatar-stage .god-medallions {
+  bottom: var(--chat-dock-clearance);
+}
