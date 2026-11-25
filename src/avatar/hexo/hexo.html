@@ -1,0 +1,1269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:," />
+<title>HEXO — AUGI Core</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Archivo:wght@500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.149.0/three.min.js"></script>
+<style>
+  :root{
+    --bg:#060807; --panel:#0b100e; --panel2:#0e1512; --line:#1e2b25; --ink:#d9e8de; --muted:#7f968a;
+    --bin:#39ff8e; --hex:#ffb000; --hexo:#ff4d2e; --cyan:#2ee6ff; --white:#f2f5f0;
+    --chip:#101a15;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#e9eee9; --panel:#f7f9f6; --panel2:#eef3ee; --line:#c8d4c9; --ink:#101711; --muted:#4d5f52; --chip:#e2eae2; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Mono",ui-monospace,monospace;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:var(--cyan)}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 16px 48px}
+  /* header strip */
+  .topbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:14px 0 10px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .brand h1{font-family:Archivo,sans-serif;font-weight:900;letter-spacing:.14em;font-size:34px;margin:0;line-height:1}
+  .brand h1 .h{color:var(--hex)} .brand h1 .e{color:var(--cyan)} .brand h1 .x{color:var(--ink)} .brand h1 .o{color:var(--hexo)}
+  .brand span{font-size:11px;letter-spacing:.22em;color:var(--muted)}
+  .status{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{font-size:10px;letter-spacing:.16em;padding:6px 9px;border:1px solid var(--line);background:var(--chip);border-radius:999px}
+  .pill b{color:var(--bin)} .pill.warn b{color:var(--hexo)}
+  .creed-top{margin:16px 0 2px;text-align:center;font-family:Archivo,sans-serif;font-weight:500;font-size:clamp(15px,2.4vw,21px);line-height:1.45;color:var(--ink);letter-spacing:.01em}
+  .creed-top::before,.creed-top::after{content:" — ";color:var(--muted)}
+  footer .creed-foot{color:var(--ink);font-weight:500}
+  .lead{padding:18px 0 6px;display:grid;grid-template-columns:1.25fr .75fr;gap:18px}
+  @media(max-width:820px){.lead{grid-template-columns:1fr}}
+  .lead h2{font-family:Archivo,sans-serif;font-size:clamp(26px,4.6vw,52px);line-height:.95;margin:0;font-weight:900;letter-spacing:-.01em}
+  .lead h2 em{font-style:normal;color:var(--bin)}
+  .lead h2 .neg{color:var(--hexo)}
+  .lead p{color:var(--muted);font-size:13px;line-height:1.7;margin:0}
+  .lead p strong{color:var(--ink)}
+  /* core stage */
+  .stage{margin-top:14px;border:1px solid var(--line);background:#040605;border-radius:18px;overflow:hidden}
+  .viewport{position:relative;height:min(72vh,660px);overflow:hidden}
+  .viewport canvas.webgl{display:block;width:100%;height:100%}
+  #rain{position:absolute;inset:0;width:100%;height:100%;opacity:.28;pointer-events:none}
+  #cube2d{position:absolute;inset:0;width:100%;height:100%}
+  #glholder{position:absolute;inset:0}
+  #glholder canvas{display:block}
+  .hud{display:grid;grid-template-columns:1.2fr .6fr 1.2fr;gap:8px;padding:10px;background:#070b09;border-top:1px solid #22362c}
+  @media(max-width:700px){.hud{grid-template-columns:1fr 1fr}.hudbox:last-child{grid-column:1/-1}}
+  .hudbox{background:#0a120d;border:1px solid #22362c;color:#cfe6d6;padding:9px 11px;border-radius:10px;font-size:11px;line-height:1.6}
+  .hudbox .k{color:#6f8a7b;letter-spacing:.14em;font-size:9px}
+  .hudbox .v{font-size:14px;font-weight:700;color:#fff;word-break:break-word}
+  .hudbox .v.green{color:var(--bin)} .hudbox .v.amber{color:var(--hex)} .hudbox .v.red{color:var(--hexo)}
+  .layerbar{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding:10px;background:#070b09;border-top:1px solid #1a2921}
+  .lbtn{cursor:pointer;border:1px solid #2b4237;background:rgba(4,8,6,.9);color:#cfe6d6;font:inherit;font-size:11px;letter-spacing:.12em;padding:10px 13px;border-radius:999px}
+  .lbtn.active{background:var(--bin);color:#04150a;border-color:var(--bin);font-weight:700}
+  .lbtn[data-layer="hex"].active{background:var(--hex);border-color:var(--hex);color:#1a1000}
+  .lbtn[data-layer="hexo"].active{background:var(--hexo);border-color:var(--hexo);color:#fff}
+  .lbtn[data-layer="knowledge"].active{background:var(--cyan);border-color:var(--cyan);color:#03222a}
+  /* controls */
+  .controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+  @media(max-width:820px){.controls{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h3{margin:0 0 6px;font-size:11px;letter-spacing:.2em;color:var(--muted);font-weight:700}
+  .card p{margin:0;color:var(--muted);font-size:12px;line-height:1.65}
+  .big{font-size:22px;font-weight:700;color:var(--ink)}
+  input[type=range]{width:100%;accent-color:var(--bin)}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  button.act{cursor:pointer;font:inherit;font-size:12px;font-weight:700;letter-spacing:.08em;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:var(--ink);color:var(--bg)}
+  button.act.alt{background:transparent;color:var(--ink)}
+  button.act.red{background:var(--hexo);border-color:var(--hexo);color:#fff}
+  /* axis */
+  .axiswrap{margin-top:22px}
+  .axishead{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline}
+  .axishead h2,.sec h2{font-family:Archivo,sans-serif;font-size:24px;margin:0;font-weight:900}
+  .axis{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 14px 12px;overflow:hidden}
+  .track{position:relative;height:54px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .half{position:absolute;top:0;bottom:0;width:50%}
+  .half.neg{left:0;background:repeating-linear-gradient(90deg,transparent 0 23px, rgba(255,77,46,.12) 23px 24px)}
+  .half.pos{right:0;background:repeating-linear-gradient(90deg,transparent 0 23px, rgba(57,255,142,.12) 23px 24px)}
+  .zero{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--hex);transform:translateX(-50%)}
+  .zero span{position:absolute;top:4px;left:50%;transform:translateX(-50%);background:var(--hex);color:#111;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;white-space:nowrap}
+  .dot{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid #040605}
+  .dot.p{background:var(--bin)} .dot.n{background:var(--hexo)}
+  .labels{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:8px;letter-spacing:.06em}
+  .collisionline{margin-top:12px;font-size:13px;line-height:1.7;min-height:44px}
+  .collisionline b.pos{color:#0a7a3d} @media(prefers-color-scheme:dark){.collisionline b.pos{color:var(--bin)}}
+  .collisionline b.neg{color:var(--hexo)} .collisionline b.res{color:var(--hex)}
+  /* zero question */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}}
+  .counter{font-size:clamp(42px,8vw,76px);font-weight:700;text-align:center;padding:18px 0 6px;letter-spacing:-.03em}
+  .counter.negzero{color:var(--hex)}
+  .seq{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+  .seq span{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--chip);font-size:12px}
+  .seq span.on{background:var(--hex);color:#111;border-color:var(--hex);font-weight:700}
+  .seq span.q{background:var(--hexo);color:#fff;border-color:var(--hexo);font-weight:700}
+  code.inline{background:var(--chip);padding:2px 6px;border-radius:6px;border:1px solid var(--line)}
+  /* hexo table */
+  .hexotable{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+  @media(max-width:560px){.hexotable{grid-template-columns:repeat(2,1fr)}}
+  .cell{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:12px}
+  .cell .sym{font-size:30px;font-weight:700}
+  .cell .name{font-size:10px;letter-spacing:.16em;color:var(--muted)}
+  .cell p{font-size:11px}
+  /* top-number ladder */
+  .ladder{display:grid;gap:8px;margin-top:12px}
+  .rung{display:grid;grid-template-columns:170px 130px 1fr;gap:12px;align-items:baseline;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:12px 14px}
+  @media(max-width:700px){.rung{grid-template-columns:1fr;gap:3px}}
+  .rung .rn{font-weight:700;font-size:14px}
+  .rung .rp{color:var(--hex);font-weight:700;font-size:13px}
+  .rung .rd{color:var(--muted);font-size:12px;line-height:1.65}
+  .rung.now{border-color:var(--bin)}
+  .rung.top{border-color:var(--hex);background:var(--panel2)}
+  .rung.top .rn{color:var(--hex)}
+  /* layers */
+  .layers{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+  @media(max-width:900px){.layers{grid-template-columns:repeat(2,1fr)}} @media(max-width:520px){.layers{grid-template-columns:1fr}}
+  .layer{border-radius:14px;padding:16px;border:1px solid var(--line);background:var(--panel)}
+  .layer .n{font-size:10px;letter-spacing:.2em;color:var(--muted)}
+  .layer h4{margin:6px 0;font-size:18px}
+  .layer p{margin:0;font-size:12px;color:var(--muted);line-height:1.65}
+  .swatch{height:6px;border-radius:99px;margin-bottom:10px}
+  /* periodic */
+  .sec{margin-top:28px}
+  .sec p.sub{color:var(--muted);font-size:12px;line-height:1.7;max-width:760px}
+  .ptable{display:grid;grid-template-columns:repeat(18,1fr);gap:3px;margin-top:12px}
+  .el{aspect-ratio:1/1.42;border:1px solid var(--line);border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:var(--panel);padding:1px;min-width:0;overflow:hidden}
+  .el:hover{outline:2px solid var(--bin)}
+  .el.sel{outline:2px solid var(--hexo);background:var(--panel2)}
+  .el .num{font-size:clamp(5px,0.85vw,9px);color:var(--muted);line-height:1}
+  .el .sym{font-size:clamp(7px,1.35vw,15px);font-weight:700;line-height:1.1}
+  .el .ename{font-size:clamp(4px,0.6vw,8px);line-height:1.15;color:var(--ink);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 1px}
+  .el.solved{border-color:var(--hex);background:var(--panel2)}
+  .el.solved .sym{color:var(--hex)}
+  .el.solved .ename{color:var(--hex);font-weight:700}
+  /* element solver + frontier */
+  .solver{margin-top:12px}
+  .solver .targetname{font-size:20px;font-weight:700;color:var(--ink)}
+  .solver .targetname span{color:var(--hex)}
+  .frontier{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:12px}
+  .ghost{border:1px dashed var(--muted);border-radius:12px;padding:12px;background:transparent;opacity:.75}
+  .ghost .gnum{font-size:9px;letter-spacing:.16em;color:var(--muted)}
+  .ghost .gsym{font-size:24px;font-weight:700;color:var(--muted);line-height:1.15}
+  .ghost .gname{font-size:11px;font-weight:700;color:var(--ink)}
+  .ghost .gstat{margin-top:7px;font-size:9px;letter-spacing:.16em;color:var(--hexo);font-weight:700}
+  .ghost .gbasis{margin-top:7px;font-size:11px;color:var(--muted);line-height:1.6;display:none}
+  .frontier.open .ghost{opacity:1;border-style:solid;border-color:var(--hex)}
+  .frontier.open .ghost .gsym{color:var(--hex)}
+  .frontier.open .ghost .gstat{color:var(--hex)}
+  .frontier.open .ghost .gbasis{display:block}
+  .frontiernote{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.7}
+  .frontiernote b{color:var(--hex)}
+  .el.alkali{border-color:#5b2d23}.el.alkaline{border-color:#5b4a1f}.el.transition{border-color:#28483a}.el.post{border-color:#274156}.el.nonmetal{border-color:#2d5a3a}.el.halogen{border-color:#4a3a63}.el.noble{border-color:#1f4d55}.el.lanth,.el.act{border-color:#59384f}
+  .eldetail{margin-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  @media(max-width:820px){.eldetail{grid-template-columns:repeat(2,1fr)}}
+  .stat{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:12px}
+  .stat .k{font-size:9px;letter-spacing:.18em;color:var(--muted)} .stat .v{font-size:16px;font-weight:700;margin-top:4px;word-break:break-all}
+  /* log */
+  .log{background:#040605;color:#b9ffd2;border:1px solid var(--line);border-radius:14px;padding:14px;height:220px;overflow:auto;font-size:11px;line-height:1.8;margin-top:12px}
+  .log .t{color:#5f7a68}.log .x{color:var(--hexo)}.log .h{color:var(--hex)}
+  footer{margin-top:30px;border-top:1px solid var(--line);padding-top:16px;color:var(--muted);font-size:11px;line-height:1.7;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .fallback{display:none;padding:28px;text-align:center;color:#cfe6d6;font-size:13px;line-height:1.7}
+  /* CHAOS turned all the way up */
+  .chaos-badge{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:5;pointer-events:none;text-align:center}
+  .chaos-word{display:inline-block;font-family:Archivo,sans-serif;font-weight:900;font-size:clamp(28px,6vw,62px);letter-spacing:.28em;line-height:1;color:#ffb000;text-shadow:0 0 18px rgba(255,176,0,.85),0 0 42px rgba(255,77,46,.55);animation:chaosPulse 1.6s ease-in-out infinite alternate}
+  .chaos-sub{display:block;margin-top:6px;font-size:10px;letter-spacing:.34em;color:#2ee6ff;font-weight:700}
+  @keyframes chaosPulse{from{filter:hue-rotate(0deg) brightness(1)}to{filter:hue-rotate(38deg) brightness(1.45)}}
+  @media (prefers-reduced-motion: reduce){.chaos-word{animation-duration:2.4s}}
+  .numflood{margin-top:12px;border:1px solid var(--line);background:#040605;color:#d9e8de;border-radius:14px;padding:12px 14px;overflow:hidden}
+  .numflood-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:10px;letter-spacing:.18em;color:var(--muted);margin-bottom:8px}
+  .numflood-head b{color:var(--hex)}
+  .numstream{font-size:12px;line-height:1.9;word-break:break-all;letter-spacing:.04em;min-height:92px}
+  .numstream .p{color:var(--bin)} .numstream .n{color:#ff7a5c} .numstream .h{color:var(--hex)} .numstream .c{color:var(--cyan)}
+  .ticker{margin-top:8px;white-space:nowrap;overflow:hidden;border-top:1px dashed var(--line);padding-top:8px;font-size:11px;color:var(--muted)}
+  .ticker-track{display:inline-block;animation:tickerMove 9s linear infinite}
+  @keyframes tickerMove{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  @media (prefers-reduced-motion: reduce){.ticker-track{animation-duration:28s}}
+  /* letter slots (element solver) + count strip */
+  .wslots{display:flex;gap:4px;flex-wrap:wrap;margin-top:9px}
+  .wslots .slot{width:26px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:6px;background:var(--panel2);font-weight:700;font-size:15px;color:var(--muted)}
+  .wslots .slot.on{color:#0a0a08;background:var(--hex);border-color:var(--hex)}
+  .huntstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+  @media(max-width:820px){.huntstats{grid-template-columns:repeat(2,1fr)}}
+  /* word vault — stop-the-cube hangman challenge */
+  .catpicker{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .catchip{cursor:pointer;font:inherit;font-size:11px;letter-spacing:.1em;font-weight:700;padding:10px 13px;border-radius:999px;border:1px solid var(--line);background:var(--chip);color:var(--ink)}
+  .catchip.active{background:var(--hex);border-color:var(--hex);color:#1a1000}
+  .lvlrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center}
+  .lvlrow .lk{font-size:10px;letter-spacing:.18em;color:var(--muted);margin-right:2px}
+  .lvlbtn{cursor:pointer;font:inherit;font-size:11px;letter-spacing:.08em;font-weight:700;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink)}
+  .lvlbtn.active{background:var(--bin);border-color:var(--bin);color:#04150a}
+  .lvlbtn .lp{font-weight:400;opacity:.75;font-size:10px;margin-left:5px}
+  .wordlist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+  @media(max-width:640px){.wordlist{grid-template-columns:1fr}}
+  .wrow{cursor:pointer;font:inherit;text-align:left;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5;display:flex;justify-content:space-between;gap:10px;align-items:baseline;width:100%}
+  .wrow .wl{letter-spacing:.14em;color:var(--muted);font-size:10px;white-space:nowrap}
+  .wrow .ws{font-size:10px;letter-spacing:.12em;color:var(--muted);white-space:nowrap}
+  .wrow.playing{outline:2px solid var(--hexo);border-color:var(--hexo)}
+  .wrow.playing .ws{color:var(--hexo);font-weight:700}
+  .wrow.done{cursor:default;border-color:var(--hex);background:var(--panel)}
+  .wrow.done .ww{color:var(--hex);font-weight:700;letter-spacing:.06em}
+  .wrow.done .ws{color:var(--hex);font-weight:700}
+  button.act.bigbox{width:100%;margin-top:14px;font-size:15px;padding:17px 14px;letter-spacing:.12em}
+  .hgbox{margin-top:14px;border:1px dashed var(--line);border-radius:12px;padding:16px 14px;text-align:center;background:var(--panel2);scroll-margin:12px}
+  .hgbox .k{font-size:10px;letter-spacing:.22em;color:var(--muted)}
+  .hgbox.shake{animation:hgShake .45s ease}
+  @keyframes hgShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+  @media (prefers-reduced-motion: reduce){.hgbox.shake{animation:none}}
+  .hgclue{font-size:14px;line-height:1.65;color:var(--ink);min-height:24px;margin:8px auto 2px;max-width:560px}
+  .hgslots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:14px 0 6px}
+  .hgslots .slot{width:40px;height:50px;display:flex;align-items:center;justify-content:center;border:2px solid var(--line);border-bottom-width:4px;border-radius:8px;background:var(--panel);font-weight:700;font-size:25px;color:var(--muted)}
+  .hgslots .slot.on{color:#0a0a08;background:var(--hex);border-color:var(--hex)}
+  .hgstatus{font-size:12px;line-height:1.7;color:var(--muted);min-height:22px;margin:6px 0 0}
+  .hgstatus b{color:var(--ink)} .hgstatus .bad{color:var(--hexo);font-weight:700} .hgstatus .good{color:var(--hex);font-weight:700}
+  button.act.stopped{background:var(--bin);border-color:var(--bin);color:#04150a}
+  .scoreboard{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  @media(max-width:820px){.scoreboard{grid-template-columns:repeat(2,1fr)}} @media(max-width:480px){.scoreboard{grid-template-columns:1fr}}
+  .sbrow{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:10px 12px;font-size:11px;line-height:1.6}
+  .sbrow .sn{font-weight:700;letter-spacing:.1em;font-size:11px}
+  .sbrow .sv{color:var(--hex);font-weight:700;font-size:15px}
+  .sbrow.here{outline:2px solid var(--hex)}
+  /* page tabs — one view at a time */
+  .pagenav{position:sticky;top:0;z-index:30;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding:10px 2px;background:var(--bg);border-bottom:1px solid var(--line)}
+  .pnav{cursor:pointer;font:inherit;font-size:12px;font-weight:700;letter-spacing:.12em;padding:11px 15px;border-radius:999px;border:1px solid var(--line);background:var(--chip);color:var(--ink)}
+  .pnav.active{background:var(--hex);border-color:var(--hex);color:#1a1000}
+  [data-page]{display:none}
+  [data-page].on{display:block}
+  .lead.on{display:grid}
+  .controls.on{display:grid}
+  /* lab bench — combinations */
+  .labfilters{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .labchip{cursor:pointer;font:inherit;font-size:11px;letter-spacing:.08em;font-weight:700;padding:9px 12px;border-radius:999px;border:1px solid var(--line);background:var(--chip);color:var(--ink)}
+  .labchip.active{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .labgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  @media(max-width:700px){.labgrid{grid-template-columns:1fr}}
+  .recipe{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:14px;text-align:left;width:100%;font:inherit;color:var(--ink);cursor:pointer}
+  .recipe:hover{border-color:var(--hex)}
+  .recipe .rform{font-family:Archivo,sans-serif;font-weight:900;font-size:26px;line-height:1}
+  .recipe .rform sub{font-size:.55em}
+  .recipe .rname{font-weight:700;margin-top:4px}
+  .recipe .rtype{font-size:9px;letter-spacing:.18em;color:var(--hex);font-weight:700;margin-top:6px}
+  .recipe p{font-size:12px;line-height:1.65;color:var(--muted);margin:8px 0 0}
+  .ingrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .ing{font-size:11px;font-weight:700;border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:6px 9px}
+  .ing b{color:var(--hex)}
+  .bench{margin-top:14px;border:1px solid var(--hex);border-radius:14px;padding:16px;background:var(--panel)}
+  .benchslots{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;min-height:38px}
+  .bslot{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:8px 10px;font-weight:700;font-size:13px}
+  .bslot button{margin-left:6px;border:0;background:transparent;color:var(--hexo);font-weight:900;cursor:pointer;font:inherit}
+  .benchresult{margin-top:12px;font-size:13px;line-height:1.7;border-top:1px dashed var(--line);padding-top:12px}
+  .benchresult b{color:var(--hex)}
+  .quickadd{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .qbtn{cursor:pointer;font:inherit;font-size:12px;font-weight:700;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--chip);color:var(--ink)}
+  .safenote{font-size:11px;line-height:1.7;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-top:12px;background:var(--panel2)}
+  .safenote b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><h1><span class="h">H</span><span class="e">E</span><span class="x">X</span><span class="o">O</span></h1><span>AUGI CORE · OPERATOR VISUALIZATION</span></div>
+    <div class="status"><span class="pill">ENGINE <b>● LIVE CORE</b></span><span class="pill">RANGE <b>−1,000,000,000 → +1,000,000,000</b></span><span class="pill warn">ACCESS <b>ONLY YOU READ THIS</b></span></div>
+  </div>
+
+  <p class="creed-top">Time is everything and everything is time cast in the name of God ye not guilty</p>
+
+  <nav class="pagenav" role="tablist" aria-label="HEXO pages">
+    <button class="pnav active" data-go="crack" role="tab" aria-selected="true">CRACK THE CODE</button>
+    <button class="pnav" data-go="core" role="tab" aria-selected="false">THE CORE</button>
+    <button class="pnav" data-go="numbers" role="tab" aria-selected="false">NUMBERS + STANDINGS</button>
+    <button class="pnav" data-go="table" role="tab" aria-selected="false">PERIODIC TABLE</button>
+  </nav>
+
+  <section class="lead on" data-page="crack">
+    <h2>Everything is <em>0</em> and <em>1</em>.<br>Until it bashes<br>inside the <span class="neg">cube.</span></h2>
+    <p><strong>This is the whole AUGI engine shown the way it actually runs underneath — CHAOS turned all the way up.</strong> Numbers spread a billion in both directions and collide at random, super fast and crazy. Chaos here is knowledge — magic in its own way. Under the binary is hex. Under hex, hex turns into <strong>HEXO</strong> — a new code that balances both sides. And at the center sits the question nobody asks: when you count backwards past zero, what comes next — <strong>negative zero, or negative one?</strong> Inside the cube: the perspective of knowledge, and the periodic table. And hidden in the spin — scattered far apart, never close together — are letters: the whole alphabet, Roman numerals everywhere, and words broken into single letters thrown to opposite sides of the cube. They are in there. Finding them is the work.</p>
+  </section>
+
+  <!-- CORE STAGE -->
+  <section class="stage on" data-page="crack" aria-label="HEXO Rubik's cube core">
+    <div class="viewport">
+      <canvas id="rain"></canvas>
+      <canvas id="cube2d" aria-label="Animated HEXO Rubik's cube"></canvas>
+      <div id="glholder"></div>
+      <div class="chaos-badge" aria-hidden="true"><span class="chaos-word">CHAOS</span><span class="chaos-sub">KNOWLEDGE IN CHAOS · MAGIC IN MOTION</span></div>
+    </div>
+    <div class="hud">
+      <div class="hudbox"><div class="k">ACTIVE LAYER</div><div class="v green" id="hudLayer">BINARY — OUTER SHELL</div></div>
+      <div class="hudbox"><div class="k">COLLISIONS</div><div class="v" id="hudColl">0</div></div>
+      <div class="hudbox"><div class="k">LAST BASH</div><div class="v amber" id="hudBash">— waiting —</div></div>
+    </div>
+    <div class="layerbar" role="tablist" aria-label="Core layers">
+      <button class="lbtn active" data-layer="binary">01 · BINARY</button>
+      <button class="lbtn" data-layer="hex">0F · HEX</button>
+      <button class="lbtn" data-layer="hexo">HXO · HEXO</button>
+      <button class="lbtn" data-layer="knowledge">◈ KNOWLEDGE + TABLE</button>
+    </div>
+  </section>
+
+  <div class="controls on" data-page="crack">
+    <div class="card">
+      <h3>SPREAD — HOW FAR THE NUMBERS RUN</h3>
+      <div class="big" id="spreadVal">± 1,000,000,000</div>
+      <input type="range" id="spread" min="3" max="9" step="0.01" value="9" aria-label="Spread up to one billion">
+      <p>Drag down and the swarm tightens. Push it to the end and positive and negative run the full billion both ways before they meet — a billion ways out, a billion ways back.</p>
+    </div>
+    <div class="card">
+      <h3>CHAOS</h3>
+      <div class="big" id="chaosVal">CHAOS × 0.2</div>
+      <input type="range" id="chaos" min="0.2" max="10" step="0.1" value="0.2" aria-label="Collision chaos rate">
+      <p>Chaos is not random for no reason. This is the knowledge of chaos — magic in its own way. By default the core sits at the slowest spin. Drag it up if you want it faster.</p>
+      <div class="btnrow"><button class="act red" id="bashBtn">⚡ BASH THEM NOW</button><button class="act alt" id="pauseBtn">Pause core</button><button class="act alt" id="maxChaosBtn">MAX CHAOS ×10</button></div>
+    </div>
+    <div class="card">
+      <h3>THE CUBE</h3>
+      <div class="big">11 × 11 × 11 = 1,331</div>
+      <p>One thousand three hundred thirty-one even tinier black-and-gold cubies, locked on an even grid. Faces carry 0s and 1s in bright colors — and now letters and Roman numerals too, flipping fast as it spins and twists. Hidden among them: the letters of whole words, scattered to opposite sides of the cube — nothing spells them out; finding them is done with your eyes and your mind. Drag to turn it. <strong style="color:var(--ink)">Tap a cubie when you spot a letter an element's name needs — that is how you solve the table on its own page.</strong></p>
+      <div class="btnrow"><button class="act alt" id="twistBtn">Twist a slice</button><button class="act alt" id="resetBtn">Reset view</button></div>
+    </div>
+  </div>
+
+  <!-- WORD VAULT — STOP THE CUBE, CRACK THE WORD -->
+  <section class="sec on" id="wordVault" data-page="crack">
+    <h2>Stop the cube — crack the word</h2>
+    <p class="sub">The challenge inside the challenge. Pick a school of knowledge and stay in it as long as you like — each school carries its own levels, its own word list, and <strong style="color:var(--ink)">its own score that never mixes with the others</strong>. You can walk away and choose a different school any time; nothing you earned follows you across. Press the interactive box and a word from that level's list becomes the target. Nothing spells it out for you — you get a clue and a row of empty boxes. Its letters are hidden in the spinning cube: <strong style="color:var(--ink)">stop the cube</strong> to read the faces, or be quick and catch them moving. Press a letter on a cubie with your finger (or type it) and a right letter lights up in the hangman box. <strong style="color:var(--ink)">Hit a wrong letter and the whole word restarts</strong> — every lit letter goes dark and you start that word over. Light up every letter to crack it.</p>
+    <div class="card">
+      <h3>CHOOSE YOUR SCHOOL</h3>
+      <div class="catpicker" id="catPicker" role="tablist" aria-label="Word categories"></div>
+      <div class="lvlrow" id="lvlRow" aria-label="Levels"></div>
+      <div class="huntstats">
+        <div class="stat"><div class="k" id="gScoreK">SCORE — HISTORY</div><div class="v" id="gScore">0</div></div>
+        <div class="stat"><div class="k">WORDS CRACKED IN THIS SCHOOL</div><div class="v" id="gCracked">0 / 24</div></div>
+        <div class="stat"><div class="k">WRONG-LETTER RESTARTS</div><div class="v" id="gRestarts">0</div></div>
+        <div class="stat"><div class="k">THIS LEVEL</div><div class="v" id="gLevelProg">0 / 8</div></div>
+      </div>
+      <button class="act bigbox" id="startBox">▶ PRESS — CRACK THE NEXT WORD</button>
+      <div class="hgbox" id="hgBox">
+        <div class="k">THE HANGMAN BOX</div>
+        <p class="hgclue" id="hgClue">Press the interactive box above and the first word's clue lands here.</p>
+        <div class="hgslots" id="hgSlots" aria-label="Hangman letter boxes"></div>
+        <p class="hgstatus" id="hgStatus">No word in play yet. The cube above is spinning — its faces carry the letters.</p>
+        <div class="btnrow" style="justify-content:center">
+          <button class="act red" id="stopBtn">■ STOP THE CUBE</button>
+          <button class="act alt" id="hgRestart">Restart this word</button>
+        </div>
+      </div>
+      <div class="wordlist" id="wordList" aria-label="Word list for this level" style="margin-top:14px"></div>
+    </div>
+    <div class="card" id="sbCard" data-page="numbers" style="margin-top:22px">
+      <h3>SCOREBOARD — EVERY SCHOOL KEEPS ITS OWN SCORE</h3>
+      <p style="margin:0">Six separate ledgers. Points earned in one school are never added to another — what you crack in science stays in science.</p>
+      <div class="scoreboard" id="scoreBoard"></div>
+    </div>
+  </section>
+
+  <!-- NUMBER FLOOD — MORE NUMBERS -->
+  <section class="numflood" data-page="numbers" aria-label="Live number flood">
+    <div class="numflood-head"><span><b>● LIVE</b> NUMBER FLOOD — MORE NUMBERS, ALWAYS MOVING</span><span id="floodCount">0 NUMBERS / SEC</span></div>
+    <div class="numstream" id="numStream">Warming up the flood…</div>
+    <div class="ticker"><div class="ticker-track" id="tickerTrack">+1,000,000,000 · −1,000,000,000 · 0 · −0 · 10⁹ · 10¹² · 10¹⁰⁰ GOOGOL · GOOGOLPLEX · GRAHAM'S NUMBER · 101010 · −010101 · HEXO H·E·X·O · CHAOS · +842,103 X −391,882 · </div></div>
+  </section>
+
+  <!-- AXIS -->
+  <section class="axiswrap sec" data-page="numbers">
+    <div class="axishead"><h2>A billion both ways</h2><span style="font-size:11px;color:var(--muted);letter-spacing:.14em">POSITIVE → ← NEGATIVE · THEY MEET AT THE GATE</span></div>
+    <div class="axis">
+      <div class="track" id="track"><div class="half neg"></div><div class="half pos"></div><div class="zero"><span>0 / −0 GATE</span></div></div>
+      <div class="labels"><span>−1,000,000,000</span><span>−500,000,000</span><span>−1 · −0</span><span>+1</span><span>+500,000,000</span><span>+1,000,000,000</span></div>
+      <div class="collisionline" id="collisionLine">The swarm is warming up. First collision will land here — a positive and a negative, bashed into one HEXO result.</div>
+    </div>
+  </section>
+
+  <!-- TOP NUMBER LADDER -->
+  <section class="sec" data-page="numbers">
+    <h2>The climb to the top number</h2>
+    <p class="sub">A billion is where the cube runs now — a billion in both directions from the gate, a billion ways out and a billion ways back. But a billion is not the top. Above it the ladder keeps climbing, rung by rung, all the way to the highest number anyone has ever actually used. This is that climb.</p>
+    <div class="ladder">
+      <div class="rung"><span class="rn">Million</span><span class="rp">10<sup>6</sup></span><span class="rd">1,000,000 — where this core started.</span></div>
+      <div class="rung now"><span class="rn">Billion</span><span class="rp">10<sup>9</sup></span><span class="rd">1,000,000,000 — where the cube runs now: a billion each way from zero, positive and negative.</span></div>
+      <div class="rung"><span class="rn">Trillion</span><span class="rp">10<sup>12</sup></span><span class="rd">1,000,000,000,000 — a million millions.</span></div>
+      <div class="rung"><span class="rn">Quadrillion</span><span class="rp">10<sup>15</sup></span><span class="rd">1,000,000,000,000,000.</span></div>
+      <div class="rung"><span class="rn">Quintillion</span><span class="rp">10<sup>18</sup></span><span class="rd">1,000,000,000,000,000,000 — and the cube's own count of ways: a billion positives bashed against a billion negatives is one quintillion possible collisions.</span></div>
+      <div class="rung"><span class="rn">Sextillion</span><span class="rp">10<sup>21</sup></span><span class="rd">1,000,000,000,000,000,000,000.</span></div>
+      <div class="rung"><span class="rn">Googol</span><span class="rp">10<sup>100</sup></span><span class="rd">A 1 followed by 100 zeros — more than the atoms in a star, counted one by one.</span></div>
+      <div class="rung"><span class="rn">Googolplex</span><span class="rp">10<sup>googol</sup></span><span class="rd">A 1 followed by a googol of zeros. There is not enough space in the observable universe to write this number out.</span></div>
+      <div class="rung top"><span class="rn">Graham's number</span><span class="rp">g<sub>64</sub> · THE TOP</span><span class="rd">The highest number ever used in a real mathematical proof. It is so large that even towers of exponents stacked on exponents cannot write it down — mathematicians had to invent a new notation, up-arrows, just to point at it. Past this rung, no named number has ever done real work. This is the top of numbers as anyone has ever known them — and underneath it, the cube runs its billion both ways, balanced at the −0 gate.</span></div>
+    </div>
+  </section>
+
+  <!-- ZERO QUESTION + HEXO CODE -->
+  <section class="sec" data-page="core">
+    <h2>What's after zero?</h2>
+    <p class="sub">Anybody can count forward. Counting backwards is where it costs you time — because at zero the line does not simply jump. In HEXO there is a gate first.</p>
+    <div class="grid2">
+      <div class="card">
+        <h3>CALCULATE BACKWARDS — LIVE</h3>
+        <div class="counter" id="counter">3</div>
+        <div class="seq" id="seq"><span>3</span><span>2</span><span>1</span><span>0</span><span class="q">−0 ?</span><span>−1</span><span>−2</span><span>−3</span></div>
+        <p id="zeroText">Press step backwards. Watch what the counter does when it reaches zero — before it is allowed to become −1.</p>
+        <div class="btnrow"><button class="act" id="backBtn">← Step backwards</button><button class="act alt" id="fwdBtn">Step forward →</button><button class="act alt" id="zeroReset">Reset to 3</button></div>
+      </div>
+      <div class="card">
+        <h3>THE HEXO ANSWER</h3>
+        <p style="font-size:13px;color:var(--ink);line-height:1.8"><strong style="color:var(--hex)">After zero comes −0.</strong> Negative zero is not nothing — it is zero that has crossed to the other side and remembers it. It holds the same value and the opposite direction. Only after the gate does −1 exist. That one hidden step is why backwards calculation takes so long: most people skip the gate and get the whole negative side wrong by one.</p>
+        <p style="margin-top:10px">In code: <code class="inline">+0</code> faces forward. <code class="inline">−0</code> faces backward. Same ground. Opposite charge. HEXO keeps both, so the billion on the left and the billion on the right balance exactly.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h3>HEX UNDERNEATH — HEXO ON TOP · H · E · X · O</h3>
+      <p>Hex counts in sixteens: 0–9, A–F. HEXO keeps that skeleton, then gives the four letters work to do. They are not decoration — they are the operators that run when numbers collide inside the cube.</p>
+      <div class="hexotable">
+        <div class="cell"><div class="sym" style="color:var(--hex)">H</div><div class="name">HOLD</div><p>Holds a value at the gate — including −0 — without letting it fall to either side.</p></div>
+        <div class="cell"><div class="sym" style="color:var(--cyan)">E</div><div class="name">EXPAND</div><p>Expands one digit into its full spread, out toward the billion in its direction.</p></div>
+        <div class="cell"><div class="sym">X</div><div class="name">CROSS / BASH</div><p>The collision itself. A positive and a negative cross here and neither leaves unchanged.</p></div>
+        <div class="cell"><div class="sym" style="color:var(--hexo)">O</div><div class="name">ORIGIN</div><p>The zero point both sides came from. Every result returns to O to be read.</p></div>
+      </div>
+      <p style="margin-top:12px">Read a result like this: <code class="inline">+842,103</code> <strong>X</strong> <code class="inline">−391,882</code> → <code class="inline">H·6DEAD·O</code> — held, crossed, returned to origin. Binary says what it is. Hex says where it sits. <strong style="color:var(--ink)">HEXO says what happened to it.</strong></p>
+    </div>
+  </section>
+
+  <!-- LAYERS -->
+  <section class="sec" data-page="core">
+    <h2>The layers of the core</h2>
+    <div class="layers">
+      <div class="layer"><div class="swatch" style="background:var(--bin)"></div><div class="n">LAYER 01 — OUTSIDE</div><h4>Binary</h4><p>Zeros and ones. The skin of the engine. Everything AUGI does can be read here if you are willing to read a billion digits at a time.</p></div>
+      <div class="layer"><div class="swatch" style="background:var(--hex)"></div><div class="n">LAYER 02 — UNDERNEATH</div><h4>Hex</h4><p>Sixteen at a time. The compression layer — where long binary collapses into short, hard addresses inside the machine.</p></div>
+      <div class="layer"><div class="swatch" style="background:var(--hexo)"></div><div class="n">LAYER 03 — THE TURN</div><h4>HEXO</h4><p>Where hex stops being storage and starts being balance. Both billions, the −0 gate, and the bash — all governed here.</p></div>
+      <div class="layer"><div class="swatch" style="background:var(--cyan)"></div><div class="n">CENTER — INSIDE THE CUBE</div><h4>Knowledge</h4><p>The perspective itself, with the periodic table set into the cube — every element a numbered block in the same system as everything else.</p></div>
+    </div>
+  </section>
+
+  <!-- PERIODIC TABLE -->
+  <section class="sec" data-page="table">
+    <h2>The periodic table, inside the cube</h2>
+    <p class="sub">One hundred eighteen blocks, each one numbered — and in the core, a number is never just a number. Every block now prints the element's <strong style="color:var(--ink)">name right under its symbol</strong> — Na says Sodium, Mg says Magnesium, Ca says Calcium — so nobody has to already know the letters to learn them. Tap any element to read it three ways: decimal, binary, and HEXO. Hydrogen is 1. In binary it is 1. In HEXO it is the first thing that ever left the origin.</p>
+    <div class="huntstats">
+      <div class="stat"><div class="k">ELEMENTS WE HAVE</div><div class="v">118</div></div>
+      <div class="stat"><div class="k">MISSING BETWEEN 1 AND 118</div><div class="v">0</div></div>
+      <div class="stat"><div class="k">FRONTIER — PREDICTED, NOT YET MADE</div><div class="v">119 →</div></div>
+      <div class="stat"><div class="k">ELEMENTS YOU HAVE SOLVED</div><div class="v" id="ptSolved">0 / 118</div></div>
+    </div>
+    <p class="sub" style="margin-top:10px"><strong style="color:var(--ink)">The count, straight:</strong> science has confirmed 118 elements, and there is not one empty box between 1 and 118 — the known table is complete. What is still missing lives <em>beyond</em> 118: elements 119 and up have never been made or seen. They exist today only as predictions. So the table inside this cube is a hunt in two directions — solve the 118 we have by finding each element's name inside the cube, and your solved knowledge is what opens the frontier pieces, where the missing elements wait with only the public logic of today's science behind them.</p>
+    <div class="ptable" id="ptable" aria-label="Periodic table"></div>
+    <div class="eldetail">
+      <div class="stat"><div class="k">ELEMENT</div><div class="v" id="elName">Hydrogen — H</div></div>
+      <div class="stat"><div class="k">DECIMAL</div><div class="v" id="elDec">1</div></div>
+      <div class="stat"><div class="k">BINARY</div><div class="v" id="elBin">1</div></div>
+      <div class="stat"><div class="k">HEXO READ</div><div class="v" id="elHexo">O → 1</div></div>
+    </div>
+
+    <div class="card solver">
+      <h3>SOLVE THIS ELEMENT — FIND ITS NAME IN THE CUBE</h3>
+      <div class="targetname" id="elTargetName">Hydrogen <span>— H · #1</span></div>
+      <div class="wslots" id="elSlots"></div>
+      <p style="margin-top:10px" id="elSolveStatus">This element's name is scattered inside the cube, one letter at a time, mixed into the flipping 0s and 1s. Watch the faces, tap the cubies carrying its letters, and the name assembles here. Collect every letter and the element is solved — its block turns gold on the table. Solve all 118 and the frontier beyond the table opens.</p>
+    </div>
+
+    <!-- LAB BENCH — COMBINATIONS -->
+    <div style="margin-top:28px">
+      <h3 style="margin:0;font-family:Archivo,sans-serif;font-size:22px;font-weight:900">The lab bench — what the ingredients make together</h3>
+      <p class="sub" style="margin-top:6px">This is the science-class part of the table. On their own the blocks are just elements. Put the right ones together and you get the stuff of everyday life — water, salt, chalk, sugar, the gentle acids in lemons and vinegar, and, when a gas gets super-heated or zapped until its electrons tear free, <strong style="color:var(--ink)">plasma</strong>, the fourth state of matter that lights the Sun and neon signs. Tap any card to load it onto the bench below and see its ingredients light up.</p>
+      <div class="safenote"><b>Classroom-safe &amp; legal by design:</b> everything here is standard school-textbook and kitchen science, taught in classes everywhere. This bench teaches <em>what things are made of</em> — formulas and facts. It does not give step-by-step making instructions, amounts for strong chemicals, or anything for weapons, explosives, or drugs — none of that is in HEXO. Strong acids and gases are shown as knowledge only: in a real lab they belong with a teacher, goggles, and supervision.</div>
+
+      <div class="labfilters" id="labFilters" role="tablist" aria-label="Filter combinations">
+        <button class="labchip active" data-filter="all">ALL</button>
+        <button class="labchip" data-filter="everyday">EVERYDAY</button>
+        <button class="labchip" data-filter="acid">ACIDS — CLASSROOM</button>
+        <button class="labchip" data-filter="reaction">CLASSIC REACTIONS</button>
+        <button class="labchip" data-filter="plasma">PLASMA</button>
+      </div>
+
+      <div class="labgrid" id="comboGrid"></div>
+
+      <div class="bench" id="labBench">
+        <h3 style="margin:0;font-size:11px;letter-spacing:.2em;color:var(--muted)">YOUR LAB BENCH — BUILD A FORMULA</h3>
+        <p style="font-size:12px;line-height:1.65;color:var(--muted);margin:8px 0 0">Add elements with the quick buttons, or tap a recipe card above to load it. The bench checks your mix against the classroom formulas — match one exactly and it names what you built. This is counting atoms, not mixing real chemicals.</p>
+        <div class="quickadd" id="quickAdd"></div>
+        <div class="benchslots" id="benchSlots"><span style="font-size:12px;color:var(--muted)">Bench is empty — add H and O, or tap Water above.</span></div>
+        <div class="benchresult" id="benchResult">Try: <b>H ×2 + O ×1 = Water</b> · <b>Na + Cl = Table Salt</b> · <b>Ne on its own, ionized = Neon Plasma</b></div>
+        <div class="btnrow"><button class="act alt" id="benchClear">Clear bench</button></div>
+      </div>
+    </div>
+
+    <h3 style="margin:22px 0 0;font-family:Archivo,sans-serif;font-size:19px;font-weight:900">The frontier — the missing pieces</h3>
+    <p class="sub" style="margin-top:6px">These boxes are not on any classroom wall. Nobody has ever made these elements — every attempt so far has come up empty. Their names below are the systematic placeholder names science uses until a real discovery earns a real name. Each piece stays locked until all 118 known elements are solved in the cube; then it opens and shows its basis — everything publicly known today, by fact, that says why this element should exist and what it should be: its predicted place, its predicted electrons, and the island of stability that the heaviest predictions cluster around.</p>
+    <div class="frontier" id="frontierGrid"></div>
+    <p class="frontiernote" id="frontierNote"><b>FRONTIER LOCKED</b> — solve all 118 elements above to open these pieces. Predictions in today's public science run past 120, up toward element 172, where some models say the table itself may end.</p>
+  </section>
+
+  <!-- LOG -->
+  <section class="sec" data-page="numbers">
+    <h2>Collision log</h2>
+    <p class="sub">Every bash inside the cube, written as it happens. Positive meets negative. The cube keeps the result.</p>
+    <div class="log" id="log"></div>
+  </section>
+
+  <footer><span>HEXO — H · E · X · O — the code under AUGI.</span><span class="creed-foot">Time is everything and everything is time cast in the name of God ye not guilty</span><span>−1,000,000,000 ← −0 / 0 → +1,000,000,000</span></footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(id){return document.getElementById(id)};
+  var spreadMax=1000000000, spreadVal=1000000000, chaos=0.2, paused=false, collisions=0;
+
+  /* ---------- helpers ---------- */
+  function randSpread(){ return Math.floor(Math.pow(Math.random(),1.6)*spreadVal)+1; }
+  function fmt(n){ return n.toLocaleString('en-US'); }
+  function toHexo(n){ var a=Math.abs(n); return (n<0?'−':'+')+a.toString(16).toUpperCase(); }
+  function hexoResult(a,b){ var r=a+b; var tag = r===0 ? 'H·0·O — PERFECT BALANCE AT THE GATE' : (r>0?'H·'+r.toString(16).toUpperCase()+'·O':'H·−'+Math.abs(r).toString(16).toUpperCase()+'·O'); return {r:r,tag:tag}; }
+
+  /* ---------- log ---------- */
+  var logEl=$('log');
+  function log(html){ var d=document.createElement('div'); var t=new Date(); d.innerHTML='<span class="t">['+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0')+']</span> '+html; logEl.prepend(d); while(logEl.children.length>60) logEl.removeChild(logEl.lastChild); }
+  log('<span class="h">HEXO CORE ONLINE</span> — binary shell loaded, hex underneath, HEXO governing.');
+  log('Spread armed: <span class="h">−1,000,000,000 → +1,000,000,000</span> — a billion both ways. Gate at −0 holding.');
+
+  /* ---------- collisions ---------- */
+  var track=$('track');
+  function spawnDots(a,b){
+    if(!track) return;
+    [[a,'p'],[b,'n']].forEach(function(pair){
+      var el=document.createElement('div'); el.className='dot '+pair[1];
+      el.style.left=(50 + (pair[0]/spreadMax)*48)+'%'; track.appendChild(el);
+      setTimeout(function(){ el.style.transition='all .5s'; el.style.left='50%'; el.style.opacity='0.2'; },30);
+      setTimeout(function(){ el.remove(); },650);
+    });
+  }
+  function collide(burst){
+    var a=randSpread(), b=-randSpread();
+    collisions++; $('hudColl').textContent=fmt(collisions);
+    var res=hexoResult(a,b);
+    $('hudBash').textContent='+'+fmt(a)+'  X  −'+fmt(Math.abs(b));
+    $('collisionLine').innerHTML='<b class="pos">+'+fmt(a)+'</b> bashed into <b class="neg">−'+fmt(Math.abs(b))+'</b> inside the cube → result <b class="res">'+(res.r>=0?'+':'−')+fmt(Math.abs(res.r))+'</b> · HEXO: <b class="res">'+res.tag+'</b>'+(burst?' · <b class="res">MANUAL BASH</b>':'');
+    log('<span class="x">BASH</span> +'+fmt(a)+' <b>X</b> −'+fmt(Math.abs(b))+' → '+(res.r>=0?'+':'−')+fmt(Math.abs(res.r))+' · <span class="h">'+res.tag+'</span>');
+    spawnDots(a,b);
+    if(window.__hexoBurst) window.__hexoBurst();
+  }
+  setInterval(function(){ if(!paused){ collide(false); if(chaos>=4) collide(false); if(chaos>=7 && Math.random()>0.35) collide(false); } },380);
+
+  /* ---------- controls ---------- */
+  $('spread').addEventListener('input',function(e){ var v=Math.pow(10,parseFloat(e.target.value)); spreadVal=Math.min(1000000000,Math.round(v)); $('spreadVal').textContent='± '+fmt(spreadVal); });
+  function chaosLabel(v){ return 'CHAOS × '+v.toFixed(1)+(v>=9?' — UNHINGED':v>=5?' — MAX CRAZY':v>=3?' — WILD':''); }
+  function syncChaosWord(){ var tk=document.getElementById('tickerTrack'); if(tk){ tk.style.animationDuration=Math.max(2.5, 11-chaos*0.85)+'s'; } }
+  syncChaosWord();
+  $('chaos').addEventListener('input',function(e){ chaos=parseFloat(e.target.value); $('chaosVal').textContent=chaosLabel(chaos); syncChaosWord(); });
+  $('bashBtn').addEventListener('click',function(){ for(var i=0;i<14;i++) setTimeout(collide, i*45, true); });
+  var maxBtn=$('maxChaosBtn'); if(maxBtn) maxBtn.addEventListener('click',function(){ chaos=10; var s=$('chaos'); if(s) s.value='10'; $('chaosVal').textContent=chaosLabel(10); syncChaosWord(); for(var i=0;i<14;i++) setTimeout(collide, i*40, true); log('<span class="h">MAX CHAOS ×10</span> — cube at full speed. Knowledge of chaos, unleashed.'); });
+  $('pauseBtn').addEventListener('click',function(){ paused=!paused; this.textContent=paused?'Resume core':'Pause core'; log(paused?'Core paused by operator.':'Core resumed.'); });
+
+  /* ---------- number flood — more numbers, always moving ---------- */
+  var streamEl=$('numStream'), floodEl=$('floodCount'), floodPerSec=0;
+  function floodChunk(){
+    if(paused||!streamEl) return;
+    var out=[], classes=['p','n','h','c'];
+    for(var i=0;i<42;i++){
+      var kind=Math.random();
+      var txt;
+      if(kind<0.42){ txt='+'+fmt(randSpread()); }
+      else if(kind<0.78){ txt='−'+fmt(randSpread()); }
+      else if(kind<0.86){ txt=Math.random()>0.5?'101010':'010101'; if(Math.random()>0.5) txt=Array.from({length:12},function(){return Math.random()>0.5?'1':'0'}).join(''); }
+      else if(kind<0.95){ txt=['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XV','XVI','XX','XL','L','C','D','M'][Math.floor(Math.random()*20)]; }
+      else { txt=toHexo(Math.floor(Math.random()*spreadVal)); }
+      out.push('<span class="'+classes[i%4]+'">'+txt+'</span>');
+    }
+    streamEl.innerHTML=out.join(' · ');
+    floodPerSec=42*4; if(floodEl) floodEl.textContent=fmt(floodPerSec* Math.max(1,Math.round(chaos))) + ' NUMBERS / SEC · CHAOS ×'+chaos.toFixed(1);
+    // ticker gets fresh numbers, capped so it never bloats
+    var tk=$('tickerTrack'); if(tk && Math.random()>0.5){ if(tk.textContent.length>1400) tk.textContent=tk.textContent.slice(0,700); tk.textContent=tk.textContent+' +'+fmt(randSpread())+' X −'+fmt(randSpread())+' · '; }
+  }
+  floodChunk(); setInterval(floodChunk,240);
+  setInterval(function(){ if(!paused) floodChunk(); },900);
+
+  /* ---------- zero stepper ---------- */
+  var pos=3;
+  var phrases={ '3':'Three above the gate. Safe ground, forward side.', '2':'Two. Still forward.', '1':'One. The last ordinary step before the question.', '0':'ZERO. Now — what is after this, going backwards?', '-0':'−0 — NEGATIVE ZERO. The gate. Same value as zero, opposite direction. Most counters skip this and land wrong.', '-1':'−1. Only reachable after passing −0. The negative side is now truly open.', '-2':'−2. Backwards calculation continues — and it took the long way to get here honestly.', '-3':'−3. A billion more of these to go.' };
+  function renderCounter(){
+    var key = (pos===0 && window.__negZero) ? '-0' : String(pos);
+    var c=$('counter'); c.textContent = key==='-0' ? '−0' : (pos<0?'−'+Math.abs(pos):String(pos));
+    c.className='counter'+(key==='-0'?' negzero':'');
+    $('zeroText').textContent=phrases[key]||'';
+    var spans=$('seq').children; for(var i=0;i<spans.length;i++){ spans[i].classList.toggle('on', spans[i].textContent.replace(' ?','')===c.textContent || (key==='-0'&&spans[i].textContent.indexOf('−0')===0)); }
+  }
+  window.__negZero=false;
+  $('backBtn').addEventListener('click',function(){
+    if(pos===0 && !window.__negZero){ window.__negZero=true; log('<span class="h">GATE CROSSED</span> — counter stepped 0 → −0. The hidden step, taken.'); }
+    else if(pos===0 && window.__negZero){ window.__negZero=false; pos=-1; }
+    else pos--;
+    if(pos<-3) pos=-3; renderCounter();
+  });
+  $('fwdBtn').addEventListener('click',function(){ if(pos===0&&window.__negZero){window.__negZero=false;} else if(pos===-1){pos=0;window.__negZero=true;} else pos++; if(pos>3)pos=3; renderCounter(); });
+  $('zeroReset').addEventListener('click',function(){ pos=3; window.__negZero=false; renderCounter(); });
+  renderCounter();
+
+  /* ---------- letters inside the cube ----------
+     The alphabet A–Z, the Roman numerals, and whole words broken apart
+     (TIME seeded to far corners) live on the cubie faces. Nothing spells
+     the words out and nothing tracks them — finding them is done with the
+     eyes and the mind only. Letters tapped here feed one thing: the
+     periodic-table solver below, where an element is solved by finding
+     its name inside the cube. */
+  var collected={};
+  window.__collectGlyph=function(g, roman){
+    if(roman) return; // numerals are there to be seen, not collected
+    if(/^[A-Z]$/.test(g) && !collected[g]){
+      collected[g]=true;
+      log('<span class="h">LETTER FOUND</span> — '+g+' pulled out of the spinning cube.');
+    }
+  };
+
+  /* ---------- layers ---------- */
+  var layerNames={binary:'BINARY — OUTER SHELL',hex:'HEX — UNDERNEATH',hexo:'HEXO — THE TURN',knowledge:'KNOWLEDGE + TABLE — CENTER'};
+  var layerMsgs={binary:'Outer shell in view: pure 0 and 1. This is what the world sees.',hex:'One layer down: hex. Sixteen at a time, addresses instead of digits.',hexo:'HEXO governing: H holds, E expands, X bashes, O returns to origin.',knowledge:'Center of the cube: knowledge, with the periodic table set into it.'};
+  document.querySelectorAll('.lbtn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      document.querySelectorAll('.lbtn').forEach(function(b){b.classList.remove('active')});
+      btn.classList.add('active');
+      var L=btn.getAttribute('data-layer'); window.__hexoLayer=L;
+      $('hudLayer').textContent=layerNames[L];
+      $('hudLayer').style.color = L==='hex'?'var(--hex)':(L==='hexo'?'#ff7a5c':(L==='knowledge'?'var(--cyan)':'var(--bin)'));
+      log('<span class="h">LAYER → '+L.toUpperCase()+'</span> — '+layerMsgs[L]);
+      if(window.__setLayer) window.__setLayer(L);
+      if(L==='knowledge'){ if(window.__showPage) window.__showPage('table'); setTimeout(function(){ document.getElementById('ptable').scrollIntoView({behavior:'smooth',block:'center'}); },90); }
+    });
+  });
+
+  /* ---------- periodic table ---------- */
+  var els=[[1,'H','Hydrogen','nonmetal',1,1],[2,'He','Helium','noble',18,1],[3,'Li','Lithium','alkali',1,2],[4,'Be','Beryllium','alkaline',2,2],[5,'B','Boron','post',13,2],[6,'C','Carbon','nonmetal',14,2],[7,'N','Nitrogen','nonmetal',15,2],[8,'O','Oxygen','nonmetal',16,2],[9,'F','Fluorine','halogen',17,2],[10,'Ne','Neon','noble',18,2],[11,'Na','Sodium','alkali',1,3],[12,'Mg','Magnesium','alkaline',2,3],[13,'Al','Aluminium','post',13,3],[14,'Si','Silicon','post',14,3],[15,'P','Phosphorus','nonmetal',15,3],[16,'S','Sulfur','nonmetal',16,3],[17,'Cl','Chlorine','halogen',17,3],[18,'Ar','Argon','noble',18,3],[19,'K','Potassium','alkali',1,4],[20,'Ca','Calcium','alkaline',2,4],[21,'Sc','Scandium','transition',3,4],[22,'Ti','Titanium','transition',4,4],[23,'V','Vanadium','transition',5,4],[24,'Cr','Chromium','transition',6,4],[25,'Mn','Manganese','transition',7,4],[26,'Fe','Iron','transition',8,4],[27,'Co','Cobalt','transition',9,4],[28,'Ni','Nickel','transition',10,4],[29,'Cu','Copper','transition',11,4],[30,'Zn','Zinc','transition',12,4],[31,'Ga','Gallium','post',13,4],[32,'Ge','Germanium','post',14,4],[33,'As','Arsenic','post',15,4],[34,'Se','Selenium','nonmetal',16,4],[35,'Br','Bromine','halogen',17,4],[36,'Kr','Krypton','noble',18,4],[37,'Rb','Rubidium','alkali',1,5],[38,'Sr','Strontium','alkaline',2,5],[39,'Y','Yttrium','transition',3,5],[40,'Zr','Zirconium','transition',4,5],[41,'Nb','Niobium','transition',5,5],[42,'Mo','Molybdenum','transition',6,5],[43,'Tc','Technetium','transition',7,5],[44,'Ru','Ruthenium','transition',8,5],[45,'Rh','Rhodium','transition',9,5],[46,'Pd','Palladium','transition',10,5],[47,'Ag','Silver','transition',11,5],[48,'Cd','Cadmium','transition',12,5],[49,'In','Indium','post',13,5],[50,'Sn','Tin','post',14,5],[51,'Sb','Antimony','post',15,5],[52,'Te','Tellurium','post',16,5],[53,'I','Iodine','halogen',17,5],[54,'Xe','Xenon','noble',18,5],[55,'Cs','Caesium','alkali',1,6],[56,'Ba','Barium','alkaline',2,6],[57,'La','Lanthanum','lanth',3,6],[72,'Hf','Hafnium','transition',4,6],[73,'Ta','Tantalum','transition',5,6],[74,'W','Tungsten','transition',6,6],[75,'Re','Rhenium','transition',7,6],[76,'Os','Osmium','transition',8,6],[77,'Ir','Iridium','transition',9,6],[78,'Pt','Platinum','transition',10,6],[79,'Au','Gold','transition',11,6],[80,'Hg','Mercury','transition',12,6],[81,'Tl','Thallium','post',13,6],[82,'Pb','Lead','post',14,6],[83,'Bi','Bismuth','post',15,6],[84,'Po','Polonium','post',16,6],[85,'At','Astatine','halogen',17,6],[86,'Rn','Radon','noble',18,6],[87,'Fr','Francium','alkali',1,7],[88,'Ra','Radium','alkaline',2,7],[89,'Ac','Actinium','act',3,7],[104,'Rf','Rutherfordium','transition',4,7],[105,'Db','Dubnium','transition',5,7],[106,'Sg','Seaborgium','transition',6,7],[107,'Bh','Bohrium','transition',7,7],[108,'Hs','Hassium','transition',8,7],[109,'Mt','Meitnerium','transition',9,7],[110,'Ds','Darmstadtium','transition',10,7],[111,'Rg','Roentgenium','transition',11,7],[112,'Cn','Copernicium','transition',12,7],[113,'Nh','Nihonium','post',13,7],[114,'Fl','Flerovium','post',14,7],[115,'Mc','Moscovium','post',15,7],[116,'Lv','Livermorium','post',16,7],[117,'Ts','Tennessine','halogen',17,7],[118,'Og','Oganesson','noble',18,7]];
+  var extra=[]; for(var n=58;n<=71;n++) extra.push(n); for(var m=90;m<=103;m++) extra.push(m);
+  var symExtra={58:['Ce','Cerium'],59:['Pr','Praseodymium'],60:['Nd','Neodymium'],61:['Pm','Promethium'],62:['Sm','Samarium'],63:['Eu','Europium'],64:['Gd','Gadolinium'],65:['Tb','Terbium'],66:['Dy','Dysprosium'],67:['Ho','Holmium'],68:['Er','Erbium'],69:['Tm','Thulium'],70:['Yb','Ytterbium'],71:['Lu','Lutetium'],90:['Th','Thorium'],91:['Pa','Protactinium'],92:['U','Uranium'],93:['Np','Neptunium'],94:['Pu','Plutonium'],95:['Am','Americium'],96:['Cm','Curium'],97:['Bk','Berkelium'],98:['Cf','Californium'],99:['Es','Einsteinium'],100:['Fm','Fermium'],101:['Md','Mendelevium'],102:['No','Nobelium'],103:['Lr','Lawrencium']};
+  extra.forEach(function(num,i){ var col = num<=71 ? 3+(num-58) : 3+(num-90); var row = num<=71?8:9; els.push([num,symExtra[num][0],symExtra[num][1], num<=71?'lanth':'act', col,row]); });
+  var pt=$('ptable');
+  var elCells={}, elSolved={}, elTarget=null;
+  els.forEach(function(e){
+    var d=document.createElement('button'); d.className='el '+e[3]; d.style.gridColumn=e[4]; d.style.gridRow=e[5];
+    d.innerHTML='<span class="num">'+e[0]+'</span><span class="sym">'+e[1]+'</span><span class="ename">'+e[2]+'</span>'; d.title=e[2];
+    elCells[e[0]]=d;
+    d.addEventListener('click',function(){
+      document.querySelectorAll('.el').forEach(function(x){x.classList.remove('sel')}); d.classList.add('sel');
+      $('elName').textContent=e[2]+' — '+e[1]; $('elDec').textContent=e[0]; $('elBin').textContent=e[0].toString(2);
+      $('elHexo').textContent='O → '+e[0].toString(16).toUpperCase()+' · X·'+e[0];
+      elTarget=e; renderElSolver();
+      log('TABLE — <span class="h">'+e[2]+'</span> #'+e[0]+' read in binary as '+e[0].toString(2)+'. Now find its name in the cube.');
+    });
+    pt.appendChild(d);
+  });
+
+  /* ---------- solve an element: find its name inside the cube ---------- */
+  function elLetters(e){ return e[2].toUpperCase().replace(/[^A-Z]/g,'').split(''); }
+  function renderElSolver(){
+    if(!elTarget) return;
+    var tn=$('elTargetName'); if(tn) tn.innerHTML=elTarget[2]+' <span>— '+elTarget[1]+' · #'+elTarget[0]+'</span>';
+    var box=$('elSlots'); if(!box) return;
+    box.innerHTML='';
+    elLetters(elTarget).forEach(function(ch){
+      var s=document.createElement('span'); s.className='slot'+(collected[ch]?' on':''); s.textContent=ch; box.appendChild(s);
+    });
+    var st=$('elSolveStatus'); if(!st) return;
+    if(elSolved[elTarget[0]]){ st.innerHTML='<b style="color:var(--hex)">SOLVED</b> — you found every letter of '+elTarget[2]+' inside the cube. Its block burns gold on the table.'; return; }
+    var missing=[]; elLetters(elTarget).forEach(function(ch){ if(!collected[ch] && missing.indexOf(ch)<0) missing.push(ch); });
+    st.innerHTML = missing.length
+      ? 'Still hidden in the cube: <b style="color:var(--ink)">'+missing.join(' · ')+'</b>. Watch the spinning faces and tap the cubies carrying those letters. Letters you have already pulled out of the chaos stay lit.'
+      : 'Every letter found — opening the element…';
+  }
+  function checkElSolved(){
+    if(!elTarget || elSolved[elTarget[0]]) { renderElSolver(); return; }
+    var done=elLetters(elTarget).every(function(ch){ return collected[ch]; });
+    if(!done){ renderElSolver(); return; }
+    elSolved[elTarget[0]]=true;
+    if(elCells[elTarget[0]]) elCells[elTarget[0]].classList.add('solved');
+    var n=Object.keys(elSolved).length;
+    var ps=$('ptSolved'); if(ps) ps.textContent=n+' / 118';
+    log('<span class="h">ELEMENT SOLVED</span> — '+elTarget[2]+' (#'+elTarget[0]+') assembled from letters found in the cube. '+n+' of 118 solved.');
+    if(window.__hexoBurst) window.__hexoBurst();
+    renderElSolver();
+    if(n>=118) openFrontier();
+  }
+  // every letter pulled from the cube also feeds the element solver
+  var __origCollect=window.__collectGlyph;
+  window.__collectGlyph=function(g,roman){ __origCollect(g,roman); checkElSolved(); };
+  elTarget=els[0]; renderElSolver();
+
+  /* ---------- the frontier: predicted elements beyond 118 ---------- */
+  var FRONTIER=[
+    [119,'Uue','Ununennium','Period 8 opens here — an alkali metal sitting directly under francium, predicted electron arrangement [Og] 8s¹. Labs in Russia and the US have fired calcium and titanium beams at heavy targets hunting it; as of today, not one confirmed atom.'],
+    [120,'Ubn','Unbinilium','An alkaline earth metal under radium, predicted [Og] 8s². Several models place it at the edge of an island of stability — if those models are right, its isotopes could live far longer than its neighbours. Attempts to make it have so far produced nothing confirmed.'],
+    [121,'Ubu','Unbiunium','Where a whole new block is predicted to begin: the g-block, filling a 5g orbital no known element touches. Elements from here on are called superactinides in the predictions — pure theory, never observed.'],
+    [122,'Ubb','Unbibium','A predicted superactinide. Relativistic calculations — the same public physics that correctly bent the properties of gold and mercury — say electrons this deep move so fast their behaviour warps, so even its chemistry is only sketched.'],
+    [126,'Ubh','Unbihexium','The most famous missing piece: many nuclear models put the centre of the island of stability at Z=126 with 184 neutrons — a superheavy element that could last minutes, days, or far longer instead of milliseconds. It is the biggest reason the hunt beyond 118 keeps going.']
+  ];
+  var fg=$('frontierGrid');
+  if(fg){ FRONTIER.forEach(function(f){
+    var g=document.createElement('div'); g.className='ghost';
+    g.innerHTML='<div class="gnum">ELEMENT '+f[0]+' · PREDICTED</div><div class="gsym">'+f[1]+'</div><div class="gname">'+f[2]+'</div><div class="gstat">▓ LOCKED — NOT YET MADE</div><p class="gbasis">'+f[3]+'</p>';
+    fg.appendChild(g);
+  }); }
+  function openFrontier(){
+    if(fg) fg.classList.add('open');
+    var fn=$('frontierNote');
+    if(fn) fn.innerHTML='<b>FRONTIER OPEN</b> — all 118 known elements solved. The pieces above now show their basis: the public, factual logic science holds today for each missing element. Making even one of them real is work nobody on Earth has finished — yet.';
+    log('<span class="h">FRONTIER OPEN</span> — all 118 elements solved in the cube. The missing pieces beyond the table reveal their basis.');
+    if(window.__hexoBurst) window.__hexoBurst();
+  }
+  log('<span class="h">TABLE HUNT ARMED</span> — 118 elements have, 0 missing between 1 and 118. Solve each by finding its name in the cube; solve all 118 to open the frontier beyond.');
+
+  /* ---------- binary rain ---------- */
+  var rc=$('rain'), rctx=rc.getContext('2d'), cols=[], W,H;
+  function sizeRain(){ var r=rc.parentElement.getBoundingClientRect(); W=rc.width=r.width; H=rc.height=r.height; cols=[]; var n=Math.floor(W/10); for(var i=0;i<n;i++) cols.push({x:i*10,y:Math.random()*H,s:0.6+Math.random()*1.8}); }
+  sizeRain(); window.addEventListener('resize',sizeRain);
+  setInterval(function(){ if(paused) return; rctx.clearRect(0,0,W,H); rctx.font='11px monospace'; cols.forEach(function(c){ rctx.fillStyle=Math.random()>0.5?'rgba(57,255,142,.95)':'rgba(46,230,255,.8)'; var rk=Math.random(); var ch= rk>0.9 ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*26)] : (rk>0.72? String(Math.floor(Math.random()*10)) : (Math.random()>0.5?'1':'0')); rctx.fillText(ch,c.x,c.y); c.y+=7*c.s*Math.max(1,chaos); if(c.y>H){c.y=-10;c.x=Math.floor(Math.random()*(W/10))*10;} }); },32);
+
+  /* ---------- THREE cube ---------- */
+  try{
+    if(!window.THREE) throw new Error('no three');
+    var holder=$('glholder');
+    var scene=new THREE.Scene();
+    var camera=new THREE.PerspectiveCamera(42, 2, 0.1, 100); camera.position.set(6.6,5.3,8.1); camera.lookAt(0,0,0);
+    var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer.domElement.className='webgl'; holder.appendChild(renderer.domElement);
+    scene.add(new THREE.AmbientLight(0xffffff,0.75));
+    var key=new THREE.DirectionalLight(0xffffff,0.9); key.position.set(4,6,5); scene.add(key);
+    var rim=new THREE.DirectionalLight(0xffb000,0.6); rim.position.set(-5,-3,-4); scene.add(rim);
+
+    var reducedMotion=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Black-and-gold boxes: every cubie face is black with a gold trim.
+    // The 0 / 1 digits themselves are each a different bright colour.
+    var digitCols=[0xffd700,0x2ee6ff,0x39ff8e,0xff5a3c,0xc084fc,0xffffff,0xff6ec7,0x4da6ff,0xffb000,0xa3e635];
+    function makeDigitTexture(col,digit){
+      var c=document.createElement('canvas'); c.width=c.height=128;
+      var g=c.getContext('2d');
+      g.fillStyle='#0a0a08'; g.fillRect(0,0,128,128);
+      g.fillStyle='#11110c'; g.fillRect(10,10,108,108);
+      g.strokeStyle='#d4af37'; g.lineWidth=9; g.strokeRect(5,5,118,118);
+      g.strokeStyle='rgba(255,215,0,0.35)'; g.lineWidth=2; g.strokeRect(14,14,100,100);
+      g.fillStyle='#'+('000000'+col.toString(16)).slice(-6); g.font='700 76px monospace'; g.textAlign='center'; g.textBaseline='middle';
+      g.fillText(digit,64,70);
+      var tex=new THREE.CanvasTexture(c); tex.anisotropy=4; return tex;
+    }
+    var allDigitMats=[];
+    digitCols.forEach(function(col){ ['0','1'].forEach(function(d){ var m=new THREE.MeshStandardMaterial({map:makeDigitTexture(col,d),roughness:0.32,metalness:0.28}); m.userData.glyph=d; allDigitMats.push(m); }); });
+    // the whole alphabet + Roman numerals live in the cube too — same black face, gold trim
+    function makeGlyphTexture(txt,col){
+      var c=document.createElement('canvas'); c.width=c.height=128;
+      var g=c.getContext('2d');
+      g.fillStyle='#0a0a08'; g.fillRect(0,0,128,128);
+      g.fillStyle='#11110c'; g.fillRect(10,10,108,108);
+      g.strokeStyle='#d4af37'; g.lineWidth=9; g.strokeRect(5,5,118,118);
+      g.strokeStyle='rgba(255,215,0,0.35)'; g.lineWidth=2; g.strokeRect(14,14,100,100);
+      g.fillStyle='#'+('000000'+col.toString(16)).slice(-6);
+      g.font='700 '+(txt.length<=1?76:txt.length===2?54:txt.length===3?42:34)+'px monospace'; g.textAlign='center'; g.textBaseline='middle';
+      g.fillText(txt,64,70);
+      var tex=new THREE.CanvasTexture(c); tex.anisotropy=4; return tex;
+    }
+    var letterMats={};
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(function(ch,i){ var m=new THREE.MeshStandardMaterial({map:makeGlyphTexture(ch,digitCols[i%digitCols.length]),roughness:0.32,metalness:0.28}); m.userData.glyph=ch; letterMats[ch]=m; });
+    var ROMAN_LIST=['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX'];
+    var romanMats=ROMAN_LIST.map(function(r,i){ var m=new THREE.MeshStandardMaterial({map:makeGlyphTexture(r,digitCols[(i+3)%digitCols.length]),roughness:0.32,metalness:0.28}); m.userData.glyph=r; m.userData.roman=true; return m; });
+    var letterMatList=Object.keys(letterMats).map(function(k){ return letterMats[k]; });
+    function randomDigitMat(){
+      var r=Math.random();
+      if(r<0.68) return allDigitMats[Math.floor(Math.random()*allDigitMats.length)];
+      if(r<0.88) return letterMatList[Math.floor(Math.random()*letterMatList.length)];
+      return romanMats[Math.floor(Math.random()*romanMats.length)];
+    }
+    var cubeGroup=new THREE.Group(); scene.add(cubeGroup);
+    var pivot=new THREE.Group(); cubeGroup.add(pivot);
+    var cubies=[];
+    var GRID=11, STEP=0.30;
+    var geo=new THREE.BoxGeometry(0.27,0.27,0.27);
+    function cubieMats(){ return [randomDigitMat(),randomDigitMat(),randomDigitMat(),randomDigitMat(),randomDigitMat(),randomDigitMat()]; }
+    var HALF=(GRID-1)/2;
+    for(var ix=0;ix<GRID;ix++) for(var iy=0;iy<GRID;iy++) for(var iz=0;iz<GRID;iz++){
+      var mesh=new THREE.Mesh(geo,cubieMats()); mesh.position.set((ix-HALF)*STEP,(iy-HALF)*STEP,(iz-HALF)*STEP);
+      cubeGroup.add(mesh); cubies.push(mesh);
+    }
+    // scatter the hunt into the cube: TIME thrown to far-apart corners, the whole alphabet sprinkled once each, Roman numerals everywhere
+    function seedFace(mesh,mat){ var nm=mesh.material.slice(); nm[Math.floor(Math.random()*6)]=mat; mesh.material=nm; }
+    var timeSpots=[[0,0,0],[GRID-1,GRID-1,GRID-1],[GRID-1,0,GRID-1],[0,GRID-1,0]];
+    'TIME'.split('').forEach(function(ch,k){ var s=timeSpots[k]; seedFace(cubies[(s[0]*GRID+s[1])*GRID+s[2]], letterMats[ch]); });
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(function(ch){ seedFace(cubies[Math.floor(Math.random()*cubies.length)], letterMats[ch]); });
+    for(var rn2=0;rn2<40;rn2++){ seedFace(cubies[Math.floor(Math.random()*cubies.length)], romanMats[rn2%romanMats.length]); }
+    var wire=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(3.38,3.38,3.38)), new THREE.LineBasicMaterial({color:0xd4af37,transparent:true,opacity:0.5}));
+    scene.add(wire);
+    // particles bashing inside
+    var pGeo=new THREE.BufferGeometry(); var N=620; var posArr=new Float32Array(N*3); var vel=[];
+    for(var i=0;i<N;i++){ posArr[i*3]=(Math.random()-0.5)*3; posArr[i*3+1]=(Math.random()-0.5)*3; posArr[i*3+2]=(Math.random()-0.5)*3; vel.push(new THREE.Vector3((Math.random()-0.5)*0.11,(Math.random()-0.5)*0.11,(Math.random()-0.5)*0.11)); }
+    pGeo.setAttribute('position', new THREE.BufferAttribute(posArr,3));
+    var points=new THREE.Points(pGeo,new THREE.PointsMaterial({color:0xffb000,size:0.07})); scene.add(points);
+    var burst=0;
+    window.__hexoBurst=function(){ burst=1; };
+    window.__setLayer=function(L){
+      var target = L==='binary'?0x39ff8e : L==='hex'?0xffb000 : L==='hexo'?0xff4d2e : 0x2ee6ff;
+      points.material.color.setHex(target); wire.material.color.setHex(target);
+    };
+    var twisting=null;
+    function snapCubie(c){
+      c.position.set(Math.round(c.position.x/STEP)*STEP,Math.round(c.position.y/STEP)*STEP,Math.round(c.position.z/STEP)*STEP);
+      var e=new THREE.Euler().setFromQuaternion(c.quaternion,'XYZ');
+      var q=Math.PI/2;
+      c.rotation.set(Math.round(e.x/q)*q,Math.round(e.y/q)*q,Math.round(e.z/q)*q);
+    }
+    function twist(){
+      if(twisting) return;
+      var axis=['x','y','z'][Math.floor(Math.random()*3)]; var layerVal=Math.floor(Math.random()*GRID)-HALF;
+      pivot.rotation.set(0,0,0); pivot.updateMatrixWorld(true);
+      var slice=cubies.filter(function(c){ return Math.round(c.position[axis]/STEP)===layerVal; });
+      slice.forEach(function(c){ pivot.attach(c); });
+      twisting={axis:axis,slice:slice,angle:0,target:Math.PI/2,dir:Math.random()>0.5?1:-1};
+    }
+    function finishTwist(){
+      pivot.updateMatrixWorld(true);
+      twisting.slice.forEach(function(c){ cubeGroup.attach(c); snapCubie(c); });
+      pivot.rotation.set(0,0,0);
+      twisting=null;
+    }
+    $('twistBtn').addEventListener('click',twist);
+    setInterval(function(){ if(!paused && !window.__cubeFrozen && Math.random()>(reducedMotion?0.85:0.05)) twist(); },reducedMotion?3200:420);
+    // drag rotate
+    var drag=false,px=0,py=0;
+    renderer.domElement.addEventListener('pointerdown',function(e){drag=true;px=e.clientX;py=e.clientY;});
+    window.addEventListener('pointerup',function(){drag=false});
+    window.addEventListener('pointermove',function(e){ if(!drag) return; cubeGroup.rotation.y+=(e.clientX-px)*0.008; cubeGroup.rotation.x+=(e.clientY-py)*0.008; px=e.clientX; py=e.clientY; });
+    // tap (not drag) a cubie to collect the glyph on the face you hit
+    var ray=new THREE.Raycaster(), mouseV=new THREE.Vector2(), downPos=null;
+    renderer.domElement.addEventListener('pointerdown',function(e){ downPos=[e.clientX,e.clientY]; });
+    renderer.domElement.addEventListener('pointerup',function(e){
+      if(!downPos) return;
+      var moved=Math.hypot(e.clientX-downPos[0], e.clientY-downPos[1]); downPos=null;
+      if(moved>7) return;
+      var rect=renderer.domElement.getBoundingClientRect();
+      mouseV.x=((e.clientX-rect.left)/rect.width)*2-1;
+      mouseV.y=-((e.clientY-rect.top)/rect.height)*2+1;
+      ray.setFromCamera(mouseV,camera);
+      var hits=ray.intersectObjects(cubies);
+      if(hits.length && hits[0].face){
+        var mat=hits[0].object.material[hits[0].face.materialIndex];
+        if(mat && mat.userData && mat.userData.glyph && window.__collectGlyph) window.__collectGlyph(mat.userData.glyph, !!mat.userData.roman);
+      }
+    });
+    $('resetBtn').addEventListener('click',function(){ cubeGroup.rotation.set(0.4,0.6,0); cubeGroup.position.set(0,0,0); cubeGroup.scale.setScalar(1); camera.position.set(6.6,5.3,8.1); camera.lookAt(0,0,0); });
+    function resize(){ var w=holder.clientWidth||document.querySelector('.stage').clientWidth; var h=holder.clientHeight||Math.min(window.innerHeight*0.72,660); renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+    resize(); window.addEventListener('resize',resize);
+    cubeGroup.rotation.set(0.4,0.6,0);
+    var clock=0, lastFlip=0;
+    var spinMul=reducedMotion?0.18:1;
+    (function animate(){
+      requestAnimationFrame(animate); if(paused||window.__cubeFrozen){ renderer.render(scene,camera); return; }
+      clock+=0.016;
+      if(!drag){
+        cubeGroup.rotation.y+=0.038*chaos*spinMul;
+        cubeGroup.rotation.x+=0.019*chaos*spinMul;
+        cubeGroup.rotation.z+=0.007*chaos*spinMul + Math.sin(clock*2.4)*0.004*chaos*spinMul;
+        cubeGroup.position.y=Math.sin(clock*5.5)*0.14*spinMul;
+        cubeGroup.position.x=Math.sin(clock*3.7)*0.06*spinMul;
+        var pulse=1+Math.sin(clock*7.2)*0.035*spinMul+(burst>0?burst*0.09:0);
+        cubeGroup.scale.setScalar(pulse);
+      }
+      wire.rotation.copy(cubeGroup.rotation);
+      wire.position.copy(cubeGroup.position);
+      wire.scale.copy(cubeGroup.scale);
+      // digits keep flipping across the faces — super fast now, chaos speed, each flip a new colour
+      if(!reducedMotion && clock-lastFlip>0.045){
+        lastFlip=clock;
+        for(var fi=0;fi<220;fi++){
+          var m=cubies[Math.floor(Math.random()*cubies.length)];
+          var nm=m.material.slice(); var f=Math.floor(Math.random()*6);
+          nm[f]=randomDigitMat(); m.material=nm;
+        }
+      }
+      if(twisting){
+        var step=(reducedMotion?0.05:0.28)*twisting.dir; twisting.angle+=Math.abs(step);
+        pivot.rotation[twisting.axis]+=step;
+        if(twisting.angle>=twisting.target){
+          pivot.rotation[twisting.axis]=twisting.target*twisting.dir;
+          finishTwist();
+        }
+      }
+      var arr=pGeo.attributes.position.array;
+      for(var j=0;j<N;j++){ var v=vel[j]; if(burst>0){ v.multiplyScalar(1.06); } arr[j*3]+=v.x*chaos*(1+burst*2); arr[j*3+1]+=v.y*chaos*(1+burst*2); arr[j*3+2]+=v.z*chaos*(1+burst*2); ['x','y','z'].forEach(function(ax,k){ if(Math.abs(arr[j*3+k])>1.55){ v[ax]*=-1; arr[j*3+k]=Math.sign(arr[j*3+k])*1.55; } }); }
+      if(burst>0) burst=Math.max(0,burst-0.02);
+      pGeo.attributes.position.needsUpdate=true;
+      points.rotation.y-=0.002;
+      renderer.render(scene,camera);
+    })();
+    var c2=document.getElementById('cube2d'); if(c2) c2.style.display='none';
+  }catch(e){ var h=document.getElementById('glholder'); if(h) h.style.display='none'; }
+
+  setTimeout(function(){ collide(false); collide(false); },900);
+})();
+</script>
+<script>
+(function(){
+  "use strict";
+  var cv=document.getElementById('cube2d'); if(!cv) return;
+  var ctx=cv.getContext('2d');
+  window.__hexoLayer=window.__hexoLayer||'binary';
+  var digitPalette=['#ffd700','#2ee6ff','#39ff8e','#ff5a3c','#c084fc','#ffffff','#ff6ec7','#4da6ff','#ffb000','#a3e635'];
+  var palettes={
+    binary:{faces:['#0a0a08','#14140e','#080807'],labels:['0','1','0','1','1','0','1','0','1'],edge:'#d4af37'},
+    hex:{faces:['#0a0a08','#14140e','#080807'],labels:['0','F','A','9','C','3','E','7','D'],edge:'#d4af37'},
+    hexo:{faces:['#0a0a08','#14140e','#080807'],labels:['H','E','X','O','X','H','O','E','X'],edge:'#d4af37'},
+    knowledge:{faces:['#0a0a08','#14140e','#080807'],labels:['H','He','Li','Be','B','C','N','O','F'],edge:'#d4af37'}
+  };
+  var reduced2=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var W,H,t=0,spin=0,twistPulse=0;
+  var parts=[]; for(var i=0;i<240;i++) parts.push({x:Math.random(),y:Math.random(),vx:(Math.random()-0.5)*0.009,vy:(Math.random()-0.5)*0.009,c:Math.random()>0.5?'#d4af37':'#2ee6ff'});
+  // stable per-cell digits for the 11x11 faces — they flip over time but the grid never moves
+  var cellBits=[]; for(var bi=0;bi<363;bi++) cellBits.push(Math.random()>0.5?'1':'0');
+  // the hunt, scattered across the three faces: TIME far apart, the whole alphabet, Roman numerals
+  var cellGlyphs={}, cellRomans={};
+  cellGlyphs[0]='T'; cellGlyphs[121]='I'; cellGlyphs[242]='M'; cellGlyphs[60]='E';
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(function(ch){ var idx=Math.floor(Math.random()*363); if(!cellGlyphs[idx]) cellGlyphs[idx]=ch; });
+  var ROMAN2D=['I','II','III','IV','V','VI','VII','VIII','IX','X','XII','XV','XX'];
+  for(var rr=0;rr<28;rr++){ var ri=Math.floor(Math.random()*363); if(!cellGlyphs[ri]){ cellGlyphs[ri]=ROMAN2D[rr%ROMAN2D.length]; cellRomans[ri]=true; } }
+  var cellCenters=[];
+  cv.addEventListener('click',function(e){
+    if(cv.style.display==='none') return;
+    var r=cv.getBoundingClientRect(); var mx=e.clientX-r.left, my=e.clientY-r.top;
+    var best=null, bd=34;
+    cellCenters.forEach(function(c){ if(!c) return; var d=Math.hypot(c.x-mx,c.y-my); if(d<bd){ bd=d; best=c; } });
+    if(best && window.__collectGlyph) window.__collectGlyph(best.g, !!best.roman);
+  });
+  var tb=document.getElementById('twistBtn'); if(tb) tb.addEventListener('click',function(){ twistPulse=1; });
+  function size(){ var r=cv.parentElement.getBoundingClientRect(); W=cv.width=r.width; H=cv.height=r.height; }
+  size(); window.addEventListener('resize',size);
+  function quad(p1,p2,p3,p4,fill,edge){
+    ctx.beginPath(); ctx.moveTo(p1[0],p1[1]); ctx.lineTo(p2[0],p2[1]); ctx.lineTo(p3[0],p3[1]); ctx.lineTo(p4[0],p4[1]); ctx.closePath();
+    ctx.fillStyle=fill; ctx.fill(); ctx.strokeStyle=edge; ctx.lineWidth=1.4; ctx.stroke();
+  }
+  function draw(){
+    requestAnimationFrame(draw);
+    if(cv.style.display==='none') return;
+    var frozen2=!!window.__cubeFrozen;
+    if(!frozen2){ t+=0.048; if(twistPulse>0) twistPulse-=0.03; }
+    spin=Math.sin(t*1.8)*0.42;
+    // flip digits super fast — chaos speed, wild faces, steady grid, colours keep shifting too
+    if(!reduced2 && !frozen2){ for(var fk=0;fk<90;fk++){ var fb=Math.floor(Math.random()*cellBits.length); cellBits[fb]=cellBits[fb]==='1'?'0':'1'; } }
+    ctx.clearRect(0,0,W,H);
+    var pal=palettes[window.__hexoLayer]||palettes.binary;
+    var s=Math.min(W,H)*0.165*(1+twistPulse*0.09+Math.sin(t*4)*0.03);
+    var bob=reduced2?0:Math.sin(t*6.5)*14;
+    var cx=W/2, cy=H/2+bob;
+    // fixed isometric axes — never skewed, so the 5x5 grid stays perfectly even
+    var ax=[0.866, 0.5], az=[-0.866, 0.5], ay=[0,-1];
+    function proj(x,y,z){ return [cx + (x*ax[0]+z*az[0]+y*ay[0])*s, cy + (x*ax[1]+z*az[1]+y*ay[1])*s]; }
+    // three visible faces of the big cube, each an even 11x11 sticker grid (1,331 cubies in 3D)
+    var GN=11;
+    var faces=[
+      {pts:function(u,v){ return [-1+2*u, 1, -1+2*v]; }},        // top (y=+1)
+      {pts:function(u,v){ return [-1+2*u, 1-2*v, 1]; }},          // left-front (z=+1)
+      {pts:function(u,v){ return [1, 1-2*v, 1-2*u]; }}            // right-front (x=+1)
+    ];
+    faces.forEach(function(f,fi){
+      for(var r=0;r<GN;r++) for(var c=0;c<GN;c++){
+        var idx=fi*GN*GN+r*GN+c;
+        var u0=c/GN,v0=r/GN,u1=(c+1)/GN,v1=(r+1)/GN,g=0.012;
+        var P=function(u,v){ var q=f.pts(u,v); return proj(q[0],q[1],q[2]); };
+        var pts=[P(u0+g,v0+g),P(u1-g,v0+g),P(u1-g,v1-g),P(u0+g,v1-g)];
+        quad(pts[0],pts[1],pts[2],pts[3], pal.faces[idx%3], pal.edge);
+        var mid=P((u0+u1)/2,(v0+v1)/2);
+        var huntG=cellGlyphs[idx];
+        var label = huntG ? huntG : (window.__hexoLayer==='binary' ? cellBits[idx] : pal.labels[idx%pal.labels.length]);
+        cellCenters[idx]={x:mid[0], y:mid[1], g: huntG || cellBits[idx], roman: !!cellRomans[idx]};
+        ctx.fillStyle= huntG ? '#ffd700' : digitPalette[(idx+Math.floor(t*3))%digitPalette.length];
+        ctx.font='700 '+Math.max(5, s*0.072*(label.length>2?0.55:label.length===2?0.78:1))+'px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(label, mid[0], mid[1]);
+      }
+    });
+    // particles bashing inside / around — chaos speed
+    var pSpeed=frozen2?0:(reduced2?1.5:14);
+    parts.forEach(function(p){ p.x+=p.vx*pSpeed; p.y+=p.vy*pSpeed; if(p.x<0||p.x>1)p.vx*=-1; if(p.y<0||p.y>1)p.vy*=-1; ctx.fillStyle=p.c; ctx.globalAlpha=0.8; ctx.beginPath(); ctx.arc(p.x*W,p.y*H,2.2,0,7); ctx.fill(); ctx.globalAlpha=1; });
+    ctx.fillStyle=pal.edge; ctx.font='700 12px monospace'; ctx.textAlign='center';
+    ctx.fillText(window.__hexoLayer==='binary'?'0 1 0 1 — BINARY SHELL':window.__hexoLayer==='hex'?'0–9 · A–F — HEX UNDERNEATH':window.__hexoLayer==='hexo'?'H·E·X·O — HOLD · EXPAND · CROSS · ORIGIN':'KNOWLEDGE + PERIODIC TABLE — CENTER', cx, cy+s*2+22);
+  }
+  draw();
+})();
+</script>
+<script>
+(function(){
+  "use strict";
+  var $=function(id){return document.getElementById(id)};
+  window.__cubeFrozen=false;
+
+  /* ---------- the word vault: six schools, three levels each, eight words a level ----------
+     Every word is an educational word with a clue. The clue teaches — it never
+     spells the answer, and the list below never shows an uncracked word. */
+  var CATS=[
+    {id:'history', name:'HISTORY', levels:[
+      [['EGYPT','Ancient land of pharaohs, pyramids, and the great river Nile'],['ROME','The empire that built roads, aqueducts, and the Colosseum'],['KING','A male ruler who leads a kingdom'],['CASTLE','A stone fortress where medieval lords lived'],['PHARAOH','A king of ancient Egypt, buried in a great tomb'],['EMPIRE','Many lands and peoples ruled by one single power'],['VOYAGE','A long journey across the sea'],['COLONY','A settlement controlled by a faraway country']],
+      [['PYRAMID','A massive stone tomb built for Egyptian kings'],['SENATE','The council of lawmakers in ancient Rome'],['KNIGHT','A mounted warrior sworn to a lord in the Middle Ages'],['COMPASS','The tool that showed explorers which way was north'],['TREATY','A formal agreement signed between nations'],['REVOLUTION','When a people rise up and overthrow their government'],['MONARCHY','A country ruled by a king or a queen'],['ARTIFACT','An object made by humans long ago, studied today']],
+      [['DEMOCRACY','Rule by the people, first practiced in Athens'],['DYNASTY','A line of rulers from the same family'],['HIEROGLYPH','The picture-writing carved into Egyptian temples'],['EXPEDITION','An organized journey made for discovery'],['RENAISSANCE','The great rebirth of art and learning in Europe'],['MANUSCRIPT','A book written out by hand before printing existed'],['EXPLORER','One who travels into unknown lands to map them'],['SETTLEMENT','The first town built by newcomers in a land']]
+    ]},
+    {id:'science', name:'SCIENCE', levels:[
+      [['ATOM','The smallest building block of all matter'],['CELL','The tiny basic unit of every living thing'],['FORCE','A push or a pull on an object'],['ORBIT','The curved path a planet follows around a star'],['MAGNET','An object that attracts iron'],['SEED','What a new plant grows from'],['HEAT','Energy that makes things warmer'],['LEAF','The green part of a plant that catches sunlight']],
+      [['GRAVITY','The force that pulls objects toward each other'],['ENERGY','The ability to do work or cause change'],['OXYGEN','The gas in air that we breathe to live'],['FOSSIL','The preserved remains of life from long ago'],['VOLCANO','A mountain that can erupt with lava'],['MINERAL','A natural solid found in rocks, like quartz'],['CLIMATE','The usual weather of a place over many years'],['SPECIES','A group of living things that can breed together']],
+      [['MOLECULE','Two or more atoms bonded together'],['NEUTRON','A particle with no charge at the center of an atom'],['EVOLUTION','How living things change over many generations'],['TELESCOPE','An instrument that brings distant stars close'],['HYPOTHESIS','An educated guess that a test can check'],['VELOCITY','Speed traveling in a particular direction'],['ECOSYSTEM','All the living and nonliving things in one area'],['LABORATORY','A room built for experiments and tests']]
+    ]},
+    {id:'math', name:'MATHEMATICS', levels:[
+      [['NUMBER','A value used for counting and measuring'],['ANGLE','The space where two lines meet at a point'],['SHAPE','The outline or form of an object'],['EQUAL','Having exactly the same value or amount'],['GRAPH','A picture that shows information with bars or lines'],['DOZEN','A group of twelve'],['POINT','An exact spot, drawn as a tiny dot'],['TOTAL','The whole amount after adding everything up']],
+      [['FRACTION','A part of a whole, like one half'],['DECIMAL','A number with a dot separating whole and parts'],['DIVIDE','To split a number into equal groups'],['MULTIPLY','Adding a number to itself many times, the fast way'],['SUBTRACT','To take one number away from another'],['PERCENT','Parts out of one hundred'],['GEOMETRY','The math of shapes, lines, and space'],['TRIANGLE','A shape with three sides and three corners']],
+      [['ALGEBRA','Math that uses letters to stand for numbers'],['EQUATION','A statement that two amounts are the same'],['PARALLEL','Lines that never meet, however far they run'],['INFINITE','Going on forever, without any end'],['SYMMETRY','When two halves match like a mirror image'],['QUOTIENT','The answer you get when you divide'],['VARIABLE','A symbol that can stand for changing values'],['THEOREM','A statement in math that has been proven true']]
+    ]},
+    {id:'social', name:'SOCIAL STUDIES', levels:[
+      [['COMMUNITY','People who live, work, and help in one place'],['CITIZEN','A legal member of a town or a country'],['CULTURE','The customs, beliefs, and way of life of a group'],['MARKET','A place where people buy and sell goods'],['LEADER','A person who guides a group or a nation'],['VILLAGE','A small settlement, smaller than a town'],['FAMILY','Parents, children, and relatives together'],['NEIGHBOR','Someone who lives near your home']],
+      [['GOVERNMENT','The system that makes and enforces the laws'],['ELECTION','When citizens choose their leaders by voting'],['CAPITAL','The city where a nation\u2019s government sits'],['ECONOMY','How a place makes, buys, and sells its goods'],['TRADITION','A custom handed down through the generations'],['MIGRATION','Movement of people or animals from one home to another'],['POPULATION','The total number of people living in a place'],['HARVEST','Gathering the ripe crops from the fields']],
+      [['CITIZENSHIP','The rights and duties of belonging to a nation'],['DIPLOMACY','Managing relations between countries by talking'],['CENSUS','An official count of everyone in a country'],['FEDERAL','A system where power is shared between levels of rule'],['IMMIGRANT','A person who moves to a new country to live'],['SOCIETY','People living together in an organized group'],['HERITAGE','Traditions and history passed down from the past'],['COMMERCE','Buying and selling, especially on a large scale']]
+    ]},
+    {id:'geography', name:'GEOGRAPHY', levels:[
+      [['RIVER','A natural stream of water flowing toward a sea'],['OCEAN','A vast body of salt water covering much of Earth'],['DESERT','A dry land that gets very little rain'],['ISLAND','Land completely surrounded by water'],['FOREST','A large area thick with trees'],['VALLEY','Low land between hills or mountains'],['MOUNTAIN','A huge natural rise of land, taller than a hill'],['BORDER','The line that divides two countries or states']],
+      [['CONTINENT','One of Earth\u2019s great land masses'],['EQUATOR','The imaginary line around Earth\u2019s middle'],['PENINSULA','Land nearly surrounded by water on three sides'],['GLACIER','A slow-moving river of ice'],['HARBOR','A sheltered place where ships can anchor safely'],['TUNDRA','A cold, treeless plain near the Arctic'],['CANYON','A deep valley with steep rocky sides'],['DELTA','Fan-shaped land built where a river meets the sea']],
+      [['LONGITUDE','Map lines measuring distance east or west'],['LATITUDE','Map lines measuring distance north or south'],['MERIDIAN','A great circle line running from pole to pole'],['HEMISPHERE','Half of the Earth, split at the equator'],['TOPOGRAPHY','The shape and features of the land itself'],['ARCHIPELAGO','A chain or cluster of islands'],['PLATEAU','A high, flat area of land'],['ESTUARY','Where a river\u2019s fresh water meets the tide']]
+    ]},
+    {id:'language', name:'LANGUAGE ARTS', levels:[
+      [['VERB','A word that shows action'],['NOUN','A word for a person, place, or thing'],['STORY','An account of events, real or imagined'],['POEM','Writing arranged in lines, often with rhyme'],['LETTER','A written message sent from one person to another'],['SENTENCE','A group of words that states a complete thought'],['AUTHOR','The person who wrote a book or a story'],['READER','Someone taking in a written text']],
+      [['METAPHOR','Comparing two things by saying one is the other'],['CHAPTER','A main division of a book'],['VOCABULARY','All the words a person knows or is learning'],['NARRATOR','The voice that tells the story'],['FICTION','Stories invented by the imagination, not facts'],['GRAMMAR','The rules for how words fit together'],['SETTING','Where and when a story takes place'],['DIALOGUE','The spoken words between characters']],
+      [['BIOGRAPHY','The true story of a life, written by someone else'],['THESAURUS','A reference book of synonyms and antonyms'],['SYNONYM','A word that means the same as another word'],['ANTONYM','A word that means the opposite of another'],['PARAGRAPH','A block of sentences built around one idea'],['ALLEGORY','A story carrying a hidden, deeper meaning'],['SOLILOQUY','A speech spoken alone on stage, sharing inner thoughts'],['FORESHADOW','To hint at events that will come later in a story']]
+    ]}
+  ];
+
+  /* scores live per school and never mix — one ledger per category id */
+  var prog={};
+  CATS.forEach(function(c){ prog[c.id]={score:0, restarts:0, cracked:{}}; });
+  var curCat=CATS[0], curLvl=0;
+  var game=null; // { entry:[word, clue], found:{letter:true} }
+
+  function wordsIn(cat){ var n=0; cat.levels.forEach(function(l){ n+=l.length; }); return n; }
+  function crackedIn(cat){ return Object.keys(prog[cat.id].cracked).length; }
+  function levelCracked(cat,li){ var n=0; cat.levels[li].forEach(function(e){ if(prog[cat.id].cracked[e[0]]) n++; }); return n; }
+  function status(html){ var s=$('hgStatus'); if(s) s.innerHTML=html; }
+
+  function renderCats(){
+    var box=$('catPicker'); box.innerHTML='';
+    CATS.forEach(function(c){
+      var b=document.createElement('button'); b.className='catchip'+(c===curCat?' active':''); b.textContent=c.name;
+      b.setAttribute('role','tab');
+      b.addEventListener('click',function(){
+        if(c===curCat) return;
+        curCat=c; curLvl=0; game=null;
+        status('You are in <b>'+c.name+'</b> now. Its score is its own — nothing from the other schools follows you here. Press the box to play its Level 1.');
+        renderAll();
+      });
+      box.appendChild(b);
+    });
+  }
+  function renderLevels(){
+    var box=$('lvlRow'); box.innerHTML='<span class="lk">LEVEL</span>';
+    curCat.levels.forEach(function(lv,li){
+      var b=document.createElement('button'); b.className='lvlbtn'+(li===curLvl?' active':'');
+      b.innerHTML='LEVEL '+(li+1)+'<span class="lp">'+levelCracked(curCat,li)+' / '+lv.length+' cracked</span>';
+      b.addEventListener('click',function(){ if(li===curLvl) return; curLvl=li; game=null; status('<b>'+curCat.name+' — Level '+(li+1)+'.</b> Pick a word from the list, or press the box for the next uncracked one.'); renderAll(); });
+      box.appendChild(b);
+    });
+  }
+  function renderStats(){
+    $('gScoreK').textContent='SCORE — '+curCat.name;
+    $('gScore').textContent=prog[curCat.id].score.toLocaleString('en-US');
+    $('gCracked').textContent=crackedIn(curCat)+' / '+wordsIn(curCat);
+    $('gRestarts').textContent=prog[curCat.id].restarts;
+    $('gLevelProg').textContent=levelCracked(curCat,curLvl)+' / '+curCat.levels[curLvl].length;
+  }
+  function renderBoard(){
+    var box=$('scoreBoard'); box.innerHTML='';
+    CATS.forEach(function(c){
+      var d=document.createElement('div'); d.className='sbrow'+(c===curCat?' here':'');
+      d.innerHTML='<div class="sn">'+c.name+'</div><div class="sv">'+prog[c.id].score.toLocaleString('en-US')+' PTS</div><div>'+crackedIn(c)+' / '+wordsIn(c)+' words cracked · '+prog[c.id].restarts+' restarts</div>';
+      box.appendChild(d);
+    });
+  }
+  function renderWords(){
+    var box=$('wordList'); box.innerHTML='';
+    curCat.levels[curLvl].forEach(function(e,i){
+      var done=!!prog[curCat.id].cracked[e[0]];
+      var b=document.createElement('button'); b.className='wrow'+(done?' done':'')+((game&&game.entry===e)?' playing':'');
+      if(done){ b.innerHTML='<span class="ww">'+e[0]+'</span><span class="ws">✓ CRACKED</span>'; b.disabled=true; }
+      else{
+        b.innerHTML='<span>WORD '+(i+1)+'<span class="wl"> · '+e[0].length+' LETTERS · HIDDEN IN THE CUBE</span></span><span class="ws">'+((game&&game.entry===e)?'IN PLAY':'PRESS TO PLAY')+'</span>';
+        b.addEventListener('click',function(){ startWord(e); });
+      }
+      box.appendChild(b);
+    });
+  }
+  function renderHg(){
+    var clue=$('hgClue'), slots=$('hgSlots');
+    if(!game){
+      clue.textContent='Press the interactive box above and the first word\u2019s clue lands here.';
+      slots.innerHTML='';
+      return;
+    }
+    clue.innerHTML='<b>CLUE:</b> '+game.entry[1];
+    slots.innerHTML='';
+    game.entry[0].split('').forEach(function(ch){
+      var s=document.createElement('span'); s.className='slot'+(game.found[ch]?' on':'');
+      s.textContent=game.found[ch]?ch:'·';
+      slots.appendChild(s);
+    });
+  }
+  function renderAll(){ renderCats(); renderLevels(); renderStats(); renderBoard(); renderWords(); renderHg(); }
+
+  function startWord(entry){
+    game={ entry:entry, found:{} };
+    status('<b>Word in play — '+entry[0].length+' letters.</b> Stop the cube or move fast, and press its letters on the cubies. One wrong letter restarts it.');
+    var hb=$('hgBox'); if(hb) hb.scrollIntoView({behavior:'smooth', block:'nearest'});
+    renderWords(); renderHg();
+  }
+  function crackWord(){
+    var w=game.entry[0];
+    prog[curCat.id].cracked[w]=true;
+    prog[curCat.id].score+=100;
+    status('<span class="good">WORD CRACKED — '+w+'.</span> +100 points to <b>'+curCat.name+'</b>, and only to '+curCat.name+'. Press the box for the next word.');
+    game=null;
+    if(window.__hexoBurst) window.__hexoBurst();
+    renderAll();
+  }
+  function guess(ch){
+    if(!game) return;
+    if(game.found[ch]){ status('<b>'+ch+'</b> is already lit. Find the letters that are still dark.'); return; }
+    if(game.entry[0].indexOf(ch)>=0){
+      game.found[ch]=true;
+      var done=game.entry[0].split('').every(function(c){ return game.found[c]; });
+      if(done){ renderHg(); crackWord(); return; }
+      status('<b>'+ch+'</b> lights up. Keep hunting — the rest of the word is still in the cube.');
+      renderHg();
+    }else{
+      prog[curCat.id].restarts++;
+      game.found={};
+      var box=$('hgBox'); box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+      status('<span class="bad">WRONG — '+ch+' is not in this word.</span> The box goes dark and the word restarts from zero. '+(prog[curCat.id].restarts)+' restart'+(prog[curCat.id].restarts===1?'':'s')+' in '+curCat.name+'.');
+      renderStats(); renderBoard(); renderHg();
+    }
+  }
+
+  /* letters tapped on the cube feed the word in play first;
+     with no word in play they behave exactly as before (element hunt) */
+  var prevCollect=window.__collectGlyph;
+  window.__collectGlyph=function(g, roman){
+    if(game && !roman && /^[A-Z]$/.test(g)){ guess(g); return; }
+    if(prevCollect) prevCollect(g, roman);
+  };
+  document.addEventListener('keydown',function(e){
+    if(game && /^[a-zA-Z]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) guess(e.key.toUpperCase());
+  });
+
+  $('startBox').addEventListener('click',function(){
+    var lv=curCat.levels[curLvl];
+    for(var i=0;i<lv.length;i++){ if(!prog[curCat.id].cracked[lv[i][0]]){ startWord(lv[i]); return; } }
+    if(curLvl<curCat.levels.length-1){
+      curLvl++; renderAll();
+      status('<b>Level complete.</b> Level '+(curLvl+1)+' of '+curCat.name+' is open — press the box again to start its first word.');
+    }else{
+      status('<b>'+curCat.name+' is fully cracked</b> — every level, every word. Choose another school above; its score starts from its own zero.');
+    }
+  });
+  $('hgRestart').addEventListener('click',function(){
+    if(!game){ status('No word in play — press the interactive box first.'); return; }
+    prog[curCat.id].restarts++;
+    game.found={};
+    status('You restarted the word yourself. Every lit letter is dark again — start it over.');
+    renderStats(); renderBoard(); renderHg();
+  });
+  var stopBtn=$('stopBtn');
+  stopBtn.addEventListener('click',function(){
+    window.__cubeFrozen=!window.__cubeFrozen;
+    stopBtn.textContent=window.__cubeFrozen?'▶ RELEASE THE CUBE':'■ STOP THE CUBE';
+    stopBtn.classList.toggle('stopped', window.__cubeFrozen);
+    status(window.__cubeFrozen
+      ? '<b>Cube stopped.</b> The faces hold still — read them, and press the letters you need. Release it when you are ready for the chaos again.'
+      : 'Cube released — it spins at full chaos again. Be quick, or stop it again.');
+  });
+
+  renderAll();
+})();
+</script>
+<script>
+(function(){
+  "use strict";
+  /* ---------- pages: one view at a time ----------
+     CRACK THE CODE — the cube on top, the crack game right under it.
+     THE CORE — layers, the zero question, the HEXO code.
+     NUMBERS + STANDINGS — scoreboard, flood, axis, the climb, the log.
+     PERIODIC TABLE — the table, its solver, and the frontier. */
+  var stage=document.querySelector('.stage');
+  var wv=document.getElementById('wordVault');
+  if(stage && wv && stage.parentNode) stage.parentNode.insertBefore(wv, stage.nextSibling); // crack game sits directly under the cube
+  var sb=document.getElementById('scoreBoard');
+  var sbCard=sb?sb.parentElement:null;
+  var flood=document.querySelector('.numflood');
+  if(sbCard && flood && flood.parentNode) flood.parentNode.insertBefore(sbCard, flood); // standings lead their own page
+  function show(name){
+    document.querySelectorAll('[data-page]').forEach(function(el){ el.classList.toggle('on', el.getAttribute('data-page')===name); });
+    document.querySelectorAll('.pnav').forEach(function(b){ var on=b.getAttribute('data-go')===name; b.classList.toggle('active',on); b.setAttribute('aria-selected', on?'true':'false'); });
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  window.__showPage=show;
+  document.querySelectorAll('.pnav').forEach(function(b){ b.addEventListener('click',function(){ show(b.getAttribute('data-go')); }); });
+})();
+</script>
+<script>
+(function(){
+  "use strict";
+  var $=function(id){return document.getElementById(id)};
+  var NAMES={H:'Hydrogen',He:'Helium',C:'Carbon',N:'Nitrogen',O:'Oxygen',Na:'Sodium',Mg:'Magnesium',Ca:'Calcium',Cl:'Chlorine',Fe:'Iron',Ne:'Neon',Ar:'Argon',S:'Sulfur',K:'Potassium'};
+  var COMBOS=[
+    {f:'H₂O', name:'Water', type:'everyday', label:'EVERYDAY · LIQUID', ing:{H:2,O:1}, note:'Two hydrogens and one oxygen. The most familiar combination on Earth — drinking water, rain, ice and steam are all this same formula in different states.'},
+    {f:'CO₂', name:'Carbon Dioxide', type:'everyday', label:'EVERYDAY · GAS', ing:{C:1,O:2}, note:'The gas you breathe out and plants breathe in for photosynthesis. It is also the fizz in soda and what a baking-soda volcano releases.'},
+    {f:'NaCl', name:'Table Salt', type:'everyday', label:'EVERYDAY · SALT', ing:{Na:1,Cl:1}, note:'Sodium and chlorine — each reactive on its own, together they become the salt on food. A classic lesson in how combining changes properties completely.'},
+    {f:'CaCO₃', name:'Chalk & Limestone', type:'everyday', label:'EVERYDAY · ROCK / CHALK', ing:{Ca:1,C:1,O:3}, note:'Calcium carbonate: classroom chalk, limestone, marble and seashells. Weak classroom acids fizz on it because they release its CO₂.'},
+    {f:'C₆H₁₂O₆', name:'Glucose — Sugar Energy', type:'everyday', label:'EVERYDAY · SUGAR', ing:{C:6,H:12,O:6}, note:'The simple sugar plants make in photosynthesis and your body burns for energy. Carbon, hydrogen and oxygen in a 6-12-6 pattern.'},
+    {f:'Fe₂O₃', name:'Rust', type:'everyday', label:'EVERYDAY · OXIDE', ing:{Fe:2,O:3}, note:'Iron plus oxygen (with water helping) makes rust. Oxidation in slow motion — the same family of reaction as burning, just far slower.'},
+    {f:'C₆H₈O₇', name:'Citric Acid', type:'acid', label:'ACID · WEAK · IN LEMONS', ing:{C:6,H:8,O:7}, note:'The sour acid in lemons and oranges. A weak, food-safe acid used in cooking and school taste-safe demos. Sour taste is your tongue detecting acids like this one.'},
+    {f:'C₂H₄O₂', name:'Acetic Acid — Vinegar', type:'acid', label:'ACID · WEAK · VINEGAR', ing:{C:2,H:4,O:2}, note:'The acid that makes vinegar sour and sharp-smelling. Kitchen vinegar is this acid diluted in a lot of water — which is why it is a staple of safe classroom experiments.'},
+    {f:'H₂CO₃', name:'Carbonic Acid', type:'acid', label:'ACID · VERY WEAK · IN RAIN & SODA', ing:{H:2,C:1,O:3}, note:'Forms on its own whenever CO₂ dissolves in water — in soda, and even in rain, which is naturally very slightly acidic because of it. It breaks back down into water + CO₂ easily.'},
+    {f:'HCl', name:'Hydrochloric Acid', type:'acid', label:'ACID · STRONG · KNOWLEDGE ONLY', ing:{H:1,Cl:1}, note:'One hydrogen, one chlorine. Your stomach makes a dilute form to digest food. In school it is a famous textbook strong acid — learned about on paper and handled, if at all, only dilute and only by a teacher. No making instructions here, by design.'},
+    {f:'NaHCO₃', name:'Baking Soda', type:'reaction', label:'MILD BASE · KITCHEN', ing:{Na:1,H:1,C:1,O:3}, note:'Sodium bicarbonate — a gentle base from the kitchen cupboard. Bases are the opposite family to acids, and this is the safe one schools reach for.'},
+    {f:'Vinegar + Baking Soda → CO₂ + H₂O', name:'The Classic Volcano Fizz', type:'reaction', label:'REACTION · ACID + BASE → GAS', ing:{Na:1,H:1,C:1,O:3}, note:'The most famous classroom reaction: a weak acid (vinegar) meets a mild base (baking soda) and they fizz out carbon dioxide gas and water. That fizz is CO₂ being born — the eruption in every paper volcano.', benchNote:'Baking soda loaded — in the classic demo, vinegar (acetic acid) is its partner and the fizz they release is CO₂.'},
+    {f:'CH₄', name:'Methane', type:'everyday', label:'EVERYDAY · GAS · LEARN ABOUT IT', ing:{C:1,H:4}, note:'One carbon, four hydrogens — the main part of natural gas and swamp gas, and a greenhouse gas from cows and wetlands. Schools study its formula and its place in the carbon cycle.'},
+    {f:'NH₃', name:'Ammonia', type:'everyday', label:'GAS · KNOWLEDGE', ing:{N:1,H:3}, note:'Nitrogen with three hydrogens. Made by plants, animals and lightning-driven chemistry in nature, and a key part of fertilizers that feed crops. Strong-smelling — textbook knowledge, teacher-led if ever shown in a lab.'},
+    {f:'H⁺ + e⁻ stripped', name:'Hydrogen Plasma — Star Fuel', type:'plasma', label:'PLASMA · THE SUN', ing:{H:1}, note:'Heat hydrogen hot enough and its electrons tear free — it stops being a gas and becomes plasma, the fourth state of matter. The Sun and most stars are mostly hydrogen (and helium) plasma, fusing at their cores.', plasma:true},
+    {f:'He ionized', name:'Helium Plasma — Older Stars', type:'plasma', label:'PLASMA · STARS', ing:{He:1}, note:'When stars burn through hydrogen, helium plasma is what fuses next, forging carbon and oxygen — the very atoms you are made of were cooked in plasma like this.', plasma:true},
+    {f:'Ne + ⚡', name:'Neon Plasma — Signs', type:'plasma', label:'PLASMA · NEON SIGNS', ing:{Ne:1}, note:'Run electricity through neon gas in a tube and it ionizes into plasma that glows orange-red. That is a neon sign: not a special light bulb, but a pocket of plasma you can see from the street.', plasma:true},
+    {f:'Ar + ⚡', name:'Argon Plasma — Globes & Labs', type:'plasma', label:'PLASMA · PLASMA GLOBE', ing:{Ar:1}, note:'Plasma globes and many lab tools use argon (often mixed with neon). The dancing violet-blue filaments are channels of ionized gas — plasma following electric fields to your fingertips through the glass.', plasma:true},
+    {f:'N + O + ⚡', name:'Air Plasma — Lightning', type:'plasma', label:'PLASMA · LIGHTNING', ing:{N:1,O:1}, note:'A lightning bolt super-heats the nitrogen and oxygen in air so fast they ionize into plasma for a split second. Same physics as the Sun and the sign — just wilder and gone in a flash.', plasma:true}
+  ];
+  function fmtFormula(ing){ return Object.keys(ing).map(function(k){ return k+(ing[k]>1?ing[k]:''); }).join(' + '); }
+  function ingChips(ing){ return Object.keys(ing).map(function(k){ return '<span class="ing"><b>'+k+'</b> '+(NAMES[k]||k)+(ing[k]>1?' ×'+ing[k]:'')+'</span>'; }).join(''); }
+  var grid=$('comboGrid');
+  function render(filter){
+    if(!grid) return; grid.innerHTML='';
+    COMBOS.filter(function(c){ return filter==='all'||c.type===filter; }).forEach(function(c){
+      var b=document.createElement('button'); b.className='recipe';
+      b.innerHTML='<div class="rform">'+c.f+'</div><div class="rname">'+c.name+'</div><div class="rtype">'+c.label+'</div><div class="ingrow">'+ingChips(c.ing)+'</div><p>'+c.note+'</p>';
+      b.addEventListener('click',function(){ loadBench(c); var el=$('labBench'); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); });
+      grid.appendChild(b);
+    });
+  }
+  document.querySelectorAll('#labFilters .labchip').forEach(function(ch){
+    ch.addEventListener('click',function(){ document.querySelectorAll('#labFilters .labchip').forEach(function(x){x.classList.remove('active')}); ch.classList.add('active'); render(ch.getAttribute('data-filter')); });
+  });
+  render('all');
+  /* bench */
+  var bench={};
+  var QUICK=['H','C','N','O','Na','Cl','Ca','Fe','He','Ne','Ar'];
+  var qa=$('quickAdd');
+  QUICK.forEach(function(sym){ var b=document.createElement('button'); b.className='qbtn'; b.textContent=sym+' +'; b.addEventListener('click',function(){ bench[sym]=(bench[sym]||0)+1; renderBench(); }); qa.appendChild(b); });
+  function keyOf(o){ return Object.keys(o).sort().map(function(k){return k+':'+o[k]}).join('|'); }
+  function loadBench(combo){ bench={}; Object.keys(combo.ing).forEach(function(k){ bench[k]=combo.ing[k]; }); renderBench(combo); }
+  function renderBench(loaded){
+    var box=$('benchSlots'), res=$('benchResult'); if(!box||!res) return;
+    var keys=Object.keys(bench);
+    if(!keys.length){ box.innerHTML='<span style="font-size:12px;color:var(--muted)">Bench is empty — add H and O, or tap Water above.</span>'; res.innerHTML='Try: <b>H ×2 + O ×1 = Water</b> · <b>Na + Cl = Table Salt</b> · <b>Ne on its own, ionized = Neon Plasma</b>'; return; }
+    box.innerHTML=keys.map(function(k){ return '<span class="bslot">'+k+' ×'+bench[k]+'<button aria-label="Remove one '+k+'" data-sym="'+k+'">−</button></span>'; }).join('');
+    box.querySelectorAll('button[data-sym]').forEach(function(btn){ btn.addEventListener('click',function(){ var s=btn.getAttribute('data-sym'); bench[s]--; if(bench[s]<=0) delete bench[s]; renderBench(); }); });
+    var match=null; COMBOS.forEach(function(c){ if(keyOf(c.ing)===keyOf(bench)) match=c; });
+    if(match){ res.innerHTML='<b>✓ MATCH — '+match.name+' ('+match.f+')</b><br><span style="color:var(--muted)">'+(match.benchNote||match.note)+'</span>'+(match.plasma?'<br><span style="color:var(--muted)">Plasma is not mixed in a bottle — it is what a gas becomes when heat or electricity strips its electrons free.</span>':''); }
+    else if(loaded){ res.innerHTML='<b>'+loaded.name+'</b> loaded: '+fmtFormula(loaded.ing); }
+    else { res.innerHTML='On the bench: <b>'+fmtFormula(bench)+'</b> — no classroom formula matches that exact count yet. Keep adding or remove atoms to match a card above.'; }
+  }
+  var bc=$('benchClear'); if(bc) bc.addEventListener('click',function(){ bench={}; renderBench(); });
+})();
+</script>
+</body>
+</html>
