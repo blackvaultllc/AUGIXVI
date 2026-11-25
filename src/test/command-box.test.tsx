@@ -107,39 +107,43 @@ describe("command box grip controls", () => {
     expect(box.dataset["enlarged"]).toBe("true");
   });
 
-  it("dragging starts from the rail itself — a genuine grab unanchors and moves", () => {
+  it("a grab on the rail moves nothing — the dock holds the box", () => {
     const { container } = renderBox();
-    // The box opens ANCHORED (owner order 2026-11-22) at its home
-    // corner — but a genuine grab on the rail lifts the lock in
-    // place and drags (owner eye-check 2026-11-23: "I click it and
-    // I can't move it" was the defect this replaces).
-    // TARGET MOVED (clean-screen round, 2026-11-24): the rail's
-    // "Chat" title is gone by his order — the grab lands on the
-    // rail itself.
+    // SUPERSEDED LAW (owner order 2026-11-25 ~01:39 EST): the
+    // floating window's grab law — a genuine grab unanchored
+    // the box in place and dragged it (owner eye-check
+    // 2026-11-23) — is retired with the floating window. The
+    // chat is a bottom dock: the rail carries no drag, a press
+    // captures nothing, and the anchored record is untouched
+    // by any grab.
     pointerDown(container.querySelector(".avatar-command-box__rail") as HTMLElement);
-    expect(captureSpy).toHaveBeenCalled();
+    expect(captureSpy).not.toHaveBeenCalled();
+    const box = container.querySelector(".avatar-command-box") as HTMLElement;
+    expect(box.dataset["anchored"]).toBe("true");
+    expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).not.toBe("unanchored");
   });
 
-  it("opens anchored at the bottom-left — fully on screen, and the state persists", () => {
+  it("opens docked — no inline geometry; Osiris's anchor key still keeps the record", () => {
     const { container } = renderBox();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
     expect(box.dataset["anchored"]).toBe("true");
-    // The anchored home: the LEFT side, BOTTOM corner (owner
-    // order 2026-11-24 ~16:57 EST — his window stands along the
-    // bottom; the top-left home of the clean-screen morning is
-    // superseded). jsdom is 1024×768 and the standard box is
-    // the compact 420×360, so home is x=16, y=768−360−16=392.
-    expect(box.style.left).toBe("16px");
-    expect(box.style.top).toBe("392px");
-    // A grab on the rail unanchors the box in place (eye-check
-    // 2026-11-23) and the unanchored state persists. (Target
-    // moved with the "Chat" title's removal — the rail itself.)
-    pointerDown(container.querySelector(".avatar-command-box__rail") as HTMLElement);
-    expect(captureSpy).toHaveBeenCalled();
+    // THE DOCK (owner order 2026-11-25 ~01:39 EST): the box
+    // renders NO inline geometry — CSS holds it full-width and
+    // flush on the stage's bottom edge (stage-fix-round.css
+    // section 35). The bottom-left home corner of 2026-11-24
+    // and every floating placement before it are superseded.
+    expect(box.style.left).toBe("");
+    expect(box.style.top).toBe("");
+    expect(box.style.width).toBe("");
+    expect(box.style.height).toBe("");
+    // The anchor key itself is Osiris's — it drives the box
+    // through the registered window controls, and its record
+    // still persists exactly as before. The record is a record
+    // now; it moves nothing.
+    act(() => windowControls!.toggleAnchored());
     expect(box.dataset["anchored"]).toBe("false");
     expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("unanchored");
-    // The anchor key itself is Osiris's now — it drives the box
-    // through the registered window controls.
+    expect(box.style.left).toBe("");
     act(() => windowControls!.toggleAnchored());
     expect(box.dataset["anchored"]).toBe("true");
     expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("anchored");
@@ -407,105 +411,56 @@ describe("command box routed speaker label", () => {
  * from its corner/edges and the size persists, like the container
  * windows. A drag on the corner grip grows the box and saves it.
  */
-describe("command box resize", () => {
-  const captureSpy = vi.fn();
-
+describe("command box resize — retired with the floating window", () => {
   beforeEach(() => {
     localStorage.clear();
-    captureSpy.mockClear();
-    Element.prototype.setPointerCapture = captureSpy;
-    Element.prototype.releasePointerCapture = vi.fn();
   });
 
-  function pointer(node: Element, type: string, x: number, y: number) {
-    const ev = new window.MouseEvent(type, {
-      bubbles: true,
-      cancelable: true,
-      button: 0,
-      clientX: x,
-      clientY: y,
-    });
-    Object.defineProperty(ev, "pointerId", { value: 7 });
-    fireEvent(node, ev);
+  function renderOpenBox() {
+    const utils = render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+    openTheBox();
+    return utils;
   }
 
-  it("stretching the corner grows the window and saves the size", () => {
-    let windowControls: CommandBoxWindowControls | null = null;
-    const { container } = render(
-      <CommandBox
-        accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
-        chat=""
-        onChatChange={vi.fn()}
-        onSubmit={vi.fn()}
-        voiceAvailable={false}
-        voiceListening={false}
-        onToggleVoice={vi.fn()}
-        responseLine="Standing by."
-        responseSource="test"
-        onWindowControls={(controls) => {
-          windowControls = controls;
-        }}
-      >
-        <p>panel body</p>
-      </CommandBox>,
-    );
-    const box = container.querySelector(".avatar-command-box") as HTMLElement;
-    // The compact home default (owner order 2026-11-22, defect fix;
-    // smaller again on his eye-check 2026-11-23 — 420×360 class).
-    // Measured on the OPEN box (the folded bar carries no size) —
-    // tap the bar first.
-    openTheBox();
-    expect(box.style.width).toBe("420px");
-    expect(box.style.height).toBe("360px");
-    // Anchored boxes do not stretch — unanchor first, through
-    // Osiris's anchor key path (the registered window controls).
-    act(() => windowControls!.toggleAnchored());
-    const corner = screen.getByRole("separator", { name: "Resize the chat window" });
-    pointer(corner, "pointerdown", 100, 100);
-    expect(captureSpy).toHaveBeenCalled();
-    pointer(corner, "pointermove", 200, 150);
-    pointer(corner, "pointerup", 200, 150);
-    expect(box.style.width).toBe("520px");
-    expect(box.style.height).toBe("410px");
-    expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v2")!)).toEqual({
-      w: 520,
-      h: 410,
-    });
+  it("no stretch handles render — the dock's edges are not grips", () => {
+    // THE DOCK (owner order 2026-11-25 ~01:39 EST): the floating
+    // window stretched from its right edge, bottom edge, and
+    // corner; the dock does not stretch at all. The handles are
+    // not hidden — they are not rendered, at any width.
+    const { container } = renderOpenBox();
+    expect(container.querySelectorAll(".avatar-command-box__resize")).toHaveLength(0);
+    expect(screen.queryByRole("separator", { name: "Resize the chat window" })).toBeNull();
   });
 
-  it("a saved size is the size the window opens at", () => {
+  it("a saved size is a record only — the window opens at the dock's geometry", () => {
+    // His stretch used to outrank the default (owner order
+    // 2026-11-22); the record still exists — Osiris's reset key
+    // still clears it — but it drives nothing now: the dock's
+    // width is the stage's and its height is the stylesheet's.
     localStorage.setItem("augi.avatar.command-box.size.v2", JSON.stringify({ w: 640, h: 300 }));
-    const { container } = render(
-      <CommandBox
-        accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
-        chat=""
-        onChatChange={vi.fn()}
-        onSubmit={vi.fn()}
-        voiceAvailable={false}
-        voiceListening={false}
-        onToggleVoice={vi.fn()}
-        responseLine="Standing by."
-        responseSource="test"
-      >
-        <p>panel body</p>
-      </CommandBox>,
-    );
+    const { container } = renderOpenBox();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
-    // The size the window OPENS at (clean-screen round: opening is
-    // the tap on his face — the folded console carries no size).
-    openTheBox();
-    expect(box.style.width).toBe("640px");
-    // The saved 300 height heals UP to the layout floor (348 —
-    // COMMAND_BOX_MIN_SIZE, desk photos 2026-11-23): below it
-    // the box broke apart in his photos, so no size on record
-    // opens smaller than the layout can hold.
-    expect(box.style.height).toBe("348px");
+    expect(box.style.width).toBe("");
+    expect(box.style.height).toBe("");
+    expect(box.style.left).toBe("");
+    expect(box.style.top).toBe("");
   });
 });
 
@@ -820,26 +775,9 @@ describe("command box plain chat face", () => {
  * reset on the rail.
  */
 describe("command box home form and bottom-stacked log", () => {
-  const captureSpy = vi.fn();
-
   beforeEach(() => {
     localStorage.clear();
-    captureSpy.mockClear();
-    Element.prototype.setPointerCapture = captureSpy;
-    Element.prototype.releasePointerCapture = vi.fn();
   });
-
-  function pointer(node: Element, type: string, x: number, y: number) {
-    const ev = new window.MouseEvent(type, {
-      bubbles: true,
-      cancelable: true,
-      button: 0,
-      clientX: x,
-      clientY: y,
-    });
-    Object.defineProperty(ev, "pointerId", { value: 9 });
-    fireEvent(node, ev);
-  }
 
   const history: ReplyHistoryEntry[] = [
     { at: 1, question: "open the cube", answer: "The cube is open." },
@@ -875,17 +813,20 @@ describe("command box home form and bottom-stacked log", () => {
     return utils;
   }
 
-  it("opens compact and anchored — 420×360 at the home corner", () => {
+  it("opens docked and anchored — the stage's width at its bottom edge", () => {
     const { container } = renderHome();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
-    expect(box.style.width).toBe("420px");
-    expect(box.style.height).toBe("360px");
+    // THE DOCK (owner order 2026-11-25 ~01:39 EST) supersedes
+    // the compact home form (420×360 at the bottom-left, owner
+    // order 2026-11-24 ~16:57 EST): the box renders no inline
+    // geometry at all — the stylesheet holds it full-width,
+    // flush on the bottom edge, the panel risen from it.
+    expect(box.style.width).toBe("");
+    expect(box.style.height).toBe("");
+    expect(box.style.left).toBe("");
+    expect(box.style.top).toBe("");
+    expect(box.style.transform).toBe("");
     expect(box.dataset["anchored"]).toBe("true");
-    // Anchored home is the bottom-left (owner order 2026-11-24
-    // ~16:57 EST; the clean-screen morning's top-left is
-    // superseded): left margin, no centering transform.
-    expect(box.style.left).toBe("16px");
-    expect(box.style.transform).toBe("none");
   });
 
   it("a persisted minimized state from the old build never hides the conversation again", () => {
@@ -970,16 +911,18 @@ describe("command box home form and bottom-stacked log", () => {
     ).toBeTruthy();
   });
 
-  it("the log renders the session's lines when the panel is stretched large — and opens clean", () => {
+  it("the log renders the session's lines in the docked panel — and opens clean", () => {
     localStorage.setItem(
       "augi.avatar.command-box.size.v2",
       JSON.stringify({ w: 1000, h: 740 }),
     );
     const { rerender } = renderHome();
     const box = document.querySelector(".avatar-command-box") as HTMLElement;
-    // 1000 saved, clamped to the jsdom viewport minus the window
-    // margin (1024 − 2×16) — a genuinely large panel either way.
-    expect(box.style.width).toBe("992px");
+    // A large saved size used to stretch the panel (it clamped
+    // to the viewport minus margins); the dock ignores the
+    // record — the panel is the stage's width, risen from its
+    // bottom edge (owner order 2026-11-25).
+    expect(box.style.width).toBe("");
     // Clean open at any size: none of the saved record is on the
     // face (thread-opens-clean law, owner eye-check 2026-11-23).
     for (const line of ["open the cube", "The cube is open.", "now fly", "Flying."]) {
@@ -1010,30 +953,33 @@ describe("command box home form and bottom-stacked log", () => {
     expect(screen.getByText("Flying.")).toBeInTheDocument();
   });
 
-  it("Osiris's reset key restores the home form and clears the saved layout", () => {
+  it("Osiris's reset key clears the saved layout records", () => {
     // SUPERSEDED DRIVER (owner order 2026-11-24 ~16:57 EST): the
     // anchor and reset keys left the rail — they are Osiris's
     // now, in his menu, driving the box through the registered
     // window controls. The reset law itself stands.
+    // RESTATED FOR THE DOCK (owner order 2026-11-25): the
+    // records no longer drive any geometry — the dock's is the
+    // stylesheet's — but reset still clears them and restores
+    // the anchored record, exactly as it always did.
     localStorage.setItem(
       "augi.avatar.command-box.size.v2",
       JSON.stringify({ w: 900, h: 700 }),
     );
+    localStorage.setItem(
+      "augi.avatar.command-box.position.v1",
+      JSON.stringify({ x: 120, y: 90 }),
+    );
     const { container } = renderHome();
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
-    expect(box.style.width).toBe("900px");
-    act(() => windowControls!.toggleAnchored());
-    const corner = screen.getByRole("separator", { name: "Resize the chat window" });
-    pointer(corner, "pointerdown", 100, 100);
-    pointer(corner, "pointermove", 160, 140);
-    pointer(corner, "pointerup", 160, 140);
+    expect(box.style.width).toBe("");
     expect(localStorage.getItem("augi.avatar.command-box.size.v2")).not.toBeNull();
 
     act(() => windowControls!.resetLayout());
-    expect(box.style.width).toBe("420px");
-    expect(box.style.height).toBe("360px");
     expect(box.dataset["anchored"]).toBe("true");
-    expect(box.style.left).toBe("16px");
+    expect(box.style.width).toBe("");
+    expect(box.style.height).toBe("");
+    expect(box.style.left).toBe("");
     expect(localStorage.getItem("augi.avatar.command-box.size.v2")).toBeNull();
     expect(localStorage.getItem("augi.avatar.command-box.position.v1")).toBeNull();
     expect(localStorage.getItem("augi.avatar.command-box.anchored.v1")).toBe("anchored");
@@ -1047,6 +993,13 @@ describe("command box home form and bottom-stacked log", () => {
  * persist separately); and at phone width the anchored box sits
  * fully inside the small viewport with its margin. The standard
  * size these numbers run from is the compact home form, 420×360.
+ *
+ * RESTATED FOR THE DOCK (owner order 2026-11-25): the heal's
+ * subject is gone — no saved position reaches the rendered box
+ * at all — and the enlarge toggle's sizes are records the dock
+ * reads as a taller panel through its class. What is pinned
+ * below is the surviving discipline: the records behave, and
+ * none of them moves the dock.
  */
 describe("command box viewport heal + enlarge + phone form", () => {
   const captureSpy = vi.fn();
@@ -1089,7 +1042,12 @@ describe("command box viewport heal + enlarge + phone form", () => {
     return container.querySelector(".avatar-command-box") as HTMLElement;
   }
 
-  it("heals a saved off-screen position back inside the viewport on open", () => {
+  it("a saved off-screen position can no longer strand the chat — the dock ignores the record", () => {
+    // The floating window healed a saved position back inside
+    // the viewport on open (owner screen check 2026-11-22).
+    // The dock needs no healing: it renders no inline geometry,
+    // so no record — healed or not — can put it anywhere but
+    // the stage's bottom edge (owner order 2026-11-25).
     localStorage.setItem("augi.avatar.command-box.anchored.v1", "unanchored");
     localStorage.setItem(
       "augi.avatar.command-box.position.v1",
@@ -1097,30 +1055,34 @@ describe("command box viewport heal + enlarge + phone form", () => {
     );
     const { container } = renderBox();
     const box = boxOf(container);
-    // 420×360 at 1024×768 clamps to the far inside corner (edge 4).
-    expect(box.style.left).toBe("600px");
-    expect(box.style.top).toBe("404px");
-    expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.position.v1") ?? "{}")).toEqual(
-      { x: 600, y: 404 },
-    );
+    expect(box.style.left).toBe("");
+    expect(box.style.top).toBe("");
+    openTheBox();
+    expect(box.style.left).toBe("");
+    expect(box.style.top).toBe("");
+    expect(box.style.width).toBe("");
+    expect(box.style.height).toBe("");
   });
 
   it("the dot grip enlarges the box in the same format — and shrinks it back", () => {
     const { container } = renderBox();
     openTheBox();
     const box = boxOf(container);
-    expect(box.style.width).toBe("420px");
-    expect(box.style.height).toBe("360px");
+    expect(box.dataset["enlarged"]).toBe("false");
     fireEvent.click(screen.getByRole("button", { name: "Enlarge the chat window" }));
     expect(box.dataset["enlarged"]).toBe("true");
-    // 420×360 × 1.4 — inside the jsdom viewport, no clamp needed.
-    expect(box.style.width).toBe("588px");
-    expect(box.style.height).toBe("504px");
+    expect(box.classList.contains("avatar-command-box--enlarged")).toBe(true);
+    // The enlarged size is the DOCK's, read off this class by
+    // the stylesheet (stage-fix-round.css section 35: a taller
+    // risen panel) — no inline geometry changes hands.
+    expect(box.style.width).toBe("");
+    expect(box.style.height).toBe("");
     expect(localStorage.getItem("augi.avatar.command-box.enlarged.v1")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Shrink the chat window to standard size" }));
     expect(box.dataset["enlarged"]).toBe("false");
-    expect(box.style.width).toBe("420px");
-    expect(box.style.height).toBe("360px");
+    expect(box.classList.contains("avatar-command-box--enlarged")).toBe(false);
+    expect(box.style.width).toBe("");
+    expect(box.style.height).toBe("");
     expect(localStorage.getItem("augi.avatar.command-box.enlarged.v1")).toBe("false");
   });
 
@@ -1137,8 +1099,9 @@ describe("command box viewport heal + enlarge + phone form", () => {
     openTheBox();
     const box = boxOf(container);
     expect(box.dataset["enlarged"]).toBe("true");
-    expect(box.style.width).toBe("588px");
-    expect(box.style.height).toBe("504px");
+    expect(box.classList.contains("avatar-command-box--enlarged")).toBe(true);
+    expect(box.style.width).toBe("");
+    expect(box.style.height).toBe("");
   });
 
   it("the standard size is never overwritten by enlarging", () => {
@@ -1150,14 +1113,13 @@ describe("command box viewport heal + enlarge + phone form", () => {
     openTheBox();
     const box = boxOf(container);
     fireEvent.click(screen.getByRole("button", { name: "Enlarge the chat window" }));
-    expect(box.style.width).toBe("896px");
-    // The standard height healed to the 348 floor on load (desk
-    // photos 2026-11-23), so the enlarged height runs from it:
-    // 348 × 1.4 = 487.
-    expect(box.style.height).toBe("487px");
+    expect(box.dataset["enlarged"]).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Shrink the chat window to standard size" }));
-    expect(box.style.width).toBe("640px");
-    expect(box.style.height).toBe("348px");
+    expect(box.dataset["enlarged"]).toBe("false");
+    // The records keep their discipline even though the dock
+    // renders neither: the standard height healed to the 348
+    // floor on load (desk photos 2026-11-23), and enlarging
+    // saved its own record without touching the standard one.
     expect(JSON.parse(localStorage.getItem("augi.avatar.command-box.size.v2") ?? "{}")).toEqual({
       w: 640,
       h: 348,
@@ -1515,5 +1477,144 @@ describe("command box phone bar — one button (Part D)", () => {
     expect(optionsStart).toBeGreaterThan(-1);
     const optionsRule = css.slice(optionsStart, css.indexOf("}", optionsStart));
     expect(optionsRule).toContain("order: -1");
+  });
+});
+
+/**
+ * THE BOTTOM DOCK (owner order 2026-11-25 ~01:39 EST, with his
+ * Parrot screenshot): "the chat should be attached to the
+ * bottom." The folded bar floated over the lower middle of
+ * Anubis's medallion with dead black stage below it. The law
+ * now: the Captain's window is a dock — full width, flush on
+ * the stage's bottom edge, the bar on the edge and the window
+ * rising from it — and Montu's resting circle stands clear
+ * above it. jsdom has no layout, so the dock itself is pinned
+ * at the stylesheet (the cascade-winning rules in
+ * stage-fix-round.css section 35) and the component is pinned
+ * to render no geometry of its own in either state.
+ */
+describe("command box bottom dock (owner order 2026-11-25)", () => {
+  const fixCss = readFileSync(
+    resolve(process.cwd(), "src/avatar/stage-fix-round.css"),
+    "utf8",
+  );
+  const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+
+  /** The body of the LAST rule for a selector in a stylesheet —
+   *  the cascade winner, the one the stage actually obeys. */
+  function lastRuleBody(css: string, selector: string): string {
+    const start = css.lastIndexOf(selector);
+    expect(start, `rule for ${selector}`).toBeGreaterThan(-1);
+    return css.slice(start, css.indexOf("}", start));
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("the stylesheet docks the box: full width, flush on the bottom edge, no float", () => {
+    const dock = lastRuleBody(fixCss, ".avatar-stage .avatar-command-box {");
+    expect(dock).toContain("left: 0");
+    expect(dock).toContain("right: 0");
+    expect(dock).toContain("bottom: 0");
+    expect(dock).toContain("width: auto");
+    expect(dock).toContain("transform: none");
+    // No floating offset survives in the winning rule: the old
+    // base sat 1.25rem off the bottom, centered — both are gone
+    // from the rule the stage obeys.
+    expect(dock).not.toContain("1.25rem");
+    expect(dock).not.toContain("translateX");
+    // Flush means flush: no side or bottom border lifts the
+    // frame off the edge; the top corners keep the dress.
+    expect(dock).toContain("border-bottom: none");
+    expect(dock).toContain("border-radius: 0.7rem 0.7rem 0 0");
+  });
+
+  it("the open window rises from the bottom edge — its height is the dock's", () => {
+    const open = lastRuleBody(
+      fixCss,
+      ".avatar-stage .avatar-command-box:not(.avatar-command-box--minimized) {",
+    );
+    expect(open).toContain("height: min(62dvh, 36rem)");
+    const enlarged = lastRuleBody(
+      fixCss,
+      ".avatar-stage .avatar-command-box--enlarged:not(.avatar-command-box--minimized) {",
+    );
+    expect(enlarged).toContain("height: min(80dvh, 44rem)");
+  });
+
+  it("the phone dock is the same dock — flush, no gap, in the same section's law", () => {
+    // Section 17 docked the phone bar first (bottom 0, full
+    // width); section 35 makes that the whole stage's law, so
+    // the phone rule and the universal rule agree on the edge.
+    const phone = lastRuleBody(fixCss, ".avatar-stage .avatar-command-box--phone-bar {");
+    expect(phone).toContain("bottom: 0");
+    expect(phone).toContain("left: 0");
+    expect(phone).toContain("right: 0");
+  });
+
+  it("the component renders no inline geometry — folded or open, at desktop width", () => {
+    const { container } = render(
+      <CommandBox
+        accent="#d4af37"
+        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
+        activeTab="scene"
+        onTabChange={vi.fn()}
+        chat=""
+        onChatChange={vi.fn()}
+        onSubmit={vi.fn()}
+        voiceAvailable={false}
+        voiceListening={false}
+        onToggleVoice={vi.fn()}
+        responseLine="Standing by."
+        responseSource="test"
+      >
+        <p>panel body</p>
+      </CommandBox>,
+    );
+    const box = container.querySelector(".avatar-command-box") as HTMLElement;
+    // Folded: the bar on the bottom edge, no style of its own.
+    expect(box.classList.contains("avatar-command-box--minimized")).toBe(true);
+    expect(box.getAttribute("style")).toBeNull();
+    // Open: the window risen from the edge — still no style.
+    openTheBox();
+    expect(box.classList.contains("avatar-command-box--minimized")).toBe(false);
+    expect(box.getAttribute("style")).toBeNull();
+  });
+
+  it("Montu's resting circle stands clear above the docked bar", () => {
+    // The clearance is one number both rules read: the row's
+    // bottom edge sits at it, above the folded bar's stack.
+    const clearanceMatch = fixCss.match(/--chat-dock-clearance:\s*([\d.]+)rem/);
+    expect(clearanceMatch).not.toBeNull();
+    const clearance = Number(clearanceMatch![1]);
+    const row = lastRuleBody(fixCss, ".avatar-stage .god-medallions {");
+    expect(row).toContain("bottom: var(--chat-dock-clearance)");
+    // The folded bar's measured stack, from the stylesheets
+    // themselves: the field's min-height (the winning input
+    // rule) plus the folded box's vertical padding (the
+    // winning minimized rule), border aside.
+    const input = lastRuleBody(styles, ".avatar-command-box__input {");
+    const fieldMatch = input.match(/min-height:\s*([\d.]+)rem/);
+    expect(fieldMatch).not.toBeNull();
+    // The folded box's vertical padding is set by more than one
+    // minimized rule; the winner is the LAST one that declares
+    // padding at all (the final minimized rule only sets the
+    // fold's height and alignment).
+    let paddingMatch: RegExpMatchArray | null = null;
+    for (
+      let at = styles.indexOf(".avatar-command-box--minimized {");
+      at > -1;
+      at = styles.indexOf(".avatar-command-box--minimized {", at + 1)
+    ) {
+      const body = styles.slice(at, styles.indexOf("}", at));
+      paddingMatch = body.match(/padding:\s*([\d.]+)rem/) ?? paddingMatch;
+    }
+    expect(paddingMatch).not.toBeNull();
+    const barStack = Number(fieldMatch![1]) + 2 * Number(paddingMatch![1]);
+    // The circle's bottom edge clears the bar's top edge with
+    // room to spare — fully visible, never under the bar.
+    expect(clearance).toBeGreaterThan(barStack);
+    expect(clearance - barStack).toBeGreaterThanOrEqual(0.5);
   });
 });

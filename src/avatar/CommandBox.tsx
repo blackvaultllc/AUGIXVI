@@ -4,7 +4,6 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import {
@@ -478,13 +477,23 @@ export function CommandBox({
   );
   /**
    * THE PHONE BAR (owner phone spec 2026-11-23 ~06:00 CST): at
-   * phone widths the chat is NOT the floating left box — it docks
-   * to the bottom of the screen, full width: a slim bar when
-   * minimized, opening UPWARD when tapped, folding back on another
-   * tap. CSS owns the bar's geometry (stage-fix-round.css); the
-   * drag / stretch / anchor machinery stands down while docked.
-   * On PC widths the standard left box stands exactly as ordered —
-   * "on the website it's going to be to the left… standard."
+   * phone widths the chat takes the phone FORM — the one-button
+   * line (Part D) — and the rail's tap folds it. The form is
+   * what this flag names now.
+   *
+   * THE DOCK IS UNIVERSAL (owner order 2026-11-25 ~01:39 EST,
+   * with his Parrot screenshot — "the chat should be attached
+   * to the bottom"): the floating window is retired at EVERY
+   * width. The box is a bottom dock — full width, flush on the
+   * stage's bottom edge, the window rising from that edge —
+   * and CSS owns its geometry entirely (stage-fix-round.css
+   * section 35), the way the phone bar's was owned from the
+   * start. The drag / stretch machinery is gone, not stood
+   * down per width; the anchor/size records remain only as
+   * records (Osiris's reset key still clears them; the enlarge
+   * toggle still flips its state, which the dock's CSS reads
+   * as a taller panel). Nothing the Captain can do — no saved
+   * position, no saved size — can float this window again.
    */
   const phoneBar = viewport.w > 0 && viewport.w <= COMMAND_BOX_PHONE_BREAKPOINT;
   const sizeRef = useRef(boxSize);
@@ -530,34 +539,8 @@ export function CommandBox({
    */
   const [optionsOpen, setOptionsOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
-  const dragOffset = useRef({ x: 0, y: 0 });
-  /** The folded bar's click-vs-drag line: a press that TRAVELS
-   *  was a drag (moving the window), not a tap to open it. */
-  const dragStart = useRef({ x: 0, y: 0 });
-  const dragMoved = useRef(false);
-  const resizing = useRef<{
-    mode: "corner" | "right" | "bottom";
-    startX: number;
-    startY: number;
-    w: number;
-    h: number;
-  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLElement>(null);
-
-  // Clamp a candidate position into the viewport.
-  const clamp = useCallback(
-    (x: number, y: number) => {
-      const width = boxRef.current?.offsetWidth ?? sizeRef.current.w;
-      const height = boxRef.current?.offsetHeight ?? sizeRef.current.h;
-      return {
-        x: Math.min(Math.max(x, 8), Math.max(8, window.innerWidth - width - 8)),
-        y: Math.min(Math.max(y, 8), Math.max(8, window.innerHeight - height - 8)),
-      };
-    },
-    [],
-  );
 
   const minimizeNow = useCallback(() => {
     setMinimized(true);
@@ -582,87 +565,6 @@ export function CommandBox({
     onMinimizeShortcut?.({ minimize: minimizeNow, restore: restoreNow });
   }, [onMinimizeShortcut, minimizeNow, restoreNow]);
 
-  const startDrag = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      // THE PHONE BAR IS DOCKED (owner phone spec 2026-11-23): it
-      // never drags — a tap on the bar opens or folds it instead
-      // (the rail's onClick below). He tried to push the floating
-      // box out of the way on his phone and couldn't; the bar
-      // answers that by not being in the way to begin with. The
-      // DESKTOP bar is a window like the open box: a genuine grab
-      // on its bare ground moves it (owner order 2026-11-24
-      // ~16:57 EST — the folded form is the bar at every width).
-      if (phoneBar) return;
-      if ("button" in event && event.button !== 0) return;
-    // The grip's own buttons keep their clicks, and the bar's
-    // field keeps its caret: starting a drag here captures the
-    // pointer to the grip, and a captured pointer retargets the
-    // click — the button never receives it. Dragging starts from
-    // the bare ground itself, never from a control or the field.
-    // (Same fix as FloatingWindow.)
-    if ((event.target as HTMLElement).closest?.("button, input, textarea, select")) return;
-    const box = boxRef.current;
-    if (!box) return;
-    const rect = box.getBoundingClientRect();
-    // A GENUINE GRAB MOVES THE BOX (owner eye-check 2026-11-23:
-    // "I click it and I can't move it"). The box used to ship
-    // anchored and refuse every drag until he found the rail's
-    // anchor toggle — a dead mover from his seat. Now a grab on
-    // the grip unanchors the box IN PLACE (the anchored spot
-    // becomes the free position, so nothing jumps) and the drag
-    // proceeds. The anchor button still re-anchors it home.
-    if (anchored) {
-      const free = { x: Math.round(rect.left), y: Math.round(rect.top) };
-      setPosition(free);
-      saveBoxPosition(free);
-      setAnchored(false);
-      saveBoxAnchored(false);
-    }
-    dragging.current = true;
-    dragStart.current = { x: event.clientX, y: event.clientY };
-    dragMoved.current = false;
-    dragOffset.current = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [anchored, phoneBar],
-  );
-
-  const moveDrag = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!dragging.current) return;
-      if (
-        Math.abs(event.clientX - dragStart.current.x) +
-          Math.abs(event.clientY - dragStart.current.y) >
-        6
-      ) {
-        dragMoved.current = true;
-      }
-      // While the box is in his hand, the pointer's motion is a
-      // move — never a text selection (owner defect 2026-11-22:
-      // the first drag highlighted text before it moved). The
-      // rail's user-select: none covers the press itself; this
-      // covers the travel. Selection inside the thread is untouched:
-      // drags only ever start on the rail.
-      event.preventDefault();
-      const next = clamp(
-        event.clientX - dragOffset.current.x,
-        event.clientY - dragOffset.current.y,
-      );
-      setPosition(next);
-    },
-    [clamp],
-  );
-
-  const endDrag = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    saveBoxPosition({
-      x: boxRef.current?.getBoundingClientRect().left ?? 0,
-      y: boxRef.current?.getBoundingClientRect().top ?? 0,
-    });
-  }, []);
-
   const toggleMinimized = useCallback(() => {
     setMinimized((current) => !current);
   }, []);
@@ -685,64 +587,6 @@ export function CommandBox({
     saveBoxAnchored(true);
     setMinimized(false);
     setMachineryOpen(false);
-  }, []);
-
-  // RESIZE (owner correction 2026-11-22): the chat window stretches
-  // from its right edge, bottom edge, or corner grip, and the size he
-  // leaves it at persists — the same discipline as the container
-  // windows (windowGeometry clamps it inside the viewport).
-  const startResize =
-    (mode: "corner" | "right" | "bottom") => (event: ReactPointerEvent<HTMLDivElement>) => {
-      // The docked phone bar does not stretch either — its open
-      // height is the bar's own (CSS), its closed form the bar.
-      if (phoneBar) return;
-      if ("button" in event && event.button !== 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const rect = boxRef.current?.getBoundingClientRect();
-      // A genuine stretch unanchors in place too (owner eye-check
-      // 2026-11-23) — the same grab law as the drag: the box never
-      // refuses a hand that's actually on it.
-      if (anchored && rect) {
-        const free = { x: Math.round(rect.left), y: Math.round(rect.top) };
-        setPosition(free);
-        saveBoxPosition(free);
-        setAnchored(false);
-        saveBoxAnchored(false);
-      }
-      resizing.current = {
-        mode,
-        startX: event.clientX,
-        startY: event.clientY,
-        w: rect && rect.width > 0 ? rect.width : sizeRef.current.w,
-        h: rect && rect.height > 0 ? rect.height : sizeRef.current.h,
-      };
-      event.currentTarget.setPointerCapture(event.pointerId);
-    };
-  const moveResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const active = resizing.current;
-    if (!active) return;
-    const nextW = active.mode === "bottom" ? active.w : active.w + (event.clientX - active.startX);
-    const nextH = active.mode === "right" ? active.h : active.h + (event.clientY - active.startY);
-    setBoxSize(
-      clampWindowSize(
-        nextW,
-        nextH,
-        window.innerWidth,
-        window.innerHeight,
-        COMMAND_BOX_MIN_SIZE.w,
-        COMMAND_BOX_MIN_SIZE.h,
-      ),
-    );
-  }, []);
-  const endResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!resizing.current) return;
-    resizing.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    // The size he leaves a state at is that state's size (enlarge
-    // order 2026-11-22): standard stretches save to the standard
-    // record, enlarged stretches to the enlarged record.
-    persistBoxSize(sizeRef.current, enlargedRef.current);
   }, []);
 
   // CLICK-TO-ENLARGE (owner order 2026-11-22): the rail's dot grip
@@ -1031,53 +875,12 @@ export function CommandBox({
     onSubmit(text);
   };
 
-  const boxStyle = {
-    ...(anchored
-      ? anchorPos
-        ? { left: anchorPos.x, top: anchorPos.y, right: "auto", bottom: "auto", transform: "none" }
-        : {
-            left: WINDOW_MARGIN,
-            top: "auto",
-            right: "auto",
-            bottom: WINDOW_MARGIN,
-            transform: "none",
-          }
-      : position
-        ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
-        : {}),
-    width: boxSize.w,
-    height: minimized ? undefined : boxSize.h,
-  } as const;
-
-  // THE BAR'S PLACE (owner order 2026-11-24 ~16:57 EST): folded,
-  // the window is its bar along the bottom — it takes the
-  // window's place, not the open box's size: anchored, the
-  // bottom-left home (or the anchor point the effect settled);
-  // free, the position he left it at. The record is the window's
-  // own (one window, one place on record), so where he parks the
-  // bar is where the box stands when it opens.
-  const foldedStyle = {
-    ...(anchored
-      ? anchorPos
-        ? { left: anchorPos.x, top: anchorPos.y, right: "auto", bottom: "auto", transform: "none" }
-        : {
-            left: WINDOW_MARGIN,
-            top: "auto",
-            right: "auto",
-            bottom: WINDOW_MARGIN,
-            transform: "none",
-          }
-      : position
-        ? { left: position.x, top: position.y, right: "auto", bottom: "auto", transform: "none" }
-        : {
-            left: WINDOW_MARGIN,
-            top: "auto",
-            right: "auto",
-            bottom: WINDOW_MARGIN,
-            transform: "none",
-          }),
-    width: boxSize.w,
-  } as const;
+  // NO INLINE GEOMETRY (owner order 2026-11-25): the section
+  // renders with no style prop at any width, in either state.
+  // The dock's geometry — full width, flush on the bottom edge,
+  // the risen panel's height — is CSS law (stage-fix-round.css
+  // section 35), so no state this component holds can float
+  // the window over the medallion again.
 
   // THE MESSAGE FIELD — one element, shared by both forms below:
   // the desktop row and the phone bar's line carry the same field,
@@ -1275,25 +1078,18 @@ export function CommandBox({
    * in it or heading it. On the phone the bar is the one-button
    * line (Part D); on the desktop it is the standard line (field,
    * emoji, mic, send). A tap on the bar's bare ground opens the
-   * window; a press that travels is a drag — the window moves
-   * and anchors where he leaves it. The window's four keys are
-   * not here: they are Osiris's, in his menu on his medallion.
+   * window. The bar does not travel: the dock holds the window
+   * to the stage's bottom edge (owner order 2026-11-25 — the
+   * drag is retired with the floating window). The window's
+   * four keys are not here: they are Osiris's, in his menu on
+   * his medallion.
    */
   const foldedBar = (
     <div
       className="avatar-command-box__bar"
-      onPointerDown={startDrag}
-      onPointerMove={moveDrag}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
       onClick={(event) => {
-        // A drag's trailing click is not a tap: the window was
-        // being PLACED, not asked to open. Clicks on the field
-        // or a button keep their own jobs.
-        if (dragMoved.current) {
-          dragMoved.current = false;
-          return;
-        }
+        // Clicks on the field or a button keep their own jobs;
+        // a tap on the bar's bare ground opens the window.
         if ((event.target as HTMLElement).closest?.("button, input, textarea, select")) return;
         restoreNow();
       }}
@@ -1305,14 +1101,14 @@ export function CommandBox({
 
   // THE MMORPG CHAT PANEL (owner orders 2026-11-21 Part 28, and
   // 2026-11-22 — the picked Drakensang-style reference): a slim
-  // grip rail down the left edge, a flowing chat log whose lines
+  // rail down the left edge, a flowing chat log whose lines
   // lead with the speaker's name (Captain / Anubis / System), and
   // one clean input bar at the bottom. NO conversation dropdown,
   // no thread machinery on the face — the log simply flows. All
   // other machinery stays behind the Menu key — Osiris's now, on
   // his own medallion (owner order 2026-11-24 ~16:57 EST). The
-  // window drags by its rail and stretches from its edges/corner;
-  // position and size both persist.
+  // panel is the dock risen from the stage's bottom edge: it is
+  // not dragged, stretched, or parked (owner order 2026-11-25).
 
   // TWO-MODE CHAT (owner order 2026-11-22): on another screen the
   // box leaves only this slim bottom strip — Osiris's face, the word
@@ -1358,7 +1154,6 @@ export function CommandBox({
     <section
       ref={boxRef}
       className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}${enlarged ? " avatar-command-box--enlarged" : ""}${phoneBar ? " avatar-command-box--phone-bar" : ""}${machineryOpen && !minimized ? " avatar-command-box--section-open" : ""}`}
-      style={phoneBar ? undefined : minimized ? foldedStyle : boxStyle}
       data-anchored={anchored ? "true" : "false"}
       data-enlarged={enlarged ? "true" : "false"}
       aria-label={`Chat with ${speakerName}`}
@@ -1366,20 +1161,17 @@ export function CommandBox({
       {minimized ? (
         // THE BAR (owner order 2026-11-24 ~16:57 EST): folded —
         // on the PC and on the phone alike — the Captain's
-        // window is its bar along the bottom (or where he
-        // anchored it): the type field and its companions, no
-        // god inside it. The Osiris console that stood here for
-        // a morning is retired by this order; Osiris stands
-        // alone on the stage with his own keys.
+        // window is its bar, docked flush on the stage's bottom
+        // edge (the dock, owner order 2026-11-25): the type
+        // field and its companions, no god inside it. The Osiris
+        // console that stood here for a morning is retired by
+        // this order; Osiris stands alone on the stage with his
+        // own keys.
         foldedBar
       ) : (
       <>
       <div
         className="avatar-command-box__rail avatar-command-box__grip"
-        onPointerDown={startDrag}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
         onClick={(event) => {
           // THE BAR TAP (owner phone spec 2026-11-23): tapping the
           // phone bar opens it upward; tapping again folds it back
@@ -1390,8 +1182,8 @@ export function CommandBox({
           toggleMinimized();
         }}
         role="separator"
-        aria-label={phoneBar ? "Chat bar — tap to open or close the chat" : "Drag to move the chat window"}
-        title={phoneBar ? "Tap to open or close the chat" : "Drag to move the chat window"}
+        aria-label={phoneBar ? "Chat bar — tap to open or close the chat" : "The chat dock's rail — the dock holds the window to the bottom of the stage"}
+        title={phoneBar ? "Tap to open or close the chat" : "The chat dock's rail"}
       >
         <button
           type="button"
@@ -1410,9 +1202,10 @@ export function CommandBox({
             four keys (anchor, reset, three-lines menu, minus)
             are Osiris's, in his three-lines menu on his own
             medallion. What remains here is the window's own
-            furniture: the drag grip and the enlarge toggle. The
-            machinery opens from Osiris's menu key, from the
-            phone line's options, or by command. */}
+            furniture: the enlarge toggle (the dock reads the
+            state as a taller panel). The machinery opens from
+            Osiris's menu key, from the phone line's options, or
+            by command. */}
       </div>
 
       {/* THE MAIN COLUMN (owner defect fix 2026-11-22): machinery on
@@ -1589,39 +1382,7 @@ export function CommandBox({
       </div>
       </>
       )}
-      {!minimized && !phoneBar && (
-        <>
-          <div
-            className="avatar-command-box__resize avatar-command-box__resize--right"
-            onPointerDown={startResize("right")}
-            onPointerMove={moveResize}
-            onPointerUp={endResize}
-            onPointerCancel={endResize}
-            aria-hidden="true"
-            title="Drag to stretch the chat window"
-          />
-          <div
-            className="avatar-command-box__resize avatar-command-box__resize--bottom"
-            onPointerDown={startResize("bottom")}
-            onPointerMove={moveResize}
-            onPointerUp={endResize}
-            onPointerCancel={endResize}
-            aria-hidden="true"
-            title="Drag to stretch the chat window"
-          />
-          <div
-            className="avatar-command-box__resize avatar-command-box__resize--corner"
-            onPointerDown={startResize("corner")}
-            onPointerMove={moveResize}
-            onPointerUp={endResize}
-            onPointerCancel={endResize}
-            role="separator"
-            aria-label="Resize the chat window"
-            title="Drag to stretch the chat window"
-          />
-        </>
-      )}
-      <style>{`--augi-command-accent:${accent}`}</style>
+<style>{`--augi-command-accent:${accent}`}</style>
     </section>
   );
 }
