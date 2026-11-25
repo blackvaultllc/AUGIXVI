@@ -14,6 +14,13 @@
  * this module invents a number, a capability, or a service name.
  */
 import { describeGattService, normalizeUuid, uuidFromAssignedNumber } from "./gattCatalog";
+import {
+  sanitizeCommandPayload,
+  type CommandPayload,
+  type CommandTransport,
+  type DeviceCommand,
+  type DeviceCommandProfile,
+} from "./commandProfiles";
 
 export type DeviceTransport = "ble" | "classic-bluetooth" | "wifi" | "wifi-ap" | "usb" | "other";
 
@@ -107,6 +114,15 @@ export type ControlAction = {
    * verified actions may ever be represented as usable control.
    */
   verified: boolean;
+  /**
+   * THE EXECUTABLE HALF (owner order 2026-11-24: one control map).
+   * When a control entry carries the actual payload — the frame
+   * bytes, the lines, the request — the entry IS a command: the
+   * send engine runs it under the Permission Law like any profile
+   * command. An entry without a payload stays descriptive: it says
+   * what the device can do, and nothing pretends it can be fired.
+   */
+  payload?: CommandPayload | undefined;
 };
 
 /** One GATT service as the profiler actually found it on the device. */
@@ -435,6 +451,8 @@ function sanitizeControls(v: unknown): ControlAction[] | undefined {
     const label = typeof item["label"] === "string" ? item["label"].trim().slice(0, 80) : "";
     const detail = typeof item["detail"] === "string" ? item["detail"].trim().slice(0, 300) : "";
     if (!label || !detail) continue;
+    const payload =
+      item["payload"] !== undefined ? sanitizeCommandPayload(item["payload"]) : undefined;
     out.push({
       id:
         typeof item["id"] === "string" && item["id"].trim()
@@ -447,6 +465,7 @@ function sanitizeControls(v: unknown): ControlAction[] | undefined {
           : "other",
       detail,
       verified: item["verified"] === true,
+      ...(payload ? { payload } : {}),
     });
     if (out.length >= MAX_CONTROLS) break;
   }
@@ -615,22 +634,75 @@ export function formatPortsText(ports: DevicePort[] | undefined): string {
     .join("\n");
 }
 
+/**
+ * Parse the payload segment of a control-map line, when it carries
+ * one: "frame: E0 00 00 00 00 02 3000" (command byte, the five data
+ * bytes in hex, hold in ms — the broadcast frame shape) or
+ * "http: GET /path" (a web request). Anything else reads as no
+ * payload — the entry stays descriptive, never half-parsed.
+ */
+export function parseControlPayloadSegment(segment: string): CommandPayload | undefined {
+  const frame = /^frame:\s*([0-9a-fA-F]{1,2})((?:\s+[0-9a-fA-F]{2}){5})\s+(\d{1,5})$/.exec(segment);
+  if (frame) {
+    const data = (frame[2] ?? "").trim().split(/\s+/).map((h) => parseInt(h, 16));
+    return sanitizeCommandPayload({
+      kind: "ble-broadcast",
+      cmd: parseInt(frame[1] ?? "0", 16),
+      data,
+      holdMs: Number(frame[3]),
+    }) ?? undefined;
+  }
+  const http = /^http:\s*(GET|POST|PUT|DELETE)\s+(\S+)$/i.exec(segment);
+  if (http) {
+    return sanitizeCommandPayload({
+      kind: "http",
+      method: (http[1] ?? "GET").toUpperCase(),
+      path: http[2] ?? "",
+    }) ?? undefined;
+  }
+  return undefined;
+}
+
+/** The payload segment as text, for the control-map form. */
+export function formatControlPayloadSegment(payload: CommandPayload): string {
+  if (payload.kind === "ble-broadcast") {
+    const hex = (n: number) => n.toString(16).padStart(2, "0").toUpperCase();
+    return `frame: ${hex(payload.cmd)} ${payload.data.map(hex).join(" ")} ${payload.holdMs}`;
+  }
+  if (payload.kind === "http") return `http: ${payload.method} ${payload.path}`;
+  if (payload.kind === "lines") return `lines: ${payload.lines.join(" ⏎ ")}`;
+  return "";
+}
+
 /** Controls, one per line: "Take off | command | UDP packet … | verified".
  * The trailing "| verified" is the bench proof flag — without it the
- * action is mapped-only and may never be represented as usable. */
+ * action is mapped-only and may never be represented as usable. A
+ * line may also carry ONE payload segment ("frame: …" or "http: …")
+ * — that segment is what makes the entry executable (one map). */
 export function parseControlsText(text: string): ControlAction[] | undefined {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   return sanitizeControls(
     lines.map((line, i) => {
       const parts = line.split("|").map((p) => p.trim());
       const verified = parts.some((p) => p.toLowerCase() === "verified");
-      const kept = parts.filter((p) => p.toLowerCase() !== "verified");
+      let payload: CommandPayload | undefined;
+      const kept: string[] = [];
+      for (const part of parts) {
+        if (part.toLowerCase() === "verified") continue;
+        const parsed = parseControlPayloadSegment(part);
+        if (parsed) {
+          payload = parsed;
+          continue;
+        }
+        kept.push(part);
+      }
       return {
         id: `control-${i + 1}`,
         label: kept[0] ?? "",
         kind: kept[1] ?? "other",
         detail: kept.slice(2).join(" | "),
         verified,
+        ...(payload ? { payload } : {}),
       };
     }),
   );
@@ -639,8 +711,57 @@ export function parseControlsText(text: string): ControlAction[] | undefined {
 export function formatControlsText(controls: ControlAction[] | undefined): string {
   if (!controls) return "";
   return controls
-    .map((c) => `${c.label} | ${c.kind} | ${c.detail}${c.verified ? " | verified" : ""}`)
+    .map((c) => {
+      const segment = c.payload ? formatControlPayloadSegment(c.payload) : "";
+      return `${c.label} | ${c.kind} | ${c.detail}${segment ? ` | ${segment}` : ""}${c.verified ? " | verified" : ""}`;
+    })
     .join("\n");
+}
+
+/* ----------------- the control map IS the command set ----------------- */
+
+/** The commands a device's own control map can fire: every entry
+ *  that carries a payload, as a send-engine command. */
+export function controlMapCommands(profile: DeviceProfile): DeviceCommand[] {
+  return (profile.controls ?? [])
+    .filter((c) => c.payload !== undefined)
+    .map((c) => ({
+      id: c.id,
+      name: c.label,
+      help: c.detail,
+      params: [],
+      payload: c.payload!,
+    }));
+}
+
+const TRANSPORT_FOR_PAYLOAD: Record<CommandPayload["kind"], CommandTransport> = {
+  "ble-broadcast": "bluetooth-broadcast",
+  http: "network-http",
+  lines: "usb-serial",
+  file: "usb-serial",
+};
+
+/**
+ * A device with payload-carrying control entries but no bound
+ * profile still has a command set: this generated profile, built
+ * from the map itself. The map is the single source — edit the map
+ * on the registry card and the commands follow.
+ */
+export function profileFromControlMap(profile: DeviceProfile): DeviceCommandProfile | null {
+  const commands = controlMapCommands(profile);
+  if (!commands.length) return null;
+  const first = commands[0]!;
+  return {
+    id: `control-map-${profile.id}`.slice(0, 64),
+    name: `${profile.displayName} — its control map`,
+    deviceClass: `The executable half of ${profile.displayName}'s registry control map`,
+    transport: TRANSPORT_FOR_PAYLOAD[first.payload.kind],
+    addressPattern: "",
+    commands,
+    setupSteps: [],
+    safetyNotes: [],
+    builtin: false,
+  };
 }
 
 /* ---------------- what a control surface may show ------------------- */

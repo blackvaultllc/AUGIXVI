@@ -26,6 +26,11 @@
  * what its template renders; a response is parsed only when the
  * device actually answered. Nothing here invents a device reply.
  */
+import {
+  WEPWAWET_REMOTE_ACTIONS,
+  WEPWAWET_REMOTE_FEED,
+  WEPWAWET_REMOTE_PAD,
+} from "./wepwawetRemote";
 
 export type CommandTransport =
   | "usb-serial"
@@ -126,6 +131,41 @@ export type DeviceCommand = {
   safety?: string | undefined;
 };
 
+/**
+ * CARD EXTRAS — the furniture a device's card grows when its
+ * profile declares it (owner order 2026-11-24: Anubis's full
+ * device-setup ability). The clickable remote, the command groups,
+ * the sound pick list, the battery-test log, and the how-to block
+ * used to be hard-coded to the one dog profile's id. They are
+ * profile DATA now: any profile that declares the same shape gets
+ * the same furniture on its card, with no new code.
+ */
+export type ProfileCardExtras = {
+  /** Command groups for the card, in order. Every command on the
+   *  profile should appear in exactly one group. */
+  groups?: { label: string; commandIds: string[] }[] | undefined;
+  /** The sounds group's label + the trigger ids that carry his
+   *  Use / Never use picks. */
+  soundGroupLabel?: string | undefined;
+  soundTriggerIds?: string[] | undefined;
+  /** The honest-limit note that stands over the sounds group. */
+  soundNote?: string | undefined;
+  /** The clickable remote's layout: a direction pad (command ids)
+   *  and the action + feed button rows. */
+  remote?:
+    | {
+        pad: { up: string; left: string; center: string; right: string; down: string };
+        actions: string[];
+        feed: string[];
+      }
+    | undefined;
+  /** Show the measured battery-test log on the card (for devices
+   *  that report nothing back, so endurance is timed, not read). */
+  batteryLog?: boolean | undefined;
+  /** The plain how-to block that stands on the card. */
+  howto?: { title: string; steps: string[]; notes: string[] } | undefined;
+};
+
 export type DeviceCommandProfile = {
   id: string;
   /** "3D printer (G-code)", "Network device (web requests)". */
@@ -133,6 +173,23 @@ export type DeviceCommandProfile = {
   /** The class of device this profile speaks to, in plain words. */
   deviceClass: string;
   transport: CommandTransport;
+  /**
+   * For bridge-fired profiles (Bluetooth broadcast): the sender
+   * script's path UNDER ~/augie-tools/ on the core machine — the
+   * general bridge refuses any path outside that directory. The
+   * dog's is "wepwawet/wepwawet-send.py". Absent = this profile has
+   * no staged sender and the bridge cannot fire it.
+   */
+  senderPath?: string | undefined;
+  /**
+   * A proven fact about this device class the capability brief may
+   * state (its live proof, in plain words). Read from the profile,
+   * never hand-copied into the brief — when the profile changes,
+   * the brief follows.
+   */
+  briefNote?: string | undefined;
+  /** Card furniture this profile declares (remote, groups, …). */
+  extras?: ProfileCardExtras | undefined;
   /**
    * How the address for this transport reads, as a pattern the
    * operator copies: "the USB port the printer enumerates as, at
@@ -646,6 +703,46 @@ export const WEPWAWET_DOG_PROFILE: DeviceCommandProfile = {
   deviceClass:
     "The ATLAS robotic dog of the FENG MA family — Augie's body. It takes no Bluetooth connection at all: it listens for one-way BLE advertising broadcasts and obeys them.",
   transport: "bluetooth-broadcast",
+  senderPath: "wepwawet/wepwawet-send.py",
+  briefNote:
+    "His broadcast control is byte-verified and PROVEN LIVE — on 2026-11-24, on the Captain's " +
+    "order with him watching the dog in his hand, Augie's frames fired Stop, Forward, Stop " +
+    "from the Parrot sender and the dog moved. The dog reports nothing back, and Augie cannot " +
+    "speak words through him; Augie triggers his built-in sounds and actions only.",
+  extras: {
+    groups: WEPWAWET_COMMAND_GROUPS,
+    soundGroupLabel: WEPWAWET_SOUND_GROUP_LABEL,
+    soundTriggerIds: WEPWAWET_SOUND_TRIGGER_IDS,
+    soundNote:
+      "These are all the sounds he has — nothing beyond this list exists. Inside each " +
+      "one, the dog picks the track himself: the vendor app's lists (five dances, five " +
+      "songs, five stories, five AI pieces) never encoded which item was tapped — every " +
+      "tap sent this one frame — so Augie cannot pick the track either. His trick " +
+      "noises ride with the tricks themselves, under Tricks & poses. Set each one " +
+      "Use or Never use — that pick is yours and it sticks on this machine.",
+    remote: {
+      pad: { ...WEPWAWET_REMOTE_PAD },
+      actions: WEPWAWET_REMOTE_ACTIONS,
+      feed: WEPWAWET_REMOTE_FEED,
+    },
+    batteryLog: true,
+    howto: {
+      title: "How to control Wepwawet",
+      steps: [
+        "Wake him: press-and-hold the switch under the dog until he answers with his voice prompt.",
+        "Keep him near the Parrot, in the same room — the commands ride the Parrot's Bluetooth, and Augie must be open through the Parrot's own server for the buttons to reach him.",
+        "Just woke him? Tap “Match / connect” once first — the knock the vendor app sends when it starts.",
+        "Tap a command below. STOP is always at the top — tap it any time he does something unexpected.",
+        "Or drive him with the remote above — no talking needed: click the pad to walk and turn him, click a trick or Feed button, and click Stop in the middle of the pad to stop him. The remote follows the same Practice / LIVE switch as everything else on this card.",
+        "Adding your own: “Change command setup” below lets you add commands to his card, and every command on the card runs the same way.",
+      ],
+      notes: [
+        "He never answers back: a sent command means the frames went on air — your eyes confirm he obeyed.",
+        "Talk: Wepwawet speaks only his own built-in sounds and songs (Song, AI content, Learn / story). Augie cannot put your words in his mouth.",
+        "Light test — still an open question: the light has ONE toggle frame and no colour code anywhere in the protocol, so there is no “steady red” frame to send. At the next watched session we step Light while you watch and write down what it does — latch on, blink, or step through colours — until a steady red is found or proven absent. Nothing about the light is guessed before that session.",
+      ],
+    },
+  },
   addressPattern:
     "Augie's AppID for the dog — 8 hex characters (his is A947C15E). It is the sender name carried inside every frame. The dog's own frame address is fixed in the protocol; there is no per-dog address to enter.",
   commands: WEPWAWET_COMMANDS,
@@ -714,7 +811,9 @@ function sanitizeParam(v: unknown): CommandParam | null {
   };
 }
 
-function sanitizePayload(v: unknown): CommandPayload | null {
+/** Validate one command payload — shared with the device registry,
+ *  whose control-map entries may carry an executable payload. */
+export function sanitizeCommandPayload(v: unknown): CommandPayload | null {
   if (!isRecord(v)) return null;
   if (v["kind"] === "lines") {
     const lines = Array.isArray(v["lines"])
@@ -766,7 +865,7 @@ export function sanitizeCommand(v: unknown): DeviceCommand | null {
   if (!isRecord(v)) return null;
   const id = cleanString(v["id"], 48);
   const name = cleanString(v["name"], 80);
-  const payload = sanitizePayload(v["payload"]);
+  const payload = sanitizeCommandPayload(v["payload"]);
   if (!id || !name || !payload) return null;
   const params = Array.isArray(v["params"])
     ? v["params"]
@@ -782,6 +881,75 @@ export function sanitizeCommand(v: unknown): DeviceCommand | null {
     payload,
     safety: cleanString(v["safety"], 300),
   };
+}
+
+const MAX_EXTRA_GROUPS = 12;
+const MAX_EXTRA_IDS = 64;
+
+function sanitizeExtras(v: unknown): ProfileCardExtras | undefined {
+  if (!isRecord(v)) return undefined;
+  const idList = (raw: unknown): string[] =>
+    Array.isArray(raw)
+      ? raw
+          .filter((s): s is string => typeof s === "string" && s.trim() !== "")
+          .map((s) => s.trim().slice(0, 48))
+          .slice(0, MAX_EXTRA_IDS)
+      : [];
+  const groups = Array.isArray(v["groups"])
+    ? v["groups"]
+        .filter(isRecord)
+        .map((g) => ({
+          label: cleanString(g["label"], 80) ?? "",
+          commandIds: idList(g["commandIds"]),
+        }))
+        .filter((g) => g.label && g.commandIds.length)
+        .slice(0, MAX_EXTRA_GROUPS)
+    : [];
+  const remoteRaw = isRecord(v["remote"]) ? v["remote"] : null;
+  const padRaw = remoteRaw && isRecord(remoteRaw["pad"]) ? remoteRaw["pad"] : null;
+  const padId = (key: string): string => cleanString(padRaw?.[key], 48) ?? "";
+  const remote =
+    padRaw && padId("up") && padId("left") && padId("center") && padId("right") && padId("down")
+      ? {
+          pad: {
+            up: padId("up"),
+            left: padId("left"),
+            center: padId("center"),
+            right: padId("right"),
+            down: padId("down"),
+          },
+          actions: idList(remoteRaw?.["actions"]),
+          feed: idList(remoteRaw?.["feed"]),
+        }
+      : undefined;
+  const howtoRaw = isRecord(v["howto"]) ? v["howto"] : null;
+  const howtoList = (raw: unknown): string[] =>
+    Array.isArray(raw)
+      ? raw
+          .filter((s): s is string => typeof s === "string" && s.trim() !== "")
+          .map((s) => s.trim().slice(0, 600))
+          .slice(0, 12)
+      : [];
+  const howto =
+    howtoRaw && cleanString(howtoRaw["title"], 80)
+      ? {
+          title: cleanString(howtoRaw["title"], 80)!,
+          steps: howtoList(howtoRaw["steps"]),
+          notes: howtoList(howtoRaw["notes"]),
+        }
+      : undefined;
+  const extras: ProfileCardExtras = {
+    groups: groups.length ? groups : undefined,
+    soundGroupLabel: cleanString(v["soundGroupLabel"], 80),
+    soundNote: cleanString(v["soundNote"], 900),
+    soundTriggerIds: idList(v["soundTriggerIds"]).length
+      ? idList(v["soundTriggerIds"])
+      : undefined,
+    remote,
+    batteryLog: v["batteryLog"] === true ? true : undefined,
+    howto,
+  };
+  return Object.values(extras).some((x) => x !== undefined) ? extras : undefined;
 }
 
 export function sanitizeCommandProfile(v: unknown): DeviceCommandProfile | null {
@@ -812,6 +980,9 @@ export function sanitizeCommandProfile(v: unknown): DeviceCommandProfile | null 
     name,
     deviceClass: cleanString(v["deviceClass"], 200) ?? "A device the operator configured",
     transport,
+    senderPath: cleanString(v["senderPath"], 200),
+    briefNote: cleanString(v["briefNote"], 600),
+    extras: sanitizeExtras(v["extras"]),
     addressPattern: cleanString(v["addressPattern"], 300) ?? "",
     baudRate:
       typeof v["baudRate"] === "number" && Number.isInteger(v["baudRate"]) && v["baudRate"] > 0

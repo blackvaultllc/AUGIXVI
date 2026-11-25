@@ -20,7 +20,17 @@
  * as a yes, never as a dodge.
  *
  * Plain TS, no DOM — unit-testable per the repo rules.
+ *
+ * THE DEVICE LINES ARE GENERATED (owner order 2026-11-24): what
+ * Augie knows about devices is read from the device registry in
+ * the core (deviceBriefLines) at the moment the brief is built —
+ * the hand-written dog paragraph that used to live here is gone,
+ * and Augie's device knowledge can never drift from the registry
+ * again. With no state at hand the brief falls back to the core's
+ * seed state (the dog, device #1, with his recorded grant).
  */
+import { seedDeviceCoreState, type DeviceCoreState } from "./devices/deviceStoreCore";
+import { deviceBriefLines } from "./devices/deviceTools";
 
 export interface CapabilityLine {
   /** The Master Manual entry this line mirrors (manualContent.ts). */
@@ -40,20 +50,6 @@ export const CAPABILITY_LINES: readonly CapabilityLine[] = [
       "the camera: it offers you no talk path.",
   },
   {
-    manualId: "cmdmod-wepwawet",
-    line:
-      "WEPWAWET (the robot dog): his control protocol is fully mapped and your " +
-      "broadcast control of him is BUILT, byte-verified, and PROVEN LIVE — on " +
-      "2026-11-24, on the Captain's order with him watching the dog in his " +
-      "hand, Augie's frames fired Stop, Forward, Stop from the Parrot sender " +
-      "and the dog moved. The Captain can also drive him himself from the " +
-      "dog's card in Devices: each tap hands the frame to the Parrot sender " +
-      "(the bridge), Practice mode transmits nothing, and the LIVE switch is " +
-      "the Captain's own hand. The dog reports nothing back to you, and you " +
-      "cannot speak words through him; you trigger his built-in sounds and " +
-      "actions only.",
-  },
-  {
     manualId: "sw-how",
     line:
       "SOUND WATCH: on this machine you listen through the microphone and name the " +
@@ -66,9 +62,14 @@ export const CAPABILITY_LINES: readonly CapabilityLine[] = [
     line:
       "DEVICES AND THE PERMISSION LAW: you map the Captain's own devices whose " +
       "signals appear around you, and you CONTROL only the devices he has granted " +
-      "one by one — the camera and Wepwawet are granted. The Magic Wand's beacon " +
-      "is watched for; its greeting on this machine waits on its registry card " +
-      "being finished here.",
+      "one by one. You can register a new device he owns — with the control map " +
+      "earned for it once, by teardown, capture, or its manual — bind its command " +
+      "set, and fire its commands on his order; you can never grant control " +
+      "yourself: a grant you think should exist becomes a request the Captain " +
+      "confirms. The device lines below are read from the registry itself, at " +
+      "this moment — they are the whole of what you know about his devices. " +
+      "The Magic Wand's beacon is watched for; its greeting on this machine " +
+      "waits on its registry card being finished here.",
   },
   {
     manualId: "world-bigger",
@@ -95,18 +96,12 @@ export const CAPABILITY_LINES_SHORT: readonly CapabilityLine[] = [
       "it, and analyze a view (a draft). You cannot speak through it.",
   },
   {
-    manualId: "cmdmod-wepwawet",
-    line:
-      "Wepwawet the robot dog: your control of him is built, byte-verified " +
-      "and PROVEN LIVE (2026-11-24 — the Captain watched him move on your " +
-      "frames). He can also be driven from his card in Devices, through the " +
-      "Parrot bridge.",
-  },
-  {
     manualId: "train-device",
     line:
-      "You control only the devices the Captain has granted, one by one — the " +
-      "camera and the dog are granted. What you do not know, you say you do not know.",
+      "You control only the devices the Captain has granted, one by one, and " +
+      "you can register the devices he owns — never grant control yourself. " +
+      "The device lines below are read from the registry itself. What you do " +
+      "not know, you say you do not know.",
   },
 ];
 
@@ -114,8 +109,19 @@ const BRIEF_HEADER =
   "WHAT YOU CAN ACCESS AND DO — answer questions about your own access and " +
   "abilities from these facts only, never beyond them:";
 
-/** The brief as one system-prompt block. */
-export function capabilitiesBrief(variant: "full" | "short" = "full"): string {
+/**
+ * The brief as one system-prompt block. The static lines carry the
+ * standing truths; the DEVICE lines are generated from the core's
+ * registry state at build time — pass the freshest state the
+ * surface has (the stage passes its synced core state). With no
+ * state at hand, the core's seed state stands in: the dog, device
+ * #1, with the grant the record already carries.
+ */
+export function capabilitiesBrief(
+  variant: "full" | "short" = "full",
+  state?: DeviceCoreState,
+): string {
   const lines = variant === "short" ? CAPABILITY_LINES_SHORT : CAPABILITY_LINES;
-  return [BRIEF_HEADER, ...lines.map((entry) => entry.line)].join("\n");
+  const deviceLines = deviceBriefLines(state ?? seedDeviceCoreState(), variant);
+  return [BRIEF_HEADER, ...lines.map((entry) => entry.line), ...deviceLines].join("\n");
 }

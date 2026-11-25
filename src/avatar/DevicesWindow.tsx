@@ -13,7 +13,9 @@
  *   3. Nothing else. No device, capability, or number is ever invented.
  *
  * Operator-only: renders inside the signed-in stage like every other
- * window. Registry persists in this browser only (deviceRegistry.ts).
+ * window. The registry's home is the CORE now (deviceStoreCore.ts):
+ * this window syncs with the core on open and pushes every change
+ * up; the browser copy is the working cache.
  * The BLE hardware path is BUILT, NOT YET VERIFIED on real hardware.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -40,6 +42,18 @@ import {
 } from "./devices/deviceRegistry";
 import { profileBleDevice, webBluetoothAvailable } from "./devices/bleProfiler";
 import { DeviceCommandsPanel } from "./devices/DeviceCommandsPanel";
+import {
+  applyStateToStorage,
+  pendingFlagRequests,
+  resolveFlagRequest,
+  type DeviceFlagRequest,
+} from "./devices/deviceStoreCore";
+import {
+  currentDeviceState,
+  pushDevicesToCore,
+  rememberDeviceState,
+  syncDevicesWithCore,
+} from "./devices/deviceCoreSync";
 import {
   HEARTBEAT_CHECK_DIVIDER,
   WAND_GREETING,
@@ -143,6 +157,10 @@ export function DevicesWindow({
   const [watch, setWatch] = useState<PresenceWatchState>(() => getPresenceWatch());
   const [greetingFor, setGreetingFor] = useState<string | null>(null);
   const [markRssi, setMarkRssi] = useState("");
+  /** Permission Law flag changes Anubis has ASKED for — they wait
+   *  here for the Captain's own Confirm; the construct never
+   *  grants itself anything. */
+  const [flagRequests, setFlagRequests] = useState<DeviceFlagRequest[]>([]);
   const bleAvailable = useMemo(() => webBluetoothAvailable(), []);
 
   const fireActivation = (device: DeviceProfile) => {
@@ -191,6 +209,52 @@ export function DevicesWindow({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * THE CORE SYNC (owner order 2026-11-24): the registry's home is
+   * the core now. On open, pull the core state and merge this
+   * browser's cache into it — the first pull IS the migration:
+   * cards and grants set up in this browser (the dog's included)
+   * move into the core untouched. After that, every change below
+   * pushes back up (the effect under this one).
+   */
+  useEffect(() => {
+    void (async () => {
+      const merged = await syncDevicesWithCore();
+      if (merged) {
+        setDevices(loadRegistry());
+        setFlagRequests(pendingFlagRequests(merged));
+      }
+    })();
+  }, []);
+
+  const devicesPushSkipFirst = useRef(true);
+  useEffect(() => {
+    if (devicesPushSkipFirst.current) {
+      devicesPushSkipFirst.current = false;
+      return;
+    }
+    void pushDevicesToCore().then((state) => {
+      if (state) setFlagRequests(pendingFlagRequests(state));
+    });
+  }, [devices]);
+
+  /** The Captain's hand on a construct flag request: Confirm is
+   *  the only road by which Anubis's ask becomes a grant. */
+  const resolveRequest = (requestId: string, decision: "applied" | "denied") => {
+    const base = currentDeviceState();
+    const next = resolveFlagRequest(
+      { ...base, registry: devicesRef.current },
+      requestId,
+      decision,
+      Date.now(),
+    );
+    applyStateToStorage(next);
+    rememberDeviceState(next);
+    setDevices(loadRegistry());
+    setFlagRequests(pendingFlagRequests(next));
+    void pushDevicesToCore();
+  };
 
   /**
    * The local Wi-Fi watcher's real state, from the Augie server this
@@ -749,7 +813,10 @@ export function DevicesWindow({
             </label>
             <label>
               Control map (one per line: name | kind | how it's invoked — add
-              "| verified" ONLY when the bench proved the device obeys)
+              "| verified" ONLY when the bench proved the device obeys. Add a
+              "| frame: E0 00 00 00 00 02 500" part — command byte, five data
+              bytes, hold in ms — or "| http: GET /path" and the line becomes a
+              command Anubis can actually fire, not just a note)
               <textarea
                 value={form.controlsText}
                 onChange={(e) => setForm({ ...form, controlsText: e.target.value })}
@@ -872,6 +939,43 @@ export function DevicesWindow({
                 Permission Law: {selected.ownerConfirmed ? "owner-confirmed" : "not owner-confirmed"}{" "}
                 · control {selected.controlGranted ? "GRANTED by the operator" : "not granted — observation only"}.
               </p>
+              {flagRequests
+                .filter((r) => r.deviceId === selected.id)
+                .map((request) => (
+                  <div key={request.id} className="window-devices__meta" role="status">
+                    <p>
+                      Anubis asks for a Permission Law change on this card:{" "}
+                      {request.ownerConfirmed !== undefined &&
+                        `owner-confirmed → ${request.ownerConfirmed ? "yes" : "no"}`}
+                      {request.ownerConfirmed !== undefined && request.controlGranted !== undefined
+                        ? " · "
+                        : ""}
+                      {request.controlGranted !== undefined &&
+                        `control granted → ${request.controlGranted ? "yes" : "no"}`}
+                      . {request.reason}
+                    </p>
+                    <p>
+                      Anubis cannot grant this himself — it waits for your hand. Confirming
+                      applies exactly what is written above, nothing more.
+                    </p>
+                    <div className="window-devices__actions">
+                      <button
+                        type="button"
+                        className="window-btn"
+                        onClick={() => resolveRequest(request.id, "applied")}
+                      >
+                        Confirm — apply it
+                      </button>
+                      <button
+                        type="button"
+                        className="window-btn"
+                        onClick={() => resolveRequest(request.id, "denied")}
+                      >
+                        Deny
+                      </button>
+                    </div>
+                  </div>
+                ))}
               {(selected.address || selected.protocol || selected.ports) && (
                 <p className="window-devices__meta">
                   Fingerprint: {selected.address ? `address ${selected.address}` : "no address mapped"}

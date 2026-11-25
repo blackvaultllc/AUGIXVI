@@ -251,6 +251,22 @@ import {
   scanWifiEnvironment,
 } from "./devices/presence";
 import { loadRegistry } from "./devices/deviceRegistry";
+import {
+  createFetchHttpChannel,
+  createParrotBroadcastChannel,
+} from "./devices/commandModule";
+import {
+  currentDeviceState,
+  pushDevicesToCore,
+  rememberDeviceState,
+  syncDevicesWithCore,
+} from "./devices/deviceCoreSync";
+import {
+  applyStateToStorage,
+  pendingFlagRequests,
+  resolveStateProfile,
+} from "./devices/deviceStoreCore";
+import { parseDeviceCommandIntent, toolSendDeviceCommand } from "./devices/deviceTools";
 import { LawWindow } from "./LawWindow";
 import { OfficeAnalyticsWindow } from "./OfficeAnalyticsWindow";
 import { SpeakerStoresPanel } from "./SpeakerStoresPanel";
@@ -1023,6 +1039,37 @@ export function AvatarStage({
     };
     void tick();
     const timer = setInterval(() => void tick(), 25_000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [notify]);
+  /**
+   * THE DEVICE CORE SYNC (owner order 2026-11-24): the stage keeps
+   * this surface's device cache merged with the core's store, so
+   * the capability brief and Anubis's device tools read the same
+   * registry the Devices window shows. A Permission Law flag
+   * request Anubis has filed is raised here the moment it is seen —
+   * it waits for the Captain's hand in the Devices window, and is
+   * never applied by anyone else.
+   */
+  const flagRequestSeenRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    let stopped = false;
+    const tick = async () => {
+      const state = await syncDevicesWithCore().catch(() => null);
+      if (stopped || !state) return;
+      for (const request of pendingFlagRequests(state)) {
+        if (flagRequestSeenRef.current.has(request.id)) continue;
+        flagRequestSeenRef.current.add(request.id);
+        notify(
+          "devices",
+          `Anubis asks a Permission Law change for ${request.deviceName} — it waits for your hand in the Devices window. Nothing was granted.`,
+        );
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 60_000);
     return () => {
       stopped = true;
       clearInterval(timer);
@@ -2639,6 +2686,44 @@ export function AvatarStage({
         say(livingWordGreeting(null));
         return;
       }
+      // ANUBIS'S DEVICE HANDS (owner order 2026-11-24): a direct
+      // device order in the Captain's words — "tell Wepwawet to
+      // sit", "stop the dog" — is fired by the construct itself,
+      // from the core state, through the general bridge. His word
+      // is the order, so a broadcast send is LIVE; the Permission
+      // Law still gates it before anything is touched, a refusal
+      // sends nothing, and the outcome is spoken in plain words
+      // either way. The attempt lands in the core's command log.
+      const deviceIntent = parseDeviceCommandIntent(commandText, currentDeviceState());
+      if (deviceIntent) {
+        setResponseSource("device command");
+        const state = currentDeviceState();
+        const device = state.registry.find((d) => d.id === deviceIntent.deviceId);
+        const resolved = device ? resolveStateProfile(state, device) : null;
+        const channel =
+          resolved?.profile.transport === "bluetooth-broadcast"
+            ? createParrotBroadcastChannel({ live: true, deviceId: deviceIntent.deviceId })
+            : resolved?.profile.transport === "network-http"
+              ? createFetchHttpChannel()
+              : null;
+        const sent = await toolSendDeviceCommand(state, {
+          deviceId: deviceIntent.deviceId,
+          commandId: deviceIntent.commandId,
+          channel,
+          channelUnavailableReason:
+            "That command's road does not run from the stage — its card in Devices is the road. Nothing was sent.",
+          now: Date.now(),
+        });
+        if (sent.ok) {
+          rememberDeviceState(sent.value.state);
+          applyStateToStorage(sent.value.state);
+          void pushDevicesToCore();
+          say(`${deviceIntent.deviceName} — ${deviceIntent.commandName}: ${sent.value.outcome.note}`);
+        } else {
+          say(sent.error);
+        }
+        return;
+      }
       await aiRef.current?.handleText(commandText);
     },
     // operatorMemory is a stable ref-backed singleton; excluding it keeps
@@ -2732,7 +2817,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       // can actually access and do, read fresh per message beside
       // the directive — a "can you access the camera / the dog?"
       // question is answered from these facts, never dodged.
-      getCapabilitiesBrief: () => capabilitiesBrief(),
+      // The device lines in the brief are GENERATED from the core's
+      // registry state (owner order 2026-11-24) — the freshest state
+      // this surface has synced, so Anubis's knowledge of devices is
+      // the registry itself, never a hand-written paragraph.
+      getCapabilitiesBrief: () => capabilitiesBrief("full", currentDeviceState()),
       onSpeak: (text) => {
         setLastWords(text);
         recordReply(text);

@@ -25,6 +25,7 @@ import { Route as LearnerRacingRouteImport } from './routes/learner_.racing'
 import { Route as LearnerSquishyRouteImport } from './routes/learner_.squishy'
 import { Route as ApiCamerasSnapshotRouteImport } from './routes/api.cameras.snapshot'
 import { Route as ApiCamerasStreamRouteImport } from './routes/api.cameras.stream'
+import { Route as ApiDevicesBridgeRouteImport } from './routes/api.devices.bridge'
 import { Route as ApiDevicesPhoneSightingsRouteImport } from './routes/api.devices.phone-sightings'
 import { Route as ApiDevicesScanStateRouteImport } from './routes/api.devices.scan-state'
 import { Route as ApiDevicesSightingsRouteImport } from './routes/api.devices.sightings'
@@ -128,6 +129,11 @@ const ApiCamerasSnapshotRoute = ApiCamerasSnapshotRouteImport.update({
 const ApiCamerasStreamRoute = ApiCamerasStreamRouteImport.update({
   id: '/api/cameras/stream',
   path: '/api/cameras/stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevicesBridgeRoute = ApiDevicesBridgeRouteImport.update({
+  id: '/api/devices/bridge',
+  path: '/api/devices/bridge',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDevicesPhoneSightingsRoute =
@@ -270,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/learner/squishy': typeof LearnerSquishyRoute
   '/api/cameras/snapshot': typeof ApiCamerasSnapshotRoute
   '/api/cameras/stream': typeof ApiCamerasStreamRoute
+  '/api/devices/bridge': typeof ApiDevicesBridgeRoute
   '/api/devices/phone-sightings': typeof ApiDevicesPhoneSightingsRoute
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
@@ -312,6 +319,7 @@ export interface FileRoutesByTo {
   '/learner/squishy': typeof LearnerSquishyRoute
   '/api/cameras/snapshot': typeof ApiCamerasSnapshotRoute
   '/api/cameras/stream': typeof ApiCamerasStreamRoute
+  '/api/devices/bridge': typeof ApiDevicesBridgeRoute
   '/api/devices/phone-sightings': typeof ApiDevicesPhoneSightingsRoute
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
@@ -355,6 +363,7 @@ export interface FileRoutesById {
   '/learner_/squishy': typeof LearnerSquishyRoute
   '/api/cameras/snapshot': typeof ApiCamerasSnapshotRoute
   '/api/cameras/stream': typeof ApiCamerasStreamRoute
+  '/api/devices/bridge': typeof ApiDevicesBridgeRoute
   '/api/devices/phone-sightings': typeof ApiDevicesPhoneSightingsRoute
   '/api/devices/scan-state': typeof ApiDevicesScanStateRoute
   '/api/devices/sightings': typeof ApiDevicesSightingsRoute
@@ -399,6 +408,7 @@ export interface FileRouteTypes {
     | '/learner/squishy'
     | '/api/cameras/snapshot'
     | '/api/cameras/stream'
+    | '/api/devices/bridge'
     | '/api/devices/phone-sightings'
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
@@ -441,6 +451,7 @@ export interface FileRouteTypes {
     | '/learner/squishy'
     | '/api/cameras/snapshot'
     | '/api/cameras/stream'
+    | '/api/devices/bridge'
     | '/api/devices/phone-sightings'
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
@@ -483,6 +494,7 @@ export interface FileRouteTypes {
     | '/learner_/squishy'
     | '/api/cameras/snapshot'
     | '/api/cameras/stream'
+    | '/api/devices/bridge'
     | '/api/devices/phone-sightings'
     | '/api/devices/scan-state'
     | '/api/devices/sightings'
@@ -526,6 +538,7 @@ export interface RootRouteChildren {
   LearnerSquishyRoute: typeof LearnerSquishyRoute
   ApiCamerasSnapshotRoute: typeof ApiCamerasSnapshotRoute
   ApiCamerasStreamRoute: typeof ApiCamerasStreamRoute
+  ApiDevicesBridgeRoute: typeof ApiDevicesBridgeRoute
   ApiDevicesPhoneSightingsRoute: typeof ApiDevicesPhoneSightingsRoute
   ApiDevicesScanStateRoute: typeof ApiDevicesScanStateRoute
   ApiDevicesSightingsRoute: typeof ApiDevicesSightingsRoute
@@ -664,6 +677,13 @@ declare module '@tanstack/react-router' {
       path: '/api/cameras/stream'
       fullPath: '/api/cameras/stream'
       preLoaderRoute: typeof ApiCamerasStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devices/bridge': {
+      id: '/api/devices/bridge'
+      path: '/api/devices/bridge'
+      fullPath: '/api/devices/bridge'
+      preLoaderRoute: typeof ApiDevicesBridgeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/devices/phone-sightings': {
@@ -854,6 +874,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearnerSquishyRoute: LearnerSquishyRoute,
   ApiCamerasSnapshotRoute: ApiCamerasSnapshotRoute,
   ApiCamerasStreamRoute: ApiCamerasStreamRoute,
+  ApiDevicesBridgeRoute: ApiDevicesBridgeRoute,
   ApiDevicesPhoneSightingsRoute: ApiDevicesPhoneSightingsRoute,
   ApiDevicesScanStateRoute: ApiDevicesScanStateRoute,
   ApiDevicesSightingsRoute: ApiDevicesSightingsRoute,
