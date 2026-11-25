@@ -20,20 +20,20 @@
  */
 import { useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Cable, Pause, Plus, Send, Settings2, Trash2, X } from "lucide-react";
-import { canControl, type DeviceProfile } from "./deviceRegistry";
+import {
+  canControl,
+  controlMapCommands,
+  formatControlPayloadSegment,
+  parseControlPayloadSegment,
+  profileFromControlMap,
+  type DeviceProfile,
+} from "./deviceRegistry";
 import {
   COMMAND_TRANSPORT_LABELS,
-  WEPWAWET_COMMAND_GROUPS,
-  WEPWAWET_SOUND_GROUP_LABEL,
   type CommandTransport,
   type DeviceCommand,
   type DeviceCommandProfile,
 } from "./commandProfiles";
-import {
-  WEPWAWET_REMOTE_ACTIONS,
-  WEPWAWET_REMOTE_FEED,
-  WEPWAWET_REMOTE_PAD,
-} from "./wepwawetRemote";
 import {
   BATTERY_MODES,
   addBatteryEntry,
@@ -65,12 +65,16 @@ import {
   type ParrotBroadcastChannel,
   type SendOutcome,
 } from "./commandModule";
+import { pushDevicesToCore } from "./deviceCoreSync";
 
 type SetupDraft = {
   transport: CommandTransport;
   profileId: string;
   customName: string;
   address: string;
+  /** For a custom broadcast command set: the sender script's path
+   *  under ~/augie-tools/ on the core (the bridge's allowlist). */
+  senderPath: string;
   customCommands: { name: string; literal: string }[];
   newName: string;
   newLiteral: string;
@@ -81,6 +85,7 @@ const EMPTY_SETUP: SetupDraft = {
   profileId: "printer-gcode",
   customName: "",
   address: "",
+  senderPath: "",
   customCommands: [],
   newName: "",
   newLiteral: "",
@@ -125,20 +130,56 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
   const bridgeRef = useRef<{ live: boolean; channel: ParrotBroadcastChannel } | null>(null);
   const bridgeChannel = (live: boolean): ParrotBroadcastChannel => {
     if (!bridgeRef.current || bridgeRef.current.live !== live) {
-      bridgeRef.current = { live, channel: createParrotBroadcastChannel({ live }) };
+      // Through the GENERAL bridge, under this device's own id —
+      // the core looks up its registered sender (the dog is #1).
+      bridgeRef.current = {
+        live,
+        channel: createParrotBroadcastChannel({ live, deviceId: device.id }),
+      };
     }
     return bridgeRef.current.channel;
   };
 
   const binding = bindings[device.id];
   const profiles = useMemo(() => allCommandProfiles(bindings), [bindings]);
-  const profile = binding ? resolveBindingProfile(binding, profiles) : null;
+  // ONE CONTROL MAP: with no binding, a device whose registry map
+  // carries payloads still has a command set — the profile the map
+  // itself generates.
+  const mapProfile = useMemo(() => profileFromControlMap(device), [device]);
+  const profile = binding ? resolveBindingProfile(binding, profiles) : mapProfile;
+  const activeBinding: DeviceCommandBinding | undefined =
+    binding ??
+    (mapProfile
+      ? { deviceId: device.id, profileId: mapProfile.id, address: device.address ?? "" }
+      : undefined);
+  /** The card furniture this device's profile declares (remote,
+   *  groups, sound picks, battery log, how-to) — data, not an id
+   *  check: the next device with the same shape gets the same card. */
+  const extras = profile?.extras;
   const granted = canControl(device);
+
+  /** The commands this card offers: the profile's, the binding's
+   *  own, and the registry control map's payload-carrying entries —
+   *  one merged list, deduped by id. */
+  const mergedCommands = (
+    b: DeviceCommandBinding,
+    p: DeviceCommandProfile,
+  ): DeviceCommand[] => {
+    const out = [...bindingCommands(b, p)];
+    for (const command of controlMapCommands(device)) {
+      if (!out.some((c) => c.id === command.id)) out.push(command);
+    }
+    return out;
+  };
   const deviceLog = logForDevice(log, device.id).slice(-5).reverse();
 
   const refreshStores = () => {
     setBindings(loadBindings());
     setLog(loadCommandLog());
+    // The core keeps the record now: every change made here is
+    // pushed up (best-effort — where no core answers, the local
+    // stores stand and nothing pretends otherwise).
+    void pushDevicesToCore();
   };
 
   const openSetup = () => {
@@ -148,6 +189,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
         profileId: profile.builtin ? profile.id : "custom",
         customName: profile.builtin ? "" : profile.name,
         address: binding.address,
+        senderPath: profile.senderPath ?? "",
         customCommands: (binding.extraCommands ?? []).map((c) => ({
           name: c.name,
           literal:
@@ -155,7 +197,9 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
               ? c.payload.lines.join("\n")
               : c.payload.kind === "http"
                 ? c.payload.path
-                : "",
+                : c.payload.kind === "ble-broadcast"
+                  ? formatControlPayloadSegment(c.payload).replace(/^frame: /, "")
+                  : "",
         })),
         newName: "",
         newLiteral: "",
@@ -173,16 +217,30 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
       s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "custom";
     const extras: DeviceCommand[] = setup.customCommands
       .filter((c) => c.name.trim() && c.literal.trim())
-      .map((c, i) => ({
-        id: `custom-${slug(c.name)}-${i + 1}`,
-        name: c.name.trim(),
-        help: "A command the operator defined for this device.",
-        params: [],
-        payload:
-          setup.transport === "network-http"
-            ? { kind: "http" as const, method: "GET" as const, path: c.literal.trim() }
-            : { kind: "lines" as const, lines: c.literal.split("\n").map((l) => l.trim()).filter(Boolean) },
-      }));
+      .map((c, i): DeviceCommand | null => {
+        // FRAME AUTHORING (plan item C): on the broadcast transport
+        // the literal is a frame — command byte, five data bytes in
+        // hex, hold in ms ("E0 00 00 00 00 02 500"). A frame that
+        // does not parse is dropped, never half-saved.
+        const framePayload =
+          setup.transport === "bluetooth-broadcast"
+            ? parseControlPayloadSegment(`frame: ${c.literal.trim()}`)
+            : undefined;
+        if (setup.transport === "bluetooth-broadcast" && !framePayload) return null;
+        return {
+          id: `custom-${slug(c.name)}-${i + 1}`,
+          name: c.name.trim(),
+          help: "A command the operator defined for this device.",
+          params: [],
+          payload:
+            setup.transport === "network-http"
+              ? { kind: "http" as const, method: "GET" as const, path: c.literal.trim() }
+              : setup.transport === "bluetooth-broadcast"
+                ? framePayload!
+                : { kind: "lines" as const, lines: c.literal.split("\n").map((l) => l.trim()).filter(Boolean) },
+        };
+      })
+      .filter((c): c is DeviceCommand => c !== null);
     let next: DeviceCommandBinding;
     if (setup.profileId === "custom") {
       if (!extras.length) return;
@@ -191,6 +249,9 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
         name: setup.customName.trim() || `${device.displayName} — his command set`,
         deviceClass: `A command set the operator built for ${device.displayName}`,
         transport: setup.transport,
+        ...(setup.transport === "bluetooth-broadcast" && setup.senderPath.trim()
+          ? { senderPath: setup.senderPath.trim() }
+          : {}),
         addressPattern: "",
         commands: extras,
         setupSteps: [],
@@ -245,7 +306,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
   };
 
   const runSend = async (command: DeviceCommand) => {
-    if (!profile || !binding) return;
+    if (!profile || !activeBinding) return;
     setSending(command.id);
     try {
       const { channel, reason } = channelFor(profile);
@@ -265,7 +326,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
               profile,
               command,
               values: commandValues,
-              address: binding.address,
+              address: activeBinding.address,
               channel,
               channelUnavailableReason: reason,
             });
@@ -273,6 +334,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
     } finally {
       setSending(null);
       setLog(loadCommandLog());
+      void pushDevicesToCore();
       if (profile.transport === "bluetooth-broadcast" && bridgeRef.current) {
         setBridgeReceipts([...bridgeRef.current.channel.receipts].slice(-4));
       }
@@ -297,11 +359,10 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
   };
 
 
-  const isDogProfile = profile?.id === "wepwawet-ble-broadcast";
-
   const commandItem = (command: DeviceCommand, extra?: React.ReactNode) => {
     const outcome = outcomes[command.id];
-    const silenced = isDogProfile && soundOff[command.id] === true;
+    const silenced =
+      extras?.soundTriggerIds?.includes(command.id) === true && soundOff[command.id] === true;
     return (
                 <li key={command.id} className="window-commands__item">
                   <div className="window-commands__head">
@@ -456,8 +517,9 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
    * words — no icon-only mystery buttons.
    */
   const renderRemote = () => {
-    if (!binding || !profile) return null;
-    const byId = new Map(bindingCommands(binding, profile).map((c) => [c.id, c]));
+    if (!activeBinding || !profile || !extras?.remote) return null;
+    const remoteLayout = extras.remote;
+    const byId = new Map(mergedCommands(activeBinding, profile).map((c) => [c.id, c]));
     const remoteButton = (
       command: DeviceCommand | undefined,
       opts?: { className?: string; icon?: React.ReactNode },
@@ -499,7 +561,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
     const lastRemote = lastRemoteId ? byId.get(lastRemoteId) : undefined;
     const lastOutcome = lastRemoteId ? outcomes[lastRemoteId] : undefined;
     return (
-      <section className="window-commands__remote" aria-label="Wepwawet remote control">
+      <section className="window-commands__remote" aria-label={`${device.displayName} remote control`}>
         <h5>Remote control — click to drive him</h5>
         <p className="window-hint">
           No talking needed. Click a button and he does it. Every click goes the same road
@@ -514,24 +576,24 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
         </p>
         <div className="window-commands__remote-body">
           <div className="window-commands__pad" role="group" aria-label="Direction pad">
-            {padButton(WEPWAWET_REMOTE_PAD.up, "up", <ArrowUp aria-hidden="true" />)}
-            {padButton(WEPWAWET_REMOTE_PAD.left, "left", <ArrowLeft aria-hidden="true" />)}
+            {padButton(remoteLayout.pad.up, "up", <ArrowUp aria-hidden="true" />)}
+            {padButton(remoteLayout.pad.left, "left", <ArrowLeft aria-hidden="true" />)}
             {padButton(
-              WEPWAWET_REMOTE_PAD.center,
+              remoteLayout.pad.center,
               "center",
               <Pause aria-hidden="true" />,
               "window-commands__remote-stop",
             )}
-            {padButton(WEPWAWET_REMOTE_PAD.right, "right", <ArrowRight aria-hidden="true" />)}
-            {padButton(WEPWAWET_REMOTE_PAD.down, "down", <ArrowDown aria-hidden="true" />)}
+            {padButton(remoteLayout.pad.right, "right", <ArrowRight aria-hidden="true" />)}
+            {padButton(remoteLayout.pad.down, "down", <ArrowDown aria-hidden="true" />)}
           </div>
           <div className="window-commands__remote-actions" role="group" aria-label="Tricks and actions">
-            {WEPWAWET_REMOTE_ACTIONS.map((id) => remoteButton(byId.get(id)))}
+            {remoteLayout.actions.map((id) => remoteButton(byId.get(id)))}
           </div>
         </div>
         <div className="window-commands__remote-feed" role="group" aria-label="Feeding buttons">
           <span className="window-commands__remote-feedlabel">Feed him:</span>
-          {WEPWAWET_REMOTE_FEED.map((id) => remoteButton(byId.get(id)))}
+          {remoteLayout.feed.map((id) => remoteButton(byId.get(id)))}
         </div>
         {lastRemote && sending === lastRemote.id && (
           <p className="window-hint" role="status">
@@ -549,31 +611,24 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
   };
 
   const renderCommandLists = () => {
-    if (!binding || !profile) return null;
-    const commands = bindingCommands(binding, profile);
-    if (!isDogProfile) {
+    if (!activeBinding || !profile) return null;
+    const commands = mergedCommands(activeBinding, profile);
+    if (!extras?.groups) {
       return <ul className="window-commands__list">{commands.map((c) => commandItem(c))}</ul>;
     }
     const byId = new Map(commands.map((c) => [c.id, c]));
     const grouped = new Set<string>();
-    const sections = WEPWAWET_COMMAND_GROUPS.map((group) => {
+    const sections = extras.groups.map((group) => {
       const items = group.commandIds
         .map((id) => byId.get(id))
         .filter((c): c is DeviceCommand => c !== undefined);
       items.forEach((c) => grouped.add(c.id));
       if (!items.length) return null;
-      if (group.label === WEPWAWET_SOUND_GROUP_LABEL) {
+      if (group.label === extras.soundGroupLabel) {
         return (
           <div key={group.label} className="window-commands__group">
             <h5>{group.label}</h5>
-            <p className="window-hint">
-              These are all the sounds he has — nothing beyond this list exists. Inside each
-              one, the dog picks the track himself: the vendor app's lists (five dances, five
-              songs, five stories, five AI pieces) never encoded which item was tapped — every
-              tap sent this one frame — so Augie cannot pick the track either. His trick
-              noises ride with the tricks themselves, under Tricks &amp; poses. Set each one
-              Use or Never use — that pick is yours and it sticks on this machine.
-            </p>
+            {extras.soundNote && <p className="window-hint">{extras.soundNote}</p>}
             <ul className="window-commands__list">
               {items.map((c) => commandItem(c, soundPickToggle(c)))}
             </ul>
@@ -604,7 +659,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
   return (
     <section className="window-commands" aria-label={`Commands for ${device.displayName}`}>
       <h4>Commands — send to this device</h4>
-      {!binding || !profile ? (
+      {!activeBinding || !profile ? (
         <>
           <p className="window-hint">
             No command setup yet for this device. Set it up once — how Augie reaches it, which
@@ -621,7 +676,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
         <>
           <p className="window-devices__meta">
             Command set: {profile.name} · {COMMAND_TRANSPORT_LABELS[profile.transport]}
-            {binding.address ? ` · address: ${binding.address}` : " · no address set"}
+            {activeBinding.address ? ` · address: ${activeBinding.address}` : " · no address set"}
           </p>
           {!granted && (
             <p className="window-devices__unavailable" role="status">
@@ -676,55 +731,20 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
                     : "Practice: a tap makes the Parrot sender print the exact frames — nothing is transmitted, the dog hears nothing."}
                 </span>
               </div>
-              {isDogProfile && renderRemote()}
-              {isDogProfile && (
-                <section className="window-commands__howto" aria-label="How to control Wepwawet">
-                  <h5>How to control Wepwawet</h5>
+              {extras?.remote && renderRemote()}
+              {extras?.howto && (
+                <section className="window-commands__howto" aria-label={extras.howto.title}>
+                  <h5>{extras.howto.title}</h5>
                   <ol>
-                    <li>
-                      Wake him: press-and-hold the switch under the dog until he answers with
-                      his voice prompt.
-                    </li>
-                    <li>
-                      Keep him near the Parrot, in the same room — the commands ride the
-                      Parrot's Bluetooth, and Augie must be open through the Parrot's own
-                      server for the buttons to reach him.
-                    </li>
-                    <li>
-                      Just woke him? Tap “Match / connect” once first — the knock the vendor
-                      app sends when it starts.
-                    </li>
-                    <li>
-                      Tap a command below. STOP is always at the top — tap it any time he
-                      does something unexpected.
-                    </li>
-                    <li>
-                      Or drive him with the remote above — no talking needed: click the pad
-                      to walk and turn him, click a trick or Feed button, and click Stop in
-                      the middle of the pad to stop him. The remote follows the same
-                      Practice / LIVE switch as everything else on this card.
-                    </li>
-                    <li>
-                      Adding your own: “Change command setup” below lets you add commands to
-                      his card, and every command on the card runs the same way.
-                    </li>
+                    {extras.howto.steps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
                   </ol>
-                  <p className="window-hint">
-                    He never answers back: a sent command means the frames went on air — your
-                    eyes confirm he obeyed.
-                  </p>
-                  <p className="window-hint">
-                    Talk: Wepwawet speaks only his own built-in sounds and songs (Song, AI
-                    content, Learn / story). Augie cannot put your words in his mouth.
-                  </p>
-                  <p className="window-hint">
-                    Light test — still an open question: the light has ONE toggle frame and
-                    no colour code anywhere in the protocol, so there is no “steady red”
-                    frame to send. At the next watched session we step Light while you watch
-                    and write down what it does — latch on, blink, or step through colours —
-                    until a steady red is found or proven absent. Nothing about the light is
-                    guessed before that session.
-                  </p>
+                  {extras.howto.notes.map((note) => (
+                    <p key={note} className="window-hint">
+                      {note}
+                    </p>
+                  ))}
                 </section>
               )}
               {bridgeReceipts.length > 0 && (
@@ -738,8 +758,8 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
             </div>
           )}
           {renderCommandLists()}
-          {isDogProfile && (
-            <section className="window-commands__battery" aria-label="Wepwawet battery test log">
+          {extras?.batteryLog && (
+            <section className="window-commands__battery" aria-label={`${device.displayName} battery test log`}>
               <h5>Battery test — measure him, because he cannot report</h5>
               <p className="window-hint">
                 He sends nothing back — there is no battery reading to show, and no runtime
@@ -907,14 +927,31 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
             </span>
           </label>
           {setup.profileId === "custom" ? (
-            <label>
-              Name for his command set
-              <input
-                value={setup.customName}
-                onChange={(e) => setSetup({ ...setup, customName: e.target.value })}
-                placeholder={`e.g. ${device.displayName} — his command set`}
-              />
-            </label>
+            <>
+              <label>
+                Name for his command set
+                <input
+                  value={setup.customName}
+                  onChange={(e) => setSetup({ ...setup, customName: e.target.value })}
+                  placeholder={`e.g. ${device.displayName} — his command set`}
+                />
+              </label>
+              {setup.transport === "bluetooth-broadcast" && (
+                <label>
+                  Sender script (under ~/augie-tools/ on the Parrot)
+                  <input
+                    value={setup.senderPath}
+                    onChange={(e) => setSetup({ ...setup, senderPath: e.target.value })}
+                    placeholder="e.g. wepwawet/wepwawet-send.py"
+                  />
+                  <span className="window-hint">
+                    Help: the program on the Parrot that puts this device's frames on air.
+                    The bridge runs only scripts that live under ~/augie-tools/ — a path
+                    anywhere else is refused.
+                  </span>
+                </label>
+              )}
+            </>
           ) : (
             setupProfiles.find((p) => p.id === setup.profileId) && (
               <div className="window-hint">
@@ -955,7 +992,9 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
             </legend>
             <p className="window-hint">
               Help: one command = a name plus exactly what it sends — a G-code line for a printer,
-              or a path for a network device (from its manual).
+              a path for a network device (from its manual), or — for a Bluetooth broadcast
+              device — a FRAME: the command byte, the five data bytes in hex, and how long
+              the frame holds, like this: E0 00 00 00 00 02 500.
             </p>
             {setup.customCommands.map((c, i) => (
               <p key={i} className="window-commands__customrow">
@@ -983,19 +1022,35 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
               />
             </label>
             <label>
-              What it sends
+              {setup.transport === "bluetooth-broadcast" ? "The frame it sends" : "What it sends"}
               <input
                 value={setup.newLiteral}
                 onChange={(e) => setSetup({ ...setup, newLiteral: e.target.value })}
                 placeholder={
-                  setup.transport === "network-http" ? "e.g. /ptz?move=left" : "e.g. G1 X0 F3000"
+                  setup.transport === "network-http"
+                    ? "e.g. /ptz?move=left"
+                    : setup.transport === "bluetooth-broadcast"
+                      ? "e.g. E0 00 00 00 00 02 500"
+                      : "e.g. G1 X0 F3000"
                 }
               />
+              {setup.transport === "bluetooth-broadcast" && (
+                <span className="window-hint">
+                  Help: command byte, then the five data bytes (D0 D1 D2 D3 D4) in hex, then
+                  the hold in milliseconds. This is the dog family's frame shape — the same
+                  shape the registry's control map takes with a “frame:” line.
+                </span>
+              )}
             </label>
             <button
               type="button"
               className="window-btn"
-              disabled={!setup.newName.trim() || !setup.newLiteral.trim()}
+              disabled={
+                !setup.newName.trim() ||
+                !setup.newLiteral.trim() ||
+                (setup.transport === "bluetooth-broadcast" &&
+                  !parseControlPayloadSegment(`frame: ${setup.newLiteral.trim()}`))
+              }
               onClick={() =>
                 setSetup({
                   ...setup,

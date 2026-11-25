@@ -86,6 +86,67 @@ describe("Device commands panel", () => {
     expect(screen.getByText("Move left")).toBeTruthy();
   });
 
+  it("frame authoring: a new broadcast device is onboarded in-system and its frame sends", async () => {
+    // Plan item C (2026-11-24): a dog-class device the system has
+    // never seen — named, given a sender under ~/augie-tools/, and
+    // one authored FRAME command — entirely through the setup form.
+    const calls: { url: string; body: { deviceId?: string; hex: string; holdMs: number; live: boolean } }[] = [];
+    globalThis.fetch = vi.fn(async (url: unknown, init?: { body?: string }) => {
+      calls.push({
+        url: String(url),
+        body: JSON.parse(init?.body ?? "{}") as (typeof calls)[number]["body"],
+      });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, mode: "dry", output: "printed" }),
+      };
+    }) as unknown as typeof fetch;
+    render(<DeviceCommandsPanel device={device()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Set up commands for this device/ }));
+    fireEvent.change(screen.getByLabelText(/Step 1 — How does Augie reach it/), {
+      target: { value: "bluetooth-broadcast" },
+    });
+    fireEvent.change(screen.getByLabelText(/Step 2 — Which command set fits it/), {
+      target: { value: "custom" },
+    });
+    fireEvent.change(screen.getByLabelText(/Name for his command set/), {
+      target: { value: "Porch bot set" },
+    });
+    fireEvent.change(screen.getByLabelText(/Sender script/), {
+      target: { value: "porchbot/porchbot-send.py" },
+    });
+    fireEvent.change(screen.getByLabelText(/Step 3 — Its address/), {
+      target: { value: "B0B5CA11" },
+    });
+    fireEvent.change(screen.getByLabelText(/Command name/), { target: { value: "Wave" } });
+    fireEvent.change(screen.getByLabelText(/The frame it sends/), {
+      target: { value: "E0 00 00 00 00 07 500" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Add this command/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save command setup" }));
+    expect(screen.getByText(/Command set: Porch bot set/)).toBeTruthy();
+    const waveItem = screen.getByText("Wave").closest("li");
+    if (!waveItem) throw new Error("Wave command not rendered");
+    const sendButton = waveItem.querySelector("button");
+    if (!sendButton) throw new Error("no send button for Wave");
+    fireEvent.click(sendButton);
+    await waitFor(() => {
+      expect(calls.length).toBe(2); // the command frame, then the zero frame
+    });
+    expect(calls[0]!.url).toBe("/api/devices/bridge");
+    expect(calls[0]!.body.deviceId).toBe("device-panel");
+    expect(calls[0]!.body.live).toBe(false);
+    const { framesForBroadcastCommand, payloadHex } = await import(
+      "@/avatar/devices/wepwawetFrame"
+    );
+    const expected = framesForBroadcastCommand(
+      { cmd: 0xe0, data: [0, 0, 0, 0, 7], holdMs: 500 },
+      [0xb0, 0xb5, 0xca, 0x11],
+    );
+    expect(calls[0]!.body.hex).toBe(payloadHex(expected[0]!.payload).replace(/ /g, ""));
+  });
+
   it("control not granted: the refusal stands in words and every Send is closed", () => {
     saveBinding({
       deviceId: "device-panel",
@@ -130,7 +191,10 @@ describe("Device commands panel", () => {
 describe("Device commands panel — Wepwawet's card", () => {
   const SENDER_WORDS =
     "DRY RUN — nothing transmitted. The bridge frame would air: [frame] 500 ms: 00 0c d0";
-  let fetchCalls: { url: string; body: { hex: string; holdMs: number; live: boolean } }[] = [];
+  let fetchCalls: {
+    url: string;
+    body: { deviceId?: string; hex: string; holdMs: number; live: boolean };
+  }[] = [];
 
   beforeEach(() => {
     localStorage.clear();
@@ -211,9 +275,13 @@ describe("Device commands panel — Wepwawet's card", () => {
       expect(screen.getAllByText(/Practice run/).length).toBeGreaterThan(0);
     });
     // Stop airs its burst then the zero frame: two bridge calls.
+    // Since the device-setup build (2026-11-24) the dog goes through
+    // the GENERAL bridge under his own device id — the frames are
+    // the same bytes the dog-only door carried.
     expect(fetchCalls.length).toBe(2);
     for (const call of fetchCalls) {
-      expect(call.url).toBe("/api/devices/wepwawet");
+      expect(call.url).toBe("/api/devices/bridge");
+      expect(call.body.deviceId).toBe("device-dog");
       expect(call.body.live).toBe(false);
       expect(call.body.hex).toMatch(/^[0-9a-f]{46}$/);
     }
@@ -329,7 +397,8 @@ describe("Device commands panel — Wepwawet's card", () => {
     });
     expect(fetchCalls.length).toBe(2);
     for (const call of fetchCalls) {
-      expect(call.url).toBe("/api/devices/wepwawet");
+      expect(call.url).toBe("/api/devices/bridge");
+      expect(call.body.deviceId).toBe("device-dog");
       expect(call.body.live).toBe(false);
     }
     expect(fetchCalls[0]!.body.holdMs).toBe(3000);

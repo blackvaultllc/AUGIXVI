@@ -56,6 +56,7 @@ import {
   WEPWAWET_COMPANY_ID,
 } from "./wepwawetFrame";
 import { WEPWAWET_BRIDGE_ROUTE } from "./wepwawetBridge";
+import { DEVICE_BRIDGE_ROUTE } from "./deviceBridge";
 
 /* ------------------------------ bindings ------------------------------ */
 
@@ -433,6 +434,13 @@ export type ParrotBroadcastChannel = BroadcastChannel & {
 
 export function createParrotBroadcastChannel(options: {
   live: boolean;
+  /**
+   * The device the frames are for. With it, frames go through the
+   * GENERAL bridge (/api/devices/bridge), which looks up that
+   * device's own registered sender in the core. Without it, the
+   * legacy dog door answers (kept for the dog's original callers).
+   */
+  deviceId?: string | undefined;
 }): ParrotBroadcastChannel {
   const receipts: string[] = [];
   return {
@@ -451,10 +459,11 @@ export function createParrotBroadcastChannel(options: {
     advertise: async (payload, holdMs) => {
       let response: Response;
       try {
-        response = await fetch(WEPWAWET_BRIDGE_ROUTE, {
+        response = await fetch(options.deviceId ? DEVICE_BRIDGE_ROUTE : WEPWAWET_BRIDGE_ROUTE, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
+            ...(options.deviceId ? { deviceId: options.deviceId } : {}),
             hex: payloadHex(payload).replace(/ /g, ""),
             holdMs,
             live: options.live,
@@ -676,6 +685,13 @@ export type SendRequest = {
   onProgress?: ((done: number, total: number) => void) | undefined;
   now?: number | undefined;
   storage?: Storage | null | undefined;
+  /**
+   * Where the attempt's log entry goes, when the caller keeps the
+   * log somewhere other than this browser's cache — the construct
+   * tools write into the CORE state's log through this sink. When
+   * absent, the entry lands in the local command log as always.
+   */
+  onLog?: ((entry: Omit<CommandLogEntry, "id">) => void) | undefined;
 };
 
 const REFUSAL_NOTE =
@@ -691,20 +707,22 @@ export async function sendDeviceCommand(req: SendRequest): Promise<SendOutcome> 
   const now = req.now ?? Date.now();
   const { device, profile, command } = req;
   const finish = (outcome: SendOutcome): SendOutcome => {
-    appendCommandLog(
-      {
-        deviceId: device.id,
-        deviceName: device.displayName,
-        profileId: profile.id,
-        commandId: command.id,
-        commandName: command.name,
-        detail: outcome.detail,
-        at: now,
-        result: outcome.result,
-        note: outcome.note,
-      },
-      req.storage,
-    );
+    const entry: Omit<CommandLogEntry, "id"> = {
+      deviceId: device.id,
+      deviceName: device.displayName,
+      profileId: profile.id,
+      commandId: command.id,
+      commandName: command.name,
+      detail: outcome.detail,
+      at: now,
+      result: outcome.result,
+      note: outcome.note,
+    };
+    if (req.onLog) {
+      req.onLog(entry);
+    } else {
+      appendCommandLog(entry, req.storage);
+    }
     return outcome;
   };
 
