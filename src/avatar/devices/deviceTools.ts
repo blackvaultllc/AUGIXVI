@@ -31,6 +31,7 @@
 import {
   canControl,
   newDeviceId,
+  retiredDateLabel,
   sanitizeProfile,
   type ControlAction,
   type DeviceKind,
@@ -333,6 +334,10 @@ export function parseDeviceCommandIntent(
 ): DeviceCommandIntent | null {
   const clean = normalizeWords(text).replace(/^(please\s+)/, "");
   for (const device of state.registry) {
+    // A retired device takes no orders — the words fall through
+    // to the brain as conversation, where the brief tells Anubis
+    // the device is gone.
+    if (device.retired) continue;
     const commands = stateCommandsFor(state, device);
     if (!commands.length) continue;
     for (const alias of deviceAliases(state, device)) {
@@ -388,6 +393,21 @@ export function deviceBriefLines(
 ): string[] {
   const lines: string[] = [];
   for (const device of state.registry) {
+    if (device.retired) {
+      // RETIRED — stated as gone, in both variants, with no
+      // command set and no profile note: Anubis must never offer
+      // to drive this device or describe it as a current one.
+      const sold = retiredDateLabel(device.retired);
+      lines.push(
+        variant === "short"
+          ? `${device.displayName}: RETIRED — sold ${sold}; no longer the Captain's. Never offer to drive it.`
+          : `${device.displayName} (${device.kind}, ${device.transport}): RETIRED — sold on ${sold}. ` +
+            "The Captain no longer has this device. Never offer to drive it, never describe it as a current " +
+            "device, and never suggest sending it a command. Its card, control map, and command record " +
+            "remain in the registry as history only.",
+      );
+      continue;
+    }
     const resolved = resolveStateProfile(state, device);
     const commands = resolved ? stateCommandsFor(state, device) : [];
     const granted = canControl(device);

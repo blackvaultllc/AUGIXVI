@@ -104,18 +104,37 @@ export const WEPWAWET_DEVICE_ID = "wepwawet";
 /** When the Captain granted Augie control of this dog (2026-11-23). */
 const WEPWAWET_GRANT_AT = Date.parse("2026-11-23T12:00:00Z");
 
+/**
+ * When the Captain sold this dog and ordered it retired — his
+ * word, 2026-11-24 ~20:42 CST: "we no longer have that dog
+ * anymore… we're no longer going to use that specific dog." From
+ * this moment the dog is not his, and under the Permission Law
+ * its live entry and its control grant end.
+ */
+export const WEPWAWET_SOLD_AT = Date.parse("2026-11-24T20:42:00-06:00");
+
+/** The retirement note the dog's card carries, in plain words. */
+export const WEPWAWET_RETIRED_NOTE =
+  "Sold on 2026-11-24 — the Captain sold this dog and retired it the same day. " +
+  "The card, its control map, and its command record stay as the record of the dog he owned; " +
+  "the dog is gone, its grant is ended, and nothing on this card can be sent.";
+
 /** Commands proven on the real dog, watched by the Captain (2026-11-24). */
 const WEPWAWET_PROVEN_COMMANDS = new Set(["stop", "forward", "back"]);
 
 /**
  * The dog's registry card as a SEED: before this build the card and
- * its grant lived only in one browser's localStorage — lose that
- * browser and the grant was gone. The seed carries what the record
- * already states (manual, cmdmod-wepwawet): owner-confirmed and
- * control granted by the Captain on 2026-11-23, bound to the dog
- * profile at Augie's AppID. Its control map is generated FROM the
- * profile's commands — one map, two faces — so the registry card
- * and the command set are the same data from birth.
+ * its grant lived only in one browser's localStorage. The seed
+ * carries the card as the record now stands (manual,
+ * cmdmod-wepwawet): bound to the dog profile at Augie's AppID,
+ * its control map generated FROM the profile's commands — one
+ * map, two faces — and, since the Captain sold the dog on
+ * 2026-11-24, RETIRED: no owner confirmation, no control grant,
+ * the retirement marker set. A fresh core is born with the dog
+ * already retired — the seed can never resurrect a live, granted
+ * dog. The dog's command PROFILE stays a seed template (the
+ * worked example of a broadcast-frame device class); what ended
+ * is this one dog's live entry and its grant.
  */
 export function wepwawetSeedProfile(): DeviceProfile {
   return {
@@ -124,8 +143,7 @@ export function wepwawetSeedProfile(): DeviceProfile {
     kind: "other",
     transport: "ble",
     externalId: "",
-    ownerConfirmed: true,
-    controlGranted: true,
+    retired: { at: WEPWAWET_SOLD_AT, note: WEPWAWET_RETIRED_NOTE },
     presence: "unknown",
     presenceEvents: [],
     protocol: "One-way BLE advertising broadcasts — the FENG MA family protocol; no connection, no pairing",
@@ -140,11 +158,12 @@ export function wepwawetSeedProfile(): DeviceProfile {
     source: "manual",
     declaredServices: [],
     capabilities: [
-      "Augie can drive him by Bluetooth broadcast: Stop, movement, tricks, the eight feeding items, light, and his built-in sounds",
+      "While the Captain owned him, Augie drove him by Bluetooth broadcast: Stop, movement, tricks, the eight feeding items, light, and his built-in sounds — proven live, with the Captain watching, on 2026-11-24",
     ],
     limitations: [
-      "He never answers back — no battery level, no sensor, no state can be read from him.",
-      "Augie cannot speak words through him — he plays only his own built-in sounds and songs.",
+      "RETIRED — sold 2026-11-24. This dog is gone; the card is the record only, and nothing on it can be sent.",
+      "He never answered back — no battery level, no sensor, no state could be read from him.",
+      "Augie could not speak words through him — he played only his own built-in sounds and songs.",
       "The protocol has no authentication — anyone in Bluetooth range with the protocol could command him (the vendor's design).",
     ],
     batteryLevel: null,
@@ -152,6 +171,50 @@ export function wepwawetSeedProfile(): DeviceProfile {
     firstSeen: WEPWAWET_GRANT_AT,
     lastSeen: WEPWAWET_GRANT_AT,
   };
+}
+
+/**
+ * One dog entry, retired: the marker set (an existing marker
+ * stands — retirement happened once), both Permission Law flags
+ * stripped. The card, its map, and its history are untouched.
+ */
+export function retireWepwawetEntry(device: DeviceProfile): DeviceProfile {
+  return {
+    ...device,
+    ownerConfirmed: undefined,
+    controlGranted: undefined,
+    retired: device.retired ?? { at: WEPWAWET_SOLD_AT, note: WEPWAWET_RETIRED_NOTE },
+  };
+}
+
+/**
+ * THE RETIREMENT, enforced on every road the state travels
+ * (sanitize, merge, cache read — so the core store, every sync,
+ * and every surface agree): any registry entry that is THIS dog —
+ * the seeded id, an entry bound to the dog profile, or an entry
+ * carrying his name — and that was born no later than the sale is
+ * retired, flags stripped. An entry born AFTER the sale is a
+ * different animal (a new dog the Captain gets later, even under
+ * the same name) and is left alone. The dog's binding and profile
+ * stay: they are the template the next dog-class device onboards
+ * through.
+ */
+export function enforceWepwawetRetirement(state: DeviceCoreState): DeviceCoreState {
+  let changed = false;
+  const registry = state.registry.map((device) => {
+    if (!isDogEntry(device, state.bindings)) return device;
+    if (device.firstSeen > WEPWAWET_SOLD_AT) return device;
+    if (
+      device.retired &&
+      device.ownerConfirmed === undefined &&
+      device.controlGranted === undefined
+    ) {
+      return device;
+    }
+    changed = true;
+    return retireWepwawetEntry(device);
+  });
+  return changed ? { ...state, registry } : state;
 }
 
 export function wepwawetSeedBinding(): DeviceCommandBinding {
@@ -162,7 +225,8 @@ export function wepwawetSeedBinding(): DeviceCommandBinding {
   };
 }
 
-/** The core's first state: the dog, device #1, with his grant. */
+/** The core's first state: the dog, device #1 — retired, as the
+ *  record stands since his sale on 2026-11-24. */
 export function seedDeviceCoreState(): DeviceCoreState {
   return {
     version: 1,
@@ -171,7 +235,7 @@ export function seedDeviceCoreState(): DeviceCoreState {
     profiles: [],
     log: [],
     flagRequests: [],
-    updatedAt: WEPWAWET_GRANT_AT,
+    updatedAt: WEPWAWET_SOLD_AT,
   };
 }
 
@@ -230,7 +294,10 @@ export function sanitizeDeviceCoreState(v: unknown): DeviceCoreState {
         .filter((r): r is DeviceFlagRequest => r !== null)
         .slice(-MAX_FLAG_REQUESTS)
     : [];
-  return {
+  // Every read and write of the core store passes through here —
+  // so the sold dog's retirement is enforced here too: a stored
+  // state that still carries his live grant comes out retired.
+  return enforceWepwawetRetirement({
     version: 1,
     registry,
     bindings,
@@ -238,7 +305,7 @@ export function sanitizeDeviceCoreState(v: unknown): DeviceCoreState {
     log,
     flagRequests,
     updatedAt: typeof v["updatedAt"] === "number" ? v["updatedAt"] : 0,
-  };
+  });
 }
 
 /* ------------------------- profiles and commands ------------------------ */
@@ -359,7 +426,9 @@ export function localStateFromStorage(storage: StorageLike | null = defaultStora
   } catch {
     // a broken cache reads as what parsed — never a throw
   }
-  return state;
+  // A cache that still holds the dog's old live card reads as the
+  // retired record — the sale is enforced on this road too.
+  return enforceWepwawetRetirement(state);
 }
 
 /** Write a core state into the browser cache's three stores. */
@@ -421,7 +490,11 @@ export function mergeLocalIntoCore(
   for (const request of local.flagRequests) {
     if (!requestsById.has(request.id)) requestsById.set(request.id, request);
   }
-  return {
+  // Whatever road the dog's card arrived by — the seed, or his
+  // real card under another id stepping over it — it lands
+  // RETIRED: the sale is enforced on the merged state itself, so
+  // a stale cache can never resurrect the live, granted dog.
+  return enforceWepwawetRetirement({
     version: 1,
     registry: [...registryById.values()],
     bindings: { ...coreBindings, ...local.bindings },
@@ -429,7 +502,7 @@ export function mergeLocalIntoCore(
     log,
     flagRequests: [...requestsById.values()].slice(-MAX_FLAG_REQUESTS),
     updatedAt: Math.max(core.updatedAt, local.updatedAt),
-  };
+  });
 }
 
 /* --------------------------- flag requests ------------------------------ */
@@ -454,6 +527,9 @@ export function proposeFlagChange(
 ): { state: DeviceCoreState; request: DeviceFlagRequest } | null {
   const device = state.registry.find((d) => d.id === args.deviceId);
   if (!device) return null;
+  // A retired device is gone — there is nothing to grant, and no
+  // flag request is ever filed for one.
+  if (device.retired) return null;
   const ownerConfirmed =
     args.ownerConfirmed !== undefined && args.ownerConfirmed !== (device.ownerConfirmed === true)
       ? args.ownerConfirmed
@@ -504,6 +580,9 @@ export function resolveFlagRequest(
   if (decision === "denied") return { ...state, flagRequests, updatedAt: now };
   const registry = state.registry.map((d) => {
     if (d.id !== request.deviceId) return d;
+    // A retired device takes no flags — not even by the Captain's
+    // confirm of an old ask. The device is gone; the ask is moot.
+    if (d.retired) return d;
     return {
       ...d,
       ownerConfirmed:

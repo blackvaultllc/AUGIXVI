@@ -35,6 +35,7 @@
  */
 import {
   canControl,
+  retiredDateLabel,
   type DeviceProfile,
 } from "./deviceRegistry";
 import {
@@ -697,6 +698,15 @@ export type SendRequest = {
 const REFUSAL_NOTE =
   "Control is not granted for this device. The Permission Law: Osiris may control a device only when its card is owner-confirmed AND control is granted for that exact device. Nothing was sent.";
 
+/** The refusal for a RETIRED device — plainer than the grant
+ *  refusal, because no grant can ever fix it: the device is gone. */
+function retiredRefusalNote(device: DeviceProfile): string {
+  return (
+    `${device.displayName} is retired — it was sold on ${retiredDateLabel(device.retired!)} ` +
+    "and is no longer the Captain's device. A retired device cannot be controlled. Nothing was sent."
+  );
+}
+
 /**
  * Send one command under the Permission Law, and log the attempt
  * against the device's record either way. The permission check runs
@@ -726,6 +736,9 @@ export async function sendDeviceCommand(req: SendRequest): Promise<SendOutcome> 
     return outcome;
   };
 
+  if (device.retired) {
+    return finish({ result: "refused", note: retiredRefusalNote(device), detail: "", replies: [] });
+  }
   if (!canControl(device)) {
     return finish({ result: "refused", note: REFUSAL_NOTE, detail: "", replies: [] });
   }

@@ -25,6 +25,7 @@
  * server route, and the tests validate the same rules.
  */
 import { resolveStateProfile, type DeviceCoreState } from "./deviceStoreCore";
+import { retiredDateLabel } from "./deviceRegistry";
 import type { DeviceCommandProfile } from "./commandProfiles";
 
 export const DEVICE_BRIDGE_ROUTE = "/api/devices/bridge";
@@ -114,6 +115,15 @@ export function resolveDeviceSender(
       ok: false,
       status: 404,
       error: `No device with id "${deviceId}" is registered in the core. Nothing was sent.`,
+    };
+  }
+  if (device.retired) {
+    return {
+      ok: false,
+      status: 410,
+      error:
+        `${device.displayName} is retired — it was sold on ${retiredDateLabel(device.retired)} ` +
+        "and is no longer the Captain's device. The bridge does not fire for a retired device. Nothing was sent.",
     };
   }
   const resolved = resolveStateProfile(state, device);

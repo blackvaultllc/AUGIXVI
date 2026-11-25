@@ -27,7 +27,8 @@
  * the hand-written dog paragraph that used to live here is gone,
  * and Augie's device knowledge can never drift from the registry
  * again. With no state at hand the brief falls back to the core's
- * seed state (the dog, device #1, with his recorded grant).
+ * seed state (the dog, device #1 — retired since his sale on
+ * 2026-11-24, his grant ended with the sale).
  */
 import { seedDeviceCoreState, type DeviceCoreState } from "./devices/deviceStoreCore";
 import { deviceBriefLines } from "./devices/deviceTools";
@@ -115,7 +116,7 @@ const BRIEF_HEADER =
  * registry state at build time — pass the freshest state the
  * surface has (the stage passes its synced core state). With no
  * state at hand, the core's seed state stands in: the dog, device
- * #1, with the grant the record already carries.
+ * #1, retired — the record carries his sale, not a live grant.
  */
 export function capabilitiesBrief(
   variant: "full" | "short" = "full",

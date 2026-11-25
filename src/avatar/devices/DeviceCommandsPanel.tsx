@@ -26,6 +26,7 @@ import {
   formatControlPayloadSegment,
   parseControlPayloadSegment,
   profileFromControlMap,
+  retiredDateLabel,
   type DeviceProfile,
 } from "./deviceRegistry";
 import {
@@ -157,6 +158,11 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
    *  check: the next device with the same shape gets the same card. */
   const extras = profile?.extras;
   const granted = canControl(device);
+  /** RETIRED (sold, gone): the card is a record now — the banner
+   *  stands where the live controls stood, the Practice / LIVE
+   *  switch and the remote are gone, and every Send is dead
+   *  (canControl is false for a retired device, always). */
+  const retired = device.retired;
 
   /** The commands this card offers: the profile's, the binding's
    *  own, and the registry control map's payload-carrying entries —
@@ -678,13 +684,22 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
             Command set: {profile.name} · {COMMAND_TRANSPORT_LABELS[profile.transport]}
             {activeBinding.address ? ` · address: ${activeBinding.address}` : " · no address set"}
           </p>
-          {!granted && (
+          {retired ? (
             <p className="window-devices__unavailable" role="status">
-              Control is not granted for this device — commands cannot be sent. The Permission Law:
-              Osiris may control a device only when its card is owner-confirmed AND control is
-              granted for that exact device. Set both in this card's Edit form, and the commands
-              open.
+              SOLD — retired {retiredDateLabel(retired)}. {device.displayName} is gone — the
+              Captain sold this device, its control grant is ended, and nothing on this card
+              can be sent, by anyone. The card, its control map, and its command record stay
+              as the record of the device he owned.
             </p>
+          ) : (
+            !granted && (
+              <p className="window-devices__unavailable" role="status">
+                Control is not granted for this device — commands cannot be sent. The Permission Law:
+                Osiris may control a device only when its card is owner-confirmed AND control is
+                granted for that exact device. Set both in this card's Edit form, and the commands
+                open.
+              </p>
+            )
           )}
           {profile.transport === "usb-serial" &&
             (serialChannel ? (
@@ -712,7 +727,7 @@ export function DeviceCommandsPanel({ device }: { device: DeviceProfile }) {
               {channelNote}
             </p>
           )}
-          {profile.transport === "bluetooth-broadcast" && (
+          {profile.transport === "bluetooth-broadcast" && !retired && (
             <div className="window-commands__bridge">
               <div className="window-devices__actions">
                 <button

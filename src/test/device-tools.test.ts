@@ -31,6 +31,25 @@ import { WEPWAWET_DOG_PROFILE } from "@/avatar/devices/commandProfiles";
 
 const NOW = 1_800_000_000_000;
 
+/**
+ * The seed dog as he stood while the Captain owned him — retired
+ * marker lifted, the recorded grant restored — for the tests that
+ * exercise the live send and intent roads. The seed itself is
+ * retired now (the sale, 2026-11-24).
+ */
+const liveDogState = (): DeviceCoreState => {
+  const state = seedDeviceCoreState();
+  return {
+    ...state,
+    registry: state.registry.map((d) => ({
+      ...d,
+      retired: undefined,
+      ownerConfirmed: true as const,
+      controlGranted: true as const,
+    })),
+  };
+};
+
 describe("registerDevice", () => {
   it("registers with its earned map — and NEVER with the Permission Law flags", () => {
     const smuggled = {
@@ -165,7 +184,7 @@ describe("sendDeviceCommand — the Permission Law at the construct's hand", () 
   });
 
   it("frame authoring end to end: the aired bytes are the frame the map describes", async () => {
-    const state = seedDeviceCoreState();
+    const state = liveDogState();
     const channel = createSimulatedBroadcastChannel(WEPWAWET_COMPANY_ID);
     const sent = await toolSendDeviceCommand(state, {
       deviceId: WEPWAWET_DEVICE_ID,
@@ -183,10 +202,28 @@ describe("sendDeviceCommand — the Permission Law at the construct's hand", () 
     expect(channel.aired.map((a) => a.holdMs)).toEqual(expected.map((f) => f.holdMs));
     expect(sent.value.state.log.at(-1)?.result).toBe("sent");
   });
+
+  it("the RETIRED dog refuses at the construct's hand — nothing airs, the refusal is logged", async () => {
+    const state = seedDeviceCoreState();
+    const channel = createSimulatedBroadcastChannel(WEPWAWET_COMPANY_ID);
+    const sent = await toolSendDeviceCommand(state, {
+      deviceId: WEPWAWET_DEVICE_ID,
+      commandId: "forward",
+      channel,
+      now: NOW,
+    });
+    expect(sent.ok).toBe(true);
+    if (!sent.ok) return;
+    expect(sent.value.outcome.result).toBe("refused");
+    expect(sent.value.outcome.note).toContain("retired");
+    expect(sent.value.outcome.note).toContain("2026-11-24");
+    expect(channel.aired).toHaveLength(0);
+    expect(sent.value.state.log.at(-1)?.result).toBe("refused");
+  });
 });
 
 describe("the Captain's word — parseDeviceCommandIntent", () => {
-  const state = seedDeviceCoreState();
+  const state = liveDogState();
 
   it("reads a direct order to the dog", () => {
     expect(parseDeviceCommandIntent("tell Wepwawet to sit", state)?.commandId).toBe("sit");
@@ -202,15 +239,27 @@ describe("the Captain's word — parseDeviceCommandIntent", () => {
     expect(parseDeviceCommandIntent("tell Wepwawet to fly to the moon", state)).toBeNull();
     expect(parseDeviceCommandIntent("what can the dog do", state)).toBeNull();
   });
+
+  it("the RETIRED dog takes no orders — his name in an order is conversation now", () => {
+    const retired = seedDeviceCoreState();
+    expect(parseDeviceCommandIntent("tell Wepwawet to sit", retired)).toBeNull();
+    expect(parseDeviceCommandIntent("stop the dog", retired)).toBeNull();
+    expect(parseDeviceCommandIntent("have the dog dance", retired)).toBeNull();
+  });
 });
 
 describe("the generated brief — the registry is the knowledge", () => {
-  it("the seed brief states the dog's grant and his live proof", () => {
+  it("the seed brief states the dog is RETIRED — sold, gone, never offered", () => {
     const brief = capabilitiesBrief();
     expect(brief).toContain("Wepwawet");
-    expect(brief).toContain("PROVEN LIVE");
-    expect(brief).toContain("2026-11-24");
-    expect(brief).toContain("byte-verified");
+    expect(brief).toContain("RETIRED");
+    expect(brief).toContain("sold on 2026-11-24");
+    expect(brief).toContain("Never offer to drive it");
+    // Never again as a current, granted device:
+    expect(brief).not.toContain("Control is GRANTED");
+    expect(brief).not.toContain("PROVEN LIVE");
+    expect(capabilitiesBrief("short")).toContain("RETIRED");
+    expect(capabilitiesBrief("short")).toContain("2026-11-24");
   });
 
   it("change the registry and the brief changes", () => {
