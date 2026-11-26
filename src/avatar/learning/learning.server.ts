@@ -17,6 +17,13 @@ import { verifySupabaseOperatorSession } from "../operatorAuth.server";
 import { getLearningStore, getSightStore } from "./learningStore.server";
 import { questionById, validateBank } from "./questionBank";
 import { progressFromHistory, type AnswerRecord, type TrainingProgress } from "./training";
+import { gradeTypedAnswer } from "./grading";
+import { hallStatsFromHistory, type HallStats } from "./hall";
+import {
+  overallFromSections,
+  type AssessmentRecord,
+  type AssessmentSections,
+} from "./assessment";
 import { isSightOutcome, type SightEntry } from "./sightLog";
 import { chicagoDateISO } from "./time";
 
@@ -106,9 +113,14 @@ export type TrainingView = {
   authorized: boolean;
   storageAvailable: boolean;
   progress: TrainingProgress;
+  /** The Training Hall: level, XP, sessions, streaks, retention, response times. */
+  hall: HallStats;
+  /** His assessment records, oldest first — the baseline is the first one. */
+  assessments: AssessmentRecord[];
 };
 
 const emptyProgress = progressFromHistory([]);
+const emptyHall = hallStatsFromHistory([], chicagoDateISO(new Date()));
 
 export const getTrainingProgress = createServerFn({ method: "POST" })
   .validator((input: unknown): TokenInput => {
@@ -117,15 +129,30 @@ export const getTrainingProgress = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }): Promise<TrainingView> => {
     if (!(await authorized(data.accessToken))) {
-      return { authorized: false, storageAvailable: false, progress: emptyProgress };
+      return { authorized: false, storageAvailable: false, progress: emptyProgress, hall: emptyHall, assessments: [] };
     }
     const store = await getLearningStore();
-    if (!store) return { authorized: true, storageAvailable: false, progress: emptyProgress };
+    if (!store) {
+      return { authorized: true, storageAvailable: false, progress: emptyProgress, hall: emptyHall, assessments: [] };
+    }
     const file = await store.read();
-    return { authorized: true, storageAvailable: true, progress: progressFromHistory(file.trainingAnswers) };
+    return {
+      authorized: true,
+      storageAvailable: true,
+      progress: progressFromHistory(file.trainingAnswers),
+      hall: hallStatsFromHistory(file.trainingAnswers, chicagoDateISO(new Date())),
+      assessments: file.assessments,
+    };
   });
 
-export type RecordRunInput = TokenInput & { answers: { questionId: string; correct: boolean }[] };
+export type RecordRunAnswer = {
+  questionId: string;
+  correct: boolean;
+  mode?: "choice" | "typed";
+  responseMs?: number;
+  typedText?: string;
+};
+export type RecordRunInput = TokenInput & { answers: RecordRunAnswer[] };
 
 export const recordTrainingRun = createServerFn({ method: "POST" })
   .validator((input: unknown): RecordRunInput => {
@@ -153,23 +180,92 @@ export const recordTrainingRun = createServerFn({ method: "POST" })
     }
     const now = Date.now();
     const date = chicagoDateISO(new Date(now));
+    const runId = `run-${now.toString(36)}`;
     const records: AnswerRecord[] = [];
     data.answers.forEach((answer, index) => {
       const question = questionById(answer.questionId);
       if (!question || question.retired) return; // unknown or retired ids are never recorded against
-      records.push({
+      const record: AnswerRecord = {
         date,
         at: now + index, // preserve answer order within the run
         questionId: question.id,
         subject: question.subject, // re-derived here — never trusted from the client
         correct: answer.correct,
-      });
+        runId,
+      };
+      if (answer.mode === "typed" && typeof answer.typedText === "string") {
+        // Typed answers are RE-GRADED here from his verbatim
+        // words against the bank's verified fact — the
+        // client's verdict is never taken for them.
+        record.mode = "typed";
+        record.typedText = answer.typedText.slice(0, 500);
+        record.correct = gradeTypedAnswer(question, answer.typedText).correct;
+      } else if (answer.mode === "choice") {
+        record.mode = "choice";
+      }
+      if (typeof answer.responseMs === "number" && Number.isFinite(answer.responseMs) && answer.responseMs >= 0) {
+        record.responseMs = Math.min(600_000, Math.round(answer.responseMs));
+      }
+      records.push(record);
     });
     if (records.length === 0) {
       return { authorized: true, ok: false, note: "Nothing recognizable to record.", recorded: 0 };
     }
     await store.update((file) => ({ ...file, trainingAnswers: [...file.trainingAnswers, ...records] }));
     return { authorized: true, ok: true, note: "Recorded.", recorded: records.length };
+  });
+
+/* ------------------------------- Assessment ------------------------------ */
+
+export type AssessmentView = { authorized: boolean; storageAvailable: boolean; assessments: AssessmentRecord[] };
+
+export const getAssessments = createServerFn({ method: "POST" })
+  .validator((input: unknown): TokenInput => {
+    if (!isTokenInput(input)) throw new Error("Invalid assessment request.");
+    return input;
+  })
+  .handler(async ({ data }): Promise<AssessmentView> => {
+    if (!(await authorized(data.accessToken))) return { authorized: false, storageAvailable: false, assessments: [] };
+    const store = await getLearningStore();
+    if (!store) return { authorized: true, storageAvailable: false, assessments: [] };
+    const file = await store.read();
+    return { authorized: true, storageAvailable: true, assessments: file.assessments };
+  });
+
+export type RecordAssessmentInput = TokenInput & { sections: AssessmentSections };
+
+export const recordAssessment = createServerFn({ method: "POST" })
+  .validator((input: unknown): RecordAssessmentInput => {
+    const row = input as RecordAssessmentInput;
+    const s = row.sections as AssessmentSections | undefined;
+    const valid =
+      isTokenInput(input) &&
+      !!s &&
+      (["pattern", "vocabulary", "memory", "speed"] as const).every(
+        (key) => typeof s[key] === "number" && Number.isFinite(s[key]) && s[key] >= 0 && s[key] <= 100,
+      );
+    if (!valid) throw new Error("Invalid record-assessment request.");
+    return row;
+  })
+  .handler(async ({ data }): Promise<SaveResult> => {
+    if (!(await authorized(data.accessToken))) return { authorized: false, ok: false, note: "Not authorized." };
+    const store = await getLearningStore();
+    if (!store) return { authorized: true, ok: false, note: "The core store is not available on this copy." };
+    const now = Date.now();
+    const record: AssessmentRecord = {
+      date: chicagoDateISO(new Date(now)),
+      at: now,
+      sections: {
+        pattern: Math.round(data.sections.pattern),
+        vocabulary: Math.round(data.sections.vocabulary),
+        memory: Math.round(data.sections.memory),
+        speed: Math.round(data.sections.speed),
+      },
+      overall: 0, // recomputed by the sanitizer's rule below
+    };
+    record.overall = overallFromSections(record.sections);
+    await store.update((file) => ({ ...file, assessments: [...file.assessments, record].slice(-365) }));
+    return { authorized: true, ok: true, note: "Assessment recorded." };
   });
 
 /* -------------------------------- Sight log ------------------------------ */

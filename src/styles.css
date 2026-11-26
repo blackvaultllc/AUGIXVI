@@ -5021,6 +5021,58 @@
   flex-direction: column;
   gap: 0.35rem;
 }
+/* The Training Hall (2026-11-26) — level header, XP bar,
+   typed answers, calibration, assessment speed grid. */
+.window-learning__hall-head {
+  border: 1px solid var(--avatar-hud-accent, #d4af37);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.6rem;
+  align-items: baseline;
+}
+.window-learning__xpbar {
+  flex-basis: 100%;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(212, 175, 55, 0.18);
+  overflow: hidden;
+}
+.window-learning__xpbar-fill {
+  height: 100%;
+  background: var(--avatar-hud-accent, #d4af37);
+}
+.window-learning__typed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0.6rem 0;
+}
+.window-learning__typed label,
+.window-learning label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.window-learning__typed input,
+.window-learning input {
+  border-radius: 0.4rem;
+  padding: 0.5rem;
+  font: inherit;
+}
+.window-learning__calibration {
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.7rem;
+}
+.window-learning__speedgrid {
+  font-family: monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.35rem;
+  line-height: 1.7;
+  word-break: break-all;
+}
 /* Notifications window (2026-11-26) — Anubis's inbox + the property feed */
 .window-inbox {
   display: flex;

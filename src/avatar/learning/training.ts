@@ -26,6 +26,8 @@ export function normalizeRunCount(value: unknown): RunCount {
 }
 
 /** One recorded answer — the core's training record row. */
+export type AnswerMode = "choice" | "typed";
+
 export interface AnswerRecord {
   /** His Chicago calendar date, YYYY-MM-DD. */
   date: string;
@@ -33,6 +35,14 @@ export interface AnswerRecord {
   questionId: string;
   subject: SubjectId;
   correct: boolean;
+  /** How he answered (Training Hall). Records from before typed runs default to "choice". */
+  mode?: AnswerMode;
+  /** Milliseconds from the question showing to his answer, when measured. */
+  responseMs?: number;
+  /** His typed answer, verbatim — the record keeps HIS words, never the tightened version. */
+  typedText?: string;
+  /** The run this answer belonged to (one id per recorded run). */
+  runId?: string;
 }
 
 /** Deterministic RNG (mulberry32) — seeded so tests can prove behavior. */

@@ -42,7 +42,11 @@ export type SubjectId =
   | "anatomy"
   | "health"
   | "medicine"
-  | "science";
+  | "science"
+  | "virtual-reality"
+  | "timekeeping"
+  | "longevity"
+  | "mythology";
 
 /** Shown ONLY in the progress view — never during a run. */
 export const SUBJECT_LABELS: Record<SubjectId, string> = {
@@ -60,6 +64,10 @@ export const SUBJECT_LABELS: Record<SubjectId, string> = {
   health: "Health",
   medicine: "Medicine & Surgery",
   science: "General Science",
+  "virtual-reality": "Virtual Reality",
+  timekeeping: "Chronological Tools & Devices",
+  longevity: "Longevity",
+  mythology: "Mythology",
 };
 
 export const SUBJECT_IDS = Object.keys(SUBJECT_LABELS) as SubjectId[];
@@ -80,9 +88,68 @@ export interface BankQuestion {
   confirmedAsOf: string;
   /** A superseded item: never drawn again, never edited, record stands. */
   retired?: boolean;
+  /**
+   * Difficulty tier (Training Hall): 1 = the fact itself,
+   * 2 = a specific name, date, or number inside the fact,
+   * 3 = the most exact recall (a count, a voltage, a year
+   * and a name together). Harder items earn more XP.
+   */
+  difficulty: 1 | 2 | 3;
 }
 
 const POC_DATE = "2026-11-26";
+
+/** Tier 3 — the most exact recall in the bank. */
+const TIER_3 = new Set([
+  "dark-milgram", // 26 of 40, 65%, 450 volts
+  "aow-terrain", // six kinds of terrain, against the nine situations
+  "aow-spies", // five classes of spy
+  "sci-light", // the exact speed of light
+  "hea-bp", // the 120/80 line and its categories
+  "tkd-orgs", // ITF 1966 against WT 1973
+  "time-cesium", // 9,192,631,770 periods
+  "long-calment", // 122 years and 164 days
+]);
+/** Tier 2 — a specific name, date, or number inside the fact. */
+const TIER_2 = new Set([
+  "psy-dunning-kruger",
+  "psy-forgetting",
+  "dark-triad",
+  "dark-darvo",
+  "dark-gaslighting",
+  "ma-judo",
+  "ma-queensberry",
+  "ma-wrestling",
+  "nin-bujinkan",
+  "bush-nitobe",
+  "bush-hagakure",
+  "kf-shaolin",
+  "tkd-olympics",
+  "law-miranda",
+  "law-terry",
+  "law-burden",
+  "ana-bones",
+  "hea-heart-rate",
+  "hea-cpr",
+  "med-jenner",
+  "med-fleming",
+  "med-lister",
+  "med-ether",
+  "sci-dna",
+  "sci-gravity",
+  "vr-sutherland",
+  "vr-lanier",
+  "time-huygens",
+  "time-harrison",
+  "long-elixir",
+  "myth-odin",
+]);
+
+function difficultyFor(id: string): 1 | 2 | 3 {
+  if (TIER_3.has(id)) return 3;
+  if (TIER_2.has(id)) return 2;
+  return 1;
+}
 
 function q(
   id: string,
@@ -93,7 +160,17 @@ function q(
   explanation: string,
   source: string,
 ): BankQuestion {
-  return { id, subject, question, choices, answerIndex, explanation, source, confirmedAsOf: POC_DATE };
+  return {
+    id,
+    subject,
+    question,
+    choices,
+    answerIndex,
+    explanation,
+    source,
+    confirmedAsOf: POC_DATE,
+    difficulty: difficultyFor(id),
+  };
 }
 
 export const QUESTION_BANK: readonly BankQuestion[] = [
@@ -1134,6 +1211,293 @@ export const QUESTION_BANK: readonly BankQuestion[] = [
     "Earth's surface gravity accelerates falling objects at about 9.8 meters per second squared. (1.6 is the Moon; 24.8 is Jupiter.) Source: established physics.",
     "Established physics — Earth's gravity, ≈9.8 m/s²",
   ),
+  /* ---------------------------- Virtual Reality ---------------------------- */
+  q(
+    "vr-sutherland",
+    "virtual-reality",
+    "Ivan Sutherland's 1968 head-mounted display — the first of its kind — is known by what name?",
+    [
+      "The Sensorama",
+      "The Sword of Damocles",
+      "The Aspen Movie Map",
+      "The DataGlove",
+    ],
+    1,
+    "In 1968 Ivan Sutherland built the first head-mounted display tied to a computer; it was so heavy it hung from the ceiling, and it is remembered as the Sword of Damocles. Source: established computing history — Sutherland, 1968.",
+    "Established computing history — Ivan Sutherland (1968)",
+  ),
+  q(
+    "vr-lanier",
+    "virtual-reality",
+    "Who popularized the term “virtual reality” in the 1980s, through his company VPL Research?",
+    [
+      "Palmer Luckey",
+      "John Carmack",
+      "Jaron Lanier",
+      "Morton Heilig",
+    ],
+    2,
+    "Jaron Lanier, founder of VPL Research (1984), popularized the term “virtual reality” and sold early commercial VR gear, including the DataGlove and EyePhone. Source: established computing history — VPL Research.",
+    "Established computing history — Jaron Lanier / VPL Research",
+  ),
+  q(
+    "vr-sensorama",
+    "virtual-reality",
+    "Morton Heilig's Sensorama (1962) is best described as what?",
+    [
+      "The first video game console",
+      "An arcade cabinet that played short films with stereo sound, vibration, wind, and smells",
+      "A military flight simulator",
+      "The first internet-connected headset",
+    ],
+    1,
+    "Heilig's Sensorama (patented 1962) was a mechanical arcade cabinet that immersed one viewer in short films with stereo sound, a vibrating seat, wind, and scent — an early multisensory simulation, decades before computer VR. Source: established computing history — Sensorama (1962).",
+    "Established computing history — Morton Heilig, Sensorama (1962)",
+  ),
+  q(
+    "vr-oculus",
+    "virtual-reality",
+    "The modern consumer VR wave is usually dated from which event?",
+    [
+      "The release of the Nintendo Virtual Boy (1995)",
+      "The Oculus Rift Kickstarter campaign (2012), which raised about $2.4 million",
+      "The first Second Life convention (2005)",
+      "Google's founding (1998)",
+    ],
+    1,
+    "Palmer Luckey's Oculus Rift Kickstarter in 2012 raised about $2.4 million against a $250,000 goal and restarted the consumer VR industry; Facebook bought Oculus VR in 2014 for about $2 billion. Source: established technology record — Oculus Kickstarter (2012).",
+    "Established technology record — Oculus Rift Kickstarter (2012)",
+  ),
+  q(
+    "vr-dof",
+    "virtual-reality",
+    "In VR tracking, what does “6DoF” mean?",
+    [
+      "Six displays of fidelity",
+      "Six degrees of freedom — rotation plus movement in space (position)",
+      "Six devices connected at once",
+      "Six hours of battery life",
+    ],
+    1,
+    "Degrees of freedom: 3DoF tracks rotation only (pitch, yaw, roll); 6DoF adds position — leaning, crouching, walking — which is what makes room-scale VR feel real. Source: established VR terminology.",
+    "Established VR terminology — degrees of freedom",
+  ),
+
+  /* --------------------- Chronological Tools & Devices --------------------- */
+  q(
+    "time-huygens",
+    "timekeeping",
+    "Who built the first practical pendulum clock, in 1656?",
+    [
+      "John Harrison",
+      "Galileo Galilei",
+      "Christiaan Huygens",
+      "Robert Hooke",
+    ],
+    2,
+    "Christiaan Huygens patented the first practical pendulum clock in 1656 (built by Salomon Coster) — accuracy jumped from about 15 minutes of drift a day to about 15 seconds. Galileo had conceived the idea earlier but never built a working one. Source: established horological history — Huygens (1656).",
+    "Established horological history — Christiaan Huygens (1656)",
+  ),
+  q(
+    "time-harrison",
+    "timekeeping",
+    "John Harrison's H4 (completed 1759) solved which great problem?",
+    [
+      "Measuring altitude at sea",
+      "Finding longitude at sea, by carrying accurate time",
+      "Predicting the tides",
+      "Timing eclipses",
+    ],
+    1,
+    "Longitude needs the difference between local time and a reference time. Harrison's H4 marine chronometer kept time accurately enough on a rolling ship to fix longitude — on its 1761–62 trial to Jamaica it erred by only about five seconds. Source: established horological history — Harrison's H4.",
+    "Established horological history — John Harrison, H4 (1759)",
+  ),
+  q(
+    "time-cesium",
+    "timekeeping",
+    "Since 1967, the SI second has been defined by which atom's vibrations?",
+    [
+      "Hydrogen — 1,420,405,751 periods",
+      "Cesium-133 — 9,192,631,770 periods",
+      "Rubidium — 6,834,682,610 periods",
+      "Mercury — 40,507,347,997 periods",
+    ],
+    1,
+    "The second is defined as the duration of 9,192,631,770 periods of the radiation from the cesium-133 atom's ground-state transition (SI, 1967). The first practical cesium clock was built in 1955 by Essen and Parry at Britain's National Physical Laboratory. Source: established metrology — SI definition of the second.",
+    "Established metrology — SI second, cesium-133 (1967)",
+  ),
+  q(
+    "time-quartz",
+    "timekeeping",
+    "What did Warren Marrison build in 1927 that changed timekeeping?",
+    [
+      "The first atomic clock",
+      "The first quartz clock — a clock regulated by a vibrating quartz crystal",
+      "The first digital watch",
+      "The first radio-controlled clock",
+    ],
+    1,
+    "Warren Marrison's 1927 quartz clock at Bell Labs regulated time by a quartz crystal's vibration — far steadier than any pendulum, and the direct ancestor of every quartz watch and clock since. Source: established horological history — Marrison (1927).",
+    "Established horological history — Warren Marrison (1927)",
+  ),
+  q(
+    "time-water",
+    "timekeeping",
+    "The clepsydra, used in Egypt and Greece, kept time by what?",
+    [
+      "A falling weight on a chain",
+      "Water flowing at a steady rate into or out of a marked vessel",
+      "A burning candle marked in hours",
+      "Sand falling through a narrow neck",
+    ],
+    1,
+    "The clepsydra is a water clock: time is measured by regulated water flow. The oldest surviving example, from Karnak, dates to about 1400 BC; Greek courts used them to time speeches. (Sand glasses came much later, in the medieval centuries.) Source: established horological history — the clepsydra.",
+    "Established horological history — the clepsydra",
+  ),
+
+  /* -------------------------------- Longevity ------------------------------ */
+  q(
+    "long-calment",
+    "longevity",
+    "Jeanne Calment of France holds the longest VERIFIED human lifespan on record. How long did she live?",
+    [
+      "113 years and 214 days",
+      "117 years and 81 days",
+      "122 years and 164 days",
+      "119 years and 107 days",
+    ],
+    2,
+    "Jeanne Calment (1875–1997) lived 122 years and 164 days — the longest lifespan verified by documents, confirmed by researchers who checked her birth, census, and life records. No other verified case has passed her. Source: established record — Jeanne Calment, verified lifespan.",
+    "Established record — Jeanne Calment (1875–1997)",
+  ),
+  q(
+    "long-elixir",
+    "longevity",
+    "China's first emperor, Qin Shi Huang, sent expeditions searching for what — and died in 210 BC after taking pills his alchemists made?",
+    [
+      "A fountain of youth in the western desert",
+      "An elixir of immortality; the pills he took contained mercury, which is poisonous",
+      "A legendary longevity mushroom from Korea",
+      "The preserved body of a sage",
+    ],
+    1,
+    "Qin Shi Huang was obsessed with living forever: he sent Xu Fu's expeditions to find the elixir of immortality, and he took “immortality” pills containing mercury — a poison. The search is the recorded fact; the elixir was the belief, and it likely helped kill him. Source: established Chinese history — Qin Shi Huang (died 210 BC).",
+    "Established Chinese history — Qin Shi Huang and the elixir quest",
+  ),
+  q(
+    "long-fountain",
+    "longevity",
+    "The Fountain of Youth legend is most often attached to which explorer — and what is the honest state of that story?",
+    [
+      "Columbus; his own letters describe finding it",
+      "Ponce de León; the fountain story was attached to him in accounts written after his death — no record from his own hand says he searched for it",
+      "Magellan; his crew recorded the search in their log",
+      "De Soto; he mapped the fountain's location in Florida",
+    ],
+    1,
+    "Ponce de León received a royal contract to colonize Florida (1513); the tale that he was hunting a Fountain of Youth appears in histories written after he died, and nothing in his own records states it. The legend is the fact; the search is not established. Source: established historical record — Ponce de León.",
+    "Established historical record — Ponce de León / Fountain of Youth legend",
+  ),
+  q(
+    "long-stone",
+    "longevity",
+    "In European alchemy, what was the philosopher's stone BELIEVED to do?",
+    [
+      "Turn lead into gold — and grant immortality through an elixir of life made from it",
+      "Make its holder invisible",
+      "Let its holder speak with the dead",
+      "Stop any weapon swung at its holder",
+    ],
+    0,
+    "Alchemists across centuries believed the philosopher's stone could transmute base metals into gold and yield an elixir of life granting immortality. That belief drove real centuries of laboratory work — the stone itself was never shown to exist. The belief is the recorded fact. Source: established history of alchemy.",
+    "Established history of alchemy — the philosopher's stone",
+  ),
+  q(
+    "long-bluezones",
+    "longevity",
+    "“Blue Zones” — regions said to hold unusual numbers of long-lived people — were popularized by whom, and when?",
+    [
+      "The World Health Organization, in 1950",
+      "Dan Buettner, in work published from 2005 — building on demographers' studies of Sardinia and other regions",
+      "The Guinness Book of Records, in 1974",
+      "A Japanese government study, in 1990",
+    ],
+    1,
+    "Demographers Michel Poulain and Gianni Pes marked high-longevity areas of Sardinia in blue ink; Dan Buettner popularized “Blue Zones” from 2005 (National Geographic, then his books) around Okinawa, Sardinia, Nicoya, Ikaria, and Loma Linda. The term and its spread are the record; claims about the regions remain studied and debated. Source: established record — Poulain & Pes; Buettner (2005).",
+    "Established record — Blue Zones (Poulain & Pes; Buettner, 2005)",
+  ),
+
+  /* -------------------------------- Mythology ------------------------------ */
+  q(
+    "myth-anubis",
+    "mythology",
+    "In Egyptian mythology, Anubis — depicted with a jackal's head — held which role?",
+    [
+      "God of the sun and creation",
+      "Guardian of the dead — embalming, cemeteries, and guiding souls through the afterlife",
+      "God of the Nile flood",
+      "God of scribes and writing",
+    ],
+    1,
+    "Anubis (Inpw) was the jackal-headed guardian of the dead: lord of embalming and cemeteries, who prepared the dead and stood at the weighing of the heart in the afterlife. (Thoth was the scribes' god; Ra the sun.) Source: established Egyptian mythology.",
+    "Established Egyptian mythology — Anubis",
+  ),
+  q(
+    "myth-ra",
+    "mythology",
+    "In Egyptian mythology, Ra's nightly journey was said to carry him where?",
+    [
+      "Across the Milky Way on a silver boat",
+      "Through the Duat — the underworld — in his solar boat, to be reborn at dawn",
+      "Under the earth in a chariot pulled by scarabs",
+      "To the top of the tallest pyramid",
+    ],
+    1,
+    "Ra was said to sail his boat across the sky by day and through the Duat, the underworld, by night — battling the serpent Apophis — and rise reborn each dawn. Source: established Egyptian mythology — Ra's journey.",
+    "Established Egyptian mythology — Ra and the Duat",
+  ),
+  q(
+    "myth-zeus",
+    "mythology",
+    "In Greek mythology, Zeus ruled from which mountain, and what was his weapon?",
+    [
+      "Mount Parnassus; a golden bow",
+      "Mount Olympus; the thunderbolt",
+      "Mount Ida; a trident",
+      "Mount Helicon; a lyre",
+    ],
+    1,
+    "Zeus, king of the Olympian gods, ruled from Mount Olympus and hurled the thunderbolt, forged for him by the Cyclopes. (The trident was Poseidon's.) Source: established Greek mythology — Zeus.",
+    "Established Greek mythology — Zeus",
+  ),
+  q(
+    "myth-odin",
+    "mythology",
+    "In Norse mythology, what did Odin give up for a drink from the well of wisdom?",
+    [
+      "His spear, Gungnir",
+      "One of his eyes",
+      "His two ravens",
+      "His seat at the head of the gods",
+    ],
+    1,
+    "Odin pledged one of his eyes for a drink from Mimir's well of wisdom — which is why he is the one-eyed All-Father. His ravens, Huginn and Muninn, he kept: they flew the world daily and reported back. Source: established Norse mythology — Odin and Mimir's well.",
+    "Established Norse mythology — Odin",
+  ),
+  q(
+    "myth-amaterasu",
+    "mythology",
+    "Amaterasu, in Japanese mythology, is the goddess of what?",
+    [
+      "The moon and the tides",
+      "The sun — born from the left eye of Izanagi, ruler of the High Celestial Plain",
+      "Storms and the sea",
+      "Rice and foxes",
+    ],
+    1,
+    "Amaterasu Omikami is the sun goddess of Shinto tradition, said to be born from Izanagi's left eye and to rule Takamagahara, the High Celestial Plain; Japan's imperial line was traditionally traced to her. (Her brother Tsukuyomi is the moon.) Source: established Japanese mythology — Amaterasu.",
+    "Established Japanese mythology — Amaterasu",
+  ),
 ];
 
 /** The questions that can be drawn — retired items never are. */
@@ -1160,6 +1524,7 @@ export function validateBank(bank: readonly BankQuestion[] = QUESTION_BANK): str
     if (!item.source.trim()) problems.push(`${item.id}: POC — a source is required`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(item.confirmedAsOf)) problems.push(`${item.id}: POC — a confirmed-as-of date is required`);
     if (!item.explanation.trim()) problems.push(`${item.id}: an explanation is required`);
+    if (![1, 2, 3].includes(item.difficulty)) problems.push(`${item.id}: difficulty must be 1, 2, or 3`);
   }
   return problems;
 }
