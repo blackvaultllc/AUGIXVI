@@ -373,7 +373,8 @@ import { SpaceView } from "./SpaceView";
 import { coreStatusLabel, type CoreStatus } from "./coreLink";
 import { brainStateLine } from "./brainState";
 import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
-import { fetchDaddyInboxView } from "./learner/daddyInboxClient";
+import { fetchDaddyInboxView, operatorAccessToken } from "./learner/daddyInboxClient";
+import { getCameraSpeech, markCameraSpeechRouted } from "./cameraPresence.server";
 import { alertRingReading } from "./alertRing";
 import {
   currentSoundFeed,
@@ -2856,6 +2857,57 @@ export function AvatarStage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [enterLiveMode, executeWorldCommand, navigate, operatorName, returnToSpace, say],
   );
+
+  /**
+   * CAMERA SPEECH (Camera Presence pass, 2026-11-26): the cameras
+   * hear on the core; what they hear lands in the core's presence
+   * record. This poll is the last step of that road — a name heard
+   * through a camera raises a notification here, and speech a
+   * camera was armed to forward is fed to Anubis through the very
+   * same sendCommand(text, "voice") path the local ear uses, then
+   * marked routed on the record so it is never fed twice. Camera
+   * COMMANDS never pass through here: they already executed (or
+   * were refused) on the core, behind the Permission Law and the
+   * ALL-STOP, at the moment they were heard.
+   */
+  const cameraSpeechSeenRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    let stopped = false;
+    const tick = async () => {
+      const accessToken = await operatorAccessToken().catch(() => null);
+      if (stopped || !accessToken) return;
+      const view = await getCameraSpeech({ data: { accessToken } }).catch(() => null);
+      if (stopped || !view?.authorized) return;
+      if (cameraSpeechSeenRef.current === null) {
+        // First poll: name events already on the record are
+        // history; only new ones raise him. Unrouted speech is
+        // still owed to Anubis — it was spoken to be heard.
+        cameraSpeechSeenRef.current = new Set(
+          view.events.filter((e) => e.kind === "name").map((e) => e.id),
+        );
+      }
+      const routedIds: string[] = [];
+      for (const event of view.events) {
+        if (event.kind === "name") {
+          if (cameraSpeechSeenRef.current.has(event.id)) continue;
+          cameraSpeechSeenRef.current.add(event.id);
+          notify("cameras", `The ${event.cameraName} camera heard you call Anubis: “${event.text}”`);
+        } else if (event.kind === "speech" && !event.routed) {
+          routedIds.push(event.id);
+          void sendCommand(event.text, "voice");
+        }
+      }
+      if (routedIds.length > 0) {
+        await markCameraSpeechRouted({ data: { accessToken, ids: routedIds } }).catch(() => null);
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 20_000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [notify, sendCommand]);
 
   useEffect(() => {
     const bridge = bridgeRef.current;

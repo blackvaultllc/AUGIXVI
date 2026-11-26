@@ -241,3 +241,151 @@ export async function onvifPtzStop(
 }
 
 export { allTags };
+
+/* ------------------------------------------------------------------ */
+/* Camera Presence doors (2026-11-26): services map, imaging,          */
+/* PTZ capabilities + auxiliary, video analytics. Raw-XML returns:     */
+/* the READING of what a unit exposes lives in the pure module         */
+/* (cameraPresence.ts) so it is testable against fixtures; this        */
+/* client only dials and reports honest states.                        */
+/* ------------------------------------------------------------------ */
+
+export type OnvifService = { namespace: string; xaddr: string };
+
+/** The full service map (GetServices) — media, PTZ, imaging, analytics… */
+export async function onvifServices(
+  host: string,
+  onvifPort: number,
+  username: string,
+  password: string,
+): Promise<OnvifResult<OnvifService[]>> {
+  return soap(
+    deviceServiceUrl(host, onvifPort),
+    username,
+    password,
+    `<tds:GetServices><tds:IncludeCapability>false</tds:IncludeCapability></tds:GetServices>`,
+    (xml) => {
+      const out: OnvifService[] = [];
+      for (const block of xml.split(/Service>/)) {
+        const ns = tag(block, "Namespace");
+        const addr = tag(block, "XAddr");
+        if (ns && addr) out.push({ namespace: ns, xaddr: addr });
+      }
+      return out.length ? out : null;
+    },
+  );
+}
+
+/** PTZ service capabilities, raw — the pure reader looks for aux doors. */
+export async function onvifPtzCapabilities(
+  ptzUrl: string,
+  username: string,
+  password: string,
+): Promise<OnvifResult<string>> {
+  return soap(ptzUrl, username, password, `<tptz:GetServiceCapabilities/>`, (xml) => xml);
+}
+
+/** Send one PTZ auxiliary command (e.g. a lamp door the unit advertises). */
+export async function onvifPtzAuxiliary(
+  ptzUrl: string,
+  username: string,
+  password: string,
+  profileToken: string,
+  data: string,
+): Promise<OnvifResult<true>> {
+  return soap(
+    ptzUrl,
+    username,
+    password,
+    `<tptz:SendAuxiliaryCommand><tptz:ProfileToken>${escapeXml(profileToken)}</tptz:ProfileToken><tptz:AuxiliaryData>${escapeXml(data)}</tptz:AuxiliaryData></tptz:SendAuxiliaryCommand>`,
+    (xml) => (/SendAuxiliaryCommandResponse/.test(xml) ? true : null),
+  );
+}
+
+/** Media profiles, raw XML — carries the analytics configuration token. */
+export async function onvifProfilesXml(
+  mediaUrl: string,
+  username: string,
+  password: string,
+): Promise<OnvifResult<string>> {
+  return soap(mediaUrl, username, password, `<trt:GetProfiles/>`, (xml) => xml);
+}
+
+/** Video source tokens (imaging settings are addressed per source). */
+export async function onvifVideoSources(
+  mediaUrl: string,
+  username: string,
+  password: string,
+): Promise<OnvifResult<string[]>> {
+  return soap(mediaUrl, username, password, `<trt:GetVideoSources/>`, (xml) => {
+    const tokens = [...xml.matchAll(/VideoSources[^>]*token="([^"]+)"/g)]
+      .map((m) => m[1])
+      .filter((t): t is string => typeof t === "string" && t.length > 0);
+    return tokens.length ? tokens : null;
+  });
+}
+
+/** Imaging settings for one video source, raw XML. */
+export async function onvifImagingSettings(
+  imagingUrl: string,
+  username: string,
+  password: string,
+  videoSourceToken: string,
+): Promise<OnvifResult<string>> {
+  return soap(
+    imagingUrl,
+    username,
+    password,
+    `<timg:GetImagingSettings xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl"><timg:VideoSourceToken>${escapeXml(videoSourceToken)}</timg:VideoSourceToken></timg:GetImagingSettings>`,
+    (xml) => xml,
+  );
+}
+
+/** Write imaging settings for one video source (the whole settings block). */
+export async function onvifSetImagingSettings(
+  imagingUrl: string,
+  username: string,
+  password: string,
+  videoSourceToken: string,
+  imagingSettingsInnerXml: string,
+): Promise<OnvifResult<true>> {
+  return soap(
+    imagingUrl,
+    username,
+    password,
+    `<timg:SetImagingSettings xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl"><timg:VideoSourceToken>${escapeXml(videoSourceToken)}</timg:VideoSourceToken><timg:ImagingSettings>${imagingSettingsInnerXml}</timg:ImagingSettings><timg:ForcePersistence>true</timg:ForcePersistence></timg:SetImagingSettings>`,
+    (xml) => (/SetImagingSettingsResponse/.test(xml) ? true : null),
+  );
+}
+
+/** One video-analytics configuration, raw XML. */
+export async function onvifAnalyticsConfiguration(
+  analyticsUrl: string,
+  username: string,
+  password: string,
+  configurationToken: string,
+): Promise<OnvifResult<string>> {
+  return soap(
+    analyticsUrl,
+    username,
+    password,
+    `<tan:GetVideoAnalyticsConfiguration xmlns:tan="http://www.onvif.org/ver20/analytics/wsdl"><tan:ConfigurationToken>${escapeXml(configurationToken)}</tan:ConfigurationToken></tan:GetVideoAnalyticsConfiguration>`,
+    (xml) => xml,
+  );
+}
+
+/** Write back one video-analytics configuration (the whole block). */
+export async function onvifSetAnalyticsConfiguration(
+  analyticsUrl: string,
+  username: string,
+  password: string,
+  configurationInnerXml: string,
+): Promise<OnvifResult<true>> {
+  return soap(
+    analyticsUrl,
+    username,
+    password,
+    `<tan:SetVideoAnalyticsConfiguration xmlns:tan="http://www.onvif.org/ver20/analytics/wsdl">${configurationInnerXml}<tan:ForcePersistence>true</tan:ForcePersistence></tan:SetVideoAnalyticsConfiguration>`,
+    (xml) => (/SetVideoAnalyticsConfigurationResponse/.test(xml) ? true : null),
+  );
+}

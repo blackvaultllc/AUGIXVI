@@ -1,0 +1,724 @@
+/**
+ * CAMERA PRESENCE — the pure core of the Camera Presence pass
+ * (owner orders 2026-11-26: "Whenever I talk to the camera I'm
+ * talking to Anubis… can I tell Anubis commands through the
+ * camera — like turn off the spotlight, or use this camera to
+ * keep monitoring this area left and right?" and "he can hear
+ * whenever I call his name, the camera will turn to me… build
+ * into it that we don't even need to use the app").
+ *
+ * What lives here is everything that must be TRUE before any of
+ * it touches a wire:
+ *
+ *   · The per-camera presence state (hearing armed, patrol,
+ *     follow, spotlight door, unit-tracking door) and the file
+ *     shape the core store keeps — sanitized on every read, so a
+ *     hand-edited or half-written store can never invent a state.
+ *   · The heard-speech record: what a camera heard, which camera
+ *     heard it (known truth — the audio came down that camera's
+ *     own stream), and what was done about it.
+ *   · The deterministic camera-command parser: the small set of
+ *     things the Captain can SAY to a camera. Anything outside
+ *     the set is not a camera command — it is speech for Anubis
+ *     and routes onward untouched.
+ *   · The patrol pattern and the follow step: plain math over
+ *     measured inputs (elapsed time, a motion centroid). The
+ *     follow tracks MOVEMENT measured between real frames; a
+ *     person is only ever claimed by the analyzer's reading,
+ *     labeled a draft — this module never calls motion a person.
+ *   · The probe readers: they read what a unit's ONVIF answers
+ *     actually contain (imaging fields, auxiliary commands,
+ *     analytics configurations) and say whether a REAL door for
+ *     the spotlight or for unit auto-tracking exists. No door →
+ *     no switch, anywhere. That refusal is the feature.
+ *
+ * Plain TS, no I/O — the server modules do the dialing.
+ */
+
+/* ------------------------------------------------------------------ */
+/* State shapes                                                        */
+/* ------------------------------------------------------------------ */
+
+export interface PatrolState {
+  active: boolean;
+  startedAt: number | null;
+  /** One full left (or right) leg of the sweep, milliseconds. */
+  sweepMs: number;
+}
+
+export type FollowBasis = "person" | "movement";
+
+export interface FollowState {
+  active: boolean;
+  startedAt: number | null;
+  /**
+   * What the follow is standing on right now: "person" only when
+   * the analyzer's latest draft reading said a person is in the
+   * frame; otherwise "movement" — measured motion, honestly named.
+   */
+  basis: FollowBasis | null;
+  /** Last measured subject position, 0..1 across / down the frame. */
+  lastCentroid: { x: number; y: number } | null;
+  /** When the analyzer last said "person" for this camera. */
+  lastPersonAt: number | null;
+}
+
+export interface SpotlightState {
+  /** The ONVIF door that drives it (an imaging field name), or null. */
+  door: string | null;
+  /** Last state WE set or read; null = never established. */
+  on: boolean | null;
+  probedAt: number | null;
+  /** Plain words: what the probe found, or why there is no switch. */
+  note: string;
+}
+
+export interface TrackingState {
+  /** "analytics:<configToken>:<itemName>" when a real toggle exists. */
+  door: string | null;
+  on: boolean | null;
+  probedAt: number | null;
+  note: string;
+}
+
+export interface CameraPresenceState {
+  /** The camera's audio is being pulled and transcribed on the core. */
+  hearing: boolean;
+  /**
+   * Heard speech may act: camera commands execute and other
+   * speech routes to Anubis's command path. Off = the camera
+   * still hears his name (that event is always recorded) but
+   * nothing it hears is obeyed or forwarded.
+   */
+  commands: boolean;
+  patrol: PatrolState;
+  follow: FollowState;
+  spotlight: SpotlightState;
+  tracking: TrackingState;
+}
+
+export type HearingEventKind = "name" | "command" | "speech";
+
+export interface HearingEvent {
+  id: string;
+  at: number;
+  cameraId: string;
+  cameraName: string;
+  /** The transcript exactly as the speech service returned it. */
+  text: string;
+  kind: HearingEventKind;
+  /** Plain words: what was done ("patrol started", "sent to Anubis", …). */
+  acted: string | null;
+  /** Speech only: the stage has fed this line to Anubis already. */
+  routed: boolean;
+}
+
+export interface RecordingInfo {
+  id: string;
+  cameraId: string;
+  cameraName: string;
+  /** File name inside the core's camera-recordings folder. */
+  file: string;
+  startedAt: number;
+  stoppedAt: number | null;
+  bytes: number | null;
+}
+
+export interface CreatorEnrollment {
+  cameraId: string;
+  cameraName: string;
+  /** Reference frame file names inside the core's creator-faces folder. */
+  frames: string[];
+  at: number;
+}
+
+export interface CameraPresenceFile {
+  cameras: Record<string, CameraPresenceState>;
+  hearing: HearingEvent[];
+  recordings: RecordingInfo[];
+  enrollment: CreatorEnrollment | null;
+}
+
+export const HEARING_MAX = 60;
+export const RECORDINGS_MAX = 100;
+
+export function defaultPresenceState(): CameraPresenceState {
+  return {
+    hearing: false,
+    commands: false,
+    patrol: { active: false, startedAt: null, sweepMs: 6000 },
+    follow: { active: false, startedAt: null, basis: null, lastCentroid: null, lastPersonAt: null },
+    spotlight: { door: null, on: null, probedAt: null, note: "Not probed yet — run the presence probe." },
+    tracking: { door: null, on: null, probedAt: null, note: "Not probed yet — run the presence probe." },
+  };
+}
+
+export function emptyPresenceFile(): CameraPresenceFile {
+  return { cameras: {}, hearing: [], recordings: [], enrollment: null };
+}
+
+/* ------------------------------------------------------------------ */
+/* Sanitizers — a stored claim survives only in its exact shape        */
+/* ------------------------------------------------------------------ */
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function cleanString(v: unknown, max: number): string | undefined {
+  return typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
+}
+
+function cleanTime(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
+}
+
+function cleanBoolOrNull(v: unknown): boolean | null {
+  return v === true ? true : v === false ? false : null;
+}
+
+function sanitizeCentroid(v: unknown): { x: number; y: number } | null {
+  if (!isRecord(v)) return null;
+  const x = v["x"];
+  const y = v["y"];
+  if (typeof x !== "number" || typeof y !== "number") return null;
+  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+  return { x, y };
+}
+
+export function sanitizePresenceState(v: unknown): CameraPresenceState {
+  const base = defaultPresenceState();
+  if (!isRecord(v)) return base;
+  const patrol = isRecord(v["patrol"]) ? v["patrol"] : {};
+  const follow = isRecord(v["follow"]) ? v["follow"] : {};
+  const spotlight = isRecord(v["spotlight"]) ? v["spotlight"] : {};
+  const tracking = isRecord(v["tracking"]) ? v["tracking"] : {};
+  const sweep = patrol["sweepMs"];
+  return {
+    hearing: v["hearing"] === true,
+    commands: v["commands"] === true,
+    patrol: {
+      active: patrol["active"] === true,
+      startedAt: cleanTime(patrol["startedAt"]),
+      sweepMs:
+        typeof sweep === "number" && sweep >= 2000 && sweep <= 30_000 ? sweep : base.patrol.sweepMs,
+    },
+    follow: {
+      active: follow["active"] === true,
+      startedAt: cleanTime(follow["startedAt"]),
+      basis: follow["basis"] === "person" || follow["basis"] === "movement" ? follow["basis"] : null,
+      lastCentroid: sanitizeCentroid(follow["lastCentroid"]),
+      lastPersonAt: cleanTime(follow["lastPersonAt"]),
+    },
+    spotlight: {
+      door: cleanString(spotlight["door"], 80) ?? null,
+      on: cleanBoolOrNull(spotlight["on"]),
+      probedAt: cleanTime(spotlight["probedAt"]),
+      note: cleanString(spotlight["note"], 400) ?? base.spotlight.note,
+    },
+    tracking: {
+      door: cleanString(tracking["door"], 160) ?? null,
+      on: cleanBoolOrNull(tracking["on"]),
+      probedAt: cleanTime(tracking["probedAt"]),
+      note: cleanString(tracking["note"], 400) ?? base.tracking.note,
+    },
+  };
+}
+
+export function sanitizeHearingEvent(v: unknown): HearingEvent | null {
+  if (!isRecord(v)) return null;
+  const id = cleanString(v["id"], 64);
+  const cameraId = cleanString(v["cameraId"], 64);
+  const text = cleanString(v["text"], 500);
+  const at = cleanTime(v["at"]);
+  if (!id || !cameraId || !text || at === null) return null;
+  const kind = v["kind"];
+  return {
+    id,
+    at,
+    cameraId,
+    cameraName: cleanString(v["cameraName"], 80) ?? "Camera",
+    text,
+    kind: kind === "name" || kind === "command" ? kind : "speech",
+    acted: cleanString(v["acted"], 300) ?? null,
+    routed: v["routed"] === true,
+  };
+}
+
+export function sanitizeRecording(v: unknown): RecordingInfo | null {
+  if (!isRecord(v)) return null;
+  const id = cleanString(v["id"], 64);
+  const cameraId = cleanString(v["cameraId"], 64);
+  const file = cleanString(v["file"], 200);
+  const startedAt = cleanTime(v["startedAt"]);
+  if (!id || !cameraId || !file || startedAt === null) return null;
+  return {
+    id,
+    cameraId,
+    cameraName: cleanString(v["cameraName"], 80) ?? "Camera",
+    file,
+    startedAt,
+    stoppedAt: cleanTime(v["stoppedAt"]),
+    bytes: typeof v["bytes"] === "number" && v["bytes"] >= 0 ? v["bytes"] : null,
+  };
+}
+
+export function sanitizePresenceFile(v: unknown): CameraPresenceFile {
+  if (!isRecord(v)) return emptyPresenceFile();
+  const cameras: Record<string, CameraPresenceState> = {};
+  if (isRecord(v["cameras"])) {
+    for (const [id, state] of Object.entries(v["cameras"])) {
+      cameras[id.slice(0, 64)] = sanitizePresenceState(state);
+    }
+  }
+  const hearing = Array.isArray(v["hearing"])
+    ? v["hearing"]
+        .map(sanitizeHearingEvent)
+        .filter((e): e is HearingEvent => e !== null)
+        .slice(0, HEARING_MAX)
+    : [];
+  const recordings = Array.isArray(v["recordings"])
+    ? v["recordings"]
+        .map(sanitizeRecording)
+        .filter((r): r is RecordingInfo => r !== null)
+        .slice(0, RECORDINGS_MAX)
+    : [];
+  let enrollment: CreatorEnrollment | null = null;
+  if (isRecord(v["enrollment"])) {
+    const e = v["enrollment"];
+    const cameraId = cleanString(e["cameraId"], 64);
+    const at = cleanTime(e["at"]);
+    const frames = Array.isArray(e["frames"])
+      ? e["frames"].filter((f): f is string => typeof f === "string" && f.length > 0).slice(0, 6)
+      : [];
+    if (cameraId && at !== null && frames.length > 0) {
+      enrollment = {
+        cameraId,
+        cameraName: cleanString(e["cameraName"], 80) ?? "Camera",
+        frames,
+        at,
+      };
+    }
+  }
+  return { cameras, hearing, recordings, enrollment };
+}
+
+/** The state for one camera, born at the honest default when absent. */
+export function presenceFor(file: CameraPresenceFile, cameraId: string): CameraPresenceState {
+  return file.cameras[cameraId] ?? defaultPresenceState();
+}
+
+/* ------------------------------------------------------------------ */
+/* Heard speech — the name, and the command set                        */
+/* ------------------------------------------------------------------ */
+
+/** His name, as a whole word, anywhere in the transcript. */
+export function hearsAnubisName(text: string): boolean {
+  return /\banubis\b/i.test(text);
+}
+
+export type CameraCommandIntent =
+  | { type: "ptz"; cameraId: string; pan: number; tilt: number }
+  | { type: "stop-motion"; cameraId: string }
+  | { type: "patrol-start"; cameraId: string }
+  | { type: "patrol-stop"; cameraId: string }
+  | { type: "spotlight"; cameraId: string; on: boolean }
+  | { type: "follow-start"; cameraId: string }
+  | { type: "follow-stop"; cameraId: string }
+  | { type: "record-start"; cameraId: string }
+  | { type: "record-stop"; cameraId: string }
+  | { type: "turn-to-speaker"; cameraId: string };
+
+export interface CameraNameRef {
+  id: string;
+  name: string;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Resolve WHICH camera a command means: a camera named in the
+ * words wins; otherwise the camera that heard him. Name matching
+ * is whole-word on the camera's registered name (and on the last
+ * word of a multi-word name, so "the bedroom camera" finds the
+ * camera named "Bedroom").
+ */
+const GENERIC_NAME_WORDS = new Set(["camera", "cam", "the", "a"]);
+
+export function resolveCommandCamera(
+  text: string,
+  cameras: CameraNameRef[],
+  sourceCameraId: string,
+): string {
+  const lower = ` ${text.toLowerCase()} `;
+  const others = cameras.filter((c) => c.id !== sourceCameraId);
+  // A full registered name anywhere in the words wins first…
+  for (const camera of others) {
+    const full = camera.name.toLowerCase().trim();
+    if (full && new RegExp(`\\b${escapeRegExp(full)}\\b`).test(lower)) return camera.id;
+  }
+  // …then a distinctive last word ("bedroom" for "Bedroom",
+  // never the generic "camera").
+  for (const camera of others) {
+    const words = camera.name.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const lastWord = words[words.length - 1];
+    if (
+      lastWord &&
+      lastWord.length >= 3 &&
+      !GENERIC_NAME_WORDS.has(lastWord) &&
+      new RegExp(`\\b${escapeRegExp(lastWord)}\\b`).test(lower)
+    ) {
+      return camera.id;
+    }
+  }
+  return sourceCameraId;
+}
+
+/**
+ * The camera command set — deliberately small and explicit. A
+ * transcript that matches nothing here is NOT a camera command:
+ * the caller routes it to Anubis as ordinary speech. Matching is
+ * on plain imperative phrases a man actually says to a camera.
+ */
+export function parseCameraCommand(
+  text: string,
+  cameras: CameraNameRef[],
+  sourceCameraId: string,
+): CameraCommandIntent | null {
+  const t = ` ${text.toLowerCase().replace(/\s+/g, " ")} `;
+  const cameraId = resolveCommandCamera(text, cameras, sourceCameraId);
+  const has = (...phrases: string[]) => phrases.some((p) => t.includes(` ${p} `) || t.includes(` ${p},`) || t.includes(` ${p}.`));
+
+  if (has("stop patrolling", "stop patrol", "stop the patrol", "stop monitoring", "stop watching")) {
+    return { type: "patrol-stop", cameraId };
+  }
+  if (has("stop following", "stop following me", "stop follow")) {
+    return { type: "follow-stop", cameraId };
+  }
+  if (has("stop recording")) return { type: "record-stop", cameraId };
+  if (has("stop moving", "stop the camera", "hold still", "stay there", "stop")) {
+    return { type: "stop-motion", cameraId };
+  }
+  if (
+    has(
+      "start patrolling",
+      "start patrol",
+      "patrol the area",
+      "patrol this area",
+      "keep monitoring",
+      "monitor this area",
+      "keep watch",
+      "watch this area",
+      "sweep the area",
+      "patrol mode",
+    )
+  ) {
+    return { type: "patrol-start", cameraId };
+  }
+  if (has("turn off the spotlight", "spotlight off", "kill the spotlight", "turn the spotlight off")) {
+    return { type: "spotlight", cameraId, on: false };
+  }
+  if (has("turn on the spotlight", "spotlight on", "turn the spotlight on", "light on")) {
+    return { type: "spotlight", cameraId, on: true };
+  }
+  if (has("follow me", "keep following me", "start following", "start following me")) {
+    return { type: "follow-start", cameraId };
+  }
+  if (has("start recording", "record this", "record the area", "record now")) {
+    return { type: "record-start", cameraId };
+  }
+  if (has("turn to me", "look at me", "face me", "turn around to me")) {
+    return { type: "turn-to-speaker", cameraId };
+  }
+  const pan = has("turn left", "pan left", "look left", "move left", "swing left")
+    ? -1
+    : has("turn right", "pan right", "look right", "move right", "swing right")
+      ? 1
+      : 0;
+  const tilt = has("tilt up", "look up", "move up") ? 1 : has("tilt down", "look down", "move down") ? -1 : 0;
+  if (pan !== 0 || tilt !== 0) return { type: "ptz", cameraId, pan, tilt };
+  return null;
+}
+
+/** Plain words for an intent — the hearing record says what was done. */
+export function describeIntent(intent: CameraCommandIntent, cameraName: string): string {
+  switch (intent.type) {
+    case "ptz":
+      return `Moved ${cameraName} by voice command`;
+    case "stop-motion":
+      return `Stopped ${cameraName}'s motion by voice command`;
+    case "patrol-start":
+      return `Started ${cameraName}'s patrol by voice command`;
+    case "patrol-stop":
+      return `Stopped ${cameraName}'s patrol by voice command`;
+    case "spotlight":
+      return `Turned ${cameraName}'s spotlight ${intent.on ? "on" : "off"} by voice command`;
+    case "follow-start":
+      return `Started ${cameraName} following by voice command`;
+    case "follow-stop":
+      return `Stopped ${cameraName} following by voice command`;
+    case "record-start":
+      return `Started recording ${cameraName} by voice command`;
+    case "record-stop":
+      return `Stopped recording ${cameraName} by voice command`;
+    case "turn-to-speaker":
+      return `Turned ${cameraName} toward where he was last seen`;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Patrol + follow math                                                */
+/* ------------------------------------------------------------------ */
+
+export const PATROL_SPEED = 0.35;
+export const PATROL_PAUSE_MS = 1200;
+
+/**
+ * The patrol pattern: sweep one way for the leg, rest, sweep
+ * back, rest — forever, until stopped. Pure over elapsed time,
+ * so the loop is just "ask what the pattern says now".
+ */
+export function patrolVelocityAt(
+  elapsedMs: number,
+  sweepMs: number,
+  pauseMs: number = PATROL_PAUSE_MS,
+): number {
+  if (elapsedMs < 0) return 0;
+  const cycle = 2 * sweepMs + 2 * pauseMs;
+  const t = elapsedMs % cycle;
+  if (t < sweepMs) return -PATROL_SPEED;
+  if (t < sweepMs + pauseMs) return 0;
+  if (t < 2 * sweepMs + pauseMs) return PATROL_SPEED;
+  return 0;
+}
+
+/**
+ * The centroid of what CHANGED between two grayscale frames —
+ * measured motion, nothing more. Returns null when the change
+ * is under the floor (a quiet frame is not a subject).
+ */
+export function motionCentroidIn(
+  prev: ArrayLike<number>,
+  curr: ArrayLike<number>,
+  width: number,
+  height: number,
+  diffThreshold = 28,
+  minCoverage = 0.002,
+): { x: number; y: number; coverage: number } | null {
+  const n = Math.min(prev.length, curr.length, width * height);
+  if (n <= 0 || width <= 0 || height <= 0) return null;
+  let changed = 0;
+  let sumX = 0;
+  let sumY = 0;
+  for (let i = 0; i < n; i++) {
+    const d = Math.abs((curr[i] ?? 0) - (prev[i] ?? 0));
+    if (d >= diffThreshold) {
+      changed++;
+      sumX += i % width;
+      sumY += Math.floor(i / width);
+    }
+  }
+  if (changed === 0) return null;
+  const coverage = changed / n;
+  if (coverage < minCoverage) return null;
+  return { x: sumX / changed / Math.max(1, width - 1), y: sumY / changed / Math.max(1, height - 1), coverage };
+}
+
+export const FOLLOW_DEADBAND = 0.1;
+
+/**
+ * One follow step: from the subject's measured position to the
+ * PTZ velocity that centers it. Inside the deadband the honest
+ * answer is "hold still" (null) — chasing noise is not following.
+ */
+export function followVelocity(
+  centroid: { x: number; y: number },
+  deadband: number = FOLLOW_DEADBAND,
+): { pan: number; tilt: number } | null {
+  const dx = centroid.x - 0.5;
+  const dy = 0.5 - centroid.y;
+  const pan = Math.abs(dx) > deadband ? Math.max(-0.6, Math.min(0.6, dx * 1.8)) : 0;
+  const tilt = Math.abs(dy) > deadband ? Math.max(-0.6, Math.min(0.6, dy * 1.8)) : 0;
+  if (pan === 0 && tilt === 0) return null;
+  return { pan, tilt };
+}
+
+/* ------------------------------------------------------------------ */
+/* Analyzer verdicts — strict parsing, the Second Look discipline      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A yes/no question put to the vision model is answered ONLY by
+ * a reply that begins with yes or no. Anything else — hedging, a
+ * paragraph, silence — is "no verdict", never a guessed pass.
+ */
+export function parseStrictYesNo(text: string): boolean | null {
+  const clean = text.trim().toLowerCase().replace(/^[^a-z]+/, "");
+  if (/^yes\b/.test(clean)) return true;
+  if (/^no\b/.test(clean)) return false;
+  return null;
+}
+
+export const PERSON_CHECK_PROMPT =
+  "Answer only yes or no: is there a person in this image? Begin your answer with yes or no and say nothing else.";
+
+export const SAME_PERSON_PROMPT =
+  "The first image shows the owner of this camera. Answer only yes or no: does the second image show the same person? Begin your answer with yes or no and say nothing else.";
+
+/* ------------------------------------------------------------------ */
+/* Probe readers — what the unit's own answers contain                 */
+/* ------------------------------------------------------------------ */
+
+function localNames(xml: string): string[] {
+  const names: string[] = [];
+  const re = /<\/?(?:[a-zA-Z0-9]+:)?([A-Za-z][A-Za-z0-9]*)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    if (m[1]) names.push(m[1]);
+  }
+  return names;
+}
+
+/** Every element name inside an ImagingSettings reply, deduped. */
+export function imagingFieldNames(imagingXml: string): string[] {
+  return [...new Set(localNames(imagingXml))];
+}
+
+const SPOTLIGHT_FIELD_RE = /spot|flood|white.?light/i;
+
+/**
+ * The spotlight door: a REAL imaging field whose name is about
+ * the white light (spot / flood / white light). IR fields
+ * (IrCutFilter, IR lamp) are a different light — night vision,
+ * not the spotlight — and are reported as such, never wired as
+ * the spotlight switch.
+ */
+export function spotlightDoorFromImaging(fields: string[]): { door: string | null; note: string } {
+  const door = fields.find((f) => SPOTLIGHT_FIELD_RE.test(f));
+  if (door) {
+    return { door, note: `The unit exposes “${door}” in its ONVIF imaging settings — that is the spotlight's door.` };
+  }
+  const ir = fields.filter((f) => /ir|infrared/i.test(f));
+  if (ir.length > 0) {
+    return {
+      door: null,
+      note: `No ONVIF spotlight door: the imaging settings carry IR/night fields (${ir.join(", ")}) but nothing for the white spotlight. On this unit the spotlight answers only in its vendor app, so Augie shows no switch rather than a fake one.`,
+    };
+  }
+  return {
+    door: null,
+    note: "No ONVIF spotlight door: the imaging settings expose no light control at all. On this unit the spotlight answers only in its vendor app, so Augie shows no switch rather than a fake one.",
+  };
+}
+
+/** Auxiliary commands a PTZ service advertises (raw capability XML). */
+export function auxiliaryCommands(capabilitiesXml: string): string[] {
+  const out: string[] = [];
+  const re = /AuxiliaryCommand[^>]*>([^<]+)</g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(capabilitiesXml)) !== null) {
+    if (m[1]) out.push(m[1].trim());
+  }
+  // Some firmwares list them as tt:AuxiliaryData text instead.
+  const re2 = /AuxiliaryData[^>]*>([^<]+)</g;
+  while ((m = re2.exec(capabilitiesXml)) !== null) {
+    if (m[1]) out.push(m[1].trim());
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * A spotlight door through PTZ auxiliary commands, when the unit
+ * advertises one (e.g. a lamp/white-light aux). The command
+ * string is the door; on/off rides its |On / |Off suffix shape.
+ */
+export function spotlightDoorFromAux(commands: string[]): { door: string | null; note: string } | null {
+  const hit = commands.find((c) => /light|lamp|spot/i.test(c) && /\|On$/i.test(c));
+  if (!hit) return null;
+  const base = hit.replace(/\|On$/i, "");
+  return {
+    door: `aux:${base}`,
+    note: `The unit advertises a PTZ auxiliary command “${base}” — that is the spotlight's door.`,
+  };
+}
+
+/**
+ * The unit-tracking door: a video-analytics configuration whose
+ * name or items speak of TRACKING, carrying a simple enable item
+ * Augie can flip. Motion/human DETECTION rules are not tracking
+ * — they are named in the note and never wired as a follow switch.
+ */
+export function trackingDoorFromAnalytics(analyticsXml: string): { door: string | null; note: string } {
+  // Walk the configuration OPENING tags (a tag whose name is
+  // exactly VideoAnalyticsConfiguration, namespace prefix allowed —
+  // the Get…Response wrapper must not match, or its split would eat
+  // the real tag's token). Each block runs to the next opening tag.
+  const openRe = /<(?:[a-zA-Z0-9]+:)?VideoAnalyticsConfiguration\s[^>]*?token="([^"]+)"[^>]*>/g;
+  const opens: { token: string; start: number; end: number }[] = [];
+  let open: RegExpExecArray | null;
+  while ((open = openRe.exec(analyticsXml))) {
+    opens.push({ token: open[1] ?? "", start: open.index, end: open.index + open[0].length });
+  }
+  const names: string[] = [];
+  let door: string | null = null;
+  for (let i = 0; i < opens.length; i++) {
+    const block = analyticsXml.slice(opens[i]!.end, opens[i + 1]?.start ?? undefined);
+    const nameMatch = /<(?:[a-zA-Z0-9]+:)?Name>([^<]+)</.exec(block);
+    const name = nameMatch?.[1] ?? opens[i]!.token ?? "configuration";
+    names.push(name);
+    const items = [...block.matchAll(/SimpleItem[^>]*Name="([^"]+)"[^>]*Value="([^"]*)"/g)].map(
+      (m) => ({ name: m[1] ?? "", value: m[2] ?? "" }),
+    );
+    const enableItem = items.find((i) => /enable/i.test(i.name));
+    if (/track/i.test(name) || items.some((i) => /track/i.test(i.name))) {
+      if (enableItem && opens[i]!.token) {
+        door = `analytics:${opens[i]!.token}:${enableItem.name}`;
+      }
+    }
+  }
+  if (door) {
+    return { door, note: "The unit exposes its own auto-tracking as an ONVIF analytics configuration with an enable switch — Augie can turn it on and off." };
+  }
+  if (names.length > 0) {
+    return {
+      door: null,
+      note: `No ONVIF auto-tracking door: the unit's analytics configurations (${names.join(", ")}) carry no tracking enable Augie can flip. Detection rules are not tracking. Following runs on the core instead (see Follow).`,
+    };
+  }
+  return {
+    door: null,
+    note: "No ONVIF auto-tracking door: the unit offers no video-analytics configurations at all. Following runs on the core instead (see Follow).",
+  };
+}
+
+/** The VideoAnalyticsConfiguration token named inside a profiles reply. */
+export function analyticsConfigTokenFromProfiles(profilesXml: string): string | null {
+  const m = /VideoAnalyticsConfiguration[^>]*token="([^"]+)"/.exec(profilesXml);
+  return m?.[1] ?? null;
+}
+
+/**
+ * Flip one boolean SimpleItem inside a VideoAnalyticsConfiguration
+ * document — the smallest honest edit: the unit's own configuration,
+ * with exactly one value changed, ready to hand back through
+ * SetVideoAnalyticsConfiguration. Null when the item is not there.
+ */
+export function flipAnalyticsEnable(configXml: string, itemName: string, on: boolean): string | null {
+  const re = new RegExp(
+    `(<(?:[a-zA-Z0-9]+:)?SimpleItem[^>]*Name="${itemName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*Value=")([^"]*)(")`,
+  );
+  if (!re.test(configXml)) return null;
+  return configXml.replace(re, `$1${on ? "true" : "false"}$3`);
+}
+
+/** The current value of one SimpleItem in a configuration document. */
+export function analyticsItemValue(configXml: string, itemName: string): boolean | null {
+  const re = new RegExp(
+    `<(?:[a-zA-Z0-9]+:)?SimpleItem[^>]*Name="${itemName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*Value="([^"]*)"`,
+  );
+  const m = re.exec(configXml);
+  if (!m) return null;
+  return m[1] === "true" || m[1] === "1" ? true : m[1] === "false" || m[1] === "0" ? false : null;
+}

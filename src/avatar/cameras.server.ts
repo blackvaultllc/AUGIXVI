@@ -292,6 +292,19 @@ export const ptzCamera = createServerFn({ method: "POST" })
         note: "Control is not granted for this camera — the Permission Law holds it to observation only.",
       };
     }
+    // THE ALL-STOP gates camera sends too (Camera Presence pass,
+    // 2026-11-26): the same halt flag the device bridge checks.
+    const { allStopInForce, stopPatrol } = await import("./cameraPresenceRuntime.server");
+    if (await allStopInForce()) {
+      return {
+        authorized: true,
+        moved: false,
+        note: "Refused — the ALL-STOP is in force. The Captain releases it from his Devices window.",
+      };
+    }
+    // A direct move ends any patrol on this camera — the pad is
+    // the Captain's hand on the lens, and the patrol yields.
+    if (!data.stop) await stopPatrol(data.cameraId, "a direct PTZ move replaced it");
     const lens = camera.lenses.find((l) => l.kind === "ptz");
     if (!lens) return { authorized: true, moved: false, note: "This camera has no PTZ lens registered." };
 

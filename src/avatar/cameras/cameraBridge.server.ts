@@ -88,6 +88,62 @@ export async function openLiveStream(camera: StoredCamera, lens: CameraLens): Pr
   ]);
 }
 
+/**
+ * Grab one frame as raw grayscale pixels (Camera Presence follow:
+ * motion is measured between these, on the core, from the real
+ * stream). Returns exactly width*height bytes or null.
+ */
+export async function grabGrayFrame(
+  camera: StoredCamera,
+  lens: CameraLens,
+  width = 96,
+  height = 54,
+  timeoutMs = 12_000,
+): Promise<Uint8Array | null> {
+  const bridge = await spawnFfmpeg([
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-rtsp_transport",
+    "tcp",
+    "-i",
+    rtspUrlFor(camera, lens),
+    "-an",
+    "-frames:v",
+    "1",
+    "-vf",
+    `scale=${width}:${height}`,
+    "-f",
+    "rawvideo",
+    "-pix_fmt",
+    "gray",
+    "-",
+  ]);
+  if (!bridge) return null;
+  const chunks: Buffer[] = [];
+  let size = 0;
+  const want = width * height;
+  const collected = new Promise<void>((resolve) => {
+    bridge.stdout.on("data", (chunk: Buffer) => {
+      chunks.push(chunk);
+      size += chunk.length;
+      if (size >= want) bridge.kill();
+    });
+    bridge.stdout.on("end", resolve);
+    bridge.stdout.on("error", resolve);
+  });
+  const timeout = new Promise<void>((resolve) => {
+    setTimeout(() => {
+      bridge.kill();
+      resolve();
+    }, timeoutMs);
+  });
+  await Promise.race([collected, timeout]);
+  const bytes = Buffer.concat(chunks);
+  if (bytes.length < want) return null;
+  return new Uint8Array(bytes.subarray(0, want));
+}
+
 /** Grab one frame as JPEG bytes. Null = unavailable or no frame in time. */
 export async function grabSnapshot(
   camera: StoredCamera,
