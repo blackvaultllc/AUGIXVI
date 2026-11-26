@@ -323,7 +323,10 @@ export function CameraPresenceRecords({
       <div className="window-cameras__card">
         <div className="window-cameras__head">
           <strong>Heard through the cameras</strong>
-          <span>transcribed on the core — which camera heard it is part of the record</span>
+          <span>
+            transcribed on the core — which camera heard it, and whose voice the voiceprint read it as, are
+            part of the record (a voice reading is similarity, never proof of identity)
+          </span>
         </div>
         {view.hearing.length === 0 ? (
           <p className="window-cameras__grant">
@@ -334,8 +337,13 @@ export function CameraPresenceRecords({
           view.hearing.map((event) => (
             <p key={event.id} className="window-cameras__probe">
               <strong>{event.cameraName}</strong> · {dayTime(event.at)} ·{" "}
-              {event.kind === "name" ? "heard his name" : event.kind === "command" ? "camera command" : "speech"} — “
-              {event.text}”{event.acted ? ` → ${event.acted}` : ""}
+              {event.kind === "name" ? "heard his name" : event.kind === "command" ? "camera command" : "speech"}
+              {event.speaker === "captain"
+                ? " · voice: the Captain (voiceprint match)"
+                : event.speaker === "another"
+                  ? " · voice: another person (no voiceprint match)"
+                  : ""}{" "}
+              — “{event.text}”{event.acted ? ` → ${event.acted}` : ""}
             </p>
           ))
         )}
