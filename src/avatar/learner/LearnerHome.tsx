@@ -41,6 +41,7 @@ import {
   startLearnerSession,
   validateLearnerSignIn,
 } from "./learnerProfile";
+import { SectionRequestButton } from "../SectionRequestButton";
 import { GateCheckPanel } from "../GateCheckPanel";
 import { LEARNER_GATE_NAME } from "../loginGate";
 import { postGateAttemptRecord } from "../loginGateClient";
@@ -173,6 +174,43 @@ export function LearnerHome() {
         {cabinet === "cube" && <LearnerCube />}
         {cabinet === "play" && <LearnerPlay />}
       </section>
+
+      {/* "Ask for something to be added" (his order 2026-11-26):
+          her words go OUT to Daddy — a request record on the
+          core, standing in his notifications — and nothing
+          comes back but a thank-you. The doorway is on her
+          allowlist for exactly this, like her daddy doorway. */}
+      <SectionRequestButton
+        heading="Want something new in your Academy?"
+        prompt="If you wish your page had something it doesn't have yet, ask here. Your words go straight to Daddy, and he will see them on his Augie."
+        placeholder="Type what you would like added…"
+        sendLabel="Send it to Daddy"
+        onSubmit={async (text) => {
+          try {
+            const response = await fetch("/api/learner/request", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ text }),
+            });
+            if (!response.ok) {
+              return {
+                ok: false,
+                message:
+                  "That could not reach Daddy from this page — tell Daddy, and he will fix it.",
+              };
+            }
+            return {
+              ok: true,
+              message: "Daddy has it! Your request is standing in his notifications now.",
+            };
+          } catch {
+            return {
+              ok: false,
+              message: "That could not reach Daddy from this page — tell Daddy, and he will fix it.",
+            };
+          }
+        }}
+      />
     </div>
   );
 }

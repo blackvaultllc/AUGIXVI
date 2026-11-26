@@ -10144,6 +10144,382 @@
   font-size: 0.9em;
 }
 
+/* ---------- The login disclaimer + Violet's door (2026-11-26) ---------- */
+.operator-auth__disclaimer {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid oklch(0.85 0.16 85 / 35%);
+}
+.operator-auth__disclaimer h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: oklch(0.85 0.16 85);
+}
+.operator-auth__disclaimer p {
+  margin: 0.35rem 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: oklch(0.82 0.03 230);
+}
+.operator-auth__violet-door {
+  margin-top: 1rem;
+  font-size: 0.78rem;
+  text-align: center;
+}
+.operator-auth__violet-door a {
+  color: oklch(0.85 0.16 85);
+  text-underline-offset: 0.2rem;
+}
+
+/* ---------- Violet's side (2026-11-26) ---------- */
+.violet-shell {
+  min-height: 100dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem clamp(0.9rem, 3vw, 2rem) 2.5rem;
+  background:
+    radial-gradient(ellipse at 10% 0%, oklch(0.35 0.08 85 / 30%) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 100%, oklch(0.3 0.06 260 / 35%) 0%, transparent 50%),
+    oklch(0.1 0.025 260);
+  color: oklch(0.9 0.02 90);
+  font-family: system-ui, sans-serif;
+}
+.violet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.violet-header h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.1rem);
+  font-weight: 600;
+  color: oklch(0.88 0.15 85);
+}
+.violet-header p {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: oklch(0.78 0.03 230);
+}
+.violet-leave {
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid oklch(0.85 0.16 85 / 55%);
+  background: transparent;
+  color: oklch(0.88 0.15 85);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.violet-card {
+  width: min(26rem, 100%);
+  margin: auto;
+  padding: 1.5rem;
+  border: 1px solid oklch(0.85 0.16 85 / 40%);
+  border-radius: 0.75rem;
+  background: oklch(0.13 0.03 260 / 92%);
+  box-shadow: 0 1rem 4rem oklch(0.03 0.02 260 / 55%);
+}
+.violet-card h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: oklch(0.88 0.15 85);
+}
+.violet-card > p {
+  margin: 0.6rem 0 1.25rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: oklch(0.8 0.03 230);
+}
+.violet-god {
+  padding: 1rem 1.25rem;
+  border: 1px solid oklch(0.85 0.16 85 / 45%);
+  border-radius: 0.75rem;
+  background: oklch(0.16 0.04 85 / 35%);
+}
+.violet-god h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: oklch(0.88 0.15 85);
+}
+.violet-god p {
+  margin: 0.4rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.violet-banner {
+  padding: 0.9rem 1.25rem;
+  border: 1px solid oklch(0.85 0.16 85 / 60%);
+  border-radius: 0.75rem;
+  background: oklch(0.85 0.16 85 / 14%);
+}
+.violet-banner p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.violet-banner a {
+  color: oklch(0.9 0.16 85);
+}
+.violet-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+.violet-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: flex-start;
+  padding: 0.8rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid oklch(0.7 0.08 220 / 35%);
+  background: oklch(0.14 0.03 260 / 85%);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.violet-tool span {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.violet-tool small {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: oklch(0.75 0.03 230);
+}
+.violet-tool[aria-expanded="true"] {
+  border-color: oklch(0.85 0.16 85 / 70%);
+}
+.violet-panel {
+  padding: 1.1rem 1.25rem;
+  border: 1px solid oklch(0.7 0.08 220 / 30%);
+  border-radius: 0.75rem;
+  background: oklch(0.12 0.03 260 / 88%);
+}
+.violet-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  color: oklch(0.88 0.15 85);
+}
+.violet-form {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 0.75rem;
+}
+.violet-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+.violet-form input,
+.violet-form textarea,
+.violet-form button,
+.violet-panel button,
+.violet-notepad {
+  min-height: 2.75rem;
+  border: 1px solid oklch(0.7 0.08 220 / 40%);
+  border-radius: 0.4rem;
+  background: oklch(0.1 0.03 260 / 85%);
+  color: inherit;
+  font: inherit;
+  padding: 0.65rem 0.75rem;
+}
+.violet-form button,
+.violet-panel button {
+  background: oklch(0.4 0.1 85 / 55%);
+  cursor: pointer;
+}
+.violet-form button:disabled,
+.violet-panel button:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+.violet-notepad {
+  width: 100%;
+  margin-top: 0.5rem;
+  line-height: 1.5;
+}
+.violet-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 0.75rem;
+}
+.violet-note {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: oklch(0.78 0.03 230);
+}
+.violet-error {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: oklch(0.8 0.14 25);
+}
+.violet-device {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: oklch(0.82 0.09 155);
+}
+.violet-calc__display {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid oklch(0.85 0.16 85 / 45%);
+  border-radius: 0.4rem;
+  background: oklch(0.08 0.02 260 / 90%);
+  color: oklch(0.92 0.1 85);
+  font: inherit;
+  font-size: 1.15rem;
+  padding: 0.65rem 0.75rem;
+}
+.violet-calc__keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  max-width: 22rem;
+}
+.violet-calc__result {
+  margin-top: 0.75rem;
+  font-size: 1rem;
+  color: oklch(0.88 0.15 85);
+}
+.violet-balances {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.violet-balances > div {
+  padding: 0.7rem 0.9rem;
+  border: 1px solid oklch(0.7 0.08 220 / 30%);
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.violet-balances span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: oklch(0.75 0.03 230);
+}
+.violet-balances strong {
+  font-size: 1.05rem;
+  color: oklch(0.9 0.12 85);
+}
+.violet-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.violet-ledger th,
+.violet-ledger td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid oklch(0.7 0.08 220 / 22%);
+  text-align: left;
+}
+.violet-ledger__num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+.violet-outbox {
+  display: grid;
+  gap: 0.4rem;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+}
+.violet-password {
+  width: 100%;
+  margin: 0;
+}
+.violet-footer {
+  font-size: 0.8rem;
+  color: oklch(0.72 0.03 230);
+}
+
+/* ---------- "Ask for something to be added" (2026-11-26) ---------- */
+.section-request {
+  padding: 1rem 1.25rem;
+  border: 1px dashed oklch(0.85 0.16 85 / 45%);
+  border-radius: 0.75rem;
+}
+.learner-shell .section-request {
+  border-color: #e9c46a;
+  background: #fff;
+}
+.section-request__heading {
+  margin: 0;
+  font-size: 1rem;
+}
+.section-request__prompt {
+  margin: 0.4rem 0 0.7rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+.section-request__open,
+.section-request__form button {
+  min-height: 2.75rem;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid oklch(0.85 0.16 85 / 60%);
+  background: oklch(0.4 0.1 85 / 45%);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.learner-shell .section-request__open,
+.learner-shell .section-request__form button {
+  border-color: #f4a261;
+  background: #fff7ea;
+}
+.section-request__form {
+  display: grid;
+  gap: 0.7rem;
+}
+.section-request__form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+.section-request__form textarea {
+  border: 1px solid oklch(0.7 0.08 220 / 40%);
+  border-radius: 0.4rem;
+  background: oklch(0.1 0.03 260 / 85%);
+  color: inherit;
+  font: inherit;
+  padding: 0.65rem 0.75rem;
+}
+.learner-shell .section-request__form textarea {
+  background: #fff;
+  border-color: #e9c46a;
+  color: #3a2b20;
+  font-size: 1rem;
+}
+.section-request__row {
+  display: flex;
+  gap: 0.6rem;
+}
+.section-request__cancel {
+  background: transparent !important;
+  border-color: transparent !important;
+  text-decoration: underline;
+}
+.section-request__note {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 /* =====================================================================
    TOUCH INPUTS NEVER ZOOM THE SCREEN (owner defect report
    2026-11-26, from his phone): he tapped into the chat to type

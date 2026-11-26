@@ -27,6 +27,7 @@ const REQUIRED_CATEGORIES = [
   "Offline & the Go Drive",
   "Connections & keys",
   "Social & posts — the office",
+  "Violet's side — the Financial Advisor's door",
   "Troubleshooting",
   "REBUILD — if the world goes dark",
 ];

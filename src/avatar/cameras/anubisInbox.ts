@@ -38,6 +38,12 @@
  *     path that carries it to the Captain. Draft (first)
  *     hearings derive NOTHING — an unconfirmed sound never
  *     becomes a notification.
+ *   · REQUEST — a person with a side of her own (Violet,
+ *     Khadija) filed an "Ask for something to be added"
+ *     request. These are not derived here: the request record
+ *     in section-requests is the event, and the filing door
+ *     (sectionRequestsStore.server.ts) writes the mirror entry
+ *     at the moment of filing, from the request itself.
  *
  * THE SUGGESTION RULE SET (explicit, and the whole of it):
  *   S1 REPEATED EVENTS — one camera raises 3+ confirmed
@@ -69,7 +75,7 @@ import { SILENT_SENSOR_NAME, SILENT_SENSOR_TRIP_ID_PREFIX } from "./silentSensor
 /* Entries                                                             */
 /* ------------------------------------------------------------------ */
 
-export type NotificationKind = "suggestion" | "system" | "capture";
+export type NotificationKind = "suggestion" | "system" | "capture" | "request";
 
 export interface AnubisNotification {
   id: string;
@@ -124,7 +130,7 @@ function cleanStillName(v: unknown): string {
   return name;
 }
 
-const NOTIFICATION_KINDS: NotificationKind[] = ["suggestion", "system", "capture"];
+const NOTIFICATION_KINDS: NotificationKind[] = ["suggestion", "system", "capture", "request"];
 
 export function sanitizeNotification(v: unknown): AnubisNotification | null {
   if (!isRecord(v)) return null;
