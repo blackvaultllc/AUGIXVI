@@ -30,7 +30,14 @@
  *     requests, repair proposals, test results. The log's
  *     "note" lines are NOT mirrored — notes are annotations,
  *     not system actions, and Sector Watch already raises its
- *     own entries.
+ *     own entries. ONE watch-log source also lands here: a
+ *     MONTU SILENT SENSOR trip (a confirmed entry in the
+ *     sector watch log, id-prefixed silent-trip-) — the back
+ *     motion sensors cannot speak, so their confirmed trip is
+ *     the system reporting its own hearing, and this is the
+ *     path that carries it to the Captain. Draft (first)
+ *     hearings derive NOTHING — an unconfirmed sound never
+ *     becomes a notification.
  *   · REQUEST — a person with a side of her own (Violet,
  *     Khadija) filed an "Ask for something to be added"
  *     request. These are not derived here: the request record
@@ -62,6 +69,7 @@ import {
   type SectorJudgment,
   type SectorWatchFile,
 } from "./sectorWatch";
+import { SILENT_SENSOR_NAME, SILENT_SENSOR_TRIP_ID_PREFIX } from "./silentSensor";
 
 /* ------------------------------------------------------------------ */
 /* Entries                                                             */
@@ -396,6 +404,34 @@ function systemEntries(sources: InboxSources): AnubisNotification[] {
 }
 
 /**
+ * MONTU SILENT SENSOR trips: the confirmed entries in the
+ * watch log (kind "event", id carrying the trip prefix the
+ * hearing pipeline stamps). One entry per real trip, standing
+ * on the log line itself — its text names the camera that
+ * heard the siren, and no other camera is ever named.
+ */
+function silentSensorEntries(sector: SectorWatchFile): AnubisNotification[] {
+  const out: AnubisNotification[] = [];
+  for (const entry of sector.log) {
+    if (entry.kind !== "event" || !entry.id.startsWith(SILENT_SENSOR_TRIP_ID_PREFIX)) continue;
+    out.push({
+      id: `ntf-silent-${entry.id}`,
+      at: entry.at,
+      kind: "system",
+      title: `${SILENT_SENSOR_NAME} — a back motion sensor tripped`,
+      text: entry.text,
+      sourceEventId: entry.id,
+      cameraId: entry.cameraId,
+      cameraName: entry.cameraName,
+      still: "",
+      reasoning: "",
+      read: false,
+    });
+  }
+  return out;
+}
+
+/**
  * Derive every notification the current records support.
  * Deterministic: the same records give the same entries with
  * the same ids, so the store merge dedupes by id and a
@@ -406,6 +442,7 @@ export function deriveNotifications(sources: InboxSources): AnubisNotification[]
     ...captureEntries(sources.sector),
     ...suggestionEntries(sources),
     ...systemEntries(sources),
+    ...silentSensorEntries(sources.sector),
   ].sort((a, b) => b.at - a.at);
 }
 

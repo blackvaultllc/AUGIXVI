@@ -35,6 +35,12 @@
  * Plain TS, no I/O — the server modules do the dialing.
  */
 
+import {
+  emptySilentSensorState,
+  sanitizeSilentSensorState,
+  type SilentSensorState,
+} from "./silentSensor";
+
 /* ------------------------------------------------------------------ */
 /* State shapes                                                        */
 /* ------------------------------------------------------------------ */
@@ -244,6 +250,14 @@ export interface CameraPresenceFile {
   household: HouseholdEnrollment[];
   /** Voiceprint strengthening the hearing pipeline has performed (capped). */
   voiceStrengthening: VoiceStrengthening;
+  /**
+   * MONTU SILENT SENSOR (2026-11-26): the enrolled PIR-siren
+   * sound profile, the latest unnamed loud-sound candidate,
+   * and the last confirmed trip — the hearing pipeline's sound
+   * record, kept with the hearing record it stands on. The
+   * shapes and the law live in silentSensor.ts.
+   */
+  silentSensor: SilentSensorState;
 }
 
 export const HEARING_MAX = 60;
@@ -271,6 +285,7 @@ export function emptyPresenceFile(): CameraPresenceFile {
     enrollment: null,
     household: [],
     voiceStrengthening: { count: 0, lastAt: null },
+    silentSensor: emptySilentSensorState(),
   };
 }
 
@@ -436,7 +451,15 @@ export function sanitizePresenceFile(v: unknown): CameraPresenceFile {
         : 0,
     lastAt: cleanTime(vs["lastAt"]),
   };
-  return { cameras, hearing, recordings, enrollment, household, voiceStrengthening };
+  return {
+    cameras,
+    hearing,
+    recordings,
+    enrollment,
+    household,
+    voiceStrengthening,
+    silentSensor: sanitizeSilentSensorState(v["silentSensor"]),
+  };
 }
 
 export function sanitizeHouseholdEnrollment(v: unknown): HouseholdEnrollment | null {
