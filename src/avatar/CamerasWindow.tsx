@@ -46,6 +46,8 @@ import {
 import { CameraAnalysisBlock } from "./cameras/CameraAnalysisBlock";
 import { getCameraPresence, type CameraPresenceView } from "./cameraPresence.server";
 import { CameraPresenceRecords, CameraPresenceSection } from "./cameras/CameraPresencePanel";
+import { SectorWatchPanel } from "./cameras/SectorWatchPanel";
+import { PermissionsProfilePanel } from "./cameras/PermissionsProfilePanel";
 import { loadRegistry, upsertDevice, type DeviceProfile } from "./devices/deviceRegistry";
 
 async function loadAuthClient(): Promise<SupabaseClient | null> {
@@ -726,6 +728,10 @@ export function CamerasPanel() {
               refreshPresence={() => void refreshPresence()}
             />
           )}
+          {state.view.cameras.length > 0 && state.view.storageAvailable && (
+            <SectorWatchPanel cameras={state.view.cameras} token={token ?? ""} presenceView={presenceView} />
+          )}
+          {state.view.storageAvailable && <PermissionsProfilePanel token={token ?? ""} />}
           {adding ? (
             <CameraForm
               initial={adding}

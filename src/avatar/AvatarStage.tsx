@@ -375,6 +375,7 @@ import { brainStateLine } from "./brainState";
 import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
 import { fetchDaddyInboxView, operatorAccessToken } from "./learner/daddyInboxClient";
 import { getCameraSpeech, markCameraSpeechRouted } from "./cameraPresence.server";
+import { getSectorAlertState } from "./sectorWatch.server";
 import { alertRingReading } from "./alertRing";
 import {
   currentSoundFeed,
@@ -1119,16 +1120,20 @@ export function AvatarStage({
   const daddySeenMessagesRef = useRef<Set<string> | null>(null);
   const daddySeenCallRef = useRef<string | null>(null);
   /**
-   * THE ALERT RING's stage inputs (cybernetic pass, 2026-11-26):
-   * Khadija's call ringing right now (kept by the inbox poll
-   * below, from its real view) and the Sound Watch feed (its own
-   * subscription — alertRing.ts reads the two records and
-   * nothing else). The reading drives Anubis's ring ALERT state.
+   * THE ALERT RING's stage inputs (cybernetic pass, 2026-11-26;
+   * Sector Watch added its record the same day): Khadija's call
+   * ringing right now (kept by the inbox poll below, from its
+   * real view), the Sound Watch feed (its own subscription), and
+   * the Sector Watch events waiting unacknowledged (kept by the
+   * sector poll beside the camera-speech poll — alertRing.ts
+   * reads the three records and nothing else). The reading
+   * drives Anubis's ring ALERT state.
    */
   const [daddyCallRinging, setDaddyCallRinging] = useState(false);
   const [soundFeed, setSoundFeed] = useState<SoundFeedEntry[]>(() => currentSoundFeed());
   useEffect(() => subscribeSoundFeed(setSoundFeed), []);
-  const alertReading = alertRingReading({ soundFeed, daddyCallRinging });
+  const [sectorAlertsWaiting, setSectorAlertsWaiting] = useState(0);
+  const alertReading = alertRingReading({ soundFeed, daddyCallRinging, sectorAlertsWaiting });
   useEffect(() => {
     let stopped = false;
     const tick = async () => {
@@ -2908,6 +2913,54 @@ export function AvatarStage({
       clearInterval(timer);
     };
   }, [notify, sendCommand]);
+
+  /**
+   * SECTOR WATCH ALERTS (Sector Watch pass, 2026-11-26): Anubis
+   * watches the cameras on the core; a confirmed reading raises
+   * a security event in the sector record. This poll is how the
+   * stage learns of it — the unacknowledged count feeds the
+   * Alert Ring, and each NEW event is raised once here as a
+   * notification (his acknowledgment in the Cameras window is
+   * what clears it). The first poll treats everything already
+   * waiting as standing history for the ring — it does not
+   * re-announce old events; only events raised while he is at
+   * his Augie are announced the moment they are seen.
+   */
+  const sectorSeenRef = useRef<Set<string> | null>(null);
+  const sectorJudgmentSeenRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    let stopped = false;
+    const tick = async () => {
+      const accessToken = await operatorAccessToken().catch(() => null);
+      if (stopped || !accessToken) return;
+      const view = await getSectorAlertState({ data: { accessToken } }).catch(() => null);
+      if (stopped || !view?.authorized) return;
+      setSectorAlertsWaiting(view.events.length);
+      if (sectorSeenRef.current === null) {
+        sectorSeenRef.current = new Set(view.events.map((e) => e.id));
+        sectorJudgmentSeenRef.current = new Set(view.judgments.map((j) => j.id));
+        return;
+      }
+      for (const event of view.events) {
+        if (sectorSeenRef.current.has(event.id)) continue;
+        sectorSeenRef.current.add(event.id);
+        notify("cameras", `Sector Watch: ${event.summary}`);
+      }
+      // Judgment items ride the same poll but are NOT alerts —
+      // they are Anubis's "look at this", raised once each.
+      for (const judgment of view.judgments) {
+        if (sectorJudgmentSeenRef.current?.has(judgment.id)) continue;
+        sectorJudgmentSeenRef.current?.add(judgment.id);
+        notify("cameras", judgment.text);
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 25_000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [notify]);
 
   useEffect(() => {
     const bridge = bridgeRef.current;

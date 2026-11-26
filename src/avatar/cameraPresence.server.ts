@@ -229,6 +229,34 @@ export const probeCameraPresence = createServerFn({ method: "POST" })
     return { authorized: true, ok: result.ok, spotlightNote: result.spotlightNote, trackingNote: result.trackingNote };
   });
 
+export type ProbeStreamResult = { authorized: boolean; ok: boolean; note: string };
+
+/**
+ * The stream probe: measure whether THIS camera's pulled stream
+ * follows its moving lens (a short test pan, frames compared,
+ * the head returned toward its start). The verdict is recorded
+ * in the presence store; follow steering and the watch read it.
+ */
+export const probeCameraStreamFollow = createServerFn({ method: "POST" })
+  .validator((input: unknown): ProbePresenceInput => {
+    if (!isTokenInput(input) || typeof (input as ProbePresenceInput).cameraId !== "string") {
+      throw new Error("Invalid stream probe request.");
+    }
+    return input as ProbePresenceInput;
+  })
+  .handler(async ({ data }): Promise<ProbeStreamResult> => {
+    if (!(await authorized(data.accessToken))) {
+      return { authorized: false, ok: false, note: "The operator session is gone — sign in again." };
+    }
+    const cameraStore = await getCameraStore();
+    if (!cameraStore) return { authorized: true, ok: false, note: "No local camera store here." };
+    const camera = await cameraStore.get(data.cameraId);
+    if (!camera) return { authorized: true, ok: false, note: "That camera is not in the registry." };
+    const runtime = await import("./cameraPresenceRuntime.server");
+    const result = await runtime.probeStreamFollow(camera);
+    return { authorized: true, ok: result.ok, note: result.note };
+  });
+
 /* ------------------------------ creator ------------------------------ */
 
 export type CreatorInput = TokenInput & { cameraId: string };
@@ -310,6 +338,17 @@ export const getCameraSpeech = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }): Promise<CameraSpeechView> => {
     if (!(await authorized(data.accessToken))) return { authorized: false, events: [] };
+    // HEARING SELF-START (the Captain's correction, 2026-11-26):
+    // the stage polls this read every ~20 s, so it is a presence
+    // read path — armed-in-store must mean listening WITHOUT the
+    // Cameras window ever being opened. Reconcile the presence
+    // loops from the store here, and make sure the core watch
+    // timer exists (its ticks keep the reconcile running on
+    // their own from then on).
+    const runtime = await import("./cameraPresenceRuntime.server");
+    await runtime.reconcilePresence();
+    const sectorRuntime = await import("./sectorWatchRuntime.server");
+    sectorRuntime.reconcileSectorWatch();
     const presenceStore = await getCameraPresenceStore();
     if (!presenceStore) return { authorized: true, events: [] };
     const file = await presenceStore.read();
