@@ -1519,7 +1519,7 @@ export function AvatarStage({
   // or whose file fails to load keeps the wallpaper: the
   // failed god is remembered here so a broken file never
   // flickers, and never wears a substitute.
-  const [godBackdropFailedFor, setGodBackdropFailedFor] = useState<PresenceGodId | null>(null);
+  const [godBackdropFailedFor, setGodBackdropFailedFor] = useState<PresenceGodId | "council" | null>(null);
   // CHANGE WALLPAPER (owner order 2026-11-24 ~17:26 EST): he went
   // looking in the menu for the wallpaper and could not find it —
   // the Scene tab now opens with a plainly labeled "Change
