@@ -20,6 +20,11 @@ import {
   type HearingEvent,
   type RecordingInfo,
 } from "./cameras/cameraPresence";
+import {
+  enrollProfileFromCandidate,
+  SILENT_SENSOR_NAME,
+  type SilentSensorState,
+} from "./cameras/silentSensor";
 
 type TokenInput = { accessToken: string };
 
@@ -52,6 +57,8 @@ export type CameraPresenceView = {
   hearing: HearingEvent[];
   recordings: (RecordingInfo & { live: boolean })[];
   enrollment: CreatorEnrollment | null;
+  /** Montu Silent Sensor: the enrolled siren profile + the standing candidate. */
+  silentSensor: SilentSensorState;
 };
 
 export const getCameraPresence = createServerFn({ method: "POST" })
@@ -67,6 +74,7 @@ export const getCameraPresence = createServerFn({ method: "POST" })
       hearing: [],
       recordings: [],
       enrollment: null,
+      silentSensor: { profile: null, candidate: null, lastTripAt: null },
     };
     if (!(await authorized(data.accessToken))) return empty;
     const presenceStore = await getCameraPresenceStore();
@@ -89,6 +97,7 @@ export const getCameraPresence = createServerFn({ method: "POST" })
       hearing: file.hearing,
       recordings: file.recordings.map((r) => ({ ...r, live: r.stoppedAt === null && runtime.recordingLive(r.cameraId) })),
       enrollment: file.enrollment,
+      silentSensor: file.silentSensor,
     };
   });
 
@@ -321,6 +330,69 @@ export const clearCreatorEnrollment = createServerFn({ method: "POST" })
     }
     await presenceStore.update((f) => ({ ...f, enrollment: null }));
     return { authorized: true, ok: true, note: "Creator enrollment cleared — the reference frames are deleted from this machine." };
+  });
+
+/* ------------------------- Montu Silent Sensor ------------------------- */
+
+/**
+ * His word enrolls the siren: the standing candidate (the loud
+ * sound a camera kept from his test) becomes the profile under
+ * its fixed name. No candidate → nothing is enrolled and the
+ * note says so — a profile is never invented.
+ */
+export const enrollSilentSensor = createServerFn({ method: "POST" })
+  .validator((input: unknown): TokenInput => {
+    if (!isTokenInput(input)) throw new Error("Invalid silent sensor request.");
+    return input;
+  })
+  .handler(async ({ data }): Promise<PresenceNoteResult> => {
+    if (!(await authorized(data.accessToken))) {
+      return { authorized: false, ok: false, note: "The operator session is gone — sign in again." };
+    }
+    const presenceStore = await getCameraPresenceStore();
+    if (!presenceStore) return { authorized: true, ok: false, note: "No local presence store here." };
+    const file = await presenceStore.read();
+    const candidate = file.silentSensor.candidate;
+    if (!candidate) {
+      return {
+        authorized: true,
+        ok: false,
+        note: "There is no candidate sound to enroll. Run the test first: arm a camera's hearing, set a motion sensor off within its earshot, and the loud sound it hears is kept here for your word.",
+      };
+    }
+    const profile = enrollProfileFromCandidate(candidate, Date.now());
+    await presenceStore.update((f) => ({
+      ...f,
+      silentSensor: { ...f.silentSensor, profile, candidate: null },
+    }));
+    return {
+      authorized: true,
+      ok: true,
+      note: `Enrolled as ${SILENT_SENSOR_NAME} — the sound ${candidate.cameraName} heard is now the back motion sensors' siren on this record. When a hearing camera matches it twice, Sector Watch logs a trip and you are notified.`,
+    };
+  });
+
+/** Forget the siren: the profile is cleared; the sensors go silent to the system again. */
+export const forgetSilentSensor = createServerFn({ method: "POST" })
+  .validator((input: unknown): TokenInput => {
+    if (!isTokenInput(input)) throw new Error("Invalid silent sensor request.");
+    return input;
+  })
+  .handler(async ({ data }): Promise<PresenceNoteResult> => {
+    if (!(await authorized(data.accessToken))) {
+      return { authorized: false, ok: false, note: "The operator session is gone — sign in again." };
+    }
+    const presenceStore = await getCameraPresenceStore();
+    if (!presenceStore) return { authorized: true, ok: false, note: "No local presence store here." };
+    await presenceStore.update((f) => ({
+      ...f,
+      silentSensor: { ...f.silentSensor, profile: null },
+    }));
+    return {
+      authorized: true,
+      ok: true,
+      note: `${SILENT_SENSOR_NAME} forgotten — no siren profile stands on the record. Run the test again whenever you want it back.`,
+    };
   });
 
 /* --------------------------- stage speech poll --------------------------- */
