@@ -74,6 +74,7 @@
 import { useState } from "react";
 import { ANUBIS_BINDING, ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
 import { ANUBIS_FEATURES, LivingPortrait } from "./LivingPortrait";
+import { PresenceRing } from "./PresenceRing";
 import { ANUBIS_MOTION_PROFILE } from "./godMotion";
 import { MedallionMenu } from "./MedallionMenu";
 import {
@@ -93,6 +94,7 @@ export function AnubisPresence({
   speaking,
   listening,
   acting,
+  receded = false,
   inPerspective = false,
   inCall = false,
   inCouncil = false,
@@ -111,6 +113,16 @@ export function AnubisPresence({
   listening: boolean;
   /** Augie is visibly carrying out work (thinking / presenting). */
   acting: boolean;
+  /**
+   * RECEDED (owner order 2026-11-26, the circuit-ring theme):
+   * while a screen the Captain asked for stands open on the
+   * stage, Anubis yields the foreground — smaller, dimmer,
+   * behind it — and returns to full center presence when it
+   * closes. He is never hidden and never gone; the stage drives
+   * this from its real window state, and the motion is the CSS
+   * transition on his root (stage-fix-round.css §38).
+   */
+  receded?: boolean;
   /** The stage's focus is on Anubis's station right now. */
   inPerspective?: boolean;
   /** A one-god CALL conversation is live with Anubis (owner order 2026-11-22). */
@@ -173,6 +185,7 @@ export function AnubisPresence({
     speaking ? "anubis-presence--speaking" : "",
     listening ? "anubis-presence--listening" : "",
     acting ? "anubis-presence--acting" : "",
+    receded ? "anubis-presence--receded" : "",
     !ready ? "anubis-presence--connecting" : "",
     inPerspective ? "anubis-presence--in-perspective" : "",
     inCall ? "medallion-anchor--in-call" : "",
@@ -217,16 +230,23 @@ export function AnubisPresence({
       }
       {...anchor.rootProps}
     >
-      <div className="anubis-presence__face" style={anchor.faceStyle}>
-        {showBody ? (
-          <img
-            className="anubis-presence__img"
-            src={ANUBIS_BINDING.body}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-          />
-        ) : (
+      {/* THE CIRCUIT RING (owner order 2026-11-26): the halo
+          carries his seated size; the ring stands around the
+          face as its sibling — the face itself stays the pure
+          portrait, no SVG inside it — and reads his real state
+          (PresenceRing / presenceRing.ts). */}
+      <div className="anubis-presence__halo" style={anchor.faceStyle}>
+        <PresenceRing ready={ready} speaking={speaking} listening={listening} acting={acting} />
+        <div className="anubis-presence__face" style={anchor.faceStyle}>
+          {showBody ? (
+            <img
+              className="anubis-presence__img"
+              src={ANUBIS_BINDING.body}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+            />
+          ) : (
           /* LIVING FACE (owner order 2026-11-22): the portrait itself,
              plus blinking eyelids and a mouth that moves while Anubis
              speaks — a face, not a frozen picture (LivingPortrait).
@@ -236,14 +256,15 @@ export function AnubisPresence({
              the stage's slowest, weightiest blink (rebuilt in
              phases, lower lid rising, lids fitted to the jackal
              eye's slant), a deliberate gaze, a measured speech. */
-          <LivingPortrait
-            src={ANUBIS_FACE_SRC}
-            features={ANUBIS_FEATURES}
-            speaking={speaking}
-            imgClassName="anubis-presence__img"
-            motion={ANUBIS_MOTION_PROFILE}
-          />
-        )}
+            <LivingPortrait
+              src={ANUBIS_FACE_SRC}
+              features={ANUBIS_FEATURES}
+              speaking={speaking}
+              imgClassName="anubis-presence__img"
+              motion={ANUBIS_MOTION_PROFILE}
+            />
+          )}
+        </div>
       </div>
       {/* FACE ONLY (owner eye-check 2026-11-22): no name plate, no
           controls row under the face — the controls live inside

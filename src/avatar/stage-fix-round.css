@@ -1593,3 +1593,259 @@
 .avatar-stage .god-medallions {
   bottom: var(--chat-dock-clearance);
 }
+
+/* ================================================================
+   36) THE CIRCUIT-RING THEME — THE STAGE IS A DEVICE (owner
+   order 2026-11-26): he saw the sold robot dog's app interface
+   and ordered OUR OWN version of that look, stronger, as the
+   MAIN theme of the stage — "that cybernetic Digimon-looking
+   Pokedex look": a personal command device, framed,
+   data-forward, gadget-true. Nothing of theirs is copied —
+   every line here is our own CSS/SVG. The blend is his own
+   palette: cyan circuit glow with Egyptian gold corners and
+   trim, on the deep blue-black field.
+
+   THE CIRCUIT FIELD: our trace linework lies over the stage's
+   ground as a device-screen layer — behind every presence
+   (z 6) and window (z 60), above the world canvas, at a
+   whisper of strength so it dresses the stage without ever
+   competing with the gods. THE CIRCUIT FRAME: a glowing
+   bezel traces the stage's edges, its bottom edge standing at
+   the chat dock's clearance (section 35's number) so it never
+   runs under the dock; gold L-corners and a gold top notch
+   carry the Egyptian half of the blend. Both layers are pure
+   dress — pointer-events none, aria-hidden — and neither
+   carries a single reading: data lives only where data is
+   real (the ring, section 37; the readouts, section 39).
+   ================================================================ */
+.avatar-stage .stage-circuit-field {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 42%, rgb(16 42 86 / 16%) 0%, rgb(3 6 16 / 30%) 78%),
+    linear-gradient(180deg, rgb(6 14 34 / 22%), rgb(2 4 12 / 30%));
+}
+.avatar-stage .stage-circuit-field__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.avatar-stage .stage-circuit-field__traces path {
+  fill: none;
+  stroke: rgb(47 216 255 / 20%);
+  stroke-width: 1.5;
+}
+.avatar-stage .stage-circuit-field__nodes circle {
+  fill: rgb(47 216 255 / 30%);
+}
+.avatar-stage .stage-circuit-frame {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  bottom: calc(var(--chat-dock-clearance, 4.5rem) + 2px);
+  z-index: 3;
+  pointer-events: none;
+  border: 1px solid rgb(47 216 255 / 22%);
+  box-shadow:
+    inset 0 0 22px rgb(47 216 255 / 6%),
+    0 0 14px rgb(47 216 255 / 5%);
+}
+.avatar-stage .stage-circuit-frame__corner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 0 solid #ffd94d;
+}
+.avatar-stage .stage-circuit-frame__corner--tl {
+  top: -2px;
+  left: -2px;
+  border-top-width: 3px;
+  border-left-width: 3px;
+}
+.avatar-stage .stage-circuit-frame__corner--tr {
+  top: -2px;
+  right: -2px;
+  border-top-width: 3px;
+  border-right-width: 3px;
+}
+.avatar-stage .stage-circuit-frame__corner--bl {
+  bottom: -2px;
+  left: -2px;
+  border-bottom-width: 3px;
+  border-left-width: 3px;
+}
+.avatar-stage .stage-circuit-frame__corner--br {
+  bottom: -2px;
+  right: -2px;
+  border-bottom-width: 3px;
+  border-right-width: 3px;
+}
+.avatar-stage .stage-circuit-frame__notch {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 3px;
+  background: #ffd94d;
+}
+@media (max-width: 700px) {
+  .avatar-stage .stage-circuit-frame {
+    left: 6px;
+    right: 6px;
+    top: 6px;
+  }
+  .avatar-stage .stage-circuit-frame__corner {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* ================================================================
+   37) THE PRESENCE RING (same order): the segmented ring gauge
+   around the front god's medallion — picture 4's circular
+   ring, our own geometry (PresenceRing.tsx). The halo carries
+   the medallion's seated size (the anchor's faceStyle moved
+   here); the face fills it whole, exactly the size it always
+   was. The ring stands OUTSIDE the face as its sibling — the
+   face stays the pure portrait — oversized past the halo so
+   its segments circle the medallion with a breath of gap.
+   Segment colors are readings (presenceRing.ts, from the
+   god's real state): gold lit, cyan lit, dim unlit — the ring
+   never shows a state he is not in. The face keeps its own
+   anchor sizing exactly as before (the lockdown pin reads
+   it); the halo is only the ring's positioning frame, sized
+   to match.
+   ================================================================ */
+.avatar-stage .anubis-presence__halo,
+.avatar-stage .montu-presence__halo {
+  position: relative;
+  flex: none;
+}
+.avatar-stage .presence-ring {
+  position: absolute;
+  inset: -11%;
+  width: 122%;
+  height: 122%;
+  pointer-events: none;
+}
+.avatar-stage .presence-ring__track {
+  fill: none;
+  stroke: rgb(47 216 255 / 16%);
+  stroke-width: 4.6;
+}
+.avatar-stage .presence-ring__seg {
+  fill: none;
+  stroke-width: 4.6;
+}
+.avatar-stage .presence-ring__seg--gold {
+  stroke: #ffd94d;
+}
+.avatar-stage .presence-ring__seg--cyan {
+  stroke: #38e1ff;
+}
+.avatar-stage .presence-ring__seg--dim {
+  stroke: rgb(96 165 220 / 38%);
+}
+
+/* ================================================================
+   38) ANUBIS RECEDES AND RETURNS (same order): while a screen
+   the Captain asked for stands open, Anubis yields the
+   foreground — smaller, dimmer, and behind it (the windows
+   stand at z 60; he stands at z 6, as ever). When the last
+   screen closes he pulls himself back up to full center
+   presence. The motion is this transition — smooth both
+   ways, at the gods' animation standard — and it is the ONLY
+   transform the recede ever applies: his seat, his size on
+   record, and his face are untouched, and he is never hidden
+   (opacity holds at half, never zero). The council's
+   transform:none law (§10) yields to the recede while a
+   screen stands open — the recede is the newer, deliberate
+   order, and it ends the moment the screen closes. Reduced
+   motion: the change is instant, no glide.
+   ================================================================ */
+.avatar-stage .anubis-presence {
+  transition:
+    transform 650ms cubic-bezier(0.22, 0.8, 0.3, 1),
+    opacity 650ms ease,
+    filter 650ms ease;
+}
+.avatar-stage .anubis-presence.anubis-presence--receded {
+  transform: scale(0.7);
+  opacity: 0.5;
+  filter: brightness(0.72) saturate(0.8);
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar-stage .anubis-presence {
+    transition: none;
+  }
+}
+
+/* ================================================================
+   39) DEVICE CHROME (same order): the stage's controls take
+   the gadget's dress — bracket-cut tabs, hexagonal window
+   keys, a cyan-edged bezel on the floating windows, and a
+   faint cyan edge on the real readout panels. What the laws
+   protect is untouched: the medallions stay TRUE CIRCLES
+   (shape changes are for tabs and keys, never faces), Osiris's
+   four keys stay the round icons his order named, the chat
+   window keeps its Egyptian dress (§33) and its gold Send
+   key, and no type size changes anywhere (bifocal law).
+   ================================================================ */
+.avatar-stage .floating-window {
+  border: 1px solid rgb(47 216 255 / 38%);
+  box-shadow:
+    0 0 0 1px rgb(3 10 18 / 90%),
+    0 0 22px rgb(47 216 255 / 10%),
+    0 18px 44px rgb(0 0 0 / 55%);
+}
+.avatar-stage .floating-window__bar {
+  border-bottom: 1px solid rgb(47 216 255 / 32%);
+}
+.avatar-stage .floating-window__button {
+  border: none;
+  background: rgb(47 216 255 / 12%);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+.avatar-stage .avatar-status-tab {
+  border-radius: 0.4rem;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+.avatar-stage .avatar-command-box__tab {
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.avatar-stage .avatar-command-box__tab[aria-selected="true"] {
+  box-shadow: inset 0 -2px 0 rgb(47 216 255 / 70%);
+}
+.avatar-stage .avatar-command-box__action {
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.avatar-stage .medallion-menu__button,
+.avatar-stage .medallion-controls__button,
+.avatar-stage .medallion-menu__size-button,
+.avatar-stage .medallion-menu__lock-button,
+.avatar-stage .medallion-menu__perspective-button {
+  box-shadow: 0 0 10px rgb(47 216 255 / 14%);
+}
+.avatar-stage .osiris-medallion .augie-presence {
+  box-shadow:
+    0 10px 28px rgb(10 20 40 / 28%),
+    0 0 0 1px rgb(212 175 55 / 35%),
+    0 0 16px rgb(47 216 255 / 16%);
+}
+/* His speaking glow (§32) still outranks the resting edge. */
+.avatar-stage .osiris-medallion--speaking .augie-presence {
+  box-shadow:
+    0 10px 28px rgb(10 20 40 / 28%),
+    0 0 22px 2px rgb(255 215 94 / 45%),
+    0 0 16px rgb(47 216 255 / 16%);
+}
+.avatar-stage div.avatar-hud {
+  border-color: rgb(47 216 255 / 30%);
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 40%),
+    0 0 14px rgb(47 216 255 / 7%);
+}

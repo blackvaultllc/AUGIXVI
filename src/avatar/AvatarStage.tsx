@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type TouchEvent as ReactTouchEvent,
 } from "react";
 import * as THREE from "three";
 import {
@@ -130,6 +131,7 @@ import {
   type StagePerspective,
 } from "./stagePerspective";
 import { loadStageView, saveStageView, type StageView } from "./stageView";
+import { stageViewAfterSwipe, swipeDirection } from "./stageSwipe";
 import {
   constructStandsOnStage,
   dismissalTarget,
@@ -3480,6 +3482,85 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
   // black: both take the dark look, so the stage's own ground and
   // the HUD's standing colors match the composition on every
   // device, phone included — never pale-on-pale.
+  // A SCREEN STANDS OPEN (owner order 2026-11-26, the
+  // circuit-ring theme — ANUBIS RECEDES AND RETURNS): while any
+  // window or screen the Captain asked for stands open on the
+  // stage, Anubis recedes — smaller, dimmer, behind it — and
+  // when the last one closes he returns to full center
+  // presence. Derived from the stage's REAL open states, every
+  // one of them; no window, no recede. (The Status panel is a
+  // readout tab, not a requested screen, and menus are moments,
+  // not screens — neither recedes him.)
+  const stageScreenOpen =
+    cubeOpen ||
+    roomAnalyzerOpen ||
+    knowledgeOpen ||
+    officeOpen ||
+    battleOpen ||
+    cloudKeysOpen ||
+    connectionsOpen ||
+    labOpen ||
+    historyOpen ||
+    arCubeOpen ||
+    hexoOpen ||
+    emulatorOpen ||
+    pulseOpen ||
+    soundWatchOpen ||
+    analyzeOpen ||
+    gateLogOpen ||
+    signalMapOpen ||
+    logsOpen ||
+    testAreaOpen ||
+    anatomyOpen ||
+    departmentsOpen ||
+    captainsLogOpen ||
+    sandboxOpen ||
+    libraryOpen ||
+    lawOpen ||
+    analyticsOpen ||
+    listeningOpen ||
+    devicesOpen ||
+    camerasOpen ||
+    remoteCodesOpen ||
+    openWindows.size > 0 ||
+    constructOpen ||
+    builderOpen ||
+    mapOpen ||
+    builtWorldMapOpen;
+  // THE PHONE SWIPE (same order): on a phone-width stage, a
+  // sideways finger slide steps the stage's PERSPECTIVE one
+  // stop (stageSwipe.ts — the same Left / Front / Right view
+  // the buttons in Anubis's menu set; clamped at the ends).
+  // The gesture is read on the stage's open field only: a
+  // slide that starts inside the chat window, a floating
+  // window, a menu, or the status panel belongs to that
+  // surface and never turns the view.
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const onStageTouchStart = (event: ReactTouchEvent) => {
+    const touch = event.touches[0];
+    swipeStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  };
+  const onStageTouchEnd = (event: ReactTouchEvent) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start) return;
+    if (typeof window === "undefined" || window.innerWidth > COMMAND_BOX_PHONE_BREAKPOINT) return;
+    if (worldScreenRef.current !== "live") return;
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest?.(
+        ".avatar-command-box, .floating-window, .medallion-menu__panel, .osiris-medallion__menu, .osiris-medallion__dm, .avatar-status-panel, .builder-selection-cluster",
+      )
+    ) {
+      return;
+    }
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const direction = swipeDirection(touch.clientX - start.x, touch.clientY - start.y);
+    if (!direction) return;
+    const next = stageViewAfterSwipe(stageViewRef.current, direction);
+    if (next !== stageViewRef.current) changeStageView(next);
+  };
   const stageSurfaces = activeLayout(layoutStore).room.surfaces;
   const stageLook =
     worldScreen === "live" &&
@@ -3513,6 +3594,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         const floor = rendRef.current?.builderFloorPoint(event.clientX, event.clientY);
         placeFromLibrary(baseId, floor ?? undefined);
       }}
+      onTouchStart={onStageTouchStart}
+      onTouchEnd={onStageTouchEnd}
     >
       {backdrop === "desert-photo" && backdropArtReady && (
         <img
@@ -3524,6 +3607,57 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onError={() => setBackdropArtReady(false)}
         />
       )}
+      {/* THE CIRCUIT FIELD + FRAME (owner order 2026-11-26, the
+          circuit-ring theme — his main theme): the stage is a
+          personal command DEVICE now. A deep circuit field —
+          our own trace linework, drawn here — lies over the
+          stage's ground, and a glowing circuit frame traces
+          the stage's edges with gold corners, a device bezel.
+          Both are pure dress: aria-hidden, pointer-events
+          none, behind every presence and window, and neither
+          carries a single reading. The frame's bottom edge
+          stands at the chat dock's clearance, so the bezel
+          never runs under the dock. */}
+      <div className="stage-circuit-field" aria-hidden="true">
+        <svg
+          className="stage-circuit-field__svg"
+          viewBox="0 0 1440 810"
+          preserveAspectRatio="xMidYMid slice"
+          focusable="false"
+        >
+          <g className="stage-circuit-field__traces">
+            <path d="M-10 120 H300 L360 180 H620" />
+            <path d="M-10 690 H240 L300 630 H540" />
+            <path d="M1450 150 H1180 L1120 210 H880" />
+            <path d="M1450 660 H1200 L1140 600 H900" />
+            <path d="M180 -10 V180 L240 240 V420" />
+            <path d="M1260 -10 V160 L1200 220 V400" />
+            <path d="M420 820 V640 L480 580 H700" />
+            <path d="M1020 820 V620 L960 560 H760" />
+            <path d="M-10 405 H180 L230 355 H390" />
+            <path d="M1450 405 H1270 L1220 455 H1060" />
+          </g>
+          <g className="stage-circuit-field__nodes">
+            <circle cx="620" cy="180" r="4" />
+            <circle cx="540" cy="630" r="4" />
+            <circle cx="880" cy="210" r="4" />
+            <circle cx="900" cy="600" r="4" />
+            <circle cx="240" cy="420" r="4" />
+            <circle cx="1200" cy="400" r="4" />
+            <circle cx="700" cy="580" r="4" />
+            <circle cx="760" cy="560" r="4" />
+            <circle cx="390" cy="355" r="4" />
+            <circle cx="1060" cy="455" r="4" />
+          </g>
+        </svg>
+      </div>
+      <div className="stage-circuit-frame" aria-hidden="true">
+        <span className="stage-circuit-frame__corner stage-circuit-frame__corner--tl" />
+        <span className="stage-circuit-frame__corner stage-circuit-frame__corner--tr" />
+        <span className="stage-circuit-frame__corner stage-circuit-frame__corner--bl" />
+        <span className="stage-circuit-frame__corner stage-circuit-frame__corner--br" />
+        <span className="stage-circuit-frame__notch" />
+      </div>
       <div ref={stageDockRef} className="avatar-stage-dock">
         <div ref={host} className="avatar-construct-host" />
       </div>
@@ -3555,6 +3689,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           speaking={state === "SPEAKING"}
           listening={voiceListening}
           acting={presenting || state === "THINKING"}
+          receded={stageScreenOpen}
           inPerspective={perspective === "anubis"}
           inCall={conversationView === "call" && perspective === "anubis"}
           inCouncil={council.includes("anubis")}
