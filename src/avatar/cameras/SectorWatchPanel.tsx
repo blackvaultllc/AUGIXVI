@@ -186,6 +186,9 @@ export function SectorWatchPanel({
           </span>
         </div>
         <p className="window-cameras__grant">
+          {view.schedulerRunning ? "The watch is running" : "The watch is NOT running"}
+        </p>
+        <p className="window-cameras__grant">
           On his own cycle, Anubis pulls a frame from each watched camera and asks the picture
           analyzer the sector question. Every reading is a draft: a first “yes” is checked by a
           second look, and only when both agree does anything become an event. The watch judges

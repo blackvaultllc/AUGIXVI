@@ -263,6 +263,15 @@ export interface SectorWatchFile {
   log: WatchLogEntry[];
   events: SectorEvent[];
   judgments: SectorJudgment[];
+  /**
+   * Set ONLY on a record the watch seeded itself on its first
+   * wake (see seededSectorWatchFile): the plain statement that
+   * this record was laid down from the Captain's standing
+   * orders, not set by his hand in the window. A record he has
+   * touched never gains it, and seeding never overwrites a
+   * record that already exists.
+   */
+  seededNote?: string;
 }
 
 export const WATCH_LOG_MAX = 300;
@@ -272,6 +281,33 @@ export const EVIDENCE_STILLS_MAX = 6;
 
 export function emptySectorWatchFile(): SectorWatchFile {
   return { settings: defaultSectorSettings(), log: [], events: [], judgments: [] };
+}
+
+/** The plain words a first-run seed carries on the record. */
+export const SECTOR_WATCH_SEED_NOTE =
+  "Seeded by the watch itself on its first wake, from the Captain's standing orders of 2026-11-26: the front camera and the bedroom camera watched, each in its sector, the watch armed. A record that already exists is his and is never overwritten by seeding.";
+
+/**
+ * The first-run seed (the Captain's standing orders,
+ * 2026-11-26): on a core where no sector record has ever been
+ * laid down, the watch lays this down itself — the front
+ * camera watched in the front sector, the bedroom camera
+ * watched in the bedroom sector, the standard interval, and
+ * the seed note saying exactly where the record came from.
+ */
+export function seededSectorWatchFile(): SectorWatchFile {
+  const file = emptySectorWatchFile();
+  return {
+    ...file,
+    settings: {
+      ...file.settings,
+      cameras: {
+        "command-front-window": defaultSectorConfig("command-front-window"),
+        bedroom: defaultSectorConfig("bedroom"),
+      },
+    },
+    seededNote: SECTOR_WATCH_SEED_NOTE,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -458,7 +494,9 @@ export function sanitizeSectorJudgment(v: unknown): SectorJudgment | null {
 
 export function sanitizeSectorWatchFile(v: unknown): SectorWatchFile {
   if (!isRecord(v)) return emptySectorWatchFile();
+  const seededNote = cleanString(v["seededNote"], 300);
   return {
+    ...(seededNote ? { seededNote } : {}),
     settings: sanitizeSectorSettings(v["settings"]),
     log: Array.isArray(v["log"])
       ? v["log"]
