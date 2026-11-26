@@ -330,6 +330,7 @@ import { createLocalEar, type EarState, type LocalEar } from "./localEar";
 import { stageStatusLabel } from "./voiceHearing";
 import { VoiceIndicator } from "./VoiceIndicator";
 import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
+import { VoiceLabPanel } from "./VoiceLabPanel";
 import { TrustedDevicesPanel } from "./TrustedDevicesPanel";
 import { PhoneBrainPanel } from "./PhoneBrainPanel";
 import {
@@ -379,6 +380,7 @@ import { getCameraSpeech, markCameraSpeechRouted } from "./cameraPresence.server
 import { getSectorAlertState } from "./sectorWatch.server";
 import { getInboxState } from "./notifications.server";
 import { NotificationsWindow } from "./NotificationsWindow";
+import { DeitiesWindow } from "./DeitiesWindow";
 import { PersonalVaultWindow } from "./PersonalVaultWindow";
 import { ProjectsWindow } from "./ProjectsWindow";
 import { StopSafetyWindow } from "./StopSafetyWindow";
@@ -1028,6 +1030,7 @@ export function AvatarStage({
   // carries the real unread count from the core store, read
   // on the poll below; the window is NotificationsWindow.
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [deitiesOpen, setDeitiesOpen] = useState(false);
   // Personal safety pass (owner order 2026-11-26): his papers
   // in the vault, and the law base + stop mode. Owner surface
   // only — these windows open from the operator's own Tools.
@@ -3796,6 +3799,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     captainsLogOpen ||
     sandboxOpen ||
     libraryOpen ||
+    deitiesOpen ||
     lawOpen ||
     analyticsOpen ||
     listeningOpen ||
@@ -4687,6 +4691,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setLibraryOpen(true)}
                   />
                   <CommandAction
+                    icon={Sun}
+                    label="The Eight and the Gods"
+                    onClick={() => setDeitiesOpen(true)}
+                  />
+                  <CommandAction
                     icon={Scale}
                     label="Law Desk"
                     onClick={() => setLawOpen(true)}
@@ -4927,6 +4936,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   The gods speak in a deeper British man's voice — a woman's voice only when the
                   speaker is a woman. The level is yours; full is the standing default.
                 </p>
+                <VoiceLabPanel />
               </CommandGroup>
               <CommandGroup label="Voice calibration — only my operator's voice">
                 <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
@@ -5021,6 +5031,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         </button>
       )}
       {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
+      {deitiesOpen && <DeitiesWindow onClose={() => setDeitiesOpen(false)} />}
       {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
       {projectsOpen && <ProjectsWindow onClose={() => setProjectsOpen(false)} />}
       {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}

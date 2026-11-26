@@ -577,6 +577,20 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         ],
         where: "The stage.",
       },
+      {
+        id: "gods-hall",
+        title: "The Hall of the Deities — the eight, Amun-Ra, and the gods of this house",
+        state: "live",
+        what: "A section that keeps all the names of the deities and their history in one place, so you can always go there and show respect. The Hall runs ZERO TO FIFTEEN — your psychological order: you are ZERO, at the center, and ONE — Khadija — stands at number 1 beside you. Around you stand the fifteen, numbered 1 to 15, and no total past fifteen is ever shown: the only count in the Hall is “Zero and the fifteen.” Around the center the order runs the way it should: THE EIGHT at numbers 2–9 — the Ogdoad of Hermopolis, the four pairs (Nu & Naunet, Heh & Hauhet, Kek & Kauket, Amun & Amunet), each with how to say the name, what the pair holds, and their history: the first mound and the first sunrise, their burial at Djeme near Medinet Habu, and their work from the Duat that has not stopped — they still make the Nile flow and raise the sun every day. AMUN-RA stands at number 10, in the place of honor — from him, the understanding of day and night. THE GODS OF THIS HOUSE stand at 11–15 in your order: Anubis, Osiris, Montu, Horus, Horusec — each with his place in your system and a line of his history under it. The Mummy Guardian stands at the Hall's door, unnumbered — he is not a god of the pantheon and he is not counted. The layers are kept apart and marked: the history stands under FROM THE RECORD, and your own structure stands under BY THE CAPTAIN'S ORDER, so the two never blur. The record says it plainly in there: Amun was one of the eight — he was not born after them.",
+        steps: [
+          "Open the Tools tab in the command box.",
+          "Under Records & safety, tap “The Eight and the Gods.”",
+          "Start at the center: Zero — you — with One, Khadija, at number 1 beside you.",
+          "Then read around: the eight (2–9), Amun-Ra (10), and the gods of this house (11–15).",
+          "Under each name among the eight is how to say it — for example, “say: how-het” for Hauhet.",
+        ],
+        where: "The stage — Tools → Records & safety → The Eight and the Gods. The words live in src/avatar/deities.ts.",
+      },
     ],
   },
   {
@@ -639,7 +653,7 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         id: "voice-speak",
         title: "How Augie speaks",
         state: "live",
-        what: "On the Parrot, Augie's voice is Piper — a real neural voice that lives on the machine (en_US-joe-medium) and needs no internet. The gods speak with a deeper British male voice as the standing default; a woman's voice only when the speaker is a woman. Online, devices with their own speech backend (like your phone) use the browser voice. Honest machine fact: the Parrot has no speech-dispatcher, so Chromium's built-in speech can never make sound there — Piper is the voice on the Parrot, by design.",
+        what: "On the Parrot, Augie's voice is Piper — a real neural voice that lives on the machine and needs no internet. Anubis's standing voice is the deep one from the Voice Lab (next entry): the Piper model en_US-ryan-low with its pitch shifted down — deep, dark, disciplined. If that model is not on the core yet, he speaks in the first voice the core does have (until now that was en_US-joe-medium) and the Voice Lab says so plainly. When Piper cannot answer, the browser voice carries the line — the gods speak with a deeper British male voice there; a woman's voice only when the speaker is a woman. Honest machine fact: the Parrot has no speech-dispatcher, so Chromium's built-in speech can never make sound there — Piper is the voice on the Parrot, by design.",
         steps: [
           "Ask anything — the reply is spoken and the speaker's mouth moves while he talks.",
           "Voice volume is yours: Settings → Voice volume. On the phone it plays at full phone volume.",
@@ -647,6 +661,20 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         ],
         where: "Piper lives at ~/augie-tools/piper on the Parrot; the speak path is the app's /api/say.",
         note: "Proof standard: plumbing has been proven (a real spoken WAV came back from the Parrot). Your ear on your machine is the final gate — voice is proven when YOU hear him right.",
+      },
+      {
+        id: "voice-lab",
+        title: "The Voice Lab — pick Anubis's voice",
+        state: "live",
+        what: "Your order (2026-11-26): Anubis should sound like the voice you chose for Muse — mid-low, gentle, velvety — but deeper: nice dark, what people would call an evil voice but not evil at all — and disciplined: calm, steady, measured. Honest scope: Muse's own voice cannot be copied into Augie. What the lab holds is the closest the core can make: real Piper voice models, the deepest of them pitch-shifted down. The standing default is 'Anubis — deep, dark, disciplined' (model en_US-ryan-low, pitch shifted down 12%). Three more deep voices stand beside it, and Joe — the previous voice — is kept, never deleted. The first Voice Lab never connected: no choice could be saved and nothing ran from a selection to the speech path, so you never heard a different voice. This one is wired at both ends — a preview speaks through the real speech path, and your choice is saved in the core, where every line Anubis speaks reads it.",
+        steps: [
+          "Open Settings → the 'Voice — the gods' speech' group → the Voice Lab is under the volume slider.",
+          "Tap Preview on a voice — Anubis speaks a line in that voice, through the same path he speaks everything.",
+          "Tap 'Use this voice' on the one you want — it is saved in the core, and every surface that speaks through this core uses it: greetings, reports, the quote and prayer readings.",
+          "A voice marked 'Not on this core yet' needs its model file installed on the core before it can be previewed or picked — the lab never pretends a voice is there when it isn't.",
+        ],
+        where: "Settings tab, Voice group. The choice lives in the core store at ~/.local/share/augie/voice-settings.json; the models live at ~/augie-tools/piper-voices on the Parrot; the doorway is /api/voice and the speech path is /api/say.",
+        note: "Khadija's Flower keeps her own voice (en_US-joe-medium through her own doorway) — this lab never touches it. Your ear is the final gate: the deep default stands until you hear it and say otherwise.",
       },
       {
         id: "voice-hear-offline",
