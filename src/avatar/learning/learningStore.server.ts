@@ -16,19 +16,22 @@
 
 import { SUBJECT_IDS, type SubjectId } from "./questionBank";
 import { sanitizeSightEntries, type SightEntry } from "./sightLog";
+import { sanitizeAssessments, type AssessmentRecord } from "./assessment";
 import type { AnswerRecord } from "./training";
 
 export interface LearningData {
   prayerText: string;
   prayerUpdatedAt: number | null;
   trainingAnswers: AnswerRecord[];
+  /** Training Hall assessment records (his scores against his own line). */
+  assessments: AssessmentRecord[];
 }
 
 export interface SightData {
   entries: SightEntry[];
 }
 
-const EMPTY_LEARNING: LearningData = { prayerText: "", prayerUpdatedAt: null, trainingAnswers: [] };
+const EMPTY_LEARNING: LearningData = { prayerText: "", prayerUpdatedAt: null, trainingAnswers: [], assessments: [] };
 const MAX_PRAYER = 8000;
 const MAX_ANSWERS = 20000;
 
@@ -41,11 +44,19 @@ function sanitizeAnswerRecord(raw: unknown): AnswerRecord | null {
     typeof row["questionId"] === "string" && row["questionId"].trim() ? row["questionId"].slice(0, 80) : null;
   const subject = SUBJECT_IDS.includes(row["subject"] as SubjectId) ? (row["subject"] as SubjectId) : null;
   if (!date || at === null || !questionId || !subject || typeof row["correct"] !== "boolean") return null;
-  return { date, at, questionId, subject, correct: row["correct"] };
+  const record: AnswerRecord = { date, at, questionId, subject, correct: row["correct"] };
+  // Training Hall fields — all optional; older records simply lack them.
+  if (row["mode"] === "typed" || row["mode"] === "choice") record.mode = row["mode"];
+  if (typeof row["responseMs"] === "number" && Number.isFinite(row["responseMs"]) && row["responseMs"] >= 0) {
+    record.responseMs = Math.min(600_000, Math.round(row["responseMs"]));
+  }
+  if (typeof row["typedText"] === "string" && row["typedText"]) record.typedText = row["typedText"].slice(0, 500);
+  if (typeof row["runId"] === "string" && row["runId"]) record.runId = row["runId"].slice(0, 80);
+  return record;
 }
 
 export function sanitizeLearningData(raw: unknown): LearningData {
-  if (!raw || typeof raw !== "object") return { ...EMPTY_LEARNING, trainingAnswers: [] };
+  if (!raw || typeof raw !== "object") return { ...EMPTY_LEARNING, trainingAnswers: [], assessments: [] };
   const data = raw as Record<string, unknown>;
   const prayerText = typeof data["prayerText"] === "string" ? data["prayerText"].slice(0, MAX_PRAYER) : "";
   const prayerUpdatedAt =
@@ -58,7 +69,7 @@ export function sanitizeLearningData(raw: unknown): LearningData {
         .filter((r): r is AnswerRecord => r !== null)
         .slice(-MAX_ANSWERS)
     : [];
-  return { prayerText, prayerUpdatedAt, trainingAnswers };
+  return { prayerText, prayerUpdatedAt, trainingAnswers, assessments: sanitizeAssessments(data["assessments"]) };
 }
 
 export function sanitizeSightData(raw: unknown): SightData {

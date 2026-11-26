@@ -4824,7 +4824,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   />
                   <CommandAction
                     icon={Sparkles}
-                    label="Daily Training"
+                    label="Training Hall"
                     onClick={() => setTrainingOpen(true)}
                   />
                   <CommandAction icon={Eye} label="Sight Log" onClick={() => setSightLogOpen(true)} />
