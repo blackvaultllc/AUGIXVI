@@ -30,6 +30,12 @@ export interface SectorWatchStore {
   read(): Promise<SectorWatchFile>;
   /** Serialized read-modify-write; the mutator returns the next file. */
   update(mutator: (file: SectorWatchFile) => SectorWatchFile): Promise<SectorWatchFile>;
+  /**
+   * Lay the first-run seed down ONLY if no sector record file
+   * exists yet — true when this call wrote the seed. An
+   * existing record is the Captain's and is never overwritten.
+   */
+  seedIfAbsent(seed: SectorWatchFile): Promise<boolean>;
   /** The folder event stills live under (the core data directory). */
   readonly dataDirectory: string;
 }
@@ -73,6 +79,24 @@ class FileSectorWatchStore implements SectorWatchStore {
       const next = sanitizeSectorWatchFile(mutator(current));
       await this.writeAll(next);
       return next;
+    };
+    const result = this.tail.then(job, job);
+    this.tail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  seedIfAbsent(seed: SectorWatchFile): Promise<boolean> {
+    const job = async () => {
+      try {
+        await this.fs.access(this.filePath);
+        return false;
+      } catch {
+        await this.writeAll(sanitizeSectorWatchFile(seed));
+        return true;
+      }
     };
     const result = this.tail.then(job, job);
     this.tail = result.then(

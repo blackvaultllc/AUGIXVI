@@ -44,7 +44,16 @@
  * this module's memory; durable state lives in the stores. The
  * scheduler (re)starts from reconcileSectorWatch(), which the
  * sector server functions call — the same pattern the presence
- * loops use.
+ * loops use. It ALSO starts once at server boot:
+ * bootSectorWatch(), called by the Nitro plugin
+ * (server/plugins/sector-watch-boot.ts) when the core server
+ * process starts, so after a restart the watch is alive with
+ * no surface having asked — the Captain's order (2026-11-26):
+ * he does not chase behind the construct. And on its first
+ * tick on a core with no sector record yet, the watch lays
+ * down the first-run seed from his standing orders (see
+ * seededSectorWatchFile) — an existing record is never
+ * overwritten.
  */
 import { getCameraStore, type StoredCamera } from "./cameraStore.server";
 import { getCameraPresenceStore } from "./cameraPresenceStore.server";
@@ -80,6 +89,7 @@ import {
   plateNoteFor,
   plateReadingFromAnswer,
   sectorConfigFor,
+  seededSectorWatchFile,
   FRONT_THREAT_PROMPT,
   FRONT_THREAT_SECOND_PROMPT,
   FRONT_TRUCK_PROMPT,
@@ -126,6 +136,7 @@ const cycleBusy = new Set<string>();
 const lastUnavailableLogAt = new Map<string, number>();
 let lastPresenceReconcileAt = 0;
 let lastPermissionsReconcileAt = 0;
+let seedAttempted = false;
 
 export function sectorWatchSchedulerRunning(): boolean {
   return scheduler !== null;
@@ -136,6 +147,22 @@ export function reconcileSectorWatch(): void {
   if (scheduler) return;
   scheduler = setInterval(() => void tickAll(), TICK_MS);
   void tickAll();
+}
+
+/**
+ * BOOT — called once by the Nitro server plugin
+ * (server/plugins/sector-watch-boot.ts) when the server
+ * process starts, so the watch starts with the machine: no
+ * window has to be opened and no surface has to ask first.
+ * Off the core there is no local sector store (the Cloudflare
+ * surface) and the boot is a no-op — the same way every
+ * .server store degrades there. The first tick lays the
+ * first-run seed if no sector record exists yet.
+ */
+export async function bootSectorWatch(): Promise<void> {
+  const store = await getSectorWatchStore();
+  if (!store) return;
+  reconcileSectorWatch();
 }
 
 async function tickAll(): Promise<void> {
@@ -174,6 +201,17 @@ async function tickAll(): Promise<void> {
     const cameraStore = await getCameraStore();
     const presenceStore = await getCameraPresenceStore();
     if (!sectorStore || !cameraStore || !presenceStore) return;
+    // FIRST-RUN SEED (the Captain's standing orders,
+    // 2026-11-26): if no sector record has ever been laid down
+    // on this core, the first tick lays one — the front and
+    // bedroom cameras watched, each in its sector, the record
+    // marked plainly as seeded from his orders. seedIfAbsent
+    // never overwrites an existing record, and once attempted
+    // here it is not attempted again this run.
+    if (!seedAttempted) {
+      await sectorStore.seedIfAbsent(seededSectorWatchFile());
+      seedAttempted = true;
+    }
     const sectorFile = await sectorStore.read();
     const presenceFile = await presenceStore.read();
     const now = Date.now();
