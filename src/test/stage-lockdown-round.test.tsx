@@ -328,7 +328,7 @@ describe("desk photos round — consolidation, the tight panel, the bubble switc
     Element.prototype.releasePointerCapture = vi.fn();
   });
 
-  it("the speech-bubble switch is GONE with the pop-up (removal 2026-11-24) — no switch in his menu, no gate in the stage", () => {
+  it("the speech-bubble SWITCH stays gone (removal 2026-11-24) — and the bubble itself is back by his new order, ungated (God Presence doctrine 2026-11-26)", () => {
     render(
       <AnubisPresence
         ready
@@ -340,11 +340,18 @@ describe("desk photos round — consolidation, the tight panel, the bubble switc
     );
     fireEvent.click(screen.getByRole("button", { name: "Open Anubis's menu" }));
     expect(screen.queryByRole("button", { name: /Speech bubble/ })).toBeNull();
-    // And the stage carries no bubble state or gate at all —
-    // replies are voice + thread only, unconditionally.
     const stage = readFileSync(resolve(process.cwd(), "src/avatar/AvatarStage.tsx"), "utf8");
+    // The 2026-11-24 removal's machinery — the switch, the
+    // persisted gate — stays removed, unconditionally.
     expect(stage).not.toContain("loadSpeechBubble");
-    expect(stage).not.toContain("speechBubble");
+    // What the Captain ordered on 2026-11-26 is a different
+    // thing from what he removed: no switch, no gate, no second
+    // face — the bubble is driven purely by the speaking state
+    // (speechBubbleFor) and hangs on the god's own standing
+    // head. Both halves of the law are pinned here so neither
+    // can drift back.
+    expect(stage).toContain("speechBubbleFor");
+    expect(stage).toContain("<SpeechBubble");
   });
 
   it("the top-right is ONE tight panel — the indicator carries no panel of its own", () => {

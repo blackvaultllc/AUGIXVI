@@ -18,6 +18,7 @@ import {
   Menu,
   Mic,
   MicOff,
+  Paperclip,
   Plus,
   Settings,
   Smile,
@@ -369,6 +370,7 @@ export function CommandBox({
   away = false,
   onReturnToChat,
   onOpenHistory,
+  onAttachFile,
 }: {
   accent: string;
   tabs: Array<{ id: CommandTab; label: string; icon: LucideIcon }>;
@@ -453,6 +455,15 @@ export function CommandBox({
    * The record is the truth; Clear (below) never touches it.
    */
   onOpenHistory?: () => void;
+  /**
+   * ATTACH FROM THE CHAT BOX (owner order, voice call
+   * 2026-11-26 ~13:48 CST): he uploads pictures and files from
+   * this box when he needs to — a paperclip in the phone
+   * options and on the desktop line, shown only when the stage
+   * wires a handler. The stage routes the pick: a picture goes
+   * to Picture Analysis, a text file to Knowledge.
+   */
+  onAttachFile?: (file: File) => void;
 }) {
   const [position, setPosition] = useState(loadBoxPosition);
   // Minimized is session-only (the defect fix above). THE BAR IS
@@ -540,6 +551,7 @@ export function CommandBox({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const attachRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLElement>(null);
 
   const minimizeNow = useCallback(() => {
@@ -872,8 +884,33 @@ export function CommandBox({
     setEmojiOpen(false);
     setOptionsOpen(false);
     onChatChange("");
+    // THE CONVERSATION POPS UP ON SEND (owner order, voice call
+    // 2026-11-26 ~13:48 CST): he can fold the box to its bar and
+    // keep typing there — the bar never forces itself open while
+    // he composes — but when he SENDS, the conversation box
+    // rises so he can see the exchange. Minimizing again is his
+    // one tap, as ever.
+    if (minimized) restoreNow();
     onSubmit(text);
   };
+
+  // THE ATTACH INPUT (same order): one hidden picker behind the
+  // paperclip on both forms. Picking hands the file to the
+  // stage's router and resets the input so the same file can be
+  // picked again later.
+  const attachInput = onAttachFile ? (
+    <input
+      ref={attachRef}
+      type="file"
+      className="sr-only"
+      aria-label="Attach a picture or file"
+      onChange={(event) => {
+        const file = event.currentTarget.files?.[0];
+        event.currentTarget.value = "";
+        if (file) onAttachFile(file);
+      }}
+    />
+  ) : null;
 
   // NO INLINE GEOMETRY (owner order 2026-11-25): the section
   // renders with no style prop at any width, in either state.
@@ -950,6 +987,7 @@ export function CommandBox({
   const phoneForm = (
     <form className="avatar-command-box__form avatar-command-box__form--phone" onSubmit={submit}>
       {messageInput}
+      {attachInput}
       <button
         className="avatar-command-box__options-toggle"
         type="button"
@@ -985,6 +1023,20 @@ export function CommandBox({
             {voiceListening ? <MicOff aria-hidden="true" /> : <Mic aria-hidden="true" />}
             <span>{voiceListening ? "Stop microphone" : "Microphone"}</span>
           </button>
+          {onAttachFile && (
+            <button
+              className="avatar-command-box__option"
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOptionsOpen(false);
+                attachRef.current?.click();
+              }}
+            >
+              <Paperclip aria-hidden="true" />
+              <span>Attach a picture or file</span>
+            </button>
+          )}
           <button
             className="avatar-command-box__option"
             type="button"
@@ -1037,6 +1089,18 @@ export function CommandBox({
   const standardForm = (
     <form className="avatar-command-box__form" onSubmit={submit}>
       {messageInput}
+      {attachInput}
+      {onAttachFile && (
+        <button
+          className="avatar-command-box__icon-button"
+          type="button"
+          onClick={() => attachRef.current?.click()}
+          aria-label="Attach a picture or file"
+          title="Attach a picture or file"
+        >
+          <Paperclip aria-hidden="true" />
+        </button>
+      )}
       <button
         className="avatar-command-box__icon-button"
         type="button"
