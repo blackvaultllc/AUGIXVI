@@ -1582,13 +1582,15 @@ describe("command box bottom dock (owner order 2026-11-25)", () => {
     expect(box.getAttribute("style")).toBeNull();
   });
 
-  it("Montu's resting circle stands clear above the docked bar", () => {
-    // The clearance is one number both rules read: the row's
+  it("Montu's call pop-up stands clear above the docked bar", () => {
+    // The clearance is one number both rules read: the pop-up's
     // bottom edge sits at it, above the folded bar's stack.
+    // (The pop-up inherited the resting circle's spot and its
+    // clearance under the one-god order of 2026-11-26.)
     const clearanceMatch = fixCss.match(/--chat-dock-clearance:\s*([\d.]+)rem/);
     expect(clearanceMatch).not.toBeNull();
     const clearance = Number(clearanceMatch![1]);
-    const row = lastRuleBody(fixCss, ".avatar-stage .god-medallions {");
+    const row = lastRuleBody(fixCss, ".avatar-stage .called-god-popup {");
     expect(row).toContain("bottom: var(--chat-dock-clearance)");
     // The folded bar's measured stack, from the stylesheets
     // themselves: the field's min-height (the winning input

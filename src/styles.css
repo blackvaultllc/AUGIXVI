@@ -8605,11 +8605,14 @@
    is a fixed feathered window over the eye; the portrait copy
    inside it slides by the god's gaze offset, so the eye moves
    in its socket while the window, and the face, stay put. */
-/* THE RESTING CIRCLES + THE FRONT GREETING (owner order
-   2026-11-24 ~16:57 EST — superseding the side slots of the
-   gods-on-the-sides round the same morning): the gods who are
-   not at the front rest as SMALL CIRCLES in the stage's
-   lower-right field — never on the edges, never as strips.
+/* THE CALL POP-UP + THE GREETING (owner order 2026-11-26
+   ~04:32 CST — superseding the resting circles of 2026-11-24
+   ~16:57 EST): at rest NO god stands beside Anubis. A CALLED
+   god stands as a SMALL CIRCLE in the stage's lower-right
+   field — the called-god pop-up (.called-god-popup, the
+   container below) — for exactly as long as he holds the
+   call, never on the edges, never as a strip. The pop-up's
+   rise and fade live in section 40 of the fix sheet.
    ONE CIRCLE FORMAT FOR EVERY GOD (the Captain's
    reinforcement, 2026-11-24 ~17:05 EST: "both of the other
    guards should look like Osiris looks"): the same format as
@@ -8623,10 +8626,10 @@
    the whole tall rail, and the god rendered as a tall strip.
    The circle below is position: relative and its face wrapper
    is absolute inset 0, so the face can only ever fill the
-   circle. The greeting is the front god's allegiance line,
+   circle. The greeting is the called god's allegiance line,
    shown over the wallpaper at the stage's top center while a
-   summoned god holds the front. */
-.god-medallions {
+   summoned god holds the call. */
+.called-god-popup {
   position: absolute;
   right: clamp(18px, 3vw, 44px);
   bottom: clamp(18px, 4vh, 40px);

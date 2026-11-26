@@ -10,10 +10,13 @@ import { OsirisMedallion } from "@/avatar/OsirisMedallion";
  *
  * - NO EDGE FIGURES: the tall side strips are OFF the stage
  *   entirely — nothing stands on the left or right edges.
- * - ANUBIS CENTER AT REST: Anubis stands in the middle at his
- *   regular front size; the other gods rest as SMALLER circles
- *   on the stage; dismissal returns Anubis to the center.
- *   (The resting-front behavior itself is pinned in
+ * - ANUBIS CENTER AT REST — AND ALONE (the one-god order of
+ *   2026-11-26 ~04:32 CST, superseding the resting circles):
+ *   Anubis stands in the middle at his regular front size and
+ *   NO other god is rendered; a called god stands as a SMALLER
+ *   circle — his pop-up — while he holds the call; dismissal
+ *   returns the call to Anubis and the stage is his alone.
+ *   (The call-state behavior itself is pinned in
  *   god-stage.test.tsx; here: the shape law and the wiring.)
  * - ONE CIRCLE FORMAT (the 17:05 reinforcement, his words: "both
  *   of the other guards should not look in that shape or format —
@@ -25,10 +28,12 @@ import { OsirisMedallion } from "@/avatar/OsirisMedallion";
  *   rule that sizes a god's face pairs its width with the SAME
  *   height, and the circle format (radius + hidden overflow +
  *   cover-fit face) is carried by all three gods alike.
- * - OSIRIS STANDS ALONE: bare on the stage — no box, no panel,
- *   no border drawn around him by a container — with his four
- *   keys and his message option inside his three-lines menu,
- *   and his direct-message screen opening under him.
+ * - OSIRIS'S POP-UP: while he is called, his medallion stands
+ *   bare on the stage — no box, no panel, no border drawn
+ *   around him by a container — with his four keys and his
+ *   message option inside his three-lines menu, and his
+ *   direct-message screen opening under him. At rest he is
+ *   not on the stage at all (the one-god order above).
  */
 
 const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
@@ -132,14 +137,25 @@ describe("one circle format — every god's medallion is a true round circle", (
     expect(stageSource).not.toContain("god-side-rail");
     expect(styles).not.toContain(".god-side-rail");
     expect(fixCss).not.toContain(".god-side-rail");
-    // The resting circles and Osiris's lone stand are wired.
-    expect(stageSource).toContain("<GodMedallions");
+    // The call pop-ups are wired — and the resting row is
+    // GONE: at rest the stage renders Anubis and no other god
+    // (the one-god order of 2026-11-26). Anubis renders
+    // whenever a call state stands (never gated on himself
+    // alone); Montu's big front presence is un-rendered; both
+    // pop-ups render only while their call stands.
+    expect(stageSource).toContain("<CalledGodPopUp");
     expect(stageSource).toContain("<OsirisMedallion");
+    expect(stageSource).not.toContain("<GodMedallions");
+    expect(stageSource).not.toContain("<MontuPresence");
+    expect(stageSource).toContain('worldScreen === "live" && frontGod !== null');
+    expect(stageSource).toContain("montuPop.shown");
+    expect(stageSource).toContain("osirisPop.shown");
+    expect(stageSource).toContain('usePopUpPresence(addressee === "osiris")');
     expect(stageSource).toContain("RESTING_FRONT");
   });
 });
 
-describe("Osiris stands alone — bare, his keys in his three-lines menu", () => {
+describe("Osiris's pop-up — bare, his keys in his three-lines menu", () => {
   function renderOsiris(over: Partial<Parameters<typeof OsirisMedallion>[0]> = {}) {
     const props = {
       ready: true,

@@ -30,6 +30,13 @@ import { CommandBox } from "../avatar/CommandBox";
  * live in HIS OWN three-lines menu, with a message option that
  * opens his small message screen under him. Items 1 and 5 stand
  * untouched.
+ *
+ * SUPERSEDED IN PART AGAIN (owner order 2026-11-26 ~04:32 CST,
+ * the one-god screen): Osiris no longer stands on the stage at
+ * rest — his medallion is his CALL POP-UP now, rendered only
+ * while he is addressed, at the same top-left seat, bare, with
+ * the same menu and message screen. Item 5 stands: tap a called
+ * god's pop-up and his chat opens, addressed to him.
  */
 const stageSource = readFileSync(
   path.join(process.cwd(), "src/avatar/AvatarStage.tsx"),
@@ -115,7 +122,7 @@ describe("clean-screen round — the status tab", () => {
   });
 });
 
-describe("clean-screen round — the Captain's window, Osiris alone", () => {
+describe("clean-screen round — the Captain's window, Osiris called", () => {
   it("the box starts folded at every width: the bar is the opening form", () => {
     expect(boxSource).toContain("const [minimized, setMinimized] = useState(true)");
     expect(boxSource).toContain("THE BAR IS");
@@ -171,8 +178,13 @@ describe("clean-screen round — the Captain's window, Osiris alone", () => {
     expect(boxSource).toContain("viewport.h - height - WINDOW_MARGIN");
   });
 
-  it("Osiris stands alone on the stage, his caption suppressed", () => {
+  it("Osiris's pop-up stands on the stage only while he is called, his caption suppressed", () => {
     expect(stageSource).toContain("<OsirisMedallion");
+    // The one-god gate (owner order 2026-11-26): the medallion
+    // renders only while the addressee state calls him, held
+    // through its leaving tail by the pop-up presence hook.
+    expect(stageSource).toContain('usePopUpPresence(addressee === "osiris")');
+    expect(stageSource).toContain("osirisPop.shown");
     expect(osirisSource).toContain("captioned={false}");
     // The presence still defaults to captioned for its other homes.
     expect(presenceSource).toContain("captioned = true");
@@ -186,17 +198,20 @@ describe("clean-screen round — every god his own chat", () => {
     expect(stageSource).toContain("onMinimizeShortcut={(controls) => {");
   });
 
-  it("Anubis's and Montu's medallion taps route AND open the chat", () => {
+  it("a called god's pop-up tap routes AND opens the chat", () => {
     // SUPERSEDED IN PART (owner order 2026-11-24 ~11:27–11:31 EST,
-    // the gods-on-the-sides round; refined again ~16:57 EST):
-    // the tap that routes and opens is the god's RESTING-CIRCLE
-    // tap — the small circle is where a god rests and is tapped
-    // from; his big front face's tap returns him to his place
-    // (and dismissal returns Anubis to the center). The law
-    // itself is unchanged: tap a god, and his chat opens,
-    // addressed to him.
+    // the gods-on-the-sides round; refined again ~16:57 EST;
+    // refined again 2026-11-26 ~04:32 CST, the one-god screen):
+    // the tap that routes and opens is now the called god's
+    // POP-UP tap — Montu's pop-up face opens the chat (addressed
+    // to him: the pop-up stands only while he holds the call),
+    // and Osiris's pop-up face turns the conversation to him and
+    // opens the window. The law itself is unchanged: tap a god,
+    // and his chat opens, addressed to him.
     expect(stageSource).toContain("EVERY GOD HIS OWN CHAT");
-    expect(stageSource).toContain("selectGod(god, { speakGreeting: true });");
+    expect(stageSource).toContain("<CalledGodPopUp");
+    expect(stageSource).toContain("onSelect={openChatBox}");
+    expect(stageSource).toContain('applyAddressee("osiris")');
     expect(stageSource.match(/openChatBox\(\);/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 });
