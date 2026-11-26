@@ -49,6 +49,26 @@
  * resident rule, unchanged), and he has no pop-up — the center
  * IS his place.
  *
+ * THE GOD PRESENCE REFINEMENT (owner orders, voice call
+ * 2026-11-26 ~13:48–13:53 CST — the machinery lives in
+ * godPresence.ts): the resting law above is NOT repealed — at
+ * rest, Anubis alone. What the refinement settles is the VALUE
+ * of a called god and what stands around him:
+ * - A god who holds the call stands at PRESENCE scale — full
+ *   living value, his ring around him — the same value as
+ *   Anubis, in his own way. Only a HELPER (a god called by a
+ *   god, mid-conversation) stands at the smaller medallion
+ *   scale, and he bows out when he is done.
+ * - While a god speaks, a comic-book speech bubble stands
+ *   beside HIS head with his words (the bubble alone — the
+ *   second-face pop-up removed in 2026-11-24 stays removed).
+ * - While a god is in perspective, his own background — his
+ *   picture in Egyptian history, from the app's art pipeline —
+ *   stands over the Captain's wallpaper; the wallpaper choice
+ *   itself is never written by the call. A god whose picture
+ *   is not placed yet keeps the wallpaper, named plainly in
+ *   godPresence.ts — no substitutes.
+ *
  * THE STATE'S NAME: the stage's `frontGod` state is the CALL
  * state now — it names the god who holds the Captain's call
  * beside Anubis ("anubis" = nobody called, the rest state;

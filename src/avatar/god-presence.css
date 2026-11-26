@@ -1,0 +1,151 @@
+/* =====================================================================
+   GOD PRESENCE (owner orders, voice call 2026-11-26 ~13:48–13:53 CST —
+   the doctrine lives in godPresence.ts): the per-god background layer,
+   the comic speech bubble, and the called god's two scales — PRESENCE
+   (a called god at Anubis's value) and HELPER (a god called by a god,
+   at the Osiris medallion scale). Scoped under .avatar-stage like
+   every stage rule. The resting stage is untouched by this sheet:
+   nothing here renders at rest.
+   ===================================================================== */
+
+/* THE GOD'S OWN BACKGROUND: while a god holds the call, his picture
+   stands over the Captain's wallpaper (the wallpaper itself is never
+   changed — this layer simply covers it, and is gone when the call
+   ends). Animated value: a slow, breathing drift — the picture is
+   alive the way the gods are. Under reduced motion it stands still. */
+.avatar-stage .god-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 1;
+  animation: god-backdrop-drift 36s ease-in-out infinite alternate;
+}
+
+@keyframes god-backdrop-drift {
+  from {
+    transform: scale(1) translate(0, 0);
+  }
+  to {
+    transform: scale(1.06) translate(-0.8%, 0.6%);
+  }
+}
+
+/* THE SPEECH BUBBLE: cream ground, ink frame, hard shadow — the house
+   comic style — with a tail aimed at the speaker's head. It stands
+   only while the voice sounds (godPresence.ts decides), so it needs
+   no exit animation: when the words end, the bubble is gone. */
+.avatar-stage .speech-bubble {
+  position: absolute;
+  z-index: 8;
+  max-width: min(21rem, 62vw);
+  background: #f7efdb;
+  color: #16130c;
+  border: 3px solid #16130c;
+  border-radius: 14px;
+  box-shadow: 5px 5px 0 rgb(10 8 4 / 55%);
+  padding: 0.55rem 0.75rem;
+  pointer-events: none;
+  animation: speech-bubble-in 160ms ease-out;
+}
+
+.avatar-stage .speech-bubble__text {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.avatar-stage .speech-bubble__tail {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: #f7efdb;
+  border-right: 3px solid #16130c;
+  border-bottom: 3px solid #16130c;
+}
+
+@keyframes speech-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Anubis speaks from the center: his bubble stands at his right
+   shoulder, its tail pointing back down-left at his head. */
+.avatar-stage .speech-bubble--anubis {
+  left: calc(50% + 11vmin);
+  top: 15%;
+}
+
+.avatar-stage .speech-bubble--anubis .speech-bubble__tail {
+  left: -12px;
+  bottom: 18px;
+  transform: rotate(135deg);
+}
+
+/* Montu speaks from the call seat, lower-right: his bubble stands
+   above his circle, tail down at his head. */
+.avatar-stage .speech-bubble--montu {
+  right: clamp(18px, 3vw, 44px);
+  bottom: calc(clamp(18px, 4vh, 40px) + 25vmin);
+}
+
+.avatar-stage .speech-bubble--montu .speech-bubble__tail {
+  right: 34px;
+  bottom: -12px;
+  transform: rotate(45deg);
+}
+
+/* Osiris speaks from the top-left: his bubble stands under his
+   medallion, tail up at his head. */
+.avatar-stage .speech-bubble--osiris {
+  left: 1rem;
+  top: 10.5rem;
+}
+
+.avatar-stage .speech-bubble--osiris .speech-bubble__tail {
+  left: 30px;
+  top: -12px;
+  transform: rotate(225deg);
+}
+
+/* THE CALLED GOD AT FULL VALUE (presence scale): the pop-up's circle
+   grows to a true presence — the same living treatment as Anubis
+   (his ring stands around him, his face at presence size) — while
+   Anubis keeps the center, per the caller's law. */
+.avatar-stage .called-god-popup--presence .god-medallion {
+  width: clamp(138px, 21vmin, 208px);
+  height: clamp(138px, 21vmin, 208px);
+}
+
+.avatar-stage .called-god-popup__ring-wrap {
+  position: relative;
+  display: block;
+}
+
+/* THE HELPER (a god called by a god): he stands SMALLER — the Osiris
+   medallion scale the base .god-medallion already wears — on the
+   stage's lower-LEFT field, clear of the god who called him at the
+   lower-right and of Anubis at the center. */
+.avatar-stage .called-god-popup--helper {
+  right: auto;
+  left: clamp(18px, 3vw, 44px);
+  flex-direction: row-reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-stage .god-backdrop {
+    animation: none;
+  }
+  .avatar-stage .speech-bubble {
+    animation: none;
+  }
+}

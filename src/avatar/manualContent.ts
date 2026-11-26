@@ -642,14 +642,29 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
       },
       {
         id: "gods-bubble",
-        title: "The pop-up — REMOVED on your order",
+        title: "The speech bubble — his words beside his head",
         state: "live",
-        what: "REMOVED (2026-11-24, your voice order): “I see Anubis keeps popping up on the side and his scepter is getting in the way of the actual Anubis. Stop having that pop up. I don't want to see that anymore.” The god pop-up — a second face in a medallion with the comic-style chat box beside it, for reports and replies alike — is gone entirely, and the was-scepter overlay that rose on Anubis's medallion for a report is gone with it. What a god has to say now reaches you two ways: his VOICE, and the words standing in the chat thread (reports are signed with the reporting god's name; the full record is behind History). The only faces on the stage are the medallions you seated — Anubis at center, and any god you summon by name. There is no speech-bubble switch anymore, because there is no bubble.",
+        what: "Your order (2026-11-26): when a god speaks, he speaks out loud AND a comic-book speech bubble stands beside his head showing the words he is saying — like talking to a character in a comic-book game. The bubble hangs on the god's own head — Anubis at the center, a called god at his call seat, Osiris at the top-left — and it stands only while his voice is actually sounding; when the words end, the bubble is gone. The history stands: the thing removed on 2026-11-24 was a second FACE popping up beside a bubble for reports, with the was-scepter on top of Anubis — that pop-up and the scepter are still gone, and no new face ever rises for a reply. This is the bubble alone, on a head you already seated.",
         steps: [
-          "Nothing to set — the pop-up and the scepter no longer exist in the build.",
+          "Talk to a god — when he answers out loud, read his words in the bubble beside his head.",
+          "Nothing to set — the bubble follows the voice on its own.",
           "Missed a report? It is in the chat thread under its god's name, and in History with its date and time.",
         ],
-        where: "The stage — nothing pops up on it, on any surface.",
+        where: "The stage, beside the speaking god's head — on every surface.",
+      },
+      {
+        id: "gods-presence",
+        title: "A god in person — his value, his background, his ground, and helpers",
+        state: "live",
+        what: "Your orders (2026-11-26): each god controls his own section, and when you go to his place or name him to speak, he comes onto the screen at the SAME VALUE as Anubis — full living animation, his ring around him, his own voice — in his own way, while Anubis keeps the center. If you tell ANUBIS to call a god, Anubis stays and brings him in at that same full value. Each god answers from his own ground: Anubis knows everything the core knows; Montu's ground is war and security; Osiris's ground is the core itself — memory, knowledge, the record. A god outside his ground says so plainly and names the god whose ground it is. Call that god in — “call Osiris” — and he stands SMALLER, at the medallion scale, beside the god you are talking to; when he is done, the dismissal words bow him out and he returns to his work. And when a god comes into perspective, the background becomes HIS picture — a picture of him in Egyptian history. HONEST STATE OF THE PICTURES: no god's background picture has been placed in the app yet, so for now your own wallpaper stands behind every god — the frame for his picture is built and waiting, and no god will ever wear another god's picture or a generic one dressed up as his.",
+        steps: [
+          "Name a god (“Montu, …”) — he comes up at full value, ring and all, and the talk is his.",
+          "Tell Anubis “call Montu” — Anubis stays at the center and Montu stands beside him at full value.",
+          "Mid-talk, type “call Osiris” — Osiris stands smaller, as a helper. “That'll be all” sends the helper back first, with his bow.",
+          "Send a god home with the dismissal words — he bows, and the stage is Anubis's again.",
+        ],
+        where: "The stage and the chat box — the call, the helper, and the bubble all live there.",
+        note: "At rest the stage is still Anubis alone — nothing in this entry changes that. A god's background picture joins when real art for that god is placed in the app; until then the record in the code (godPresence.ts) names every god's picture as not placed yet.",
       },
       {
         id: "gods-capabilities",
@@ -744,6 +759,18 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
           "Tap the bar again to minimize it back to the slim strip.",
         ],
         where: "Bottom of the stage on a phone.",
+      },
+      {
+        id: "chat-attach",
+        title: "Attach a picture or file — right from the chat box",
+        state: "live",
+        what: "Your order (2026-11-26): the chat box takes uploads when you need them. The paperclip is on the desktop line and in the phone bar's options. A picture goes straight to Picture Analysis — the window opens with your picture already in it, and the findings land beside it. A text or Markdown file goes into your Knowledge by the same import the Knowledge panel uses. Any other kind of file gets a plain answer saying it has no home here yet — a file is never swallowed in silence. The rest of the box follows your word too: the bar stays docked at the bottom; you can fold the conversation away and keep typing in the bar; and when you SEND, the conversation box pops up so you can see the exchange.",
+        steps: [
+          "Tap the paperclip (on the phone: the + button, then “Attach a picture or file”).",
+          "Pick the picture or file — a picture opens in Picture Analysis; a text file is filed into Knowledge.",
+          "Type in the folded bar whenever you like — sending pops the conversation up; the fold key tucks it away again.",
+        ],
+        where: "The chat box — the paperclip on the desktop line and in the phone options.",
       },
       {
         id: "chat-history",

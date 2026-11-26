@@ -38,6 +38,7 @@ import { PLACEMENT_FALLBACK_NOTE, placeFindings, type PlacedFinding } from "./an
 import { normalizeImageOrientation } from "./imageOrientation";
 import { AnnotatedAnalysis } from "./AnnotatedAnalysis";
 import { runSecondLook, type FindingVerdict } from "./secondLook";
+import { CHAT_ATTACHMENT_EVENT, takeChatAttachment } from "./chatAttachment";
 
 const ANALYZE_PROMPT = [
   "You are the analytic window of Augie, a local AI assistant.",
@@ -570,6 +571,25 @@ export function PictureAnalysis() {
     reader.onerror = () => setError("That picture could not be read.");
     reader.readAsDataURL(file);
   };
+
+  // THE CHAT BOX'S PICTURE LANDS HERE (owner order, voice call
+  // 2026-11-26 ~13:48 CST): a picture attached in the chat box
+  // is stashed by the stage (chatAttachment.ts) and this window
+  // opens — the stash is taken on mount, and again whenever a
+  // new stash lands while the window already stands. The file
+  // then runs the very same path as a picture picked here.
+  useEffect(() => {
+    const take = () => {
+      const file = takeChatAttachment();
+      if (file) onFile(file);
+    };
+    take();
+    window.addEventListener(CHAT_ATTACHMENT_EVENT, take);
+    return () => window.removeEventListener(CHAT_ATTACHMENT_EVENT, take);
+    // onFile is this render's closure over the current model
+    // state — re-subscribing per render is harmless and keeps
+    // the closure fresh.
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>

@@ -81,6 +81,7 @@ import {
   type CommandTab,
 } from "./CommandBox";
 import "./stage-fix-round.css";
+import "./god-presence.css";
 import { BuilderPanel } from "./builder/BuilderPanel";
 import { MapPanel } from "./builder/MapPanel";
 import { BuiltWorldMapPanel } from "./builder/BuiltWorldMapPanel";
@@ -174,6 +175,17 @@ import {
   type FrontGod,
 } from "./godStage";
 import { CalledGodPopUp } from "./CalledGodPopUp";
+import { SpeechBubble } from "./SpeechBubble";
+import {
+  godBackground,
+  godInPerspective,
+  helperLeaveLine,
+  HELPER_GREETINGS,
+  parseHelperCall,
+  speechBubbleFor,
+  type PresenceGodId,
+} from "./godPresence";
+import { stashChatAttachment } from "./chatAttachment";
 import { OsirisMedallion } from "./OsirisMedallion";
 import { WallpaperPicker } from "./WallpaperPicker";
 import { closeWithBlessing } from "./etiquette";
@@ -852,6 +864,9 @@ export function AvatarStage({
   // which holds him while the dismissal lands).
   const osirisPop = usePopUpPresence(addressee === "osiris");
   const montuPop = usePopUpPresence(frontGod === "montu" || bowingGod === "montu");
+  // THE HELPER's state stands below, beside `say` — its
+  // dismissal speaks the allegiance line through that channel
+  // (God Presence doctrine, 2026-11-26 — godPresence.ts).
   const perspectiveRef = useRef(perspective);
   perspectiveRef.current = perspective;
   // A god answers a summon: he comes onto the stage and stays for
@@ -1283,16 +1298,22 @@ export function AvatarStage({
   }, [notify]);
   /**
    * THE RESPONSE MODEL (owner order 2026-11-22 ~20:02 EST;
-   * PRESENTATION SETTLED 2026-11-24 ~09:57 EST): a REPLY reaches
-   * the Captain by the god's VOICE and by the chat thread — the
-   * record of it waits in the thread and behind History. The
-   * pop-up delivery that used to raise the speaking god's face
-   * beside a comic bubble is REMOVED by his order ("Stop having
-   * that pop up. I don't want to see that anymore"): no face but
-   * the resident medallions ever appears, and a reply raises
-   * nothing on the stage at all. The resident medallion's own
-   * mouth still moves while its god speaks — that is the face he
-   * seated, not a pop-up.
+   * PRESENTATION SETTLED 2026-11-24 ~09:57 EST; THE BUBBLE
+   * REFINED 2026-11-26 ~13:48 CST): a REPLY reaches the Captain
+   * by the god's VOICE and by the chat thread — the record of
+   * it waits in the thread and behind History. The pop-up
+   * delivery that used to raise the speaking god's face beside
+   * a comic bubble was REMOVED by his order ("Stop having that
+   * pop up. I don't want to see that anymore") — and it stays
+   * removed: no second face ever appears for a reply. What the
+   * 2026-11-26 order brings back is the BUBBLE ALONE, hung on
+   * the god's own standing presence: while Anubis (or a called
+   * god) is actually speaking, a comic-book speech bubble
+   * stands beside HIS head showing the words he is saying —
+   * like talking to a character in a comic-book game
+   * (godPresence.ts, speechBubbleFor; SpeechBubble.tsx). The
+   * resident medallion's own mouth still moves while its god
+   * speaks — that is the face he seated, not a pop-up.
    */
   /**
    * THE RESPECT ASK (owner order 2026-11-23 ~07:22 EST): when a
@@ -1347,6 +1368,71 @@ export function AvatarStage({
     aiRef.current?.speak(text);
   }, []);
 
+  // THE HELPER (God Presence doctrine, owner order 2026-11-26
+  // ~13:51 CST — godPresence.ts): a god called BY a god, while a
+  // conversation is already live, stands SMALLER — the Osiris
+  // medallion scale — on the stage's lower-left field. He is
+  // not the call and not the addressee: he stands WITH the god
+  // who holds the conversation, and when he is done he bows
+  // (the same 1.6 seconds a dismissal has always held) and is
+  // gone back to his work. Only Montu and Osiris can stand as
+  // helpers — Anubis is already on the screen, at the center.
+  const [helperGod, setHelperGod] = useState<"montu" | "osiris" | null>(null);
+  const helperGodRef = useRef<"montu" | "osiris" | null>(null);
+  const [helperBowing, setHelperBowing] = useState(false);
+  const helperPop = usePopUpPresence(helperGod !== null);
+  const helperBowTimerRef = useRef<number | null>(null);
+  const raiseHelper = useCallback((god: "montu" | "osiris") => {
+    if (helperBowTimerRef.current !== null) window.clearTimeout(helperBowTimerRef.current);
+    helperBowTimerRef.current = null;
+    setHelperBowing(false);
+    helperGodRef.current = god;
+    setHelperGod(god);
+  }, []);
+  const dismissHelper = useCallback(() => {
+    const god = helperGodRef.current;
+    if (!god) return;
+    const name = god === "montu" ? MONTU_BINDING.name : "Osiris";
+    setHelperBowing(true);
+    say(closeWithBlessing(helperLeaveLine(name)));
+    if (helperBowTimerRef.current !== null) window.clearTimeout(helperBowTimerRef.current);
+    helperBowTimerRef.current = window.setTimeout(() => {
+      helperBowTimerRef.current = null;
+      helperGodRef.current = null;
+      setHelperGod(null);
+      setHelperBowing(false);
+    }, 1600);
+  }, [say]);
+
+  // THE CHAT BOX'S ATTACHMENT ROUTER (owner order, voice call
+  // 2026-11-26 ~13:48 CST): a picture picked in the chat box
+  // goes to Picture Analysis (stashed, the window opens, the
+  // analyzer takes it — chatAttachment.ts); a text or Markdown
+  // file goes into Knowledge by the panel's own import path;
+  // anything else is answered plainly — no file is ever dropped
+  // in silence.
+  const handleChatAttachment = useCallback(
+    (file: File) => {
+      if (file.type.startsWith("image/")) {
+        stashChatAttachment(file);
+        setAnalyzeOpen(true);
+        say(`Your picture is in Picture Analysis, Captain — ${file.name}.`);
+      } else if (
+        /\.(txt|md)$/i.test(file.name) ||
+        file.type === "text/plain" ||
+        file.type === "text/markdown"
+      ) {
+        void importKnowledgeFile(file);
+        say(`Filed into your knowledge, Captain — ${file.name}.`);
+      } else {
+        say(
+          "That kind of file has no home here yet, Captain — pictures go to Picture Analysis, and text files go to Knowledge.",
+        );
+      }
+    },
+    [say],
+  );
+
   // THE LIVING WORLD (owner order 2026-11-21): five scenes grown from
   // the particle code itself — office, beach, desert, park, coffee
   // shop. One state setter serves the Scene tab buttons and the spoken
@@ -1364,6 +1450,15 @@ export function AvatarStage({
   // a failed load and the layer simply never covers anything).
   const [backdrop, setBackdrop] = useState<StageBackdropId>(loadStageBackdrop);
   const [backdropArtReady, setBackdropArtReady] = useState(true);
+  // THE GOD'S OWN BACKGROUND (God Presence doctrine, owner
+  // order 2026-11-26 ~13:50 CST): while a god holds the call,
+  // HIS picture stands over the Captain's wallpaper — the
+  // wallpaper choice itself is never touched. A god whose
+  // picture is not placed yet (godPresence.ts names them all)
+  // or whose file fails to load keeps the wallpaper: the
+  // failed god is remembered here so a broken file never
+  // flickers, and never wears a substitute.
+  const [godBackdropFailedFor, setGodBackdropFailedFor] = useState<PresenceGodId | null>(null);
   // CHANGE WALLPAPER (owner order 2026-11-24 ~17:26 EST): he went
   // looking in the menu for the wallpaper and could not find it —
   // the Scene tab now opens with a plainly labeled "Change
@@ -2288,6 +2383,15 @@ export function AvatarStage({
       if (bowTimerRef.current !== null) window.clearTimeout(bowTimerRef.current);
       bowTimerRef.current = window.setTimeout(() => {
         bowTimerRef.current = null;
+        // A helper who stood with the dismissed god leaves with
+        // him (God Presence doctrine): his bow is this bow — no
+        // second ceremony, and no helper is left standing over
+        // an empty call.
+        if (helperBowTimerRef.current !== null) window.clearTimeout(helperBowTimerRef.current);
+        helperBowTimerRef.current = null;
+        helperGodRef.current = null;
+        setHelperGod(null);
+        setHelperBowing(false);
         setBowingGod((current) => (current === god ? null : current));
         setSummonedGods((current) => current.filter((entry) => entry !== god));
         setReportGod((current) => (current === god ? null : current));
@@ -2778,6 +2882,31 @@ export function AvatarStage({
         say(`AUGI steps to the ${side}, Captain — side-on and out of your way.`);
         return;
       }
+      // A CALL FOR A SECOND GOD (God Presence doctrine, owner
+      // order 2026-11-26 ~13:51 CST): while a god already holds
+      // the call or the conversation, a call form naming ANOTHER
+      // god raises him as a HELPER — smaller, standing with the
+      // god who holds the conversation (godPresence.ts,
+      // parseHelperCall). With nobody called, the line is a main
+      // summon and falls to the standing path below. A helper
+      // already standing is not raised twice.
+      const helperCall = parseHelperCall(avatarRequest, addresseeRef.current);
+      const callHolder: PresenceGodId | null =
+        frontGodRef.current !== null && frontGodRef.current !== "anubis"
+          ? frontGodRef.current
+          : addresseeRef.current !== "anubis"
+            ? addresseeRef.current
+            : null;
+      if (
+        helperCall &&
+        callHolder !== null &&
+        helperCall !== callHolder &&
+        helperGodRef.current !== helperCall
+      ) {
+        raiseHelper(helperCall);
+        say(HELPER_GREETINGS[helperCall]);
+        return;
+      }
       // SUMMON A GOD BY NAME (presence doctrine, owner order
       // 2026-11-22): his name — typed here or spoken through the
       // same command path — calls him onto the stage, where he
@@ -2798,6 +2927,14 @@ export function AvatarStage({
       // summoned to send, the line is ordinary conversation and
       // falls through untouched.
       if (isDismissal(avatarRequest)) {
+        // A helper standing with the call is sent back FIRST
+        // (God Presence doctrine): he shows his allegiance and
+        // returns to his work, and the god who holds the
+        // conversation stays.
+        if (helperGodRef.current !== null && !helperBowing) {
+          dismissHelper();
+          return;
+        }
         const addressed = isGodPerspective(perspectiveRef.current)
           ? perspectiveRef.current
           : null;
@@ -4146,6 +4283,33 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onError={() => setBackdropArtReady(false)}
         />
       )}
+      {/* THE GOD'S OWN BACKGROUND (same doctrine): the picture
+          of the god in perspective, from his registry record
+          (godPresence.ts) — real placed art only, labeled as
+          art by its record; while no picture is placed for him
+          this layer simply never stands, and the Captain's
+          wallpaper holds. It renders above the wallpaper layer
+          and below every presence, and it is gone the moment
+          the call ends. */}
+      {(() => {
+        const perspectiveGod = godInPerspective({ frontGod, addressee });
+        const record = perspectiveGod ? godBackground(perspectiveGod) : null;
+        if (!perspectiveGod || !record?.image || godBackdropFailedFor === perspectiveGod) {
+          return null;
+        }
+        return (
+          <img
+            key={perspectiveGod}
+            className="god-backdrop"
+            src={record.image}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            data-god={perspectiveGod}
+            onError={() => setGodBackdropFailedFor(perspectiveGod)}
+          />
+        );
+      })()}
       {/* THE CIRCUIT FIELD + FRAME (owner order 2026-11-26, the
           circuit-ring theme — his main theme): the stage is a
           personal command DEVICE now. A deep circuit field —
@@ -4248,10 +4412,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         />
       )}
       {/* MONTU'S CALL POP-UP (owner order 2026-11-26 ~04:32
-          CST): while Montu holds the call — summoned, addressed,
-          or relayed to — he stands as a SMALL living circle in
-          the stage's lower-right field, where his resting circle
-          stood under the old law; Anubis keeps the center. He
+          CST; SCALE REFINED by the God Presence doctrine,
+          2026-11-26 ~13:50 CST): while Montu holds the call —
+          summoned, addressed, or relayed to — he stands as a
+          living circle in the stage's lower-right field, where
+          his resting circle stood under the old law, now at
+          PRESENCE scale: full value, his ring standing around
+          him, the same living treatment as Anubis — because a
+          god the Captain speaks to comes onto the screen at
+          Anubis's value, in his own way. Anubis keeps the
+          center. He
           bows on his pop-up under dismissal (the bow renders
           through the dismissal, then he is gone), and when the
           call ends his pop-up fades out on its leaving tail. A
@@ -4269,9 +4439,46 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           speaking={addressee === "montu" && state === "SPEAKING"}
           bowing={bowingGod === "montu"}
           leaving={montuPop.leaving}
+          scale="presence"
           onSelect={openChatBox}
         />
       )}
+      {/* THE HELPER (God Presence doctrine, owner order
+          2026-11-26 ~13:51 CST): a god called BY a god stands
+          SMALLER — the Osiris medallion scale — on the stage's
+          lower-left field, for as long as the conversation
+          needs him. He is neither the call nor the addressee;
+          a tap on his face turns the conversation to him (his
+          own chat, like every god). When he is done the
+          dismissal words bow him out first, and a dismissed
+          main god takes his helper with him. */}
+      {!clearScreen && worldScreen === "live" && helperPop.shown && helperGod && (
+        <CalledGodPopUp
+          god={helperGod}
+          speaking={false}
+          bowing={helperBowing}
+          leaving={helperPop.leaving}
+          scale="helper"
+          onSelect={() => {
+            applyAddressee(helperGod);
+            openChatBox();
+          }}
+        />
+      )}
+      {/* THE SPEECH BUBBLE (same doctrine): while a god is
+          actually speaking, his words stand in a comic bubble
+          beside his own head — Anubis at the center, Montu at
+          his call seat, Osiris at the top-left. Words only; no
+          face rises for a reply (the 2026-11-24 removal
+          stands). The state rule is speechBubbleFor
+          (godPresence.ts): the bridge must be SPEAKING, so a
+          muted or written-only line never bubbles. */}
+      {!clearScreen &&
+        worldScreen === "live" &&
+        (() => {
+          const bubble = speechBubbleFor({ bridgeState: state, addressee, words: lastWords });
+          return bubble ? <SpeechBubble god={bubble.god} text={bubble.text} /> : null;
+        })()}
       {/* NO RESTING CIRCLES ANYMORE (the same order): the row
           of small circles that stood at the lower-right at rest
           is gone — at rest the stage is Anubis alone, nothing
@@ -4571,6 +4778,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             chatControlsRef.current = controls;
           }}
           onOpenHistory={() => setHistoryOpen(true)}
+          onAttachFile={handleChatAttachment}
           onWindowControls={(controls) => {
             // Osiris's keys (owner order 2026-11-24 ~16:57 EST):
             // the window hands its anchor / reset / menu
