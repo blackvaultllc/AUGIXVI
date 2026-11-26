@@ -330,6 +330,7 @@ import { createLocalEar, type EarState, type LocalEar } from "./localEar";
 import { stageStatusLabel } from "./voiceHearing";
 import { VoiceIndicator } from "./VoiceIndicator";
 import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
+import { VoiceLabPanel } from "./VoiceLabPanel";
 import { TrustedDevicesPanel } from "./TrustedDevicesPanel";
 import { PhoneBrainPanel } from "./PhoneBrainPanel";
 import {
@@ -380,6 +381,8 @@ import { getSectorAlertState } from "./sectorWatch.server";
 import { getInboxState } from "./notifications.server";
 import { NotificationsWindow } from "./NotificationsWindow";
 import { DeitiesWindow } from "./DeitiesWindow";
+import { PersonalVaultWindow } from "./PersonalVaultWindow";
+import { StopSafetyWindow } from "./StopSafetyWindow";
 import { alertRingReading } from "./alertRing";
 import {
   currentSoundFeed,
@@ -1027,6 +1030,11 @@ export function AvatarStage({
   // on the poll below; the window is NotificationsWindow.
   const [inboxOpen, setInboxOpen] = useState(false);
   const [deitiesOpen, setDeitiesOpen] = useState(false);
+  // Personal safety pass (owner order 2026-11-26): his papers
+  // in the vault, and the law base + stop mode. Owner surface
+  // only — these windows open from the operator's own Tools.
+  const [vaultOpen, setVaultOpen] = useState(false);
+  const [stopSafetyOpen, setStopSafetyOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
   // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
   // surface. Opens from Tools → Rooms and from "open listening mode".
@@ -4654,6 +4662,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setInboxOpen(true)}
                   />
                   <CommandAction
+                    icon={Shield}
+                    label="Personal Vault"
+                    onClick={() => setVaultOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Scale}
+                    label="Stop Safety"
+                    onClick={() => setStopSafetyOpen(true)}
+                  />
+                  <CommandAction
                     icon={Clapperboard}
                     label="Captain's Log"
                     onClick={() => setCaptainsLogOpen(true)}
@@ -4909,6 +4927,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   The gods speak in a deeper British man's voice — a woman's voice only when the
                   speaker is a woman. The level is yours; full is the standing default.
                 </p>
+                <VoiceLabPanel />
               </CommandGroup>
               <CommandGroup label="Voice calibration — only my operator's voice">
                 <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
@@ -5004,6 +5023,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
       {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
       {deitiesOpen && <DeitiesWindow onClose={() => setDeitiesOpen(false)} />}
+      {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
+      {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}
       {remoteCodesOpen && <RemoteCodesWindow onClose={() => setRemoteCodesOpen(false)} />}
       {identifyOpen && <IdentifyWindow onClose={() => setIdentifyOpen(false)} />}
       {formationOpen && <FormationWindow onClose={() => setFormationOpen(false)} />}
