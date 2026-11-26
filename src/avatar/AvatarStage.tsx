@@ -24,6 +24,7 @@ import {
   Building2,
   Clapperboard,
   Camera,
+  Bell,
   Coffee,
   DoorOpen,
   Ear,
@@ -376,6 +377,8 @@ import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
 import { fetchDaddyInboxView, operatorAccessToken } from "./learner/daddyInboxClient";
 import { getCameraSpeech, markCameraSpeechRouted } from "./cameraPresence.server";
 import { getSectorAlertState } from "./sectorWatch.server";
+import { getInboxState } from "./notifications.server";
+import { NotificationsWindow } from "./NotificationsWindow";
 import { alertRingReading } from "./alertRing";
 import {
   currentSoundFeed,
@@ -1016,6 +1019,13 @@ export function AvatarStage({
   // his own network — both lenses live, PTZ under his grant. Opens
   // from Tools → Senses & analysis.
   const [camerasOpen, setCamerasOpen] = useState(false);
+  // NOTIFICATIONS (owner orders 2026-11-26): Anubis's inbox —
+  // his suggestions, the system's own activity, and the
+  // pictures he kept with their reasoning. The stage button
+  // carries the real unread count from the core store, read
+  // on the poll below; the window is NotificationsWindow.
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxUnread, setInboxUnread] = useState(0);
   // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
   // surface. Opens from Tools → Rooms and from "open listening mode".
   const [listeningOpen, setListeningOpen] = useState(false);
@@ -2962,6 +2972,33 @@ export function AvatarStage({
     };
   }, [notify]);
 
+  /**
+   * NOTIFICATIONS POLL (owner orders 2026-11-26): on the same
+   * 25-second beat as the sector poll, the stage reads Anubis's
+   * inbox state — the read reconciles the inbox and the
+   * property feed from the core's real records server-side —
+   * and the stage button shows the true unread count. Nothing
+   * is announced from here: the inbox is a record he opens,
+   * not another voice in the room (events and judgments
+   * already raise their own notices on the sector poll).
+   */
+  useEffect(() => {
+    let stopped = false;
+    const tick = async () => {
+      const accessToken = await operatorAccessToken().catch(() => null);
+      if (stopped || !accessToken) return;
+      const state = await getInboxState({ data: { accessToken } }).catch(() => null);
+      if (stopped || !state?.authorized) return;
+      setInboxUnread(state.unread);
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 25_000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, []);
+
   useEffect(() => {
     const bridge = bridgeRef.current;
     // DEVICE RENDER CAPS (deviceProfile.ts, owner order 2026-11-24):
@@ -4609,6 +4646,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setLogsOpen(true)}
                   />
                   <CommandAction
+                    icon={Bell}
+                    label={inboxUnread > 0 ? `Notifications (${inboxUnread} unread)` : "Notifications"}
+                    onClick={() => setInboxOpen(true)}
+                  />
+                  <CommandAction
                     icon={Clapperboard}
                     label="Captain's Log"
                     onClick={() => setCaptainsLogOpen(true)}
@@ -4934,6 +4976,25 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         />
       )}
       {camerasOpen && <CamerasWindow onClose={() => setCamerasOpen(false)} />}
+      {!inboxOpen && (
+        <button
+          type="button"
+          className="notifications-stage-badge"
+          onClick={() => setInboxOpen(true)}
+          aria-label={
+            inboxUnread > 0
+              ? `Notifications — ${inboxUnread} unread in Anubis's inbox`
+              : "Notifications — open Anubis's inbox"
+          }
+        >
+          <Bell aria-hidden="true" size={14} />
+          NOTIFICATIONS
+          {inboxUnread > 0 && (
+            <span className="notifications-stage-badge__count">{inboxUnread}</span>
+          )}
+        </button>
+      )}
+      {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
       {remoteCodesOpen && <RemoteCodesWindow onClose={() => setRemoteCodesOpen(false)} />}
       {identifyOpen && <IdentifyWindow onClose={() => setIdentifyOpen(false)} />}
       {formationOpen && <FormationWindow onClose={() => setFormationOpen(false)} />}

@@ -68,11 +68,16 @@ function StillLine({
         {file} — {caption}
       </span>{" "}
       {url ? (
-        <img
-          src={url}
-          alt={`Kept still ${file}`}
-          style={{ display: "block", maxWidth: "100%", marginTop: 6, borderRadius: 6 }}
-        />
+        <>
+          <img
+            src={url}
+            alt={`Kept still ${file}`}
+            style={{ display: "block", maxWidth: "100%", marginTop: 6, borderRadius: 6 }}
+          />
+          <a className="window-btn" href={url} download={file} style={{ display: "inline-block", marginTop: 6 }}>
+            Download this picture
+          </a>
+        </>
       ) : (
         <button type="button" className="window-btn" onClick={() => onShow(file)}>
           Show picture
@@ -442,6 +447,12 @@ export function SectorWatchPanel({
                   </button>
                 )}
               </p>
+              {event.reasoning && (
+                <p className="window-cameras__grant">
+                  Why these pictures were kept (the reasoning saved with them, proof of
+                  concept): {event.reasoning}
+                </p>
+              )}
               {event.personReading && (
                 <p className="window-cameras__grant">
                   Draft description of the person (the analyzer's reading — the stills are the
@@ -464,13 +475,17 @@ export function SectorWatchPanel({
                     the core for your reports:
                   </p>
                   {event.evidence.map((still) => (
-                    <StillLine
-                      key={still.file}
-                      file={still.file}
-                      caption={still.plateNote}
-                      stills={stills}
-                      onShow={(f) => void showStill(f)}
-                    />
+                    <div key={still.file}>
+                      {still.reasoning && (
+                        <p className="window-cameras__grant">Why kept: {still.reasoning}</p>
+                      )}
+                      <StillLine
+                        file={still.file}
+                        caption={still.plateNote}
+                        stills={stills}
+                        onShow={(f) => void showStill(f)}
+                      />
+                    </div>
                   ))}
                 </>
               )}
@@ -517,6 +532,11 @@ export function SectorWatchPanel({
                   </button>
                 )}
               </p>
+              {judgment.reasoning && (
+                <p className="window-cameras__grant">
+                  Why this picture was kept (the reasoning saved with it): {judgment.reasoning}
+                </p>
+              )}
               {judgment.crossExam.length > 0 && (
                 <p className="window-cameras__grant">
                   Cross-examination (indicators, labeled — they informed this judgment; they are

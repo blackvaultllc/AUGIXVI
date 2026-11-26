@@ -140,6 +140,14 @@ export const getSectorAlertState = createServerFn({ method: "POST" })
     if (!sectorStore) return { authorized: true, events: [], judgments: [] };
     const runtime = await import("./sectorWatchRuntime.server");
     runtime.reconcileSectorWatch();
+    // The notifications pass rides this poll (owner orders
+    // 2026-11-26): the inbox and the property feed re-derive
+    // from the sector record while the Captain is at his Augie,
+    // so the stage's notification count is never staler than
+    // this poll. Derivation is deterministic and silent on
+    // failure — the records stand either way.
+    const notificationsRuntime = await import("./notificationsRuntime.server");
+    await notificationsRuntime.reconcileNotifications();
     const file = await sectorStore.read();
     return {
       authorized: true,
