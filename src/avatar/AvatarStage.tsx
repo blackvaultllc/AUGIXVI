@@ -25,6 +25,7 @@ import {
   Clapperboard,
   Camera,
   Bell,
+  CircleDot,
   Coffee,
   DoorOpen,
   Ear,
@@ -382,6 +383,7 @@ import { getInboxState } from "./notifications.server";
 import { NotificationsWindow } from "./NotificationsWindow";
 import { PersonalVaultWindow } from "./PersonalVaultWindow";
 import { StopSafetyWindow } from "./StopSafetyWindow";
+import { DarkHoleWindow } from "./DarkHoleWindow";
 import { alertRingReading } from "./alertRing";
 import {
   currentSoundFeed,
@@ -1034,6 +1036,12 @@ export function AvatarStage({
   const [vaultOpen, setVaultOpen] = useState(false);
   const [stopSafetyOpen, setStopSafetyOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
+  // THE DARK HOLE (owner order 2026-11-26): his library —
+  // files broken down to pieces on the core, filed under his
+  // own categories, reassembled only through the manifest.
+  // Opens from Tools → Records & safety; the window is
+  // DarkHoleWindow. Owner surface only, never the learner's.
+  const [darkHoleOpen, setDarkHoleOpen] = useState(false);
   // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
   // surface. Opens from Tools → Rooms and from "open listening mode".
   const [listeningOpen, setListeningOpen] = useState(false);
@@ -4669,6 +4677,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setStopSafetyOpen(true)}
                   />
                   <CommandAction
+                    icon={CircleDot}
+                    label="Dark Hole"
+                    onClick={() => setDarkHoleOpen(true)}
+                  />
+                  <CommandAction
                     icon={Clapperboard}
                     label="Captain's Log"
                     onClick={() => setCaptainsLogOpen(true)}
@@ -5016,6 +5029,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
       {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
       {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}
+      {darkHoleOpen && <DarkHoleWindow onClose={() => setDarkHoleOpen(false)} />}
       {remoteCodesOpen && <RemoteCodesWindow onClose={() => setRemoteCodesOpen(false)} />}
       {identifyOpen && <IdentifyWindow onClose={() => setIdentifyOpen(false)} />}
       {formationOpen && <FormationWindow onClose={() => setFormationOpen(false)} />}
