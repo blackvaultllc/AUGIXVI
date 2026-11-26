@@ -24,9 +24,9 @@
  *  4. SEATS STAY EMPTY UNTIL HE NAMES A HEAD. The structure is
  *     prepared, not populated: a department's human head, an
  *     agent's name, and a god's name are null until the Captain's
- *     word fills them. Nothing here invents a name — Violet's
- *     god (the god of finances, gold-working) stands with its
- *     name field EMPTY until he confirms it.
+ *     word fills them. Nothing here invents a name. Violet's god
+ *     stood unnamed until the Captain confirmed her (main chat
+ *     2026-11-26 ~14:27 CST): HATHOR, the Golden One.
  *
  * The first instance: Violet Hernandez, Agent 011, his Financial
  * Advisor, heads the Finance department under the finance god.
@@ -68,15 +68,17 @@ export const GOD_OSIRIS: GodRef = {
 };
 
 /**
- * VIOLET'S GOD — the god of finances, gold-working, assigned as
- * her counterpart for her side. The Captain has NOT spoken its
- * name: this field stays null until his word fills it. Do not
- * put a name here on anyone else's say-so.
+ * VIOLET'S GOD — HATHOR, the Golden One (the Captain confirmed
+ * the name in the main chat, 2026-11-26 ~14:27 CST). The goddess
+ * of finances, gold-working, assigned as Violet's counterpart
+ * for her side. The Egyptians called Hathor Gold itself; she
+ * stands over the company's money.
  */
 export const GOD_FINANCE: GodRef = {
   id: "finance-god",
-  name: null,
-  domain: "Finances — gold-working. The counterpart who stands with the Financial Advisor.",
+  name: "Hathor",
+  domain:
+    "The Golden One — finances, gold-working: the company's money, its ledgers and balances, its invoices and payments. The counterpart who stands with the Financial Advisor.",
 };
 
 /** Every god this structure knows today. */
@@ -248,7 +250,7 @@ export const GOD_DEPARTMENTS: GodDepartment[] = [
     oversightGodId: DEPARTMENT_OVERSIGHT_GOD_ID,
     headSeat: 11,
     blurb:
-      "Company money. Violet Hernandez, Agent 011, heads it as Financial Advisor, under the god of finances.",
+      "Company money. Violet Hernandez, Agent 011, heads it as Financial Advisor, under Hathor, the Golden One.",
   },
 ];
 

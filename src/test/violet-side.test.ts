@@ -5,12 +5,13 @@
  *    four things he ordered it to say;
  *  - Anubis + Montu are the Captain's own and can never be
  *    assigned; Osiris oversees every department and is
- *    Khadija's construct; Violet's god's name field is EMPTY;
+ *    Khadija's construct; Violet's god is HATHOR, the Golden One
+ *    (the name the Captain confirmed — no other name may stand);
  *  - the calculator is a banker's (200 + 10% = 220), the
  *    ledger counts only landed money against what is owed;
  *  - her welcome draft is a draft — it names her door, her
- *    starting password slot, and the email line, and it does
- *    NOT invent her god's name;
+ *    starting password slot, the email line, and her god by
+ *    the confirmed name, Hathor, the Golden One;
  *  - a filed request mirrors into his inbox as a REQUEST
  *    entry standing on the request record itself;
  *  - Khadija's wall opens for the request doorway (out only)
@@ -101,12 +102,13 @@ describe("department heads — the doctrine in code", () => {
     expect(LEARNER_GUARDIAN_LAW).toMatch(/always protects her, no matter what/);
   });
 
-  it("Violet heads Finance under the finance god — whose name is NOT spoken yet", () => {
+  it("Violet heads Finance under Hathor, the Golden One — the name the Captain confirmed", () => {
     const head = departmentHead("finance");
     expect(head?.agentName).toBe("Violet Hernandez");
     expect(head?.designation).toBe("Agent 011");
-    expect(GOD_FINANCE.name).toBeNull();
-    expect(head?.god?.name).toBeNull();
+    expect(GOD_FINANCE.name).toBe("Hathor");
+    expect(head?.god?.name).toBe("Hathor");
+    expect(GOD_FINANCE.domain).toMatch(/Golden One/);
   });
 });
 
@@ -175,7 +177,7 @@ describe("the finance ledger", () => {
 });
 
 describe("the welcome draft", () => {
-  it("is a draft with her door, her starting password, and the email line — and no invented god name", () => {
+  it("is a draft with her door, her starting password, the email line — and Hathor named as her god", () => {
     const draft = buildVioletWelcomeDraft("IEM-test-word-0000");
     expect(draft).toContain(VIOLET_PROFILE.email);
     expect(draft).toContain("IEM-test-word-0000");
@@ -183,9 +185,10 @@ describe("the welcome draft", () => {
     expect(draft).toMatch(/change it any time/i);
     expect(draft).toMatch(/send email through your god/i);
     expect(draft).toMatch(/Ask for something to be added/);
-    // The Captain has not confirmed her god's name — the draft must not speak one.
-    expect(draft).not.toMatch(/Hathor/);
-    expect(draft).toMatch(/will speak his name when the Captain gives it/);
+    // The Captain confirmed her god's name (2026-11-26 ~14:27 CST):
+    // the draft speaks it, with her epithet.
+    expect(draft).toMatch(/Hathor, the Golden One/);
+    expect(draft).not.toMatch(/will speak his name when the Captain gives it/);
   });
 });
 

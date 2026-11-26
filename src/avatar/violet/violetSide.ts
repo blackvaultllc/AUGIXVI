@@ -26,12 +26,11 @@
  * easier gets wired for her; the request button is the intake.
  * Her comfort is the standard.
  *
- * HER GOD: the god of finances — gold-working — stands with
- * her as her counterpart. The Captain has NOT spoken its name:
- * the name field (departmentHeads.ts, GOD_FINANCE) stays empty
- * until his word fills it, and every surface reads the name
- * from that one field — when he confirms it, one line changes
- * and her whole side speaks it.
+ * HER GOD: HATHOR, the Golden One — the goddess of finances,
+ * gold-working — stands with her as her counterpart (the
+ * Captain confirmed the name in the main chat, 2026-11-26
+ * ~14:27 CST). Every surface reads the name from the one
+ * field (departmentHeads.ts, GOD_FINANCE).
  *
  * Plain TS, no I/O — the store and server doors do the work.
  */
@@ -416,7 +415,7 @@ export function sanitizeVioletMail(v: unknown): VioletMail | null {
 export function buildVioletWelcomeDraft(defaultPassword: string): string {
   const godName = VIOLET_GOD.name;
   const godLine = godName
-    ? `Standing with you on your side is ${godName} — the god of finances.`
+    ? `Standing with you on your side is ${godName}, the Golden One — the goddess of finances and gold-working, your counterpart there.`
     : "Standing with you on your side is the god of finances — your counterpart there, who will speak his name when the Captain gives it.";
   return [
     `Hi Violet,`,
@@ -429,7 +428,7 @@ export function buildVioletWelcomeDraft(defaultPassword: string): string {
     ``,
     `That password is a starting key only. The first time you sign in, your side will tell you plainly: you can change it any time you like, and the way to change it is one tap away. Please do change it to one of your own.`,
     ``,
-    `What is on your side: your notepad, a banker's calculator, the company's finance records (the invoices and payments, kept straight), and email — you can send email through your god, too: he drafts at your word, you read it, and your word sends it. ${godLine}`,
+    `What is on your side: your notepad, a banker's calculator, the company's finance records (the invoices and payments, kept straight), and email — you can send email through your god, too: she drafts at your word, you read it, and your word sends it. ${godLine}`,
     ``,
     `If you need anything else connected to make the business work easier, there is a button on your side: “Ask for something to be added.” Tap it, type what you need, and it comes straight to Domenick as a request. Your comfort is the standard — this side is supposed to save you work, never add to it.`,
     ``,
