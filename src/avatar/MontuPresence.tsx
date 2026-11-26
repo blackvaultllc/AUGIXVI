@@ -29,6 +29,7 @@ import { useState } from "react";
 import { MONTU_BINDING } from "./medallionPortraits";
 import { MedallionMenu } from "./MedallionMenu";
 import { LivingPortrait, MONTU_FEATURES } from "./LivingPortrait";
+import { PresenceRing } from "./PresenceRing";
 import { MONTU_MOTION_PROFILE } from "./godMotion";
 import {
   availablePresenceViews,
@@ -146,33 +147,41 @@ export function MontuPresence({
       }
       {...anchor.rootProps}
     >
-      <div className="montu-presence__face" style={anchor.faceStyle}>
-        {showBody ? (
-          <img
-            className="montu-presence__img"
-            src={MONTU_BINDING.body}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-          />
-        ) : (
-          /* LIVING FACE (owner order 2026-11-22): Montu blinks like
-             every other face on the stage — eyelids in his own
-             portrait's colors over the falcon's eyes, and the beak's
-             seam moves while he speaks (LivingPortrait). He was the
-             one face left frozen; that defect is closed here. The
-             body view carries no feature map and stays a portrait.
-             HIS OWN MOTION (2026-11-24): the shared rig bent to the
-             falcon — the stage's sharpest blink, a darting gaze
-             that checks the room's corners, clipped quick speech. */
-          <LivingPortrait
-            src={MONTU_FACE_SRC}
-            features={MONTU_FEATURES}
-            speaking={speaking}
-            imgClassName="montu-presence__img"
-            motion={MONTU_MOTION_PROFILE}
-          />
-        )}
+      {/* THE CIRCUIT RING (owner order 2026-11-26): the same
+          ring stands around Montu's medallion while he holds
+          the front — a sibling of the face, never inside it —
+          reading the states Montu himself carries: speaking,
+          or still connecting, or at rest on watch. */}
+      <div className="montu-presence__halo" style={anchor.faceStyle}>
+        <PresenceRing ready={ready} speaking={speaking} listening={false} acting={false} />
+        <div className="montu-presence__face" style={anchor.faceStyle}>
+          {showBody ? (
+            <img
+              className="montu-presence__img"
+              src={MONTU_BINDING.body}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+            />
+          ) : (
+            /* LIVING FACE (owner order 2026-11-22): Montu blinks like
+               every other face on the stage — eyelids in his own
+               portrait's colors over the falcon's eyes, and the beak's
+               seam moves while he speaks (LivingPortrait). He was the
+               one face left frozen; that defect is closed here. The
+               body view carries no feature map and stays a portrait.
+               HIS OWN MOTION (2026-11-24): the shared rig bent to the
+               falcon — the stage's sharpest blink, a darting gaze
+               that checks the room's corners, clipped quick speech. */
+            <LivingPortrait
+              src={MONTU_FACE_SRC}
+              features={MONTU_FEATURES}
+              speaking={speaking}
+              imgClassName="montu-presence__img"
+              motion={MONTU_MOTION_PROFILE}
+            />
+          )}
+        </div>
       </div>
       {/* FACE ONLY (owner eye-check 2026-11-22): no name plate, no
           controls row under the face — Move / Center / Anchor live

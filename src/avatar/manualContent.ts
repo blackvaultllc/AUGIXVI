@@ -433,6 +433,21 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "The stage — computer and phone alike.",
       },
       {
+        id: "stage-circuit-ring",
+        title: "The circuit ring — Anubis's main theme",
+        state: "live",
+        what: "YOUR ORDERS 2026-11-26: you saw the sold robot dog's app screen and liked its INTERFACE — the deep blue cyber feel, the glowing frame, and most of all the big circular ring in the middle of its control screen. The dog is gone and stays gone; the LOOK is now ours, built stronger, and it is the stage's MAIN theme — not a switch you turn on, just how the stage is dressed. You named the feel yourself: “that cybernetic Digimon-looking Pokedex look” — the stage reads as your personal command device. WHAT YOU SEE: a deep blue-black stage with faint circuit traces in the ground, a glowing cyan frame tracing the stage's edges like a device bezel with gold corners (your gold, kept), and around Anubis's medallion a segmented RING. THE RING ONLY TELLS THE TRUTH: its lit parts show what Anubis is really doing at that moment — the whole ring lit gold while he is SPEAKING; every other segment lit cyan while he is THINKING and working; every third segment lit cyan while he is LISTENING; four gold points lit while he rests at command; four cyan points while he is still connecting. It never shows numbers and never pretends to measure anything — it says which state he is in, and that is all. The same ring stands around Montu's medallion while he holds the front. THE RECEDE (your order, same morning): when you ask for a screen or data and a window opens, Anubis steps back — smaller, dimmer, behind the window — so the thing you asked for has the stage. Close the window and he pulls himself back up to full size in the center. He is never hidden and never gone — just yielding, the way a commander steps aside for the map table. THE PHONE SWIPE (same order): on the phone, slide your finger sideways across the open stage and the view turns — the same Left / Front / Right perspective the buttons in Anubis's menu set — one stop per slide, and it stops at the ends. A slide that starts on the chat, a window, or a menu belongs to that thing and does not turn the view. WHAT DID NOT CHANGE: every position (Anubis center, Osiris top-left bare, Status top-right, Montu lower-right, nothing on the edges), the chat docked flat on the bottom edge, Montu at the login gate, no pop-up, no sand on the stage, and every word size. The chat window keeps its gold Egyptian dress; Khadija's side is untouched by this theme.",
+        steps: [
+          "Look at the stage: circuit traces in the ground, a glowing frame at the edges with gold corners, and a ring of segments around Anubis.",
+          "Talk to Anubis and watch the ring: all gold while he speaks, cyan in motion while he thinks, spread cyan while he listens, four gold points while he rests.",
+          "Open any window — a tool, the Library, Devices. Anubis steps back, smaller and dimmer, behind it. Close the window: he comes back to full size in the center.",
+          "On the phone: slide your finger left or right across the open stage to turn the view one stop. The same view the Left / Front / Right buttons in Anubis's menu set.",
+          "Everything else works exactly as before — same places, same chat docked on the bottom, same Status tab.",
+        ],
+        where: "The /avatar stage — computer and phone alike. The Parrot copy carries it after its update runs; the online copy follows when its deploy runs.",
+        note: "Built 2026-11-26. The ring's readings come from Anubis's real state on the stage — if a segment ever lit for a state he was not in, that would be a defect to report. Your screen check is the final proof, as always.",
+      },
+      {
         id: "stage-construct-law",
         title: "AUGI stays in his box — the layering law, and no flash at login",
         state: "live",
