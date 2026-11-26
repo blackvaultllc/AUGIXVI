@@ -13,6 +13,7 @@ import * as THREE from "three";
 import {
   Activity,
   Anchor,
+  ArrowLeftRight,
   ArrowUp,
   AudioLines,
   BarChart3,
@@ -379,6 +380,7 @@ import { getCameraSpeech, markCameraSpeechRouted } from "./cameraPresence.server
 import { getSectorAlertState } from "./sectorWatch.server";
 import { getInboxState } from "./notifications.server";
 import { NotificationsWindow } from "./NotificationsWindow";
+import { ExchangeWindow } from "./ExchangeWindow";
 import { alertRingReading } from "./alertRing";
 import {
   currentSoundFeed,
@@ -1026,6 +1028,11 @@ export function AvatarStage({
   // on the poll below; the window is NotificationsWindow.
   const [inboxOpen, setInboxOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
+  // GRID-DOWN EXCHANGE (owner order 2026-11-26): the secure
+  // file door (SFTP) for when the network is down — his switch,
+  // his per-person keys, the Outbox and the Inbox. Owner stage
+  // only; the window is ExchangeWindow.
+  const [exchangeOpen, setExchangeOpen] = useState(false);
   // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
   // surface. Opens from Tools → Rooms and from "open listening mode".
   const [listeningOpen, setListeningOpen] = useState(false);
@@ -4651,6 +4658,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setInboxOpen(true)}
                   />
                   <CommandAction
+                    icon={ArrowLeftRight}
+                    label="Grid-Down Exchange"
+                    onClick={() => setExchangeOpen(true)}
+                  />
+                  <CommandAction
                     icon={Clapperboard}
                     label="Captain's Log"
                     onClick={() => setCaptainsLogOpen(true)}
@@ -4995,6 +5007,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         </button>
       )}
       {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
+      {exchangeOpen && <ExchangeWindow onClose={() => setExchangeOpen(false)} />}
       {remoteCodesOpen && <RemoteCodesWindow onClose={() => setRemoteCodesOpen(false)} />}
       {identifyOpen && <IdentifyWindow onClose={() => setIdentifyOpen(false)} />}
       {formationOpen && <FormationWindow onClose={() => setFormationOpen(false)} />}
