@@ -380,6 +380,7 @@ import { getSectorAlertState } from "./sectorWatch.server";
 import { getInboxState } from "./notifications.server";
 import { NotificationsWindow } from "./NotificationsWindow";
 import { PersonalVaultWindow } from "./PersonalVaultWindow";
+import { ProjectsWindow } from "./ProjectsWindow";
 import { StopSafetyWindow } from "./StopSafetyWindow";
 import { alertRingReading } from "./alertRing";
 import {
@@ -1032,6 +1033,9 @@ export function AvatarStage({
   // only — these windows open from the operator's own Tools.
   const [vaultOpen, setVaultOpen] = useState(false);
   const [stopSafetyOpen, setStopSafetyOpen] = useState(false);
+  // Projects pass (owner order 2026-11-26): his websites inside
+  // IEM — the registry, the editor view, and the marks he saves.
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
   // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
   // surface. Opens from Tools → Rooms and from "open listening mode".
@@ -4588,6 +4592,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Master Manual"
                     onClick={() => void navigate({ to: "/manual" })}
                   />
+                  <CommandAction
+                    icon={Globe}
+                    label="Projects — my websites"
+                    onClick={() => setProjectsOpen(true)}
+                  />
                 </div>
               </CommandGroup>
               <CommandGroup label="Senses & analysis">
@@ -5013,6 +5022,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
       {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
       {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
+      {projectsOpen && <ProjectsWindow onClose={() => setProjectsOpen(false)} />}
       {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}
       {remoteCodesOpen && <RemoteCodesWindow onClose={() => setRemoteCodesOpen(false)} />}
       {identifyOpen && <IdentifyWindow onClose={() => setIdentifyOpen(false)} />}

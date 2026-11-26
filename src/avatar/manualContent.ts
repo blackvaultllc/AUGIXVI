@@ -1212,6 +1212,29 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
     ],
   },
   {
+    id: "projects",
+    title: "Projects — your websites, marked by you",
+    hint: "Your project sites inside IEM — open one, see it like an editor, and leave marks that become the work list.",
+    entries: [
+      {
+        id: "projects-saved-area",
+        title: "Projects — your websites inside IEM, and the marks you leave on them",
+        state: "live",
+        what: "All your project sites stand in a REGISTRY inside IEM: the Ms. Rachel page, the flagship, the Bellwood Haven portal, DIJA'S Academy, the I-E-M company site, and any you add. Each entry carries its name, what it is, its live address and where its source stands — and whether that stands CONFIRMED. An entry that could not be checked (the Academy's live address is not written in its source yet; the I-E-M folder in the workspace is the Entity Vault app, not the company site's source) ships labeled UNCONFIRMED, in the open — nothing is invented to fill a gap. Click a project and its page opens INSIDE the window, the editor's view of the page as it stands. Turn MARK MODE on, tap the place on the page where the work is, and type the note the way you type a notification — what needs doing, in your words — and save. The mark (its place on the page, in percent across and down so it holds on any screen, and your note) is stored on the core in the SAVED AREA FOR WEBSITES (~/.local/share/augie/website-marks/). Later you say “check my saved area for websites” and the open marks are the work list — no trip to a separate construct to explain it. A mark can be stood DONE when the work is finished, stood open again, or taken out; a project record can be edited or taken out the same way. It runs light, on your order: a page frame exists only for the project you have open, it loads only when you open it, and nothing polls.",
+        steps: [
+          "Open Tools → Worlds & building → Projects — my websites.",
+          "Read the registry: each project, what it is, its address, and its open-mark count. An UNCONFIRMED line means that address or source has not been checked yet.",
+          "To fix a record: tap Edit on its line, change what needs changing, and Save the record. “Add a project…” starts a new one.",
+          "To view a project: tap “Open it here.” The page stands in the window as it stands on the web.",
+          "To leave a mark: tap “Turn mark mode on,” tap the place on the page, type the note, name the page if it is not the front page, and tap “Save the mark.” The numbered pin stands on the page where you tapped.",
+          "The marks stand listed under the page, numbered to match the pins — read them there, stand one done when its work is finished (“Mark it done”), stand it open again, or take it out.",
+          "To hand over the work: say “check my saved area for websites.” The open marks, project by project, are what gets worked.",
+        ],
+        where: "Tools → Worlds & building → Projects — my websites; the registry and the marks live on the core machine only.",
+      },
+    ],
+  },
+  {
     id: "devices",
     title: "Devices & the registry",
     hint: "Everything Augie knows about your devices — and the law that governs control.",
