@@ -21,7 +21,7 @@
  * Plain TS, injectable storage — unit-testable without a DOM.
  */
 import { LIBRARY, libraryItem, type ItemSizeId } from "./library";
-import { backdropById } from "./backdrops";
+import { backdropById, DEFAULT_BACKDROP_IMAGE_ID, DEFAULT_FLOOR_IMAGE_ID } from "./backdrops";
 
 /**
  * WHAT THE FLOOR IS (owner orders 2026-11-22): the floor is ONE of
@@ -106,6 +106,36 @@ export const DEFAULT_SURFACES: RoomSurfaces = {
   wall: "#000000",
   skyImage: null,
 };
+
+/**
+ * THE STARTING PICTURES, APPLIED (owner order 2026-11-26):
+ * the surfaces a room wears when NO PICK HAS EVER BEEN MADE
+ * on it — his shipped defaults (backdrops.ts): a picture for
+ * the top (the back wall) and a picture for the bottom (the
+ * floor). The rule is narrow on purpose, half by half:
+ * - the wall picture is set only when the room carries none;
+ * - the floor picture is set only when the floor stands
+ *   exactly as the factory shipped it (the solid black color
+ *   floor, no picture) — a floor HE colored or pictured is
+ *   his and is never touched.
+ * A room he has dressed himself comes back unchanged (the
+ * same object), so the stage's boot application can tell
+ * "nothing to do" from "defaults laid" by identity alone.
+ */
+export function startingSurfaces(surfaces: RoomSurfaces): RoomSurfaces {
+  let next = surfaces;
+  if (next.backdropImage === null) {
+    next = { ...next, backdropImage: DEFAULT_BACKDROP_IMAGE_ID };
+  }
+  if (
+    next.floorStyle === "color" &&
+    next.floorImage === null &&
+    next.floor === DEFAULT_SURFACES.floor
+  ) {
+    next = { ...next, floorStyle: "picture", floorImage: DEFAULT_FLOOR_IMAGE_ID };
+  }
+  return next;
+}
 
 /** A surface color's rough luminance (0–1) — the stage-look
  *  derivation reads it: a room HE colored light still gets the

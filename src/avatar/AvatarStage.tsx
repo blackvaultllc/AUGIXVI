@@ -25,6 +25,7 @@ import {
   Clapperboard,
   Camera,
   Bell,
+  ChevronDown,
   Coffee,
   DoorOpen,
   Ear,
@@ -54,6 +55,7 @@ import {
   Scale,
   ScanSearch,
   ScrollText,
+  Settings2,
   Shield,
   Shrink,
   Smartphone,
@@ -98,6 +100,7 @@ import {
   saveLayoutStore,
   setItemAnchored,
   setSurfaces as setRoomSurfaces,
+  startingSurfaces,
   surfaceIsLight,
   unclaimPlot,
   updateItemVariant,
@@ -1027,6 +1030,16 @@ export function AvatarStage({
   // carries the real unread count from the core store, read
   // on the poll below; the window is NotificationsWindow.
   const [inboxOpen, setInboxOpen] = useState(false);
+  // THE LEFT RAIL (owner order 2026-11-26 ~13:48 CST): the
+  // NOTIFICATIONS pill moved from the top-right to the
+  // top-LEFT, and directly under it his SETTINGS quick-access —
+  // press the button and a drop-down of his settings and
+  // options falls open; he picks what he needs and it opens.
+  // The drop-down's categories fold (one open at a time) and
+  // every row is one line at one height — the same accordion
+  // and symmetry rules as the tools list.
+  const [quickMenuOpen, setQuickMenuOpen] = useState(false);
+  const [quickMenuGroup, setQuickMenuGroup] = useState<string | null>(null);
   // Personal safety pass (owner order 2026-11-26): his papers
   // in the vault, and the law base + stop mode. Owner surface
   // only — these windows open from the operator's own Tools.
@@ -1462,7 +1475,27 @@ export function AvatarStage({
   // account on a previous visit) — the room follows it.
   useEffect(() => {
     const saved = settingsRef.current;
-    if (saved.backdropSynced) applyBackdropPick(saved.backdropImage, saved.backdropFit);
+    if (saved.backdropSynced) {
+      applyBackdropPick(saved.backdropImage, saved.backdropFit);
+      return;
+    }
+    // THE STARTING PICTURES (owner order 2026-11-26): no pick
+    // has ever been made — not on this device, not on his
+    // account — so the stage sets his shipped defaults for him
+    // (room.ts startingSurfaces: a picture for the top, a
+    // picture for the bottom), written into the room through
+    // the same surfaces write every pick travels. Deliberately
+    // NOT stamped into the account settings here: a default
+    // must never outrank a real pick, and the first pick he
+    // makes anywhere takes over through the normal path —
+    // backdropSynced turns true and this branch never runs
+    // again. Each of his devices lays the same defaults at its
+    // own boot until then, so every screen opens dressed.
+    const room = activeLayout(layoutStoreRef.current).room;
+    const surfaces = startingSurfaces(room.surfaces);
+    if (surfaces !== room.surfaces) {
+      updateRoom(setRoomSurfaces(room, surfaces));
+    }
     // Mounted once: the boot application of the device's copy.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -3840,6 +3873,71 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     if (next !== stageViewRef.current) changeStageView(next);
   };
   const stageSurfaces = activeLayout(layoutStore).room.surfaces;
+  // THE SETTINGS DROP-DOWN'S CONTENTS (owner order 2026-11-26
+  // ~13:48 CST): the same doors the chat window's Tools tab
+  // opens, in the same groups — every row wired to the exact
+  // opener the Tools tab uses, so the drop-down can never
+  // drift from the tools themselves. "Change wallpaper" stands
+  // first, above the groups: it is the option he could not
+  // find, and it opens the Environment Builder, where the
+  // backdrop and floor pictures are set.
+  const quickMenuGroups: { label: string; rows: { icon: LucideIcon; label: string; open: () => void }[] }[] = [
+    {
+      label: "Worlds & building",
+      rows: [
+        { icon: Hammer, label: "Environment Builder", open: () => setBuilderOpen((open) => !open) },
+        { icon: MapIcon, label: "World Map", open: () => setMapOpen((open) => !open) },
+        { icon: LandPlot, label: "Built World", open: () => setBuiltWorldMapOpen((open) => !open) },
+        { icon: Box, label: "AR Cube", open: () => setArCubeOpen(true) },
+        { icon: Hexagon, label: "HEXO — the Core", open: () => setHexoOpen(true) },
+        { icon: Gamepad2, label: "Emulators — Battle Box", open: () => setEmulatorOpen(true) },
+        { icon: Building2, label: "Departments", open: () => setDepartmentsOpen(true) },
+        { icon: BookOpen, label: "Master Manual", open: () => void navigate({ to: "/manual" }) },
+      ],
+    },
+    {
+      label: "Senses & analysis",
+      rows: [
+        { icon: Camera, label: "Cameras", open: () => setCamerasOpen(true) },
+        { icon: Bluetooth, label: "Devices", open: () => setDevicesOpen(true) },
+        { icon: Ear, label: "Listening Mode", open: () => setListeningOpen(true) },
+        { icon: Radio, label: "Remote Codes", open: () => setRemoteCodesOpen(true) },
+        { icon: Activity, label: "Pulse", open: () => setPulseOpen(true) },
+        { icon: AudioLines, label: "Sound Watch", open: () => setSoundWatchOpen(true) },
+        { icon: Waves, label: "Signal Map", open: () => setSignalMapOpen(true) },
+        { icon: ScanSearch, label: "Picture Analysis", open: () => setAnalyzeOpen(true) },
+        { icon: ScanSearch, label: "Identify", open: () => setIdentifyOpen(true) },
+      ],
+    },
+    {
+      label: "Records & safety",
+      rows: [
+        { icon: Bell, label: "Notifications", open: () => setInboxOpen(true) },
+        { icon: Shield, label: "Personal Vault", open: () => setVaultOpen(true) },
+        { icon: Scale, label: "Law Desk", open: () => setLawOpen(true) },
+        { icon: Scale, label: "Stop Safety", open: () => setStopSafetyOpen(true) },
+        { icon: Shield, label: "Gate Log", open: () => setGateLogOpen(true) },
+        { icon: ScrollText, label: "Logs", open: () => setLogsOpen(true) },
+        { icon: History, label: "Reply history", open: () => setHistoryOpen(true) },
+        { icon: BookOpen, label: "Library", open: () => setLibraryOpen(true) },
+        { icon: Clapperboard, label: "Captain's Log", open: () => setCaptainsLogOpen(true) },
+        { icon: BarChart3, label: "Office Analytics", open: () => setAnalyticsOpen(true) },
+      ],
+    },
+    {
+      label: "Workshop & study",
+      rows: [
+        { icon: Bug, label: "Sandbox", open: () => setSandboxOpen(true) },
+        { icon: FlaskConical, label: "Test Area", open: () => setTestAreaOpen(true) },
+        { icon: Network, label: "Anatomy", open: () => setAnatomyOpen(true) },
+        { icon: BookOpen, label: "Knowledge", open: () => setKnowledgeOpen((open) => !open) },
+        { icon: BookOpen, label: "Notepad", open: () => openWindow("notepad") },
+        { icon: Presentation, label: "Chalkboard", open: () => openWindow("chalkboard") },
+        { icon: Camera, label: "Player", open: () => openWindow("player") },
+      ],
+    },
+  ];
+
   const stageLook =
     worldScreen === "live" &&
     worldScene === "room" &&
@@ -4156,6 +4254,26 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         aria-label="Stage status — core, phone brain, voice, sensors, activity, hearing"
       >
       <div className="avatar-hud avatar-hud--tr">
+        {/* IEM — THE BACKEND BRAND (owner order 2026-11-26):
+            the emblem rides the operator's own panel with the
+            IEM licensing line — the system is a SaaS product of
+            I-E-M, licensed, not sold. Operator surface only:
+            this panel stands on his stage behind his sign-in —
+            never on Khadija's side, never on a public page. */}
+        <div className="avatar-hud__brand">
+          <img
+            src="/icons/icon-192.png"
+            alt="The IEM emblem"
+            className="avatar-hud__brand-emblem"
+          />
+          <div>
+            <div className="avatar-hud__brand-name">IEM</div>
+            <div className="avatar-hud__brand-line">
+              IEM is a software-as-a-service (SaaS) product of I-E-M. © 2026 Domenick Arlon
+              Hall. The emblem and this system are licensed for use — not sold.
+            </div>
+          </div>
+        </div>
         {aiOffline && !clearScreen && (
           <div className="avatar-hud__offline" role="status">
             <span>OFFLINE</span>
@@ -4993,24 +5111,117 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         />
       )}
       {camerasOpen && <CamerasWindow onClose={() => setCamerasOpen(false)} />}
-      {!inboxOpen && (
+      {/* THE LEFT RAIL (owner order 2026-11-26 ~13:48 CST):
+          the NOTIFICATIONS pill stands at the TOP-LEFT now —
+          moved from the top-right on his word — and directly
+          under it, his SETTINGS quick-access: press it and the
+          drop-down of his settings and options falls open; he
+          picks what he needs and it opens. STATUS keeps its
+          own tab at the top-right, untouched — opposite corner,
+          no collision. While Osiris holds a call his medallion
+          docks under this rail (its dress carries the offset),
+          so the corner never stacks two things in one place. */}
+      {quickMenuOpen && (
         <button
           type="button"
-          className="notifications-stage-badge"
-          onClick={() => setInboxOpen(true)}
-          aria-label={
-            inboxUnread > 0
-              ? `Notifications — ${inboxUnread} unread in Anubis's inbox`
-              : "Notifications — open Anubis's inbox"
-          }
-        >
-          <Bell aria-hidden="true" size={14} />
-          NOTIFICATIONS
-          {inboxUnread > 0 && (
-            <span className="notifications-stage-badge__count">{inboxUnread}</span>
-          )}
-        </button>
+          className="stage-quick-menu__scrim"
+          aria-hidden="true"
+          tabIndex={-1}
+          onClick={() => setQuickMenuOpen(false)}
+        />
       )}
+      <div className="stage-left-rail">
+        {!inboxOpen && (
+          <button
+            type="button"
+            className="notifications-stage-badge"
+            onClick={() => setInboxOpen(true)}
+            aria-label={
+              inboxUnread > 0
+                ? `Notifications — ${inboxUnread} unread in Anubis's inbox`
+                : "Notifications — open Anubis's inbox"
+            }
+          >
+            <Bell aria-hidden="true" size={14} />
+            NOTIFICATIONS
+            {inboxUnread > 0 && (
+              <span className="notifications-stage-badge__count">{inboxUnread}</span>
+            )}
+          </button>
+        )}
+        <div className="stage-quick-menu">
+          <button
+            type="button"
+            className="stage-quick-menu__button"
+            aria-expanded={quickMenuOpen}
+            aria-haspopup="true"
+            onClick={() => setQuickMenuOpen((open) => !open)}
+          >
+            <Settings2 aria-hidden="true" size={14} />
+            SETTINGS
+            <ChevronDown
+              aria-hidden="true"
+              size={14}
+              className={quickMenuOpen ? "stage-quick-menu__chevron is-open" : "stage-quick-menu__chevron"}
+            />
+          </button>
+          {quickMenuOpen && (
+            <div className="stage-quick-menu__panel" role="menu" aria-label="Settings — quick access">
+              <button
+                type="button"
+                className="stage-quick-menu__row stage-quick-menu__row--lead"
+                role="menuitem"
+                onClick={() => {
+                  setQuickMenuOpen(false);
+                  setBuilderOpen(true);
+                }}
+              >
+                <ImageIcon aria-hidden="true" size={15} />
+                <span className="stage-quick-menu__label">Change wallpaper</span>
+              </button>
+              {quickMenuGroups.map((group) => (
+                <div key={group.label} className="stage-quick-menu__group">
+                  <button
+                    type="button"
+                    className="stage-quick-menu__group-head"
+                    aria-expanded={quickMenuGroup === group.label}
+                    onClick={() =>
+                      setQuickMenuGroup((current) => (current === group.label ? null : group.label))
+                    }
+                  >
+                    <span className="stage-quick-menu__label">{group.label}</span>
+                    <ChevronDown
+                      aria-hidden="true"
+                      size={14}
+                      className={
+                        quickMenuGroup === group.label
+                          ? "stage-quick-menu__chevron is-open"
+                          : "stage-quick-menu__chevron"
+                      }
+                    />
+                  </button>
+                  {quickMenuGroup === group.label &&
+                    group.rows.map((row) => (
+                      <button
+                        key={row.label}
+                        type="button"
+                        className="stage-quick-menu__row"
+                        role="menuitem"
+                        onClick={() => {
+                          setQuickMenuOpen(false);
+                          row.open();
+                        }}
+                      >
+                        <row.icon aria-hidden="true" size={15} />
+                        <span className="stage-quick-menu__label">{row.label}</span>
+                      </button>
+                    ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
       {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
       {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
       {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}

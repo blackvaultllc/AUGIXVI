@@ -67,11 +67,18 @@ describe("the presence ring's readings — real state only", () => {
     const lit = (state: Parameters<typeof ringSegments>[0], tone: string) =>
       ringSegments(state).filter((s) => s.tone === tone).length;
     expect(ringSegments("speaking")).toHaveLength(RING_SEGMENT_COUNT);
-    expect(lit("speaking", "gold")).toBe(24);
-    expect(lit("thinking", "cyan")).toBe(12);
-    expect(lit("listening", "cyan")).toBe(8);
+    // THE GOLD ORDERS (2026-11-26): rest is gold, ACTIVE is
+    // gold-red, connecting is deep gold — and no state, ever,
+    // reads blue. The counts are the same gauges as before;
+    // only the colors moved, on his word.
+    expect(lit("speaking", "goldred")).toBe(24);
+    expect(lit("thinking", "goldred")).toBe(12);
+    expect(lit("listening", "goldred")).toBe(8);
     expect(lit("idle", "gold")).toBe(4);
-    expect(lit("connecting", "cyan")).toBe(4);
+    expect(lit("connecting", "amber")).toBe(4);
+    for (const state of ["speaking", "listening", "thinking", "idle", "connecting", "alert"] as const) {
+      expect(lit(state, "cyan")).toBe(0);
+    }
     // Every segment is accounted for in every state — lit or dim,
     // never missing, never double-read.
     for (const state of ["speaking", "listening", "thinking", "idle", "connecting"] as const) {
@@ -90,7 +97,7 @@ describe("PresenceRing", () => {
     const ring = container.querySelector(".presence-ring")!;
     expect(ring.getAttribute("data-ring-state")).toBe("speaking");
     expect(ring.querySelectorAll(".presence-ring__seg")).toHaveLength(RING_SEGMENT_COUNT);
-    expect(ring.querySelectorAll('.presence-ring__seg[data-tone="gold"]')).toHaveLength(24);
+    expect(ring.querySelectorAll('.presence-ring__seg[data-tone="goldred"]')).toHaveLength(24);
   });
 
   it("dims to the idle reading at rest — four gold points, the rest dim", () => {
@@ -178,10 +185,25 @@ describe("the stage wiring — recede, swipe, frame, and the dock intact", () =>
 
   it("carries the ring, the halo, and the recede in the theme CSS", () => {
     expect(fixCss).toContain(".presence-ring__seg--gold");
-    expect(fixCss).toContain(".presence-ring__seg--cyan");
+    expect(fixCss).toContain(".presence-ring__seg--amber");
+    expect(fixCss).toContain(".presence-ring__seg--goldred");
     expect(fixCss).toContain(".anubis-presence__halo");
     expect(fixCss).toContain(".anubis-presence.anubis-presence--receded");
     expect(fixCss).toContain("transform: scale(0.7)");
+  });
+
+  it("the blue is OUT of the theme — field, frame, ring, and chrome (owner order 2026-11-26)", () => {
+    // The cyan the theme shipped with, in every form it took:
+    // the trace/frame rgb, the lit-segment hex, the dim blue-grey.
+    expect(fixCss).not.toContain("47 216 255");
+    expect(fixCss).not.toContain("#38e1ff");
+    expect(fixCss).not.toContain("96 165 220");
+    // Gold carries it instead: the frame line and the traces.
+    expect(fixCss).toContain("border: 1px solid rgb(255 217 77 / 30%)");
+    expect(fixCss).toContain("stroke: rgb(255 217 77 / 16%)");
+    // The ALERT red survives — a signal, not dress.
+    expect(fixCss).toContain(".presence-ring__seg--alert");
+    expect(fixCss).toContain("#ff5347");
   });
 
   it("the chat dock's clearance survives the theme — the dock is untouched", () => {
