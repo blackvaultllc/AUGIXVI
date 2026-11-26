@@ -1233,6 +1233,39 @@
 .avatar-stage .avatar-status-panel div.avatar-hud--tr {
   align-items: flex-start;
 }
+/* IEM — THE BACKEND BRAND (owner order 2026-11-26): at the
+   head of the operator's status panel, the emblem and the
+   licensing line, in the panel's own plain record style —
+   gold name, small print under it. Operator surface only. */
+.avatar-stage .avatar-hud__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid rgb(212 175 55 / 30%);
+  margin-bottom: 0.55rem;
+}
+.avatar-stage .avatar-hud__brand-emblem {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  border: 1px solid rgb(212 175 55 / 55%);
+  object-fit: cover;
+  flex: none;
+}
+.avatar-stage .avatar-hud__brand-name {
+  color: #ffd94d;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+.avatar-stage .avatar-hud__brand-line {
+  color: rgb(245 231 189 / 78%);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  max-width: 21rem;
+}
 @media (max-width: 700px) {
   .avatar-stage .avatar-status-tab {
     top: 1rem;
@@ -1278,7 +1311,12 @@
    and its rise and fade live in section 40.) */
 .avatar-stage .osiris-medallion {
   position: absolute;
-  top: 1rem;
+  /* THE LEFT RAIL (owner order 2026-11-26 ~13:48 CST): his
+     NOTIFICATIONS pill and SETTINGS button stand at the
+     top-left now, so while Osiris holds a call his medallion
+     docks directly UNDER the rail — same corner, stacked
+     clean, never underneath the buttons. */
+  top: 5.75rem;
   left: 1rem;
   z-index: 44;
 }
@@ -1606,9 +1644,19 @@
    MAIN theme of the stage — "that cybernetic Digimon-looking
    Pokedex look": a personal command device, framed,
    data-forward, gadget-true. Nothing of theirs is copied —
-   every line here is our own CSS/SVG. The blend is his own
-   palette: cyan circuit glow with Egyptian gold corners and
-   trim, on the deep blue-black field.
+   every line here is our own CSS/SVG.
+
+   THE GOLD-ONLY ORDER (owner order 2026-11-26, from his
+   phone): the theme shipped as a cyan-and-gold blend, and he
+   struck the blue out of it — "I like the color of the gold
+   but that blue color, that cybernetic blue, get that out of
+   there. The blue little lines, the blue around, I don't like
+   that." GOLD CARRIES THE THEME NOW: the field's ground is
+   warm black with a gold heart, the traces and nodes are
+   gold whispers, the bezel is a gold line with its gold
+   corners, and the ring (section 37) reads in gold and deep
+   gold alone. The only non-gold signal left anywhere in the
+   theme is the ALERT red — a signal, never dress.
 
    THE CIRCUIT FIELD: our trace linework lies over the stage's
    ground as a device-screen layer — behind every presence
@@ -1629,8 +1677,8 @@
   z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(120% 90% at 50% 42%, rgb(16 42 86 / 16%) 0%, rgb(3 6 16 / 30%) 78%),
-    linear-gradient(180deg, rgb(6 14 34 / 22%), rgb(2 4 12 / 30%));
+    radial-gradient(120% 90% at 50% 42%, rgb(84 62 12 / 30%) 0%, rgb(12 9 3 / 52%) 78%),
+    linear-gradient(180deg, rgb(30 23 7 / 45%), rgb(6 5 2 / 55%));
 }
 .avatar-stage .stage-circuit-field__svg {
   display: block;
@@ -1639,11 +1687,11 @@
 }
 .avatar-stage .stage-circuit-field__traces path {
   fill: none;
-  stroke: rgb(47 216 255 / 20%);
+  stroke: rgb(255 217 77 / 16%);
   stroke-width: 1.5;
 }
 .avatar-stage .stage-circuit-field__nodes circle {
-  fill: rgb(47 216 255 / 30%);
+  fill: rgb(255 217 77 / 26%);
 }
 .avatar-stage .stage-circuit-frame {
   position: absolute;
@@ -1653,10 +1701,10 @@
   bottom: calc(var(--chat-dock-clearance, 4.5rem) + 2px);
   z-index: 3;
   pointer-events: none;
-  border: 1px solid rgb(47 216 255 / 22%);
+  border: 1px solid rgb(255 217 77 / 30%);
   box-shadow:
-    inset 0 0 22px rgb(47 216 255 / 6%),
-    0 0 14px rgb(47 216 255 / 5%);
+    inset 0 0 22px rgb(255 217 77 / 7%),
+    0 0 14px rgb(255 217 77 / 6%);
 }
 .avatar-stage .stage-circuit-frame__corner {
   position: absolute;
@@ -1719,7 +1767,11 @@
    face stays the pure portrait — oversized past the halo so
    its segments circle the medallion with a breath of gap.
    Segment colors are readings (presenceRing.ts, from the
-   god's real state): gold lit, cyan lit, dim unlit — the ring
+   god's real state): gold at rest, GOLD-RED while he is
+   active (speaking, working, listening), deep gold (amber)
+   while he is still connecting, dim unlit — gold family
+   only, on his gold orders of 2026-11-26; the blue segments
+   are gone, and pure red stands for ALERT alone. The ring
    never shows a state he is not in. The face keeps its own
    anchor sizing exactly as before (the lockdown pin reads
    it); the halo is only the ring's positioning frame, sized
@@ -1739,7 +1791,7 @@
 }
 .avatar-stage .presence-ring__track {
   fill: none;
-  stroke: rgb(47 216 255 / 16%);
+  stroke: rgb(146 118 54 / 30%);
   stroke-width: 4.6;
 }
 .avatar-stage .presence-ring__seg {
@@ -1749,11 +1801,18 @@
 .avatar-stage .presence-ring__seg--gold {
   stroke: #ffd94d;
 }
-.avatar-stage .presence-ring__seg--cyan {
-  stroke: #38e1ff;
+.avatar-stage .presence-ring__seg--amber {
+  stroke: #e8a33d;
+}
+/* GOLD-RED — the ACTIVE tone (owner order 2026-11-26): while
+   he talks, works, or listens, the ring's lit segments burn
+   gold moving toward red — hotter than rest gold, and short
+   of the ALERT red, which stays the emergency signal alone. */
+.avatar-stage .presence-ring__seg--goldred {
+  stroke: #ff8f3f;
 }
 .avatar-stage .presence-ring__seg--dim {
-  stroke: rgb(96 165 220 / 38%);
+  stroke: rgb(150 128 80 / 38%);
 }
 /* The ALERT tone (cybernetic pass, 2026-11-26): the whole ring
    lit hot and pulsing while a real alert stands unacknowledged.
@@ -1818,27 +1877,30 @@
 /* ================================================================
    39) DEVICE CHROME (same order): the stage's controls take
    the gadget's dress — bracket-cut tabs, hexagonal window
-   keys, a cyan-edged bezel on the floating windows, and a
-   faint cyan edge on the real readout panels. What the laws
-   protect is untouched: the medallions stay TRUE CIRCLES
-   (shape changes are for tabs and keys, never faces), Osiris's
-   four keys stay the round icons his order named, the chat
-   window keeps its Egyptian dress (§33) and its gold Send
-   key, and no type size changes anywhere (bifocal law).
+   keys, a gold-edged bezel on the floating windows, and a
+   faint gold edge on the real readout panels. (Shipped
+   cyan-edged; the gold-only order of 2026-11-26 — §36 —
+   struck the blue here too: gold carries the chrome.) What
+   the laws protect is untouched: the medallions stay TRUE
+   CIRCLES (shape changes are for tabs and keys, never
+   faces), Osiris's four keys stay the round icons his order
+   named, the chat window keeps its Egyptian dress (§33) and
+   its gold Send key, and no type size changes anywhere
+   (bifocal law).
    ================================================================ */
 .avatar-stage .floating-window {
-  border: 1px solid rgb(47 216 255 / 38%);
+  border: 1px solid rgb(255 217 77 / 35%);
   box-shadow:
-    0 0 0 1px rgb(3 10 18 / 90%),
-    0 0 22px rgb(47 216 255 / 10%),
+    0 0 0 1px rgb(10 8 2 / 90%),
+    0 0 22px rgb(255 217 77 / 8%),
     0 18px 44px rgb(0 0 0 / 55%);
 }
 .avatar-stage .floating-window__bar {
-  border-bottom: 1px solid rgb(47 216 255 / 32%);
+  border-bottom: 1px solid rgb(255 217 77 / 28%);
 }
 .avatar-stage .floating-window__button {
   border: none;
-  background: rgb(47 216 255 / 12%);
+  background: rgb(255 217 77 / 12%);
   clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
 }
 .avatar-stage .avatar-status-tab {
@@ -1849,7 +1911,7 @@
   clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
 }
 .avatar-stage .avatar-command-box__tab[aria-selected="true"] {
-  box-shadow: inset 0 -2px 0 rgb(47 216 255 / 70%);
+  box-shadow: inset 0 -2px 0 rgb(255 217 77 / 70%);
 }
 .avatar-stage .avatar-command-box__action {
   clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
@@ -1859,26 +1921,26 @@
 .avatar-stage .medallion-menu__size-button,
 .avatar-stage .medallion-menu__lock-button,
 .avatar-stage .medallion-menu__perspective-button {
-  box-shadow: 0 0 10px rgb(47 216 255 / 14%);
+  box-shadow: 0 0 10px rgb(255 217 77 / 12%);
 }
 .avatar-stage .osiris-medallion .augie-presence {
   box-shadow:
-    0 10px 28px rgb(10 20 40 / 28%),
+    0 10px 28px rgb(0 0 0 / 28%),
     0 0 0 1px rgb(212 175 55 / 35%),
-    0 0 16px rgb(47 216 255 / 16%);
+    0 0 16px rgb(255 217 77 / 14%);
 }
 /* His speaking glow (§32) still outranks the resting edge. */
 .avatar-stage .osiris-medallion--speaking .augie-presence {
   box-shadow:
-    0 10px 28px rgb(10 20 40 / 28%),
+    0 10px 28px rgb(0 0 0 / 28%),
     0 0 22px 2px rgb(255 215 94 / 45%),
-    0 0 16px rgb(47 216 255 / 16%);
+    0 0 16px rgb(255 217 77 / 14%);
 }
 .avatar-stage div.avatar-hud {
-  border-color: rgb(47 216 255 / 30%);
+  border-color: rgb(255 217 77 / 28%);
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 40%),
-    0 0 14px rgb(47 216 255 / 7%);
+    0 0 14px rgb(255 217 77 / 6%);
 }
 
 /* ================================================================

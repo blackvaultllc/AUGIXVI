@@ -94,6 +94,22 @@ export function backdropById(id: string | null | undefined): BackdropAsset | nul
 }
 
 /**
+ * THE STARTING PICTURES (owner order 2026-11-26, from his
+ * phone): he went to add a background and could not find the
+ * option — so the stage SETS two of his own shipped pictures
+ * for him as the starting dress, one for the TOP (the back
+ * wall) and one for the BOTTOM (the floor): the first two of
+ * his Egyptian set — "Pyramids under the planets" above,
+ * "Pyramids of light" below. They stand only where no pick
+ * has ever been made (room.ts startingSurfaces carries the
+ * exact rule); the moment he picks anything — menu, builder,
+ * any device — his pick replaces them through the same paths
+ * every pick travels, and they never come back over it.
+ */
+export const DEFAULT_BACKDROP_IMAGE_ID = "egypt-pyramids-planets";
+export const DEFAULT_FLOOR_IMAGE_ID = "egypt-pyramids-energy";
+
+/**
  * COVER FIT: the plane size that covers a view of (viewW × viewH)
  * with a picture of the given pixel size — scaled up until both
  * dimensions are covered, aspect never distorted, overflow cropped

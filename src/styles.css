@@ -4727,14 +4727,25 @@
   background: #f43f5e;
   animation: window-listening-pulse 1.6s ease-in-out infinite;
 }
-/* Notifications stage button (2026-11-26) — Anubis's inbox:
-   a steady gold pill under the listening badge's corner; the
-   count is the real unread count from the core store. */
-.notifications-stage-badge {
+/* THE LEFT RAIL (owner order 2026-11-26 ~13:48 CST): the
+   stage's top-left column — the NOTIFICATIONS pill (moved
+   from the top-right on his word) and, directly under it, his
+   SETTINGS quick-access button with its drop-down. STATUS
+   keeps the top-right; the corners never collide. */
+.stage-left-rail {
   position: fixed;
-  top: 3.4rem;
-  right: 0.75rem;
+  top: 0.75rem;
+  left: 0.75rem;
   z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+/* Notifications stage button (2026-11-26) — Anubis's inbox:
+   a steady gold pill at the head of the left rail; the count
+   is the real unread count from the core store. */
+.notifications-stage-badge {
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -4746,6 +4757,101 @@
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
+}
+/* The SETTINGS quick-access (owner order 2026-11-26 ~13:48
+   CST): press the button and the drop-down falls open under
+   it — his settings and options in folding categories, every
+   row ONE LINE at ONE HEIGHT (2.5rem), long labels clipped
+   with an ellipsis, never stacked or wrapped. Picking a row
+   opens that door and folds the menu away. */
+.stage-quick-menu {
+  position: relative;
+}
+.stage-quick-menu__button {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--avatar-hud-accent, #d4af37);
+  background: rgba(16, 14, 4, 0.88);
+  color: #f5e7bd;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.stage-quick-menu__chevron {
+  transition: transform 160ms ease;
+}
+.stage-quick-menu__chevron.is-open {
+  transform: rotate(180deg);
+}
+.stage-quick-menu__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+.stage-quick-menu__panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  width: 17.5rem;
+  max-width: calc(100vw - 1.5rem);
+  max-height: min(62dvh, 34rem);
+  overflow-y: auto;
+  padding: 0.45rem;
+  border: 1px solid rgb(255 217 77 / 35%);
+  border-radius: 0.9rem;
+  background: rgb(10 9 4 / 97%);
+  box-shadow: 0 18px 44px rgb(0 0 0 / 55%);
+}
+.stage-quick-menu__group {
+  border-top: 1px solid rgb(255 217 77 / 14%);
+  margin-top: 0.3rem;
+  padding-top: 0.3rem;
+}
+.stage-quick-menu__group-head,
+.stage-quick-menu__row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 0.6rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: #f5e7bd;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.stage-quick-menu__group-head {
+  color: #ffd94d;
+  letter-spacing: 0.04em;
+}
+.stage-quick-menu__group-head .stage-quick-menu__chevron {
+  margin-left: auto;
+}
+.stage-quick-menu__row--lead {
+  color: #ffd94d;
+}
+.stage-quick-menu__group-head:hover,
+.stage-quick-menu__group-head:focus-visible,
+.stage-quick-menu__row:hover,
+.stage-quick-menu__row:focus-visible {
+  background: rgb(255 217 77 / 12%);
+  outline: none;
+}
+.stage-quick-menu__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .notifications-stage-badge__count {
   min-width: 1.25rem;
@@ -9918,4 +10024,37 @@
 .analyzer-findings__unplaced {
   color: #9fb0c9;
   font-size: 0.9em;
+}
+
+/* =====================================================================
+   TOUCH INPUTS NEVER ZOOM THE SCREEN (owner defect report
+   2026-11-26, from his phone): he tapped into the chat to type
+   and the whole screen ZOOMED IN and would not come back out.
+   THE CAUSE, diagnosed from the code: the stage's own text
+   fields are sized under 16px — the chat input at 0.9rem, the
+   HUD input at 12px, panels across the app smaller still — and
+   mobile browsers (iOS Safari above all, Android Chrome in
+   step) auto-zoom the page into any focused field under 16px
+   and leave it there. The viewport itself was already right
+   (width=device-width, initial-scale=1, and NO scale lock is
+   added — his pinch zoom stays his).
+
+   THE FIX, at the shell: on a touch device every text field,
+   text area, and select carries at least 16px while it is
+   being typed in — one rule for the whole app, the stage, the
+   windows, and Khadija's side alike, so no present or future
+   field can bring the zoom back. Desktop is untouched: a
+   mouse pointer never matches, and every field keeps the
+   exact size its own dress gives it there. !important is the
+   honest tool here — the rule must outrank each field's own
+   dressed size on touch, or the zoom returns field by field.
+   ===================================================================== */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(
+      [type="color"]
+    ):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
