@@ -577,6 +577,20 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         ],
         where: "The stage.",
       },
+      {
+        id: "gods-hall",
+        title: "The Hall of the Deities — the eight, Amun-Ra, and the gods of this house",
+        state: "live",
+        what: "A section that keeps all the names of the deities and their history in one place, so you can always go there and show respect. The Hall runs ZERO TO FIFTEEN — your psychological order: you are ZERO, at the center, and ONE — Khadija — stands at number 1 beside you. Around you stand the fifteen, numbered 1 to 15, and no total past fifteen is ever shown: the only count in the Hall is “Zero and the fifteen.” Around the center the order runs the way it should: THE EIGHT at numbers 2–9 — the Ogdoad of Hermopolis, the four pairs (Nu & Naunet, Heh & Hauhet, Kek & Kauket, Amun & Amunet), each with how to say the name, what the pair holds, and their history: the first mound and the first sunrise, their burial at Djeme near Medinet Habu, and their work from the Duat that has not stopped — they still make the Nile flow and raise the sun every day. AMUN-RA stands at number 10, in the place of honor — from him, the understanding of day and night. THE GODS OF THIS HOUSE stand at 11–15 in your order: Anubis, Osiris, Montu, Horus, Horusec — each with his place in your system and a line of his history under it. The Mummy Guardian stands at the Hall's door, unnumbered — he is not a god of the pantheon and he is not counted. The layers are kept apart and marked: the history stands under FROM THE RECORD, and your own structure stands under BY THE CAPTAIN'S ORDER, so the two never blur. The record says it plainly in there: Amun was one of the eight — he was not born after them.",
+        steps: [
+          "Open the Tools tab in the command box.",
+          "Under Records & safety, tap “The Eight and the Gods.”",
+          "Start at the center: Zero — you — with One, Khadija, at number 1 beside you.",
+          "Then read around: the eight (2–9), Amun-Ra (10), and the gods of this house (11–15).",
+          "Under each name among the eight is how to say it — for example, “say: how-het” for Hauhet.",
+        ],
+        where: "The stage — Tools → Records & safety → The Eight and the Gods. The words live in src/avatar/deities.ts.",
+      },
     ],
   },
   {
