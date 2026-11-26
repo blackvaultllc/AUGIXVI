@@ -74,6 +74,8 @@ function kindLabel(entry: AnubisNotification): string {
       return "System";
     case "capture":
       return "Picture kept";
+    case "request":
+      return "A request for you";
   }
 }
 

@@ -16,6 +16,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { FloatingWindow } from "./windows/FloatingWindow";
 import { buildScene } from "./worldScenes";
+import {
+  AGENT_SEATS,
+  GOD_DEPARTMENTS,
+  departmentHead,
+  godDisplayName,
+} from "./departmentHeads";
 
 type DeptRow = {
   name: string;
@@ -121,6 +127,48 @@ export function DepartmentsWindow({ onClose }: { onClose: () => void }) {
         <button type="button" className="window-btn" onClick={() => void load()}>
           Refresh
         </button>
+        {/* DEPARTMENT HEADS (Captain's orders 2026-11-26): the
+            structure that joins his agents to the gods. Every
+            agent has a god, and the god represents the agent's
+            function. Osiris oversees ALL departments. Anubis
+            and Montu are the Captain's own, 110%, and are never
+            assigned. Seats stay empty until he names a head —
+            the structure below is read straight from
+            departmentHeads.ts, the one record. */}
+        <h3 style={{ marginTop: "1.25rem" }}>Departments under the gods — the heads</h3>
+        <p className="window-logs__note">
+          Oversight of every department sits with <strong>Osiris</strong> — and Osiris is
+          Khadija's construct: he always protects One, no matter what. Anubis and Montu are the
+          Captain's own, 110% — they head no department and stand with no agent.
+        </p>
+        <ol className="window-logs__list">
+          {GOD_DEPARTMENTS.map((dept) => {
+            const head = departmentHead(dept.id);
+            return (
+              <li key={dept.id} className="window-logs__line" style={{ fontFamily: "inherit" }}>
+                <strong>{dept.label}</strong> — under {godDisplayName(dept.god)}
+                <br />
+                {dept.blurb}
+                <br />
+                <span style={{ opacity: 0.7 }}>
+                  Head:{" "}
+                  {head
+                    ? `${head.agentName} (${head.designation})`
+                    : "no head seated — the seat stays empty until the Captain names one"}
+                  {" · "}Oversight: Osiris
+                </span>
+              </li>
+            );
+          })}
+          <li className="window-logs__line" style={{ fontFamily: "inherit" }}>
+            <strong>The sixteen seats</strong>
+            <br />
+            {AGENT_SEATS.filter((s) => s.agentName).length} of 16 seats are filled — Zero (the
+            Captain), One (Khadija), and 011 (Violet Hernandez). Every agent will have a god, and
+            the god represents what the agent does in the company; the empty seats wait on his
+            word, names and gods alike.
+          </li>
+        </ol>
       </div>
     </FloatingWindow>
   );

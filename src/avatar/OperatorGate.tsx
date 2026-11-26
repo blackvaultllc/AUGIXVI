@@ -6,6 +6,7 @@ import {
   verifySupabaseOperatorSession,
 } from "./operatorAuth.server";
 import { AvatarStage } from "./AvatarStage";
+import { LOGIN_DISCLAIMER } from "./loginDisclaimer";
 import { MummyGuardianDeterrent } from "./MummyGuardian";
 import { SpaceView } from "./SpaceView";
 import { LearnerHeartDoor } from "./learner/LearnerHeartDoor";
@@ -603,6 +604,26 @@ export function OperatorGate() {
             {registrationMode ? "Back to sign in" : "Set up first operator account"}
           </button>
         )}
+        {/* THE LOGIN DISCLAIMER (Captain's order 2026-11-26): the
+            plain words every person at this gate reads before
+            they try the door — authorized access only, camera
+            and microphone on attempt, a photograph recorded
+            with the time, entry or not, attempts logged and
+            preserved. The text lives in ONE constant
+            (LOGIN_DISCLAIMER, loginDisclaimer.ts). */}
+        <aside className="operator-auth__disclaimer" aria-label="Login disclaimer">
+          <h2>{LOGIN_DISCLAIMER.title}</h2>
+          {LOGIN_DISCLAIMER.lines.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </aside>
+        {/* Violet's door: the Financial Advisor has her own login
+            and her own side (Captain's order 2026-11-26). A plain
+            link — her side lives at /violet, behind her own
+            credential, and grants nothing operator-side. */}
+        <p className="operator-auth__violet-door">
+          <a href="/violet">Financial Advisor sign-in — Violet's door</a>
+        </p>
       </section>
     </OperatorLanding>
   );

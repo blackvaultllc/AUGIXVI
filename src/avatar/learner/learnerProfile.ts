@@ -19,6 +19,18 @@ export const LEARNER_FULL_NAME = "Khadija Leila Hall";
 export const LEARNER_FIRST_NAME = "Khadija";
 export const LEARNER_BIRTH_YEAR = 2019;
 
+/**
+ * OSIRIS IS HER CONSTRUCT (Captain's order 2026-11-26): Osiris
+ * always protects Khadija, no matter what, and he has access to
+ * any tool he needs that can be provided for that protection.
+ * The same record stands in departmentHeads.ts
+ * (OSIRIS_GUARDIAN_RECORD) — one law, written in both places it
+ * governs, so neither side of the wall can drift from it.
+ */
+export const LEARNER_GUARDIAN_GOD = "osiris";
+export const LEARNER_GUARDIAN_LAW =
+  "Osiris is Khadija's construct. He always protects her, no matter what, and has access to any tool he needs that can be provided for that protection.";
+
 export const LEARNER_SESSION_KEY = "augi.learner.session.v1";
 
 export type LearnerSession = {
@@ -161,7 +173,10 @@ export function forgetLearnerDevice(storageOverride?: LocalStorageLike): void {
  * from the library), the Flower's say doorway (her voice, spoken by
  * the core), and the daddy doorway — her line to her father, the one
  * contact the wall opens for by his order (2026-11-24); it reaches
- * Domenick Arlon Hall and nobody else. The prefixes cover only static files
+ * Domenick Arlon Hall and nobody else — plus the request doorway
+ * (2026-11-26), which sends her "ask for something to be added"
+ * words out to her father the same way and brings nothing back.
+ * The prefixes cover only static files
  * that belong to her: the Squishy Maker bundle's assets and her art
  * pictures. No prefix reaches an operator route or an operator API —
  * /api/learner/ask is an exact path, so /api/transcribe and the rest
@@ -181,6 +196,12 @@ export const LEARNER_ALLOWED_PATHS = [
   // Her line to Daddy — the one contact the wall always opens for
   // (owner order 2026-11-24). It reaches her father and nobody else.
   "/api/learner/daddy",
+  // Her "Ask for something to be added" doorway (owner order
+  // 2026-11-26): sends her words OUT to her father — a request
+  // record on the core, mirrored into his notifications — and
+  // brings nothing back but a thank-you. It opens no content,
+  // no tool, and no surface to her.
+  "/api/learner/request",
 ];
 
 export const LEARNER_ALLOWED_PREFIXES = ["/games/squishy-maker/assets/", "/learner-art/"];

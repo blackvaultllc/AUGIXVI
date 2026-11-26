@@ -14,6 +14,7 @@ import { Route as AvatarRouteImport } from './routes/avatar'
 import { Route as LearnerRouteImport } from './routes/learner'
 import { Route as ManualRouteImport } from './routes/manual'
 import { Route as PhoneBridgeRouteImport } from './routes/phone-bridge'
+import { Route as VioletRouteImport } from './routes/violet'
 import { Route as ApiSayRouteImport } from './routes/api.say'
 import { Route as ApiTranscribeRouteImport } from './routes/api.transcribe'
 import { Route as ApiVoiceRouteImport } from './routes/api.voice'
@@ -34,6 +35,7 @@ import { Route as ApiDevicesWatchlistRouteImport } from './routes/api.devices.wa
 import { Route as ApiDevicesWepwawetRouteImport } from './routes/api.devices.wepwawet'
 import { Route as ApiLearnerAskRouteImport } from './routes/api.learner.ask'
 import { Route as ApiLearnerDaddyRouteImport } from './routes/api.learner.daddy'
+import { Route as ApiLearnerRequestRouteImport } from './routes/api.learner.request'
 import { Route as ApiLearnerSayRouteImport } from './routes/api.learner.say'
 import { Route as ApiLibraryArticleRouteImport } from './routes/api.library.article'
 import { Route as ApiLibraryCatalogRouteImport } from './routes/api.library.catalog'
@@ -75,6 +77,11 @@ const ManualRoute = ManualRouteImport.update({
 const PhoneBridgeRoute = PhoneBridgeRouteImport.update({
   id: '/phone-bridge',
   path: '/phone-bridge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VioletRoute = VioletRouteImport.update({
+  id: '/violet',
+  path: '/violet',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSayRoute = ApiSayRouteImport.update({
@@ -178,6 +185,11 @@ const ApiLearnerDaddyRoute = ApiLearnerDaddyRouteImport.update({
   path: '/api/learner/daddy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLearnerRequestRoute = ApiLearnerRequestRouteImport.update({
+  id: '/api/learner/request',
+  path: '/api/learner/request',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLearnerSayRoute = ApiLearnerSayRouteImport.update({
   id: '/api/learner/say',
   path: '/api/learner/say',
@@ -271,6 +283,7 @@ export interface FileRoutesByFullPath {
   '/learner': typeof LearnerRoute
   '/manual': typeof ManualRoute
   '/phone-bridge': typeof PhoneBridgeRoute
+  '/violet': typeof VioletRoute
   '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/api/voice': typeof ApiVoiceRoute
@@ -291,6 +304,7 @@ export interface FileRoutesByFullPath {
   '/api/devices/wepwawet': typeof ApiDevicesWepwawetRoute
   '/api/learner/ask': typeof ApiLearnerAskRoute
   '/api/learner/daddy': typeof ApiLearnerDaddyRoute
+  '/api/learner/request': typeof ApiLearnerRequestRoute
   '/api/learner/say': typeof ApiLearnerSayRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
@@ -315,6 +329,7 @@ export interface FileRoutesByTo {
   '/learner': typeof LearnerRoute
   '/manual': typeof ManualRoute
   '/phone-bridge': typeof PhoneBridgeRoute
+  '/violet': typeof VioletRoute
   '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/api/voice': typeof ApiVoiceRoute
@@ -335,6 +350,7 @@ export interface FileRoutesByTo {
   '/api/devices/wepwawet': typeof ApiDevicesWepwawetRoute
   '/api/learner/ask': typeof ApiLearnerAskRoute
   '/api/learner/daddy': typeof ApiLearnerDaddyRoute
+  '/api/learner/request': typeof ApiLearnerRequestRoute
   '/api/learner/say': typeof ApiLearnerSayRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
@@ -360,6 +376,7 @@ export interface FileRoutesById {
   '/learner': typeof LearnerRoute
   '/manual': typeof ManualRoute
   '/phone-bridge': typeof PhoneBridgeRoute
+  '/violet': typeof VioletRoute
   '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/api/voice': typeof ApiVoiceRoute
@@ -380,6 +397,7 @@ export interface FileRoutesById {
   '/api/devices/wepwawet': typeof ApiDevicesWepwawetRoute
   '/api/learner/ask': typeof ApiLearnerAskRoute
   '/api/learner/daddy': typeof ApiLearnerDaddyRoute
+  '/api/learner/request': typeof ApiLearnerRequestRoute
   '/api/learner/say': typeof ApiLearnerSayRoute
   '/api/library/article': typeof ApiLibraryArticleRoute
   '/api/library/catalog': typeof ApiLibraryCatalogRoute
@@ -406,6 +424,7 @@ export interface FileRouteTypes {
     | '/learner'
     | '/manual'
     | '/phone-bridge'
+    | '/violet'
     | '/api/say'
     | '/api/transcribe'
     | '/api/voice'
@@ -426,6 +445,7 @@ export interface FileRouteTypes {
     | '/api/devices/wepwawet'
     | '/api/learner/ask'
     | '/api/learner/daddy'
+    | '/api/learner/request'
     | '/api/learner/say'
     | '/api/library/article'
     | '/api/library/catalog'
@@ -450,6 +470,7 @@ export interface FileRouteTypes {
     | '/learner'
     | '/manual'
     | '/phone-bridge'
+    | '/violet'
     | '/api/say'
     | '/api/transcribe'
     | '/api/voice'
@@ -470,6 +491,7 @@ export interface FileRouteTypes {
     | '/api/devices/wepwawet'
     | '/api/learner/ask'
     | '/api/learner/daddy'
+    | '/api/learner/request'
     | '/api/learner/say'
     | '/api/library/article'
     | '/api/library/catalog'
@@ -494,6 +516,7 @@ export interface FileRouteTypes {
     | '/learner'
     | '/manual'
     | '/phone-bridge'
+    | '/violet'
     | '/api/say'
     | '/api/transcribe'
     | '/api/voice'
@@ -514,6 +537,7 @@ export interface FileRouteTypes {
     | '/api/devices/wepwawet'
     | '/api/learner/ask'
     | '/api/learner/daddy'
+    | '/api/learner/request'
     | '/api/learner/say'
     | '/api/library/article'
     | '/api/library/catalog'
@@ -539,6 +563,7 @@ export interface RootRouteChildren {
   LearnerRoute: typeof LearnerRoute
   ManualRoute: typeof ManualRoute
   PhoneBridgeRoute: typeof PhoneBridgeRoute
+  VioletRoute: typeof VioletRoute
   ApiSayRoute: typeof ApiSayRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   ApiVoiceRoute: typeof ApiVoiceRoute
@@ -559,6 +584,7 @@ export interface RootRouteChildren {
   ApiDevicesWepwawetRoute: typeof ApiDevicesWepwawetRoute
   ApiLearnerAskRoute: typeof ApiLearnerAskRoute
   ApiLearnerDaddyRoute: typeof ApiLearnerDaddyRoute
+  ApiLearnerRequestRoute: typeof ApiLearnerRequestRoute
   ApiLearnerSayRoute: typeof ApiLearnerSayRoute
   ApiLibraryArticleRoute: typeof ApiLibraryArticleRoute
   ApiLibraryCatalogRoute: typeof ApiLibraryCatalogRoute
@@ -613,6 +639,13 @@ declare module '@tanstack/react-router' {
       path: '/phone-bridge'
       fullPath: '/phone-bridge'
       preLoaderRoute: typeof PhoneBridgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/violet': {
+      id: '/violet'
+      path: '/violet'
+      fullPath: '/violet'
+      preLoaderRoute: typeof VioletRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/say': {
@@ -755,6 +788,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLearnerDaddyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/learner/request': {
+      id: '/api/learner/request'
+      path: '/api/learner/request'
+      fullPath: '/api/learner/request'
+      preLoaderRoute: typeof ApiLearnerRequestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/learner/say': {
       id: '/api/learner/say'
       path: '/api/learner/say'
@@ -883,6 +923,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearnerRoute: LearnerRoute,
   ManualRoute: ManualRoute,
   PhoneBridgeRoute: PhoneBridgeRoute,
+  VioletRoute: VioletRoute,
   ApiSayRoute: ApiSayRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   ApiVoiceRoute: ApiVoiceRoute,
@@ -903,6 +944,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDevicesWepwawetRoute: ApiDevicesWepwawetRoute,
   ApiLearnerAskRoute: ApiLearnerAskRoute,
   ApiLearnerDaddyRoute: ApiLearnerDaddyRoute,
+  ApiLearnerRequestRoute: ApiLearnerRequestRoute,
   ApiLearnerSayRoute: ApiLearnerSayRoute,
   ApiLibraryArticleRoute: ApiLibraryArticleRoute,
   ApiLibraryCatalogRoute: ApiLibraryCatalogRoute,
