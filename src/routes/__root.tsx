@@ -81,10 +81,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Living AI Avatar" },
+      { title: "IEM" },
       { name: "description", content: "A particle AI avatar that follows your hand and speaks." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Living AI Avatar" },
+      { property: "og:title", content: "IEM" },
       {
         property: "og:description",
         content: "A particle AI avatar that follows your hand and speaks.",
@@ -92,11 +92,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
-      { name: "theme-color", content: "#0a0e1a" },
+      { name: "theme-color", content: "#d4af37" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Augie" },
+      { name: "apple-mobile-web-app-title", content: "IEM" },
     ],
     links: [
       {
