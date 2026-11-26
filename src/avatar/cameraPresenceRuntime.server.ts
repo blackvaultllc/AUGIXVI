@@ -43,19 +43,23 @@ import {
   followMaySteer,
   followVelocity,
   hearsAnubisName,
+  mayStrengthenVoiceprint,
   motionCentroidIn,
   parseCameraCommand,
   parseStrictYesNo,
   patrolVelocityAt,
   presenceFor,
+  speakerLabelFromVerdict,
   streamFollowsPtzFromCoverage,
   streamProbeNote,
   PERSON_CHECK_PROMPT,
   SAME_PERSON_PROMPT,
+  VOICE_STRENGTHEN_MAX,
   type CameraCommandIntent,
   type CameraPresenceFile,
   type HearingEvent,
   type RecordingInfo,
+  type SpeakerLabel,
 } from "./cameras/cameraPresence";
 
 /* ------------------------------------------------------------------ */
@@ -928,10 +932,110 @@ async function handleAudioChunk(camera: StoredCamera, bytes: Buffer): Promise<vo
     return;
   }
   if (!text) return;
-  await handleHeard(camera, text);
+  const speaker = await verifyChunkVoice(bytes);
+  const strengthened = speaker === "captain" ? await strengthenVoiceprint(bytes) : false;
+  await handleHeard(camera, text, speaker, strengthened);
 }
 
-async function handleHeard(camera: StoredCamera, text: string): Promise<void> {
+/* ------------------------------------------------------------------ */
+/* Voice distinction — whose voice a heard line carried                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Ask the speech service's voiceprint about this chunk. The
+ * service answers with a verdict and a number; the NUMBER
+ * NEVER CROSSES — only the verdict is read, and it becomes a
+ * label by the pure mapping: enrolled + match → the Captain;
+ * enrolled + no match → another person; anything else (not
+ * enrolled, the service down, a malformed answer) → NO
+ * VERDICT, and the line is labeled with nothing.
+ */
+async function verifyChunkVoice(bytes: Buffer): Promise<SpeakerLabel | null> {
+  try {
+    const { sttBaseUrl } = await import("./voiceprint.server");
+    const res = await fetch(`${sttBaseUrl()}/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "audio/wav" },
+      body: new Uint8Array(bytes),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { enrolled?: unknown; match?: unknown };
+    return speakerLabelFromVerdict(data.enrolled === true, typeof data.match === "boolean" ? data.match : null);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Strengthen the Captain's voiceprint with a chunk the
+ * pipeline itself just attributed to him at a match — the
+ * only samples ever added this way, capped, and only when the
+ * service's own bookkeeping says the road is clear (no manual
+ * enrollment in progress; room under its sample cap). A failed
+ * commit resets the pending sample so nothing of ours is ever
+ * left standing in his enrollment, and failure is silent: no
+ * strengthening is claimed that the service did not confirm.
+ */
+async function strengthenVoiceprint(bytes: Buffer): Promise<boolean> {
+  const presenceStore = await getCameraPresenceStore();
+  if (!presenceStore) return false;
+  try {
+    const { sttBaseUrl } = await import("./voiceprint.server");
+    const base = sttBaseUrl();
+    const statusRes = await fetch(`${base}/voiceprint/status`, {
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!statusRes.ok) return false;
+    const status = (await statusRes.json()) as {
+      enrolled?: unknown;
+      pending_samples?: unknown;
+      samples?: unknown;
+      max_samples?: unknown;
+    };
+    const file = await presenceStore.read();
+    const alreadyAdded = file.voiceStrengthening.count;
+    const clear = mayStrengthenVoiceprint({
+      enrolled: status.enrolled === true,
+      pendingSamples: typeof status.pending_samples === "number" ? status.pending_samples : -1,
+      samples: typeof status.samples === "number" ? status.samples : null,
+      maxSamples: typeof status.max_samples === "number" ? status.max_samples : 0,
+      alreadyAdded,
+    });
+    if (!clear) return false;
+    const enrollRes = await fetch(`${base}/enroll`, {
+      method: "POST",
+      headers: { "Content-Type": "audio/wav" },
+      body: new Uint8Array(bytes),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!enrollRes.ok) return false;
+    const commitRes = await fetch(`${base}/enroll/commit`, {
+      method: "POST",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!commitRes.ok) {
+      await fetch(`${base}/enroll/reset`, { method: "POST", signal: AbortSignal.timeout(15_000) }).catch(
+        () => undefined,
+      );
+      return false;
+    }
+    await presenceStore.update((f) => ({
+      ...f,
+      voiceStrengthening: { count: f.voiceStrengthening.count + 1, lastAt: Date.now() },
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function handleHeard(
+  camera: StoredCamera,
+  text: string,
+  speaker: SpeakerLabel | null,
+  voiceStrengthened: boolean,
+): Promise<void> {
   const presenceStore = await getCameraPresenceStore();
   const cameraStore = await getCameraStore();
   if (!presenceStore || !cameraStore) return;
@@ -964,6 +1068,12 @@ async function handleHeard(camera: StoredCamera, text: string): Promise<void> {
       : "Heard and logged. Commands are off for this camera, so nothing was acted on or forwarded.";
   }
 
+  if (voiceStrengthened) {
+    const fileNow = await presenceStore.read();
+    const note = `Voice matched the Captain's voiceprint — this sample strengthened his voice reference (${fileNow.voiceStrengthening.count} of ${VOICE_STRENGTHEN_MAX} pipeline-added samples).`;
+    acted = acted ? `${acted} ${note}` : note;
+  }
+
   const event: HearingEvent = {
     id: `hear-${Date.now()}-${camera.id}`,
     at: Date.now(),
@@ -973,8 +1083,21 @@ async function handleHeard(camera: StoredCamera, text: string): Promise<void> {
     kind,
     acted,
     routed: false,
+    speaker,
   };
   await presenceStore.update((f) => ({ ...f, hearing: [event, ...f.hearing] }));
+
+  // Stop mode hears every line too (personal-safety pass): it
+  // starts on his declaration or an officer's own words, checks
+  // claims against the law base while a stop runs, and ends on
+  // his word. Silent on failure — the hearing record stands
+  // either way.
+  try {
+    const stopRuntime = await import("./stopModeRuntime.server");
+    await stopRuntime.noteHeardLine({ camera, text, speaker });
+  } catch {
+    // stop mode is a passenger on the hearing road, never its driver
+  }
 }
 
 /* ------------------------------------------------------------------ */

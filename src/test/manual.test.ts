@@ -16,6 +16,7 @@ const REQUIRED_CATEGORIES = [
   "Voice — speaking and hearing",
   "Training Augie",
   "Cameras",
+  "Personal safety — your papers, the law base, and stop mode",
   "Sound Watch",
   "The world builder",
   "Devices & the registry",
