@@ -112,6 +112,20 @@ export interface CameraPresenceState {
 
 export type HearingEventKind = "name" | "command" | "speech";
 
+/**
+ * Whose voice a heard line carried, by the voiceprint's
+ * verdict (voice-distinction pass, owner order 2026-11-26):
+ * "captain" — the voice matched the Captain's enrolled
+ * voiceprint; "another" — the voice was checked and did NOT
+ * match it; null — NO VERDICT (no voiceprint enrolled, the
+ * speech service could not answer, or the line predates the
+ * distinction). The verdict is voice SIMILARITY, never proof
+ * of identity, and the service's numeric score never crosses
+ * into this record — match, no-match, or no verdict, exactly
+ * the enrollment discipline.
+ */
+export type SpeakerLabel = "captain" | "another";
+
 export interface HearingEvent {
   id: string;
   at: number;
@@ -124,6 +138,63 @@ export interface HearingEvent {
   acted: string | null;
   /** Speech only: the stage has fed this line to Anubis already. */
   routed: boolean;
+  /** The voiceprint's verdict on this line's voice — null = no verdict. */
+  speaker: SpeakerLabel | null;
+}
+
+/** The verdict → label mapping, kept pure so it is testable:
+ *  enrolled + match → the Captain; enrolled + no match →
+ *  another person; anything else → no verdict (null). */
+export function speakerLabelFromVerdict(
+  enrolled: boolean,
+  match: boolean | null,
+): SpeakerLabel | null {
+  if (!enrolled || match === null) return null;
+  return match ? "captain" : "another";
+}
+
+/** Plain words for a label, as the hearing record speaks them. */
+export function speakerLabelWords(label: SpeakerLabel | null): string | null {
+  if (label === "captain") return "the Captain";
+  if (label === "another") return "another person";
+  return null;
+}
+
+/**
+ * The pipeline may strengthen the Captain's voiceprint with
+ * samples IT attributed to him at a match — never with
+ * anything else — and only this many, ever. The strengthening
+ * is written into the hearing record when it happens.
+ */
+export const VOICE_STRENGTHEN_MAX = 4;
+
+/**
+ * May this matched sample strengthen the reference? Only when
+ * the voiceprint service's own bookkeeping says the road is
+ * clear: enrolled, NO manual enrollment session in progress
+ * (pending samples are the Captain's own work — never mixed),
+ * and room under the service's own sample cap counting what
+ * the pipeline has already added.
+ */
+export function mayStrengthenVoiceprint(input: {
+  enrolled: boolean;
+  pendingSamples: number;
+  samples: number | null;
+  maxSamples: number;
+  alreadyAdded: number;
+}): boolean {
+  if (!input.enrolled) return false;
+  if (input.pendingSamples !== 0) return false;
+  if (input.samples === null) return false;
+  if (input.alreadyAdded >= VOICE_STRENGTHEN_MAX) return false;
+  return input.samples + input.alreadyAdded < input.maxSamples;
+}
+
+/** The pipeline's own strengthening bookkeeping, kept on the record. */
+export interface VoiceStrengthening {
+  /** Samples the pipeline has added to the voiceprint at a match. */
+  count: number;
+  lastAt: number | null;
 }
 
 export interface RecordingInfo {
@@ -171,6 +242,8 @@ export interface CameraPresenceFile {
   enrollment: CreatorEnrollment | null;
   /** The household faces Sector Watch checks against (may be empty). */
   household: HouseholdEnrollment[];
+  /** Voiceprint strengthening the hearing pipeline has performed (capped). */
+  voiceStrengthening: VoiceStrengthening;
 }
 
 export const HEARING_MAX = 60;
@@ -191,7 +264,14 @@ export function defaultPresenceState(): CameraPresenceState {
 }
 
 export function emptyPresenceFile(): CameraPresenceFile {
-  return { cameras: {}, hearing: [], recordings: [], enrollment: null, household: [] };
+  return {
+    cameras: {},
+    hearing: [],
+    recordings: [],
+    enrollment: null,
+    household: [],
+    voiceStrengthening: { count: 0, lastAt: null },
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -273,6 +353,7 @@ export function sanitizeHearingEvent(v: unknown): HearingEvent | null {
   const at = cleanTime(v["at"]);
   if (!id || !cameraId || !text || at === null) return null;
   const kind = v["kind"];
+  const speaker = v["speaker"];
   return {
     id,
     at,
@@ -282,6 +363,7 @@ export function sanitizeHearingEvent(v: unknown): HearingEvent | null {
     kind: kind === "name" || kind === "command" ? kind : "speech",
     acted: cleanString(v["acted"], 300) ?? null,
     routed: v["routed"] === true,
+    speaker: speaker === "captain" || speaker === "another" ? speaker : null,
   };
 }
 
@@ -346,7 +428,15 @@ export function sanitizePresenceFile(v: unknown): CameraPresenceFile {
         .filter((m): m is HouseholdEnrollment => m !== null)
         .slice(0, HOUSEHOLD_MAX)
     : [];
-  return { cameras, hearing, recordings, enrollment, household };
+  const vs = isRecord(v["voiceStrengthening"]) ? v["voiceStrengthening"] : {};
+  const voiceStrengthening: VoiceStrengthening = {
+    count:
+      typeof vs["count"] === "number" && Number.isFinite(vs["count"]) && vs["count"] >= 0
+        ? Math.min(Math.floor(vs["count"]), VOICE_STRENGTHEN_MAX)
+        : 0,
+    lastAt: cleanTime(vs["lastAt"]),
+  };
+  return { cameras, hearing, recordings, enrollment, household, voiceStrengthening };
 }
 
 export function sanitizeHouseholdEnrollment(v: unknown): HouseholdEnrollment | null {

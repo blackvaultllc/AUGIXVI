@@ -379,6 +379,8 @@ import { getCameraSpeech, markCameraSpeechRouted } from "./cameraPresence.server
 import { getSectorAlertState } from "./sectorWatch.server";
 import { getInboxState } from "./notifications.server";
 import { NotificationsWindow } from "./NotificationsWindow";
+import { PersonalVaultWindow } from "./PersonalVaultWindow";
+import { StopSafetyWindow } from "./StopSafetyWindow";
 import { alertRingReading } from "./alertRing";
 import {
   currentSoundFeed,
@@ -1025,6 +1027,11 @@ export function AvatarStage({
   // carries the real unread count from the core store, read
   // on the poll below; the window is NotificationsWindow.
   const [inboxOpen, setInboxOpen] = useState(false);
+  // Personal safety pass (owner order 2026-11-26): his papers
+  // in the vault, and the law base + stop mode. Owner surface
+  // only — these windows open from the operator's own Tools.
+  const [vaultOpen, setVaultOpen] = useState(false);
+  const [stopSafetyOpen, setStopSafetyOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
   // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
   // surface. Opens from Tools → Rooms and from "open listening mode".
@@ -4651,6 +4658,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setInboxOpen(true)}
                   />
                   <CommandAction
+                    icon={Shield}
+                    label="Personal Vault"
+                    onClick={() => setVaultOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Scale}
+                    label="Stop Safety"
+                    onClick={() => setStopSafetyOpen(true)}
+                  />
+                  <CommandAction
                     icon={Clapperboard}
                     label="Captain's Log"
                     onClick={() => setCaptainsLogOpen(true)}
@@ -4995,6 +5012,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         </button>
       )}
       {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
+      {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
+      {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}
       {remoteCodesOpen && <RemoteCodesWindow onClose={() => setRemoteCodesOpen(false)} />}
       {identifyOpen && <IdentifyWindow onClose={() => setIdentifyOpen(false)} />}
       {formationOpen && <FormationWindow onClose={() => setFormationOpen(false)} />}
