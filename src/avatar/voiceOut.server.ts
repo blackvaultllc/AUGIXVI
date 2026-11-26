@@ -16,8 +16,12 @@ import { piperVoiceModelPath } from "./piper.server";
 import {
   CONSTRUCT_VOICES,
   DEFAULT_CONSTRUCT_VOICE_ID,
+  GOD_VOICES,
   constructVoiceById,
+  godVoiceFactLine,
+  godVoiceSpec,
   resolveConstructVoice,
+  resolveGodVoice,
   voiceFactLine,
   type ConstructVoice,
 } from "./voiceSettings";
@@ -39,6 +43,21 @@ export interface VoiceLabView {
   chosenVoiceId: string | null;
   /** The voice a spoken line would use right now, and why. */
   speaking: { voiceId: string | null; factLine: string | null; note: string };
+  /** Every god's voice (owner expansion 2026-11-26): standing or as assigned. */
+  gods: GodLabEntry[];
+}
+
+export interface GodLabEntry {
+  godId: string;
+  name: string;
+  gender: "male" | "female";
+  note: string;
+  /** The catalog voice this god speaks in right now. */
+  voiceId: string;
+  voiceLabel: string;
+  factLine: string;
+  installed: boolean;
+  source: "standing" | "assigned" | "choice" | "default" | "fallback";
 }
 
 export interface VoiceOutDeps {
@@ -90,7 +109,62 @@ export async function readVoiceLab(deps: VoiceOutDeps): Promise<VoiceLabView> {
             factLine: null,
             note: "No Piper voice model is installed on this core — spoken lines use the browser voice here.",
           };
-  return { entries, chosenVoiceId, speaking };
+  const gods: GodLabEntry[] = GOD_VOICES.map((spec) => {
+    if (spec.godId === "anubis") {
+      // Anubis's row IS the construct choice resolved above.
+      if (resolution.kind === "voice") {
+        return {
+          godId: spec.godId,
+          name: spec.name,
+          gender: spec.gender,
+          note: spec.note,
+          voiceId: resolution.voice.id,
+          voiceLabel: resolution.voice.label,
+          factLine: voiceFactLine(resolution.voice),
+          installed: deps.isModelInstalled(resolution.voice.model),
+          source: resolution.source,
+        };
+      }
+      const standing = constructVoiceById(spec.voiceId);
+      return {
+        godId: spec.godId,
+        name: spec.name,
+        gender: spec.gender,
+        note: spec.note,
+        voiceId: spec.voiceId,
+        voiceLabel: standing?.label ?? spec.voiceId,
+        factLine: standing ? voiceFactLine(standing) : "",
+        installed: false,
+        source: "standing" as const,
+      };
+    }
+    const godResolution = resolveGodVoice(spec.godId, settings);
+    if (!godResolution) {
+      return {
+        godId: spec.godId,
+        name: spec.name,
+        gender: spec.gender,
+        note: spec.note,
+        voiceId: spec.voiceId,
+        voiceLabel: spec.voiceId,
+        factLine: "",
+        installed: false,
+        source: "standing" as const,
+      };
+    }
+    return {
+      godId: spec.godId,
+      name: spec.name,
+      gender: spec.gender,
+      note: spec.note,
+      voiceId: godResolution.voice.id,
+      voiceLabel: godResolution.voice.label,
+      factLine: godVoiceFactLine(godResolution),
+      installed: deps.isModelInstalled(godResolution.voice.model),
+      source: godResolution.source,
+    };
+  });
+  return { entries, chosenVoiceId, speaking, gods };
 }
 
 export type SetVoiceResult =
@@ -130,18 +204,67 @@ export async function handleVoiceLabGet(): Promise<Response> {
   return Response.json(view);
 }
 
+/**
+ * Assign one god's voice (owner expansion 2026-11-26). Anubis's
+ * assignment IS the main choice (setVoiceChoice's store field);
+ * every other god's assignment stands in godVoices. Same honesty
+ * as the main choice: a voice whose model is not on this core
+ * cannot be assigned until it is installed.
+ */
+export async function setGodVoiceChoice(
+  deps: VoiceOutDeps,
+  godId: unknown,
+  voiceId: unknown,
+): Promise<SetVoiceResult> {
+  const spec = godVoiceSpec(godId);
+  if (!spec) {
+    return { ok: false, reason: "That god is not in the roster of voices." };
+  }
+  if (spec.godId === "anubis") {
+    return setVoiceChoice(deps, voiceId);
+  }
+  const voice = constructVoiceById(voiceId);
+  if (!voice) {
+    return { ok: false, reason: "That voice is not in the Voice Lab catalog." };
+  }
+  if (!deps.isModelInstalled(voice.model)) {
+    return {
+      ok: false,
+      reason: `The ${voice.label} voice (Piper model ${voice.model}) is not on this core yet — its model file has not been installed, so ${spec.name} cannot be given it until it is.`,
+    };
+  }
+  if (!deps.store) {
+    return {
+      ok: false,
+      reason: "This host has no core store (no node filesystem), so the assignment cannot be saved here.",
+    };
+  }
+  await deps.store.update((file) => ({
+    ...file,
+    godVoices: { ...(file.godVoices ?? {}), [spec.godId]: voice.id },
+    updatedAt: new Date().toISOString(),
+  }));
+  return { ok: true, view: await readVoiceLab(deps) };
+}
+
 export async function handleVoiceLabPost(request: Request): Promise<Response> {
   let voiceId: unknown;
+  let godId: unknown;
   try {
-    const body = (await request.json()) as { voiceId?: unknown };
+    const body = (await request.json()) as { voiceId?: unknown; godId?: unknown };
     voiceId = body.voiceId;
+    godId = body.godId;
   } catch {
     return Response.json(
       { error: "Expected a JSON body with a voiceId field." },
       { status: 400 },
     );
   }
-  const result = await setVoiceChoice(await defaultVoiceOutDeps(), voiceId);
+  const deps = await defaultVoiceOutDeps();
+  const result =
+    godId !== undefined
+      ? await setGodVoiceChoice(deps, godId, voiceId)
+      : await setVoiceChoice(deps, voiceId);
   if (!result.ok) {
     return Response.json({ error: result.reason }, { status: 400 });
   }

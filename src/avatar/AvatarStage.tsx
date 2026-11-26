@@ -378,7 +378,8 @@ import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
 import { fetchDaddyInboxView, operatorAccessToken } from "./learner/daddyInboxClient";
 import { getCameraSpeech, markCameraSpeechRouted } from "./cameraPresence.server";
 import { getSectorAlertState } from "./sectorWatch.server";
-import { getInboxState } from "./notifications.server";
+import { getInboxState, getNotifications } from "./notifications.server";
+import { isSeriousSystemEntry, seriousSpeechLine } from "./seriousSpeech";
 import { NotificationsWindow } from "./NotificationsWindow";
 import { PersonalVaultWindow } from "./PersonalVaultWindow";
 import { StopSafetyWindow } from "./StopSafetyWindow";
@@ -2985,11 +2986,23 @@ export function AvatarStage({
    * 25-second beat as the sector poll, the stage reads Anubis's
    * inbox state — the read reconciles the inbox and the
    * property feed from the core's real records server-side —
-   * and the stage button shows the true unread count. Nothing
-   * is announced from here: the inbox is a record he opens,
-   * not another voice in the room (events and judgments
-   * already raise their own notices on the sector poll).
+   * and the stage button shows the true unread count.
+   *
+   * SERIOUS THINGS ARE SPOKEN (owner expansion 2026-11-26,
+   * narrowing the silence this poll used to keep): a SYSTEM
+   * entry standing on a serious core event — a repair proposal
+   * or an update-apply request (seriousSpeech.ts) — that ARRIVES
+   * while he is on the program is spoken to him by Anubis, in
+   * Anubis's voice, addressed to Zero. Everything else in the
+   * inbox stays a silent record he opens: routine system
+   * activity, suggestions, captures. The first read of a session
+   * only sets the baseline — entries already standing when he
+   * arrives are records, not announcements — and each later
+   * arrival speaks once, one per beat, oldest first.
    */
+  const seriousSeenRef = useRef<Set<string> | null>(null);
+  const seriousQueueRef = useRef<string[]>([]);
+  const seriousLinesRef = useRef<Map<string, string>>(new Map());
   useEffect(() => {
     let stopped = false;
     const tick = async () => {
@@ -2998,6 +3011,30 @@ export function AvatarStage({
       const state = await getInboxState({ data: { accessToken } }).catch(() => null);
       if (stopped || !state?.authorized) return;
       setInboxUnread(state.unread);
+      // The serious-speech read (see the note above): the full
+      // inbox, filtered to serious SYSTEM entries only.
+      const inbox = await getNotifications({ data: { accessToken } }).catch(() => null);
+      if (stopped || !inbox?.authorized) return;
+      const serious = inbox.entries.filter(isSeriousSystemEntry);
+      if (seriousSeenRef.current === null) {
+        // First read of the session: baseline only — what already
+        // stands is a record, not an announcement.
+        seriousSeenRef.current = new Set(serious.map((entry) => entry.id));
+        return;
+      }
+      const seen = seriousSeenRef.current;
+      for (const entry of serious) {
+        if (seen.has(entry.id)) continue;
+        seen.add(entry.id);
+        seriousLinesRef.current.set(entry.id, seriousSpeechLine(entry));
+        seriousQueueRef.current.push(entry.id);
+      }
+      const nextId = seriousQueueRef.current.shift();
+      if (nextId) {
+        const line = seriousLinesRef.current.get(nextId);
+        seriousLinesRef.current.delete(nextId);
+        if (line) aiRef.current?.speak(line, "anubis");
+      }
     };
     void tick();
     const timer = setInterval(() => void tick(), 25_000);
@@ -3100,6 +3137,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       // addressee, under his name — the same name the thread label
       // shows for it.
       getSpeakerDirective: () => speakerDirective(addresseeRef.current),
+      // The speaker's VOICE, read fresh per spoken line from the
+      // same routing state (owner expansion 2026-11-26): a reply
+      // speaks in the addressed god's own voice — his Voice Lab
+      // assignment or his standing voice — resolved by the core.
+      getSpeakerGod: () => addresseeRef.current,
       // The capability brief (owner defect 2026-11-23): what Augie
       // can actually access and do, read fresh per message beside
       // the directive — a "can you access the camera / the dog?"
