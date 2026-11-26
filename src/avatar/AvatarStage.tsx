@@ -330,6 +330,7 @@ import { createLocalEar, type EarState, type LocalEar } from "./localEar";
 import { stageStatusLabel } from "./voiceHearing";
 import { VoiceIndicator } from "./VoiceIndicator";
 import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
+import { VoiceLabPanel } from "./VoiceLabPanel";
 import { TrustedDevicesPanel } from "./TrustedDevicesPanel";
 import { PhoneBrainPanel } from "./PhoneBrainPanel";
 import {
@@ -4901,6 +4902,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   The gods speak in a deeper British man's voice — a woman's voice only when the
                   speaker is a woman. The level is yours; full is the standing default.
                 </p>
+                <VoiceLabPanel />
               </CommandGroup>
               <CommandGroup label="Voice calibration — only my operator's voice">
                 <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
