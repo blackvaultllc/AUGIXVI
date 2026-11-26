@@ -5024,6 +5024,13 @@
   flex-direction: column;
   gap: 0.45rem;
 }
+.window-cameras__presence {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  border-top: 1px solid rgba(56, 189, 248, 0.25);
+  padding-top: 0.6rem;
+}
 .window-cameras__pad {
   display: grid;
   grid-template-columns: repeat(3, 3rem);

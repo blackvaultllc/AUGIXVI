@@ -44,6 +44,8 @@ import {
   type LensAnalysisState,
 } from "./cameras/cameraAnalysis";
 import { CameraAnalysisBlock } from "./cameras/CameraAnalysisBlock";
+import { getCameraPresence, type CameraPresenceView } from "./cameraPresence.server";
+import { CameraPresenceRecords, CameraPresenceSection } from "./cameras/CameraPresencePanel";
 import { loadRegistry, upsertDevice, type DeviceProfile } from "./devices/deviceRegistry";
 
 async function loadAuthClient(): Promise<SupabaseClient | null> {
@@ -485,10 +487,14 @@ function CameraCard({
   camera,
   token,
   refresh,
+  presenceView,
+  refreshPresence,
 }: {
   camera: CameraProfile;
   token: string;
   refresh: () => void;
+  presenceView: CameraPresenceView | null;
+  refreshPresence: () => void;
 }) {
   const [probe, setProbe] = useState<ProbeResult | null>(null);
   const [probing, setProbing] = useState(false);
@@ -554,6 +560,12 @@ function CameraCard({
             The PTZ pad stays locked until control is granted for this camera.
           </p>
         ))}
+      <CameraPresenceSection
+        camera={camera}
+        presence={presenceView?.cameras[camera.id]}
+        token={token}
+        refreshPresence={refreshPresence}
+      />
       <div className="window-cameras__actions">
         <button type="button" className="window-btn" onClick={() => void runProbe()} disabled={probing}>
           {probing ? "Probing…" : "Probe — prove the paths"}
@@ -590,12 +602,20 @@ export function CamerasPanel() {
   const [state, setState] = useState<PanelState>({ kind: "loading" });
   const [token, setToken] = useState<string | null>(null);
   const [adding, setAdding] = useState<CameraProfile | null>(null);
+  const [presenceView, setPresenceView] = useState<CameraPresenceView | null>(null);
 
   const tokenFn = useCallback(async (): Promise<string | null> => {
     const client = await loadAuthClient();
     if (!client) return null;
     return (await client.auth.getSession()).data.session?.access_token ?? null;
   }, []);
+
+  const refreshPresence = useCallback(async () => {
+    const accessToken = await tokenFn();
+    if (!accessToken) return;
+    const view = await getCameraPresence({ data: { accessToken } }).catch(() => null);
+    if (view?.authorized) setPresenceView(view);
+  }, [tokenFn]);
 
   const refresh = useCallback(async () => {
     const accessToken = await tokenFn();
@@ -611,7 +631,8 @@ export function CamerasPanel() {
     }
     setState({ kind: "ready", view });
     for (const camera of view.cameras) mirrorIntoDeviceRegistry(camera);
-  }, [tokenFn]);
+    void refreshPresence();
+  }, [tokenFn, refreshPresence]);
 
   useEffect(() => {
     void refresh();
@@ -689,8 +710,22 @@ export function CamerasPanel() {
             </div>
           )}
           {state.view.cameras.map((camera) => (
-            <CameraCard key={camera.id} camera={camera} token={token ?? ""} refresh={() => void refresh()} />
+            <CameraCard
+              key={camera.id}
+              camera={camera}
+              token={token ?? ""}
+              refresh={() => void refresh()}
+              presenceView={presenceView}
+              refreshPresence={() => void refreshPresence()}
+            />
           ))}
+          {state.view.cameras.length > 0 && presenceView && (
+            <CameraPresenceRecords
+              view={presenceView}
+              token={token ?? ""}
+              refreshPresence={() => void refreshPresence()}
+            />
+          )}
           {adding ? (
             <CameraForm
               initial={adding}
