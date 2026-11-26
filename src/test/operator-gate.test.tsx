@@ -155,7 +155,12 @@ describe("operator sign-in gate", () => {
     expect(
       screen.getByRole("button", { name: "Set up first operator account" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    // The ONE link allowed on this door (Captain's order 2026-11-26):
+    // the Financial Advisor's own door to her own side. No other link
+    // stands here before authorization — nothing into the stage.
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute("href", "/violet");
     expect(screen.queryByTestId("avatar-stage")).not.toBeInTheDocument();
     expect(mocks.createClient).toHaveBeenCalledWith(
       "https://project.invalid",
