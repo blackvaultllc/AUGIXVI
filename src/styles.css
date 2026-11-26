@@ -4735,6 +4735,76 @@
   flex-direction: column;
   gap: 0.45rem;
 }
+.window-darkhole {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 100%;
+  overflow-y: auto;
+}
+.window-darkhole__note {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  margin: 0;
+}
+.window-darkhole__section {
+  border-top: 1px solid var(--avatar-hud-line);
+  padding-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.window-darkhole__item {
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.window-darkhole__sub {
+  border-top: 1px dashed var(--avatar-hud-line);
+  padding-top: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.window-darkhole__meta {
+  font-size: 0.82rem;
+  margin: 0;
+}
+.window-darkhole__text {
+  font-size: 0.92rem;
+  margin: 0;
+}
+.window-darkhole__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.window-darkhole__row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.window-darkhole__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+  flex: 1 1 10rem;
+}
+.window-darkhole__field input,
+.window-darkhole__field select,
+.window-darkhole input[type="search"] {
+  font: inherit;
+  padding: 0.3rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--avatar-hud-line);
+  background: transparent;
+  color: inherit;
+}
 .window-gate-log__note {
   font-size: 0.9rem;
   opacity: 0.85;
