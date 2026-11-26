@@ -4638,6 +4638,71 @@
   border-top: 1px solid var(--avatar-hud-border, rgba(148, 163, 184, 0.25));
   padding-top: 0.6rem;
 }
+.voice-lab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  border-top: 1px solid var(--avatar-hud-border, rgba(148, 163, 184, 0.25));
+  padding-top: 0.6rem;
+}
+.voice-lab__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.voice-lab__entry {
+  border: 1px solid var(--avatar-hud-border, rgba(148, 163, 184, 0.25));
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.voice-lab__entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.voice-lab__badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.voice-lab__speaking {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  margin: 0;
+}
+.voice-lab__desc,
+.voice-lab__fact {
+  margin: 0;
+}
+.voice-lab__fact {
+  opacity: 0.85;
+  font-size: 0.8rem;
+}
+.voice-lab__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.voice-lab__error {
+  color: #a33b1f;
+  font-weight: 600;
+  margin: 0;
+}
 .listening-stage-badge {
   position: fixed;
   top: 0.75rem;
@@ -8539,6 +8604,28 @@
 .window-law__answer { white-space: pre-wrap; line-height: 1.5; font-size: 0.95rem; }
 .window-law__sources { font-size: 0.82rem; opacity: 0.85; margin-top: 0.5rem; }
 
+/* The Hall of the Deities window (owner order 2026-11-26) */
+.window-deities { line-height: 1.5; font-size: 0.95rem; }
+.window-deities__intro { margin-top: 0; }
+.window-deities__section { margin-top: 1.1rem; border-top: 1px solid var(--border, #d8cdb4); padding-top: 0.7rem; }
+.window-deities__tag { margin: 0 0 0.25rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
+.window-deities__heading { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.window-deities__pairs, .window-deities__gods { display: flex; flex-direction: column; gap: 0.55rem; margin: 0.6rem 0; }
+.window-deities__pair, .window-deities__god { border: 1px solid var(--border, #d8cdb4); border-radius: 0.6rem; padding: 0.55rem 0.7rem; background: var(--panel-2, #f6efdd); }
+.window-deities__pair h4, .window-deities__god h4 { margin: 0; font-size: 0.95rem; }
+.window-deities__pair p, .window-deities__god p { margin: 0.2rem 0 0; }
+.window-deities__say { font-size: 0.82rem; opacity: 0.85; font-style: italic; }
+.window-deities__domain { font-weight: 700; }
+.window-deities__amunra { border: 1px solid var(--accent, #b98a1c); border-radius: 0.6rem; padding: 0.7rem; background: var(--panel-2, #f6efdd); }
+.window-deities__center { border-top: none; padding-top: 0; }
+.window-deities__zero { border: 1px solid var(--accent, #b98a1c); margin-bottom: 0.55rem; }
+.window-deities__history { font-size: 0.88rem; opacity: 0.9; }
+.window-deities__door { margin-top: 0.55rem; border-style: dashed; }
+/* Sand form: the deities' layer is presented as formed sand — a warm granular
+   field, distinct from the plain cards of the house below (owner order 2026-11-26). */
+.window-deities__sand { border: 1px solid #a97e2f; border-radius: 0.6rem; padding: 0.7rem; background-color: #e9d8a6; background-image: radial-gradient(rgba(146, 110, 40, 0.35) 1px, transparent 1.4px), radial-gradient(rgba(255, 246, 214, 0.8) 1px, transparent 1.4px), linear-gradient(160deg, #f2e2ac 0%, #e6cd85 55%, #d9b968 100%); background-size: 9px 9px, 13px 13px, 100% 100%; background-position: 0 0, 4px 6px, 0 0; }
+.window-deities__sand .window-deities__pair { background: rgba(255, 250, 230, 0.72); }
+
 /* Anatomy + Logs windows (Parts 17, 22) */
 .window-anatomy__map { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
 .window-anatomy__box { border: 1px solid var(--border, #d8cdb4); border-radius: 0.6rem; padding: 0.5rem 0.65rem; background: var(--panel-2, #f6efdd); }
@@ -8567,6 +8654,8 @@
 .window-listening__error { color: #a33b1f; font-weight: 600; }
 .window-listening__recap { line-height: 1.55; }
 .speaker-stores__rule, .speaker-stores__empty { font-size: 0.86rem; line-height: 1.45; }
+.voice-lab__rule, .voice-lab__empty, .voice-lab__hint, .voice-lab__speaking { font-size: 0.86rem; line-height: 1.45; }
+.voice-lab__rule, .voice-lab__empty, .voice-lab__hint { margin: 0; }
 
 /* Test Area + Phone Bridge + Pulse perception (Parts 20, 23, 24, 25) */
 .window-testarea__list { list-style: none; margin: 0.6rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
