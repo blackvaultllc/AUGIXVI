@@ -1620,3 +1620,86 @@ describe("command box bottom dock (owner order 2026-11-25)", () => {
     expect(clearance - barStack).toBeGreaterThanOrEqual(0.5);
   });
 });
+
+/**
+ * THE COMPACT DESKTOP DEFAULT (owner order 2026-11-26, from his
+ * PC screenshot): the open dock rose at section 35's full
+ * measure — min(62dvh, 36rem), the lower half of the stage, one
+ * huge mostly-empty box over Anubis while he was trying to
+ * type. "It should not come out that big when I'm trying to
+ * type... the window of conversation make it smaller." Section
+ * 41 of stage-fix-round.css answers it: at computer widths the
+ * PLAIN open dock rises compact — a third of the stage at
+ * most — while the enlarged state stays his bigger window and
+ * the phone keeps its own law untouched. jsdom has no layout,
+ * so the size is pinned at the stylesheet, in the dock
+ * describe's pattern.
+ */
+describe("command box compact desktop default (owner order 2026-11-26)", () => {
+  const fixCss = readFileSync(
+    resolve(process.cwd(), "src/avatar/stage-fix-round.css"),
+    "utf8",
+  );
+
+  const COMPACT_SELECTOR =
+    ".avatar-stage .avatar-command-box:not(.avatar-command-box--minimized):not(.avatar-command-box--enlarged) {";
+
+  it("on the computer the plain open dock rises compact — a third of the stage at most", () => {
+    const at = fixCss.indexOf(COMPACT_SELECTOR);
+    expect(at).toBeGreaterThan(-1);
+    const rule = fixCss.slice(at, fixCss.indexOf("}", at));
+    expect(rule).toContain("height: min(33dvh, 23rem)");
+    // The compact measure is fenced to computer widths: the
+    // media line stands before the rule, so below the 700px
+    // phone line this rule can never apply.
+    const mediaAt = fixCss.lastIndexOf("@media (min-width: 701px)", at);
+    expect(mediaAt).toBeGreaterThan(-1);
+    expect(fixCss.slice(mediaAt, at)).not.toContain("}");
+  });
+
+  it("the compact rule stands after section 35 in the cascade — it refines the dock, never replaces it", () => {
+    const base = fixCss.indexOf(
+      ".avatar-stage .avatar-command-box:not(.avatar-command-box--minimized) {",
+    );
+    expect(base).toBeGreaterThan(-1);
+    // Section 35's own law is untouched: the base open measure
+    // and the flush dock geometry still stand as written.
+    const baseRule = fixCss.slice(base, fixCss.indexOf("}", base));
+    expect(baseRule).toContain("height: min(62dvh, 36rem)");
+    expect(fixCss.indexOf(COMPACT_SELECTOR)).toBeGreaterThan(base);
+    const dock = fixCss.slice(
+      fixCss.lastIndexOf(".avatar-stage .avatar-command-box {"),
+      fixCss.indexOf("}", fixCss.lastIndexOf(".avatar-stage .avatar-command-box {")),
+    );
+    expect(dock).toContain("bottom: 0");
+    expect(fixCss).toContain("--chat-dock-clearance: 4.5rem");
+  });
+
+  it("the enlarged state is still his bigger window — the compact default never caps it", () => {
+    const enlargedAt = fixCss.indexOf(
+      ".avatar-stage .avatar-command-box--enlarged:not(.avatar-command-box--minimized) {",
+    );
+    expect(enlargedAt).toBeGreaterThan(-1);
+    const enlarged = fixCss.slice(enlargedAt, fixCss.indexOf("}", enlargedAt));
+    expect(enlarged).toContain("height: min(80dvh, 44rem)");
+    // The compact selector names the enlarged state only to
+    // EXCLUDE it — an enlarged box is never the compact size.
+    expect(COMPACT_SELECTOR).toContain(":not(.avatar-command-box--enlarged)");
+  });
+
+  it("the phone is untouched — its bar and its open measure stand exactly as they were", () => {
+    // Section 17's phone rule still carries its own measure,
+    // inside the phone's own media fence.
+    const phoneAt = fixCss.indexOf(
+      ".avatar-stage .avatar-command-box--phone-bar:not(.avatar-command-box--minimized) {",
+    );
+    expect(phoneAt).toBeGreaterThan(-1);
+    const phoneRule = fixCss.slice(phoneAt, fixCss.indexOf("}", phoneAt));
+    expect(phoneRule).toContain("height: min(62dvh, 36rem)");
+    const phoneMediaAt = fixCss.lastIndexOf("@media (max-width: 700px)", phoneAt);
+    expect(phoneMediaAt).toBeGreaterThan(-1);
+    // And the compact desktop measure appears exactly once in
+    // the whole sheet — inside its desktop fence, nowhere else.
+    expect(fixCss.split("height: min(33dvh, 23rem)")).toHaveLength(2);
+  });
+});

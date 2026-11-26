@@ -1950,3 +1950,40 @@
     animation: none;
   }
 }
+
+/* ================================================================
+   41) THE OPEN DOCK IS COMPACT ON THE COMPUTER (owner order
+   2026-11-26, from his PC screenshot): opening the chat on the
+   computer brought the conversation window up at section 35's
+   full measure — min(62dvh, 36rem), the whole lower half of
+   the stage, one huge mostly-empty box over Anubis while he
+   was trying to type. His words: "It should not come out that
+   big when I'm trying to type... the window of conversation
+   make it smaller, there's no reason to be that damn big."
+
+   THE FIX IS THE DEFAULT ONLY, AND DESKTOP ONLY: at computer
+   widths (above the 700px phone line) the open dock — plain,
+   not enlarged — now rises to a compact measure: a third of
+   the stage at most, capped near the compact PC home height
+   of the 2026-11-23 smaller-box order (360px). Room for a few
+   messages and the typing line, with the stage — and Anubis —
+   still standing in view above it while he types.
+
+   WHAT DID NOT CHANGE:
+   - Section 35's law stands untouched: full width, flush on
+     the bottom edge, the clearance number, the folded bar.
+     This section only outranks its open height, only on the
+     computer, only in the plain state — it sits after section
+     35 in the cascade for exactly that reach and no more.
+   - The ENLARGED state is still his bigger window (section
+     35's min(80dvh, 44rem)): the enlarge key on the rail
+     remains his own way to make the window bigger.
+   - The PHONE is untouched: below the 700px line this section
+     never applies — the bar, the phone's open measure, all of
+     sections 17/35's phone law stands exactly as it was.
+   ================================================================ */
+@media (min-width: 701px) {
+  .avatar-stage .avatar-command-box:not(.avatar-command-box--minimized):not(.avatar-command-box--enlarged) {
+    height: min(33dvh, 23rem);
+  }
+}
