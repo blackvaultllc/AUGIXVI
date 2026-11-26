@@ -86,6 +86,7 @@ export function CalledGodPopUp({
   bowing,
   leaving,
   scale = "presence",
+  seat,
   onSelect,
 }: {
   /** The called god. Anubis never pops up — he renders null. */
@@ -102,6 +103,13 @@ export function CalledGodPopUp({
    * called by a god — the smaller medallion scale, lower-left.
    */
   scale?: "presence" | "helper";
+  /**
+   * COUNCIL seat (God Presence doctrine point 7): in council a
+   * god stands by his council seat, not his call seat — Osiris
+   * takes the lower-left at presence scale. Absent = his call
+   * seat, as ever.
+   */
+  seat?: "council";
   /** His face tapped: open the chat window, addressed to him. */
   onSelect: () => void;
 }) {
@@ -110,6 +118,7 @@ export function CalledGodPopUp({
   const classes = [
     "called-god-popup",
     `called-god-popup--${scale}`,
+    seat === "council" ? "called-god-popup--council-seat" : "",
     bowing ? "called-god-popup--bowing" : "",
     leaving ? "called-god-popup--leaving" : "",
   ]
@@ -130,9 +139,11 @@ export function CalledGodPopUp({
       ? "Taking his leave"
       : leaving
         ? "Leaving"
-        : scale === "helper"
-          ? "Standing with the call"
-          : "On the call";
+        : seat === "council"
+          ? "In council"
+          : scale === "helper"
+            ? "Standing with the call"
+            : "On the call";
   return (
     <div className={classes} data-god={god}>
       <div className="called-god-popup__card" aria-label={`${face.name} — ${face.role}`}>

@@ -43,7 +43,7 @@
  * repo's avatar rules.
  */
 
-import { GOD_DOMAINS, REFERRAL_LINE } from "./godPresence";
+import { GOD_DOMAINS, GOD_PERSONALITIES, REFERRAL_LINE } from "./godPresence";
 
 /** Who the Captain is talking to. Anubis and Montu are stage gods;
  *  Osiris is the core — an addressee, never a stage station. */
@@ -159,9 +159,14 @@ export function speakerDirective(addressee: Addressee): string {
   const focus =
     GOD_DOMAINS[addressee].focusLine +
     (addressee === "anubis" ? "" : ` ${REFERRAL_LINE}`);
+  // PERSONALITY FROM HISTORY (owner order 2026-11-26 ~13:54
+  // CST — godPresence.ts): how this god speaks and carries
+  // himself is built from his Hall record, nothing invented.
+  const manner = `Your manner, from the record: ${GOD_PERSONALITIES[addressee].manner}`;
   return (
     `You are speaking as ${name} — the presence the Captain is addressing. ` +
     `${focus} ` +
+    `${manner} ` +
     `Answer as ${name}, in the first person, briefly: asked if you hear him, the whole answer is "I hear you, Captain." ` +
     `Never deny the name you are addressed by, and never correct the Captain with another name. ` +
     `The structure — Captain Infinity at the top; Anubis, his command face; Osiris, the core under Anubis; AUGI, the construct — ` +

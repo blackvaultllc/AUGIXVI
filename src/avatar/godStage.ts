@@ -68,6 +68,26 @@
  *   itself is never written by the call. A god whose picture
  *   is not placed yet keeps the wallpaper, named plainly in
  *   godPresence.ts — no substitutes.
+ * - PERSONALITIES FROM HISTORY (owner order 2026-11-26
+ *   ~13:54 CST): each god's manner — how he speaks and
+ *   carries himself — is built from his Hall record
+ *   (deities.ts), nothing invented; a thin record stays
+ *   plain. The manners live in godPresence.ts
+ *   (GOD_PERSONALITIES) and ride in the speaker directive.
+ * - THE COUNCIL (same order): a meeting mode — he seats who
+ *   he needs, or everybody, and they discuss; Anubis chairs
+ *   from the center, the background settles to the council
+ *   setting, and ending it returns the stage to its rest.
+ *   An EGYPTIAN seat — the gods in council over the claim of
+ *   Horus — with El Consejo as its second name for his
+ *   Spanish blood. No other mythology's court is named
+ *   or pictured anywhere in it.
+ * - PERFORMANCE LAW (same order, "very serious"): all of it
+ *   runs LIGHT — the standing components reused, backgrounds
+ *   a single lazy-loaded image rendered only while a god is
+ *   in perspective, motion transform-only and stilled under
+ *   reduced motion, nothing running at rest. A presence
+ *   effect that cannot run light ships reduced.
  *
  * THE STATE'S NAME: the stage's `frontGod` state is the CALL
  * state now — it names the god who holds the Captain's call

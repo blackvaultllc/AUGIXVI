@@ -141,6 +141,57 @@
   flex-direction: row-reverse;
 }
 
+/* THE COUNCIL SEAT (doctrine point 7): a god seated in council
+   stands at presence scale by his council seat — Osiris at the
+   lower-LEFT, his card toward the center (row-reverse, like the
+   helper's seat, but at full presence value). Montu's council
+   seat is his own flank, the call seat he already holds. */
+.avatar-stage .called-god-popup--council-seat[data-god="osiris"] {
+  right: auto;
+  left: clamp(18px, 3vw, 44px);
+  flex-direction: row-reverse;
+}
+
+/* THE COUNCIL CHIP: the session's standing sign at the top
+   center — its Egyptian name and its Spanish second name
+   together, gold on the dark, with the way out on it. Static
+   DOM, no animation: the performance law stands. */
+.avatar-stage .council-chip {
+  position: absolute;
+  top: 0.7rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgb(212 175 55 / 65%);
+  border-radius: 999px;
+  background: rgb(12 10 6 / 82%);
+  color: #e8cf8a;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.avatar-stage .council-chip__state {
+  color: rgb(232 207 138 / 70%);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.avatar-stage .council-chip__end {
+  border: 1px solid rgb(212 175 55 / 55%);
+  border-radius: 999px;
+  background: transparent;
+  color: #e8cf8a;
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  cursor: pointer;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .avatar-stage .god-backdrop {
     animation: none;
