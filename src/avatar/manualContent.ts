@@ -1137,6 +1137,22 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "The Identify window on the stage; its records are Sound Watch's feed, the watcher's scan-state, the device registry, and the RF/IR library.",
         note: "Built and merged 2026-11-26; it lands on the Parrot at its next update. Your screen check is the final proof, as always.",
       },
+      {
+        id: "sw-silent-sensor",
+        title: "Montu Silent Sensor — the motion sensors that speak through the cameras",
+        state: "live",
+        what: "Your PIR motion sensors at the back of the property cannot talk to the system — so their siren does the talking. When a camera with its hearing armed hears the siren and the sound matches the profile you enrolled, the system treats it as a back motion sensor tripping: Sector Watch logs it (labeled heard-by-camera, cross-checked against what that camera sees), and a notification reaches you. THE NAME: Montu — the war god — with Silent Sensor after it; the silent sensors stand under his name. THE SECOND LOOK: one matching hearing is only a draft in the watch log; a second match at the same camera shortly after confirms the trip. THE HONESTY BOUND: a camera microphone is not a calibrated sound-level meter. Levels are kept as the level as that camera heard it, in the camera's own scale (dBFS) — never as a true dB SPL measurement. The sound-level table (Sound Watch window, and the card in the Cameras window) is published reference knowledge — typical dB ranges near a sound, from alarms to conversation to screaming — used to interpret what a camera hears, never presented as a measurement. It only works where a camera can actually hear the siren; your field test is the proof of concept, and every trip names the camera that heard it (or the record says none did).",
+        steps: [
+          "Open the Cameras window → Presence records → the Montu Silent Sensor card.",
+          "Arm listening on the outside camera (its Presence section → “Listen through this camera”).",
+          "Run your test: set one of the back motion sensors off within that camera's earshot, and let the siren sound.",
+          "Come back to the card: the loud sound the camera heard stands there, unnamed. If it was the siren, tap “That was the siren — learn it as Montu Silent Sensor.”",
+          "From then on: when a hearing camera matches that sound twice, Sector Watch logs the trip, cross-examines it against the camera's view, and the notification lands in your NOTIFICATIONS.",
+          "To retire it: “Forget the siren” on the same card. To re-teach it, run the test again.",
+        ],
+        where: "Cameras window → Presence records → Montu Silent Sensor card; the reference table also stands in the Sound Watch window. The profile lives on the core machine only.",
+        note: "Built and merged 2026-11-26; it lands on the Parrot at its next update. The field test — set a sensor off and watch the trip land — is the proof, and your screen check is the final gate, as always.",
+      },
     ],
   },
   {
