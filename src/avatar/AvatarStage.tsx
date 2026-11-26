@@ -389,6 +389,7 @@ import { NotificationsWindow } from "./NotificationsWindow";
 import { ExchangeWindow } from "./ExchangeWindow";
 import { DeitiesWindow } from "./DeitiesWindow";
 import { PersonalVaultWindow } from "./PersonalVaultWindow";
+import { ProjectsWindow } from "./ProjectsWindow";
 import { StopSafetyWindow } from "./StopSafetyWindow";
 import { DarkHoleWindow } from "./DarkHoleWindow";
 import { LearningWindow } from "./learning/LearningWindow";
@@ -1067,6 +1068,9 @@ export function AvatarStage({
   // only — these windows open from the operator's own Tools.
   const [vaultOpen, setVaultOpen] = useState(false);
   const [stopSafetyOpen, setStopSafetyOpen] = useState(false);
+  // Projects pass (owner order 2026-11-26): his websites inside
+  // IEM — the registry, the editor view, and the marks he saves.
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
   // THE DARK HOLE (owner order 2026-11-26): his library —
   // files broken down to pieces on the core, filed under his
@@ -4823,6 +4827,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Master Manual"
                     onClick={() => void navigate({ to: "/manual" })}
                   />
+                  <CommandAction
+                    icon={Globe}
+                    label="Projects — my websites"
+                    onClick={() => setProjectsOpen(true)}
+                  />
                 </div>
               </CommandGroup>
               <CommandGroup label="Senses & analysis">
@@ -5370,6 +5379,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {exchangeOpen && <ExchangeWindow onClose={() => setExchangeOpen(false)} />}
       {deitiesOpen && <DeitiesWindow onClose={() => setDeitiesOpen(false)} />}
       {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
+      {projectsOpen && <ProjectsWindow onClose={() => setProjectsOpen(false)} />}
       {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}
       {darkHoleOpen && <DarkHoleWindow onClose={() => setDarkHoleOpen(false)} />}
       {prayerDue && (
