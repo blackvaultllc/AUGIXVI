@@ -61,6 +61,28 @@ import {
   type RecordingInfo,
   type SpeakerLabel,
 } from "./cameras/cameraPresence";
+import { SoundEventDetector, type DetectedSound } from "./soundWatch";
+import {
+  candidateFromSound,
+  isSilentSensorCandidateSound,
+  isSilentSensorMatch,
+  silentSensorDraftText,
+  silentSensorOnMatch,
+  silentSensorSimilarity,
+  silentSensorSoundReading,
+  silentSensorTripText,
+  soundFramesFromSamples,
+  SILENT_SENSOR_DRAFT_ID_PREFIX,
+  SILENT_SENSOR_NAME,
+  SILENT_SENSOR_TRIP_ID_PREFIX,
+  type SilentSensorPending,
+} from "./cameras/silentSensor";
+import {
+  crossExamLogText,
+  sectorConfigFor,
+  type CrossExamEntry,
+} from "./cameras/sectorWatch";
+import { getSectorWatchStore } from "./sectorWatchStore.server";
 
 /* ------------------------------------------------------------------ */
 /* Gates                                                               */
@@ -877,6 +899,10 @@ export async function ensureListener(camera: StoredCamera): Promise<void> {
         const filePath = path.join(dir, name);
         try {
           const bytes = await fs.readFile(filePath);
+          // The sound pass hears EVERY chunk (quiet ones too —
+          // the detector's floor stands on them); the speech
+          // pass below keeps its own silence gate.
+          await observeCameraSound(camera, bytes);
           await handleAudioChunk(camera, bytes);
         } catch {
           // chunk vanished mid-cleanup — nothing was heard
@@ -910,6 +936,197 @@ export async function ensureListener(camera: StoredCamera): Promise<void> {
 
 export function stopListener(cameraId: string): void {
   listeners.get(cameraId)?.stop();
+}
+
+/* ------------------------------------------------------------------ */
+/* MONTU SILENT SENSOR — the camera ear for sounds, not just speech    */
+/*                                                                     */
+/* Every hearing chunk also walks Sound Watch's measured-features      */
+/* road on the core (features → fingerprint → event detector, the      */
+/* pure core in soundWatch.ts + silentSensor.ts). A completed sound    */
+/* event is matched against the ONE enrolled profile:                  */
+/*   · a match is a FIRST hearing — a draft in the watch log;          */
+/*   · a second match at the same camera inside the confirm            */
+/*     window is the Second Look: the trip is confirmed, logged        */
+/*     as an event, cross-examined against what the camera sees,       */
+/*     and derived into the Captain's notifications from the log;      */
+/*   · no match and no profile yet: a loud, sustained unknown is       */
+/*     kept as the CANDIDATE — his test sound, waiting for his         */
+/*     word ("that was the siren") before it is called anything.       */
+/* Levels are kept as the level AS THAT CAMERA HEARD IT (dBFS, its     */
+/* own scale) — never converted into a calibrated dB SPL claim.        */
+/* ------------------------------------------------------------------ */
+
+const soundDetectors = new Map<string, SoundEventDetector>();
+const silentSensorPending = new Map<string, SilentSensorPending>();
+
+/** The PCM samples inside a 16-bit WAV chunk, or null when unreadable. */
+function wavSamples(bytes: Buffer): Float32Array | null {
+  let offset = 12;
+  while (offset + 8 <= bytes.length) {
+    const id = bytes.toString("ascii", offset, offset + 4);
+    const size = bytes.readUInt32LE(offset + 4);
+    if (id === "data") {
+      const start = offset + 8;
+      const end = Math.min(bytes.length, start + size);
+      const count = Math.floor((end - start) / 2);
+      if (count <= 0) return null;
+      const out = new Float32Array(count);
+      for (let i = 0; i < count; i++) out[i] = bytes.readInt16LE(start + i * 2) / 32768;
+      return out;
+    }
+    offset += 8 + size;
+  }
+  return null;
+}
+
+async function observeCameraSound(camera: StoredCamera, bytes: Buffer): Promise<void> {
+  try {
+    const samples = wavSamples(bytes);
+    if (!samples) return;
+    let detector = soundDetectors.get(camera.id);
+    if (!detector) {
+      detector = new SoundEventDetector();
+      soundDetectors.set(camera.id, detector);
+    }
+    const frames = soundFramesFromSamples(samples, 16000, Date.now());
+    for (const frame of frames) {
+      const detected = detector.feed(frame);
+      if (detected) await handleDetectedCameraSound(camera, detected);
+    }
+  } catch {
+    // the sound pass is a passenger on the hearing road, never its driver
+  }
+}
+
+async function handleDetectedCameraSound(camera: StoredCamera, sound: DetectedSound): Promise<void> {
+  const presenceStore = await getCameraPresenceStore();
+  if (!presenceStore) return;
+  const file = await presenceStore.read();
+  const state = file.silentSensor;
+  const similarity = silentSensorSimilarity(sound.fingerprint, state.profile);
+  if (isSilentSensorMatch(similarity)) {
+    const now = Date.now();
+    const outcome = silentSensorOnMatch({
+      pending: silentSensorPending.get(camera.id) ?? null,
+      lastTripAt: state.lastTripAt,
+      cameraId: camera.id,
+      now,
+    });
+    if (outcome.pending) silentSensorPending.set(camera.id, outcome.pending);
+    else silentSensorPending.delete(camera.id);
+    if (outcome.outcome === "first-hearing") {
+      await writeSilentSensorLog(camera, "draft", silentSensorDraftText(camera.name, sound.peakDb));
+    } else if (outcome.outcome === "trip") {
+      await presenceStore.update((f) => ({
+        ...f,
+        silentSensor: { ...f.silentSensor, lastTripAt: now },
+      }));
+      await raiseSilentSensorTrip(camera, sound);
+    }
+    return;
+  }
+  // No match. With no profile enrolled, a loud, sustained
+  // unknown is kept as the candidate — the sound his test
+  // made, waiting for his naming. It is called nothing yet.
+  if (!state.profile && isSilentSensorCandidateSound(sound)) {
+    const candidate = candidateFromSound(sound, camera.id, camera.name);
+    await presenceStore.update((f) => ({
+      ...f,
+      silentSensor: { ...f.silentSensor, candidate },
+    }));
+  }
+}
+
+async function writeSilentSensorLog(
+  camera: StoredCamera,
+  kind: "draft" | "event",
+  text: string,
+): Promise<void> {
+  const sectorStore = await getSectorWatchStore();
+  if (!sectorStore) return;
+  const sectorFile = await sectorStore.read();
+  const zone = sectorConfigFor(sectorFile.settings, camera.id).zone;
+  const prefix = kind === "event" ? SILENT_SENSOR_TRIP_ID_PREFIX : SILENT_SENSOR_DRAFT_ID_PREFIX;
+  await sectorStore.update((f) => ({
+    ...f,
+    log: [
+      {
+        id: `${prefix}${Date.now()}-${camera.id}`,
+        at: Date.now(),
+        cameraId: camera.id,
+        cameraName: camera.name,
+        zone,
+        kind,
+        text,
+      },
+      ...f.log,
+    ],
+  }));
+}
+
+async function raiseSilentSensorTrip(camera: StoredCamera, sound: DetectedSound): Promise<void> {
+  const text = silentSensorTripText(camera.name, sound.peakDb);
+  await writeSilentSensorLog(camera, "event", text);
+  // Mirror into the core events log as a NOTE (an annotation —
+  // the sector record is the source, and the trip's inbox entry
+  // derives from the watch log itself, never from this mirror).
+  try {
+    const { appendAugieEvent } = await import("./eventsLog.server");
+    await appendAugieEvent({
+      type: "note",
+      summary: `${SILENT_SENSOR_NAME}: a back motion sensor tripped — heard by ${camera.name}`,
+      detail: text,
+    });
+  } catch {
+    // the sector record itself stands; the events log is a mirror
+  }
+  // CROSS-EXAMINATION: what does the hearing camera SEE at the
+  // moment its ear confirmed the siren? Each tool's reading is
+  // recorded labeled and separate, never merged into a certainty.
+  try {
+    const sectorStore = await getSectorWatchStore();
+    if (!sectorStore) return;
+    const cross: CrossExamEntry[] = [
+      { tool: "sound", reading: silentSensorSoundReading(camera.name, sound.peakDb) },
+    ];
+    let pictureReading =
+      "UNAVAILABLE — no frame could be pulled from the hearing camera at the trip, so nothing about its view is claimed";
+    const lens = ptzLens(camera);
+    if (lens) {
+      const { grabSnapshot } = await import("./cameras/cameraBridge.server");
+      const frame = await grabSnapshot(camera, lens, 12_000);
+      if (frame) {
+        const person = await askVisionYesNo([frame.toString("base64")], PERSON_CHECK_PROMPT);
+        pictureReading =
+          person === true
+            ? "the analyzer's draft reading says a person IS in the hearing camera's view at the trip — a draft reading, checked against the sound, not merged with it"
+            : person === false
+              ? "the analyzer's draft reading says NO person is in the hearing camera's view at the trip — the siren's zone is the back of the property, which this camera may not see; the hearing stands on the sound"
+              : "the analyzer gave no verdict on the hearing camera's view at the trip — nothing about the picture is claimed";
+      }
+    }
+    cross.push({ tool: "picture", reading: pictureReading });
+    const sectorFile = await sectorStore.read();
+    const zone = sectorConfigFor(sectorFile.settings, camera.id).zone;
+    await sectorStore.update((f) => ({
+      ...f,
+      log: [
+        {
+          id: `watch-${Date.now()}-${camera.id}-silent-cross`,
+          at: Date.now(),
+          cameraId: camera.id,
+          cameraName: camera.name,
+          zone,
+          kind: "cross-exam" as const,
+          text: crossExamLogText(`the ${SILENT_SENSOR_NAME} trip heard by ${camera.name}`, cross),
+        },
+        ...f.log,
+      ],
+    }));
+  } catch {
+    // cross-examination is a duty, not a dependency — the trip stands
+  }
 }
 
 async function handleAudioChunk(camera: StoredCamera, bytes: Buffer): Promise<void> {

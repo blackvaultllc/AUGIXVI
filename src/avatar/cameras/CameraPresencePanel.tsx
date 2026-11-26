@@ -19,6 +19,8 @@ import {
   checkCreatorFace,
   clearCreatorEnrollment,
   enrollCreatorFace,
+  enrollSilentSensor,
+  forgetSilentSensor,
   probeCameraPresence,
   probeCameraStreamFollow,
   setCameraHearing,
@@ -26,6 +28,14 @@ import {
   type CameraPresenceViewState,
 } from "../cameraPresence.server";
 import { cameraCanControl, type CameraProfile } from "./cameraRegistry";
+import {
+  heardLevelText,
+  soundLevelReferenceLine,
+  SILENT_SENSOR_HONESTY_NOTE,
+  SILENT_SENSOR_NAME,
+  SOUND_LEVEL_REFERENCE,
+  SOUND_LEVEL_REFERENCE_BASIS,
+} from "./silentSensor";
 
 function time(at: number): string {
   return new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -308,6 +318,118 @@ export function CameraPresenceSection({
   );
 }
 
+/**
+ * MONTU SILENT SENSOR — the back motion sensors speak through
+ * the cameras' ears. The card shows the one honest state of
+ * the feature: a profile enrolled by his word (from which
+ * camera, when, at what heard level), or the candidate his
+ * test left standing, or neither — with the steps to run the
+ * test. Below it, the seeded reference table of sound levels,
+ * labeled as the knowledge it is.
+ */
+export function SilentSensorCard({
+  view,
+  token,
+  refreshPresence,
+}: {
+  view: CameraPresenceView;
+  token: string;
+  refreshPresence: () => void;
+}) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { profile, candidate, lastTripAt } = view.silentSensor;
+
+  const run = async (fn: () => Promise<{ note: string }>) => {
+    setBusy(true);
+    try {
+      const result = await fn();
+      setNote(result.note);
+    } catch {
+      setNote("The core did not answer — nothing was changed.");
+    } finally {
+      setBusy(false);
+      refreshPresence();
+    }
+  };
+
+  return (
+    <div className="window-cameras__card">
+      <div className="window-cameras__head">
+        <strong>{SILENT_SENSOR_NAME}</strong>
+        <span>
+          the back motion sensors cannot talk — their siren is their voice, and a hearing camera is
+          their ear
+        </span>
+      </div>
+      <p className="window-cameras__grant">{SILENT_SENSOR_HONESTY_NOTE}</p>
+      {profile ? (
+        <>
+          <p className="window-cameras__grant">
+            The siren is enrolled — taught by {profile.cameraName} on {dayTime(profile.enrolledAt)},{" "}
+            {heardLevelText(profile.peakDbfs)}. When a hearing-armed outside camera matches that sound
+            twice, Sector Watch logs a back motion sensor trip and the notification reaches you.
+            {lastTripAt
+              ? ` Last confirmed trip: ${dayTime(lastTripAt)}.`
+              : " No trip has been confirmed yet."}
+          </p>
+          <div className="window-cameras__actions">
+            <button
+              type="button"
+              className="window-btn"
+              disabled={busy}
+              onClick={() => void run(() => forgetSilentSensor({ data: { accessToken: token } }))}
+            >
+              Forget the siren
+            </button>
+          </div>
+        </>
+      ) : candidate ? (
+        <>
+          <p className="window-cameras__grant">
+            A loud sound is standing unnamed: {candidate.cameraName} heard it on {dayTime(candidate.at)},{" "}
+            {heardLevelText(candidate.peakDbfs)}, held for{" "}
+            {(candidate.durationMs / 1000).toFixed(1).replace(/\.0$/, "")}s. It is called nothing yet.
+            If that was your motion-sensor siren test, give it the name — from then on, that sound
+            means a back sensor tripped.
+          </p>
+          <div className="window-cameras__actions">
+            <button
+              type="button"
+              className="window-btn"
+              disabled={busy}
+              onClick={() => void run(() => enrollSilentSensor({ data: { accessToken: token } }))}
+            >
+              That was the siren — learn it as {SILENT_SENSOR_NAME}
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="window-cameras__grant">
+          No siren is enrolled yet, and no test sound is standing. To run the test: arm listening on
+          the outside camera above, then set one of the back motion sensors off within its earshot.
+          The loud sound it hears is kept here — unnamed — until you say it was the siren. It only
+          works where a camera can actually hear the siren; your test is the proof.
+        </p>
+      )}
+      {note && (
+        <p className="window-hint" role="status">
+          {note}
+        </p>
+      )}
+      <div className="window-cameras__head">
+        <strong>Sound levels — the reference table</strong>
+        <span>{SOUND_LEVEL_REFERENCE_BASIS}</span>
+      </div>
+      {SOUND_LEVEL_REFERENCE.map((row) => (
+        <p key={row.id} className="window-cameras__probe">
+          {soundLevelReferenceLine(row)}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export function CameraPresenceRecords({
   view,
   token,
@@ -320,6 +442,8 @@ export function CameraPresenceRecords({
   const [note, setNote] = useState("");
   return (
     <>
+      <SilentSensorCard view={view} token={token} refreshPresence={refreshPresence} />
+
       <div className="window-cameras__card">
         <div className="window-cameras__head">
           <strong>Heard through the cameras</strong>

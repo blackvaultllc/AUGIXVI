@@ -13,6 +13,7 @@ import * as THREE from "three";
 import {
   Activity,
   Anchor,
+  ArrowLeftRight,
   ArrowUp,
   AudioLines,
   BarChart3,
@@ -26,6 +27,7 @@ import {
   Camera,
   Bell,
   ChevronDown,
+  CircleDot,
   Coffee,
   DoorOpen,
   Ear,
@@ -33,6 +35,7 @@ import {
   Eye,
   FlaskConical,
   Gamepad2,
+  GraduationCap,
   Globe,
   Hammer,
   Hexagon,
@@ -333,6 +336,7 @@ import { createLocalEar, type EarState, type LocalEar } from "./localEar";
 import { stageStatusLabel } from "./voiceHearing";
 import { VoiceIndicator } from "./VoiceIndicator";
 import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
+import { VoiceLabPanel } from "./VoiceLabPanel";
 import { TrustedDevicesPanel } from "./TrustedDevicesPanel";
 import { PhoneBrainPanel } from "./PhoneBrainPanel";
 import {
@@ -382,8 +386,25 @@ import { getCameraSpeech, markCameraSpeechRouted } from "./cameraPresence.server
 import { getSectorAlertState } from "./sectorWatch.server";
 import { getInboxState } from "./notifications.server";
 import { NotificationsWindow } from "./NotificationsWindow";
+import { ExchangeWindow } from "./ExchangeWindow";
+import { DeitiesWindow } from "./DeitiesWindow";
 import { PersonalVaultWindow } from "./PersonalVaultWindow";
 import { StopSafetyWindow } from "./StopSafetyWindow";
+import { DarkHoleWindow } from "./DarkHoleWindow";
+import { LearningWindow } from "./learning/LearningWindow";
+import { TrainingWindow } from "./learning/TrainingWindow";
+import { SightLogWindow } from "./learning/SightLogWindow";
+import { getPrayer } from "./learning/learning.server";
+import { quoteForInstant, quoteShown, markQuoteShown, quoteSlotForHour, spokenQuote } from "./learning/quotes";
+import {
+  duePrayerSlot,
+  loadPrayerDone,
+  savePrayerDone,
+  markPrayerHeard,
+  prayerTimeLine,
+  type PrayerSlot,
+} from "./learning/prayerTime";
+import { chicagoDateISO, chicagoParts } from "./learning/time";
 import { alertRingReading } from "./alertRing";
 import {
   currentSoundFeed,
@@ -1040,12 +1061,35 @@ export function AvatarStage({
   // and symmetry rules as the tools list.
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const [quickMenuGroup, setQuickMenuGroup] = useState<string | null>(null);
+  const [deitiesOpen, setDeitiesOpen] = useState(false);
   // Personal safety pass (owner order 2026-11-26): his papers
   // in the vault, and the law base + stop mode. Owner surface
   // only — these windows open from the operator's own Tools.
   const [vaultOpen, setVaultOpen] = useState(false);
   const [stopSafetyOpen, setStopSafetyOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
+  // THE DARK HOLE (owner order 2026-11-26): his library —
+  // files broken down to pieces on the core, filed under his
+  // own categories, reassembled only through the manifest.
+  // Opens from Tools → Records & safety; the window is
+  // DarkHoleWindow. Owner surface only, never the learner's.
+  const [darkHoleOpen, setDarkHoleOpen] = useState(false);
+  // GRID-DOWN EXCHANGE (owner order 2026-11-26): the secure
+  // file door (SFTP) for when the network is down — his switch,
+  // his per-person keys, the Outbox and the Inbox. Owner stage
+  // only; the window is ExchangeWindow.
+  const [exchangeOpen, setExchangeOpen] = useState(false);
+  // THE CAPTAIN'S LEARNING (owner orders 2026-11-26): his
+  // shelves (Psychology, Dark Psychology, The Art of War),
+  // Daily Training, and the Sight Log — owner surfaces,
+  // opened from Tools → Workshop & study. The quote of the
+  // day/night is read aloud once per slot on opening (effect
+  // below); Prayer Time surfaces as a pill under the
+  // notifications pill when a prayer slot comes due.
+  const [learningOpen, setLearningOpen] = useState(false);
+  const [trainingOpen, setTrainingOpen] = useState(false);
+  const [sightLogOpen, setSightLogOpen] = useState(false);
+  const [prayerDue, setPrayerDue] = useState<PrayerSlot | null>(null);
   // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
   // surface. Opens from Tools → Rooms and from "open listening mode".
   const [listeningOpen, setListeningOpen] = useState(false);
@@ -3039,6 +3083,72 @@ export function AvatarStage({
     };
   }, []);
 
+  /**
+   * QUOTE ON OPENING (owner orders 2026-11-26): when he opens
+   * the program, the quote of the day is read aloud through
+   * the core voice; in the evening (from 19:00 his time) it
+   * is the quote of the night. Each slot is offered once per
+   * day — the marks live in localStorage; the quotes are
+   * real and attributed (learning/quotes.ts). The day quote
+   * carries one gentle line about Daily Training — an offer,
+   * never a demand.
+   */
+  const quoteOfferedRef = useRef(false);
+  useEffect(() => {
+    if (quoteOfferedRef.current) return;
+    quoteOfferedRef.current = true;
+    const timer = setTimeout(() => {
+      void (async () => {
+        const accessToken = await operatorAccessToken().catch(() => null);
+        if (!accessToken) return;
+        const now = new Date();
+        const slot = quoteSlotForHour(chicagoParts(now).hour);
+        const dateISO = chicagoDateISO(now);
+        if (quoteShown(dateISO, slot)) return;
+        const line = spokenQuote(quoteForInstant(now, slot), slot);
+        say(
+          slot === "day"
+            ? `${line} When you are ready, your daily training is waiting under Tools, in Workshop and study.`
+            : line,
+        );
+        markQuoteShown(dateISO, slot);
+      })();
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [say]);
+
+  /**
+   * PRAYER TIME (owner orders 2026-11-26): four times across
+   * his day (07:00, 12:00, 17:00, 21:00 his time) a calm pill
+   * surfaces under the notifications pill — only while the
+   * program is open, at most once per slot per day. It never
+   * auto-plays: his click reads the prayer aloud.
+   */
+  useEffect(() => {
+    const tick = () => setPrayerDue(duePrayerSlot(new Date(), loadPrayerDone()));
+    tick();
+    const timer = setInterval(tick, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const hearPrayer = useCallback(async () => {
+    const slot = prayerDue;
+    if (!slot) return;
+    const accessToken = await operatorAccessToken().catch(() => null);
+    const view = accessToken ? await getPrayer({ data: { accessToken } }).catch(() => null) : null;
+    const text = view?.authorized && view.storageAvailable ? view.text : "";
+    if (text.trim()) {
+      say(text);
+      savePrayerDone(markPrayerHeard(loadPrayerDone(), chicagoDateISO(new Date()), slot.id));
+      setPrayerDue(null);
+    } else {
+      // Empty-prayer state: prompt him to add it instead of
+      // reading nothing, and open the shelf where it goes.
+      say("No prayer is saved yet. Add it in My Learning, under Quotes and Prayer, and Prayer Time will read it aloud.");
+      setLearningOpen(true);
+    }
+  }, [prayerDue, say]);
+
   useEffect(() => {
     const bridge = bridgeRef.current;
     // DEVICE RENDER CAPS (deviceProfile.ts, owner order 2026-11-24):
@@ -3825,6 +3935,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     captainsLogOpen ||
     sandboxOpen ||
     libraryOpen ||
+    deitiesOpen ||
     lawOpen ||
     analyticsOpen ||
     listeningOpen ||
@@ -4776,6 +4887,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setInboxOpen(true)}
                   />
                   <CommandAction
+                    icon={ArrowLeftRight}
+                    label="Grid-Down Exchange"
+                    onClick={() => setExchangeOpen(true)}
+                  />
+                  <CommandAction
                     icon={Shield}
                     label="Personal Vault"
                     onClick={() => setVaultOpen(true)}
@@ -4786,6 +4902,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setStopSafetyOpen(true)}
                   />
                   <CommandAction
+                    icon={CircleDot}
+                    label="Dark Hole"
+                    onClick={() => setDarkHoleOpen(true)}
+                  />
+                  <CommandAction
                     icon={Clapperboard}
                     label="Captain's Log"
                     onClick={() => setCaptainsLogOpen(true)}
@@ -4794,6 +4915,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     icon={BookOpen}
                     label="Library"
                     onClick={() => setLibraryOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Sun}
+                    label="The Eight and the Gods"
+                    onClick={() => setDeitiesOpen(true)}
                   />
                   <CommandAction
                     icon={Scale}
@@ -4809,6 +4935,17 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
               </CommandGroup>
               <CommandGroup label="Workshop & study">
                 <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={GraduationCap}
+                    label="My Learning"
+                    onClick={() => setLearningOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Sparkles}
+                    label="Daily Training"
+                    onClick={() => setTrainingOpen(true)}
+                  />
+                  <CommandAction icon={Eye} label="Sight Log" onClick={() => setSightLogOpen(true)} />
                   <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
                   <CommandAction
                     icon={FlaskConical}
@@ -5036,6 +5173,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   The gods speak in a deeper British man's voice — a woman's voice only when the
                   speaker is a woman. The level is yours; full is the standing default.
                 </p>
+                <VoiceLabPanel />
               </CommandGroup>
               <CommandGroup label="Voice calibration — only my operator's voice">
                 <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
@@ -5223,8 +5361,25 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         </div>
       </div>
       {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
+      {exchangeOpen && <ExchangeWindow onClose={() => setExchangeOpen(false)} />}
+      {deitiesOpen && <DeitiesWindow onClose={() => setDeitiesOpen(false)} />}
       {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
       {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}
+      {darkHoleOpen && <DarkHoleWindow onClose={() => setDarkHoleOpen(false)} />}
+      {prayerDue && (
+        <button
+          type="button"
+          className="prayer-stage-badge"
+          onClick={() => void hearPrayer()}
+          aria-label={`Prayer time — the ${prayerDue.label.toLowerCase()} prayer. Activate to hear your prayer read aloud.`}
+        >
+          <Sparkles aria-hidden="true" size={14} />
+          PRAYER TIME — {prayerTimeLine(prayerDue)}
+        </button>
+      )}
+      {learningOpen && <LearningWindow onClose={() => setLearningOpen(false)} onSpeak={say} />}
+      {trainingOpen && <TrainingWindow onClose={() => setTrainingOpen(false)} />}
+      {sightLogOpen && <SightLogWindow onClose={() => setSightLogOpen(false)} />}
       {remoteCodesOpen && <RemoteCodesWindow onClose={() => setRemoteCodesOpen(false)} />}
       {identifyOpen && <IdentifyWindow onClose={() => setIdentifyOpen(false)} />}
       {formationOpen && <FormationWindow onClose={() => setFormationOpen(false)} />}
