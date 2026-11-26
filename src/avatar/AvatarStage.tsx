@@ -381,6 +381,7 @@ import { getCameraSpeech, markCameraSpeechRouted } from "./cameraPresence.server
 import { getSectorAlertState } from "./sectorWatch.server";
 import { getInboxState } from "./notifications.server";
 import { NotificationsWindow } from "./NotificationsWindow";
+import { DeitiesWindow } from "./DeitiesWindow";
 import { PersonalVaultWindow } from "./PersonalVaultWindow";
 import { StopSafetyWindow } from "./StopSafetyWindow";
 import { DarkHoleWindow } from "./DarkHoleWindow";
@@ -1030,6 +1031,7 @@ export function AvatarStage({
   // carries the real unread count from the core store, read
   // on the poll below; the window is NotificationsWindow.
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [deitiesOpen, setDeitiesOpen] = useState(false);
   // Personal safety pass (owner order 2026-11-26): his papers
   // in the vault, and the law base + stop mode. Owner surface
   // only — these windows open from the operator's own Tools.
@@ -3801,6 +3803,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     captainsLogOpen ||
     sandboxOpen ||
     libraryOpen ||
+    deitiesOpen ||
     lawOpen ||
     analyticsOpen ||
     listeningOpen ||
@@ -4692,6 +4695,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setLibraryOpen(true)}
                   />
                   <CommandAction
+                    icon={Sun}
+                    label="The Eight and the Gods"
+                    onClick={() => setDeitiesOpen(true)}
+                  />
+                  <CommandAction
                     icon={Scale}
                     label="Law Desk"
                     onClick={() => setLawOpen(true)}
@@ -5027,6 +5035,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         </button>
       )}
       {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
+      {deitiesOpen && <DeitiesWindow onClose={() => setDeitiesOpen(false)} />}
       {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
       {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}
       {darkHoleOpen && <DarkHoleWindow onClose={() => setDarkHoleOpen(false)} />}
