@@ -40,9 +40,19 @@ import { motionProfileFor } from "./godMotion";
 import type { GodPerspective } from "./stagePerspective";
 
 const POPUP_FACES: Readonly<
-  Partial<Record<GodPerspective, { name: string; portrait: string; features: FaceFeatures }>>
+  Partial<
+    Record<
+      GodPerspective,
+      { name: string; role: string; portrait: string; features: FaceFeatures }
+    >
+  >
 > = {
-  montu: { name: MONTU_BINDING.name, portrait: MONTU_BINDING.portrait, features: MONTU_FEATURES },
+  montu: {
+    name: MONTU_BINDING.name,
+    role: MONTU_BINDING.role,
+    portrait: MONTU_BINDING.portrait,
+    features: MONTU_FEATURES,
+  },
 };
 
 export function CalledGodPopUp({
@@ -72,8 +82,29 @@ export function CalledGodPopUp({
   ]
     .filter(Boolean)
     .join(" ");
+  // THE CALL CARD (cybernetic pass, 2026-11-26 — the survey's
+  // Digivice row): beside the called god's circle, a small card
+  // carrying only what is real — his name and his one-line role,
+  // both from his medallion binding (medallionPortraits.ts), and
+  // his state word from this pop-up's own standing states (the
+  // same states his face renders: speaking, bowing, leaving, on
+  // the call). No stats, no levels, no invented numbers — a
+  // Digivice card with the honesty law standing where the fake
+  // numbers would go.
+  const stateWord = speaking
+    ? "Speaking"
+    : bowing
+      ? "Taking his leave"
+      : leaving
+        ? "Leaving"
+        : "On the call";
   return (
     <div className={classes} data-god={god}>
+      <div className="called-god-popup__card" aria-label={`${face.name} — ${face.role}`}>
+        <p className="called-god-popup__name">{face.name}</p>
+        <p className="called-god-popup__role">{face.role}</p>
+        <p className="called-god-popup__state">{stateWord}</p>
+      </div>
       <button
         type="button"
         className={`god-medallion called-god-popup__circle${speaking ? " god-medallion--speaking" : ""}`}

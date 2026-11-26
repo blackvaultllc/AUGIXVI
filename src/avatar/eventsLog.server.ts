@@ -212,6 +212,29 @@ export const recordRepairProposal = createServerFn({ method: "POST" })
     return { recorded: true };
   });
 
+/**
+ * THE SUMMONS' LOG LINE (cybernetic pass, 2026-11-26): when a
+ * registered device carrying the Captain's Summons flag appears
+ * or vanishes on a real presence check, the stage writes the
+ * line here — the append-only events record the Logs window
+ * reads (the Gate Log proper stays the trap-path knock log; it
+ * is not a general record and is not bent into one). Operator-
+ * gated like every write; the summary is length-fenced.
+ */
+export const logSummonsEvent = createServerFn({ method: "POST" })
+  .inputValidator((input: { accessToken: string; line: string }) => input)
+  .handler(async ({ data }) => {
+    if (!(await requireOperator(data.accessToken))) return { recorded: false };
+    const line = typeof data.line === "string" ? data.line.slice(0, 300) : "";
+    if (!line) return { recorded: false };
+    await appendAugieEvent({
+      type: "note",
+      summary: line,
+      detail: "The Summons — a flagged device's signal transition, seen by a real presence check.",
+    });
+    return { recorded: true };
+  });
+
 export const recordTestResult = createServerFn({ method: "POST" })
   .inputValidator(
     (input: { accessToken: string; testName: string; works: boolean; reason: string }) => input,

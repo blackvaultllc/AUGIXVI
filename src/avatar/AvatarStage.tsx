@@ -241,6 +241,8 @@ import { SoundWatchWindow } from "./SoundWatchWindow";
 import { AnalyticWindow } from "./AnalyticWindow";
 import { GateLogWindow } from "./GateLogWindow";
 import { SignalMapWindow } from "./SignalMapWindow";
+import { IdentifyWindow } from "./IdentifyWindow";
+import { FormationWindow } from "./FormationWindow";
 import { LogsWindow } from "./LogsWindow";
 import { TestAreaWindow } from "./TestAreaWindow";
 import { ListeningWindow } from "./ListeningWindow";
@@ -258,7 +260,10 @@ import {
   notePresenceCheck,
   runPresenceCheck,
   scanWifiEnvironment,
+  summonsLine,
+  summonsTransitions,
 } from "./devices/presence";
+import { recordSummonsInCore } from "./devices/summonsClient";
 import { loadRegistry } from "./devices/deviceRegistry";
 import {
   createFetchHttpChannel,
@@ -369,6 +374,12 @@ import { coreStatusLabel, type CoreStatus } from "./coreLink";
 import { brainStateLine } from "./brainState";
 import { fetchCoreFacts, getCoreLink } from "./coreLinkClient";
 import { fetchDaddyInboxView } from "./learner/daddyInboxClient";
+import { alertRingReading } from "./alertRing";
+import {
+  currentSoundFeed,
+  subscribeSoundFeed,
+  type SoundFeedEntry,
+} from "./soundWatchFeed";
 import { currentRenderCaps } from "./deviceProfile";
 
 type Settings = RenderSettings & {
@@ -989,6 +1000,16 @@ export function AvatarStage({
   // lookup with a remote surface. Lookup + display + copy only;
   // sending waits for the blaster hardware.
   const [remoteCodesOpen, setRemoteCodesOpen] = useState(false);
+  // IDENTIFY WINDOW (cybernetic pass, 2026-11-26): the
+  // Identifier cabinet — Heard it / Saw its signal / Remote or
+  // device, cross-checked against the registry. Opens from
+  // Tools → Senses & analysis.
+  const [identifyOpen, setIdentifyOpen] = useState(false);
+  // THE FORMATION WINDOW (cybernetic pass, 2026-11-26): every
+  // surface of the one core, probed live — Parrot core, this
+  // surface, the online copy, the Osiris node, the phone copy.
+  // Opens from Tools → Connections & keys.
+  const [formationOpen, setFormationOpen] = useState(false);
   // CAMERAS WINDOW (operator order 2026-11-23): his own cameras on
   // his own network — both lenses live, PTZ under his grant. Opens
   // from Tools → Senses & analysis.
@@ -1096,11 +1117,23 @@ export function AvatarStage({
    */
   const daddySeenMessagesRef = useRef<Set<string> | null>(null);
   const daddySeenCallRef = useRef<string | null>(null);
+  /**
+   * THE ALERT RING's stage inputs (cybernetic pass, 2026-11-26):
+   * Khadija's call ringing right now (kept by the inbox poll
+   * below, from its real view) and the Sound Watch feed (its own
+   * subscription — alertRing.ts reads the two records and
+   * nothing else). The reading drives Anubis's ring ALERT state.
+   */
+  const [daddyCallRinging, setDaddyCallRinging] = useState(false);
+  const [soundFeed, setSoundFeed] = useState<SoundFeedEntry[]>(() => currentSoundFeed());
+  useEffect(() => subscribeSoundFeed(setSoundFeed), []);
+  const alertReading = alertRingReading({ soundFeed, daddyCallRinging });
   useEffect(() => {
     let stopped = false;
     const tick = async () => {
       const view = await fetchDaddyInboxView().catch(() => null);
       if (stopped || !view) return;
+      setDaddyCallRinging(view.call?.state === "ringing");
       if (daddySeenMessagesRef.current === null) {
         // First poll: everything already read is history; only her
         // still-unread words are news.
@@ -2890,6 +2923,18 @@ export function AvatarStage({
         const before = loadRegistry();
         const { devices: next, activated } = runPresenceCheck(before, scan, scan.at);
         notePresenceCheck(scan, "heartbeat", JSON.stringify(next) !== JSON.stringify(before));
+        // THE SUMMONS (cybernetic pass, 2026-11-26): a flagged
+        // device's signal appearing or vanishing on this REAL
+        // check raises the Captain (notify — voice + thread +
+        // History) and writes its line into the core's events
+        // record. Unavailable scans returned above and can never
+        // reach this code, so no summons fires from a scan that
+        // never happened.
+        for (const transition of summonsTransitions(before, next, scan.at)) {
+          const line = summonsLine(transition);
+          notify("devices", line);
+          recordSummonsInCore(line);
+        }
         for (const _device of activated) say(WAND_GREETING);
       })();
     };
@@ -3604,6 +3649,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     devicesOpen ||
     camerasOpen ||
     remoteCodesOpen ||
+    identifyOpen ||
+    formationOpen ||
     openWindows.size > 0 ||
     constructOpen ||
     builderOpen ||
@@ -3775,6 +3822,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           speaking={state === "SPEAKING"}
           listening={voiceListening}
           acting={presenting || state === "THINKING"}
+          alert={alertReading.active}
           receded={stageScreenOpen}
           inPerspective={perspective === "anubis"}
           inCall={conversationView === "call" && perspective === "anubis"}
@@ -4431,6 +4479,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Cameras"
                     onClick={() => setCamerasOpen(true)}
                   />
+                  <CommandAction
+                    icon={ScanSearch}
+                    label="Identify"
+                    onClick={() => setIdentifyOpen(true)}
+                  />
                 </div>
               </CommandGroup>
               <CommandGroup label="Records & safety">
@@ -4672,6 +4725,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Cloud keys — the lights"
                     onClick={() => setCloudKeysOpen(true)}
                   />
+                  <CommandAction
+                    icon={Network}
+                    label="The Formation — every surface of the one core"
+                    onClick={() => setFormationOpen(true)}
+                  />
                 </div>
                 <p>
                   Open slots for APIs and data from other websites — fill one and the system can
@@ -4772,6 +4830,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
       {camerasOpen && <CamerasWindow onClose={() => setCamerasOpen(false)} />}
       {remoteCodesOpen && <RemoteCodesWindow onClose={() => setRemoteCodesOpen(false)} />}
+      {identifyOpen && <IdentifyWindow onClose={() => setIdentifyOpen(false)} />}
+      {formationOpen && <FormationWindow onClose={() => setFormationOpen(false)} />}
       {openWindows.has("notepad") && <NotepadWindow onClose={() => closeWindow("notepad")} />}
       {openWindows.has("chalkboard") && (
         <ChalkboardWindow onClose={() => closeWindow("chalkboard")} externalText={chalkboardText} />

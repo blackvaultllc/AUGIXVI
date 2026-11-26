@@ -71,9 +71,19 @@ describe("analyzeCameraView — snapshot first, then the vision path", () => {
       fetchFn,
     });
     expect(outcome.ok).toBe(true);
+    // THE SECOND LOOK (cybernetic pass, 2026-11-26) extends the
+    // flow after the reading: one more /api/tags (the model
+    // pick), then one /api/generate per finding, each asking the
+    // model to confirm that finding on this same frame. The
+    // routed fake answers every generate with the reading text,
+    // which is not a yes/no — so both findings stand NOT
+    // CONFIRMED, the honest verdict for an unclear answer.
     expect(calls.map((c) => c.url)).toEqual([
       SNAPSHOT_URL,
       `${BRAIN}/api/tags`,
+      `${BRAIN}/api/generate`,
+      `${BRAIN}/api/tags`,
+      `${BRAIN}/api/generate`,
       `${BRAIN}/api/generate`,
     ]);
     const body = JSON.parse(String(calls[2]!.init?.body)) as {
@@ -86,6 +96,13 @@ describe("analyzeCameraView — snapshot first, then the vision path", () => {
       expect(outcome.reading.text).toBe("A desk with a monitor.");
       expect(outcome.reading.findings).toEqual(["monitor", "desk"]);
       expect(outcome.reading.model).toBe("llava:7b");
+      expect(outcome.secondLook).toEqual({
+        status: "done",
+        verdicts: [
+          { text: "monitor", verdict: "not-confirmed" },
+          { text: "desk", verdict: "not-confirmed" },
+        ],
+      });
     }
   });
 
@@ -151,6 +168,10 @@ describe("the draft label — the honesty contract", () => {
           kind: "done",
           reading: { text: "A desk with a monitor.", findings: ["monitor"], model: "llava:7b" },
           at: Date.now(),
+          secondLook: {
+            status: "done",
+            verdicts: [{ text: "monitor", verdict: "verified" }],
+          },
         }}
       />,
     );

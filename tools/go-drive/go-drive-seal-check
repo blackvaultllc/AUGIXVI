@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""THE SEAL CHECK (cybernetic pass, 2026-11-26) — a Go Drive
+proves it is itself.
+
+Usage:
+  go-drive-seal-check <drive-root>           verify the drive against its seal
+  go-drive-seal-check --write <drive-root>   (re)write the seal onto the drive
+
+The seal is seal-manifest.json at the drive root: every file on
+the drive (except the manifest itself), with its SHA-256 and
+size — written when the drive is created or refreshed (the
+Master Manual's Go Drive steps carry the step). Verification
+reports, per file, MATCH / MISSING / CHANGED and one verdict
+line. A drive with no manifest reports NO SEAL ON THIS DRIVE —
+never a pass.
+
+The rules here mirror src/avatar/goDriveSeal.ts in the repo;
+that file is the law if the two ever disagree.
+
+Exit codes: 0 = the seal holds (or was written), 1 = the seal
+does not hold, 2 = no seal on this drive / usage error.
+
+Standard library only — it must run on a bare Parrot.
+"""
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+MANIFEST_NAME = "seal-manifest.json"
+
+
+def hash_file(path):
+    h = hashlib.sha256()
+    size = 0
+    with open(path, "rb") as fh:
+        while True:
+            chunk = fh.read(1024 * 1024)
+            if not chunk:
+                break
+            h.update(chunk)
+            size += len(chunk)
+    return h.hexdigest(), size
+
+
+def measure(root):
+    """Every file under root, as seal entries (manifest excluded)."""
+    entries = []
+    for dirpath, _dirnames, filenames in os.walk(root):
+        for name in filenames:
+            full = os.path.join(dirpath, name)
+            rel = os.path.relpath(full, root).replace(os.sep, "/")
+            if rel == MANIFEST_NAME:
+                continue
+            sha, size = hash_file(full)
+            entries.append({"path": rel, "sha256": sha, "size": size})
+    entries.sort(key=lambda e: e["path"])
+    return entries
+
+
+def write_seal(root):
+    entries = measure(root)
+    manifest = {
+        "version": 1,
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "files": entries,
+    }
+    with open(os.path.join(root, MANIFEST_NAME), "w", encoding="utf-8") as fh:
+        json.dump(manifest, fh, indent=2)
+        fh.write("\n")
+    print(f"Seal written: {MANIFEST_NAME} now names {len(entries)} file(s) on this drive.")
+    return 0
+
+
+def check_seal(root):
+    manifest_path = os.path.join(root, MANIFEST_NAME)
+    if not os.path.isfile(manifest_path):
+        print(
+            "NO SEAL ON THIS DRIVE — it carries no seal-manifest.json, so nothing "
+            "about it is proven. Seal it at creation (see the Go Drive steps) "
+            "before trusting it."
+        )
+        return 2
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        named = manifest["files"]
+        assert manifest["version"] == 1 and isinstance(named, list)
+    except Exception:
+        print("NO SEAL ON THIS DRIVE — its seal-manifest.json cannot be read as a seal.")
+        return 2
+
+    measured = {e["path"]: e for e in measure(root)}
+    missing = changed = matched = 0
+    for entry in named:
+        path = entry["path"]
+        found = measured.get(path)
+        if found is None:
+            print(f"MISSING  {path}")
+            missing += 1
+        elif found["sha256"] != entry["sha256"] or found["size"] != entry["size"]:
+            print(f"CHANGED  {path}")
+            changed += 1
+        else:
+            print(f"MATCH    {path}")
+            matched += 1
+    sealed_paths = {e["path"] for e in named}
+    unsealed = sum(1 for p in measured if p not in sealed_paths)
+    total = len(named)
+    if missing == 0 and changed == 0:
+        line = (
+            f"THE SEAL HOLDS — all {total} file(s) the seal names are present "
+            "and unchanged"
+        )
+        if unsealed:
+            line += f", and {unsealed} file(s) on the drive are not in the seal."
+        else:
+            line += "."
+        print(line)
+        return 0
+    print(
+        f"THE SEAL DOES NOT HOLD — {matched} match, {missing} missing, "
+        f"{changed} changed. Do not trust this drive until it is rebuilt "
+        "and re-sealed."
+    )
+    return 1
+
+
+def main(argv):
+    args = [a for a in argv[1:] if a != "--write"]
+    write = "--write" in argv[1:]
+    if len(args) != 1 or not os.path.isdir(args[0]):
+        print(__doc__)
+        return 2
+    root = args[0]
+    return write_seal(root) if write else check_seal(root)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

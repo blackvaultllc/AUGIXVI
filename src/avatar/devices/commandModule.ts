@@ -693,10 +693,25 @@ export type SendRequest = {
    * absent, the entry lands in the local command log as always.
    */
   onLog?: ((entry: Omit<CommandLogEntry, "id">) => void) | undefined;
+  /**
+   * THE ALL-STOP (cybernetic pass, 2026-11-26): the core store's
+   * halt flag as the caller read it. When it stands, the send is
+   * refused before anything else is even considered — before the
+   * Permission Law, before the channel — and the refusal is
+   * logged like every refusal. Callers read it from the device
+   * core state (deviceStoreCore.ts); the bridge checks the core
+   * store again server-side on every request.
+   */
+  allStopActive?: boolean | undefined;
 };
 
 const REFUSAL_NOTE =
   "Control is not granted for this device. The Permission Law: Osiris may control a device only when its card is owner-confirmed AND control is granted for that exact device. Nothing was sent.";
+
+/** The refusal while the Captain's ALL-STOP stands — it outranks
+ *  every grant, because that is what a stop is for. */
+export const ALL_STOP_NOTE =
+  "The ALL-STOP is in force. The Captain has halted every device command; nothing is sent to any device until he releases it in the Devices window. Nothing was sent.";
 
 /** The refusal for a RETIRED device — plainer than the grant
  *  refusal, because no grant can ever fix it: the device is gone. */
@@ -736,6 +751,9 @@ export async function sendDeviceCommand(req: SendRequest): Promise<SendOutcome> 
     return outcome;
   };
 
+  if (req.allStopActive) {
+    return finish({ result: "refused", note: ALL_STOP_NOTE, detail: "", replies: [] });
+  }
   if (device.retired) {
     return finish({ result: "refused", note: retiredRefusalNote(device), detail: "", replies: [] });
   }
@@ -921,6 +939,8 @@ export async function printGcode(args: {
   onProgress?: ((done: number, total: number) => void) | undefined;
   now?: number | undefined;
   storage?: Storage | null | undefined;
+  /** The All-Stop, passed through to the send engine. */
+  allStopActive?: boolean | undefined;
 }): Promise<SendOutcome> {
   const command = args.profile.commands.find((c) => c.payload.kind === "file");
   if (!command) {
@@ -942,5 +962,6 @@ export async function printGcode(args: {
     onProgress: args.onProgress,
     now: args.now,
     storage: args.storage,
+    allStopActive: args.allStopActive,
   });
 }

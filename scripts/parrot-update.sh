@@ -53,6 +53,23 @@ if [ -d "$HOME/augie-app/tools/device-senders" ]; then
   done < <(find "$HOME/augie-app/tools/device-senders" -type f -print0)
 fi
 
+# Stage the Go Drive seal checker (tools/go-drive/ in the repo)
+# into ~/augie-tools/ the same way — checksum-verified — so the
+# Captain's seal checks run the exact tool the repo shipped
+# (cybernetic pass, 2026-11-26).
+if [ -d "$HOME/augie-app/tools/go-drive" ]; then
+  mkdir -p "$HOME/augie-tools"
+  rsync -a "$HOME/augie-app/tools/go-drive/" "$HOME/augie-tools/" || fail "seal-stage"
+  while IFS= read -r -d '' staged_src; do
+    rel="${staged_src#"$HOME/augie-app/tools/go-drive/"}"
+    src_hash="$(sha256sum "$staged_src" | cut -d' ' -f1)"
+    dst_hash="$(sha256sum "$HOME/augie-tools/$rel" | cut -d' ' -f1)"
+    [ "$src_hash" = "$dst_hash" ] || fail "seal-checksum $rel"
+    chmod +x "$HOME/augie-tools/$rel" 2>/dev/null || true
+    echo "seal tool staged + verified: $rel ($src_hash)"
+  done < <(find "$HOME/augie-app/tools/go-drive" -type f -print0)
+fi
+
 systemctl --user restart augie.service || fail "restart"
 sleep 4
 CODE="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/avatar || echo 000)"

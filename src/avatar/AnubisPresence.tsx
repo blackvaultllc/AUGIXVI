@@ -94,6 +94,7 @@ export function AnubisPresence({
   speaking,
   listening,
   acting,
+  alert = false,
   receded = false,
   inPerspective = false,
   inCall = false,
@@ -113,6 +114,14 @@ export function AnubisPresence({
   listening: boolean;
   /** Augie is visibly carrying out work (thinking / presenting). */
   acting: boolean;
+  /**
+   * ALERT (cybernetic pass, 2026-11-26): a real alert stands
+   * unacknowledged — an alert-flagged sound on the Sound Watch
+   * feed, or Khadija's call ringing in the Daddy Inbox. The
+   * stage computes it from those records (alertRing.ts); the
+   * ring wears it above every other state.
+   */
+  alert?: boolean;
   /**
    * RECEDED (owner order 2026-11-26, the circuit-ring theme):
    * while a screen the Captain asked for stands open on the
@@ -236,7 +245,13 @@ export function AnubisPresence({
           portrait, no SVG inside it — and reads his real state
           (PresenceRing / presenceRing.ts). */}
       <div className="anubis-presence__halo" style={anchor.faceStyle}>
-        <PresenceRing ready={ready} speaking={speaking} listening={listening} acting={acting} />
+        <PresenceRing
+          ready={ready}
+          speaking={speaking}
+          listening={listening}
+          acting={acting}
+          alert={alert}
+        />
         <div className="anubis-presence__face" style={anchor.faceStyle}>
           {showBody ? (
             <img

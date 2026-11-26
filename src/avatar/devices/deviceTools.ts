@@ -166,6 +166,7 @@ export function toolSetDeviceFlags(
     deviceId: string;
     ownerConfirmed?: boolean | undefined;
     controlGranted?: boolean | undefined;
+    summonsMe?: boolean | undefined;
     reason: string;
     now: number;
   },
@@ -273,6 +274,7 @@ export async function toolSendDeviceCommand(
     address: resolved.binding?.address,
     channel: args.channel,
     channelUnavailableReason: args.channelUnavailableReason,
+    allStopActive: state.allStop.active,
     now: args.now,
     onLog: (entry) => {
       log = [...log, { ...entry, id: `cmdlog-${entry.at}-construct` }].slice(-200);
@@ -392,6 +394,15 @@ export function deviceBriefLines(
   variant: "full" | "short" = "full",
 ): string[] {
   const lines: string[] = [];
+  if (state.allStop.active) {
+    // THE ALL-STOP STANDS: the brief says so first, so no
+    // construct ever offers to fire a command the Captain has
+    // halted — the refusal would land anyway, but the truth
+    // belongs up front.
+    lines.push(
+      "THE ALL-STOP IS IN FORCE: the Captain has halted every device command. Do not offer to send any device command, and do not try — every send is refused until he releases the stop in the Devices window.",
+    );
+  }
   for (const device of state.registry) {
     if (device.retired) {
       // RETIRED — stated as gone, in both variants, with no

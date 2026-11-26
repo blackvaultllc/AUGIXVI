@@ -6,6 +6,7 @@
  * words with no reading anywhere.
  */
 import { parseAnalysis } from "../analysisParsing";
+import { verdictAt, verdictLabel } from "../secondLook";
 import { CAMERA_ANALYSIS_DRAFT_LABEL, type LensAnalysisState } from "./cameraAnalysis";
 
 export function CameraAnalysisBlock({ state }: { state: LensAnalysisState }) {
@@ -44,16 +45,41 @@ export function CameraAnalysisBlock({ state }: { state: LensAnalysisState }) {
     );
   }
 
+  const secondLook = state.secondLook;
   return (
     <div className="window-cameras__analysis">
       <p className="window-cameras__draft-label">{CAMERA_ANALYSIS_DRAFT_LABEL}</p>
       <p className="window-cameras__reading">{state.reading.text}</p>
       {state.reading.findings.length > 0 && (
         <ul className="window-cameras__findings">
-          {state.reading.findings.map((finding, index) => (
-            <li key={`${index}-${finding}`}>{finding}</li>
-          ))}
+          {state.reading.findings.map((finding, index) => {
+            const verdict =
+              secondLook.status === "done" ? verdictAt(secondLook.verdicts, index) : null;
+            return (
+              <li
+                key={`${index}-${finding}`}
+                className={verdict === "not-confirmed" ? "is-not-confirmed" : undefined}
+              >
+                {finding}
+                {verdict && (
+                  <span className="window-cameras__stamp"> — {verdictLabel(verdict)}</span>
+                )}
+              </li>
+            );
+          })}
         </ul>
+      )}
+      {secondLook.status === "done" && state.reading.findings.length > 0 && (
+        <p className="window-hint">
+          Second look: every finding above was checked again, one at a time. VERIFIED means the
+          second look confirmed it; NOT CONFIRMED stays on the record, dimmed — it is not a fact.
+        </p>
+      )}
+      {secondLook.status === "unavailable" && (
+        <p className="window-hint" role="status">
+          FIRST PASS ONLY — the second look could not run ({secondLook.reason}), so none of
+          these findings is verified.
+        </p>
       )}
       <p className="window-hint">
         Model {state.reading.model} · {new Date(state.at).toLocaleTimeString()} · read from the

@@ -1755,6 +1755,32 @@
 .avatar-stage .presence-ring__seg--dim {
   stroke: rgb(96 165 220 / 38%);
 }
+/* The ALERT tone (cybernetic pass, 2026-11-26): the whole ring
+   lit hot and pulsing while a real alert stands unacknowledged.
+   The pulse rides the stage's own breath tempo (~5.24s, the
+   heartbeat clock) as TEMPO ONLY — it carries no reading, and
+   the ring's state itself comes from real alert records
+   (alertRing.ts). Reduced motion: lit steady, no pulse. */
+.avatar-stage .presence-ring__seg--alert {
+  stroke: #ff5347;
+}
+.avatar-stage .presence-ring[data-ring-state="alert"] .presence-ring__seg--alert {
+  animation: presence-ring-alert-pulse 5.24s ease-in-out infinite;
+}
+@keyframes presence-ring-alert-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar-stage .presence-ring[data-ring-state="alert"] .presence-ring__seg--alert {
+    animation: none;
+  }
+}
 
 /* ================================================================
    38) ANUBIS RECEDES AND RETURNS (same order): while a screen
