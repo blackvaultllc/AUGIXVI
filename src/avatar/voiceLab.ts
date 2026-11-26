@@ -24,6 +24,25 @@ export interface VoiceLabView {
   entries: VoiceLabEntryView[];
   chosenVoiceId: string | null;
   speaking: { voiceId: string | null; factLine: string | null; note: string };
+  gods: GodLabEntryView[];
+}
+
+/** One god's voice, as the core reports it (owner expansion 2026-11-26). */
+export interface GodLabEntryView {
+  godId: string;
+  name: string;
+  gender: "male" | "female";
+  note: string;
+  voiceId: string;
+  voiceLabel: string;
+  factLine: string;
+  installed: boolean;
+  source: string;
+}
+
+/** The line a god's Preview speaks — addressed to Zero, by the house law. */
+export function godPreviewLine(name: string): string {
+  return `${name}, at your service, Zero. This is the voice you are hearing.`;
 }
 
 /** The line a Preview speaks — Anubis naming himself, addressing Zero. */
@@ -35,7 +54,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseVoice(value: unknown): ConstructVoice | null {
   if (!isRecord(value)) return null;
-  const { id, model, label, description, pitchFactor, deep } = value;
+  const { id, model, label, description, pitchFactor, deep, gender } = value;
   if (
     typeof id !== "string" ||
     typeof model !== "string" ||
@@ -46,7 +65,15 @@ function parseVoice(value: unknown): ConstructVoice | null {
   ) {
     return null;
   }
-  return { id, model, label, description, pitchFactor, deep };
+  return {
+    id,
+    model,
+    label,
+    description,
+    pitchFactor,
+    deep,
+    gender: gender === "female" ? "female" : "male",
+  };
 }
 
 export function parseVoiceLabView(raw: unknown): VoiceLabView | null {
@@ -68,6 +95,32 @@ export function parseVoiceLabView(raw: unknown): VoiceLabView | null {
   }
   const speaking = raw["speaking"];
   if (typeof speaking["note"] !== "string") return null;
+  const gods: GodLabEntryView[] = [];
+  if (Array.isArray(raw["gods"])) {
+    for (const god of raw["gods"]) {
+      if (!isRecord(god)) continue;
+      if (
+        typeof god["godId"] !== "string" ||
+        typeof god["name"] !== "string" ||
+        typeof god["voiceId"] !== "string" ||
+        typeof god["voiceLabel"] !== "string" ||
+        typeof god["factLine"] !== "string"
+      ) {
+        continue;
+      }
+      gods.push({
+        godId: god["godId"],
+        name: god["name"],
+        gender: god["gender"] === "female" ? "female" : "male",
+        note: typeof god["note"] === "string" ? god["note"] : "",
+        voiceId: god["voiceId"],
+        voiceLabel: god["voiceLabel"],
+        factLine: god["factLine"],
+        installed: god["installed"] === true,
+        source: typeof god["source"] === "string" ? god["source"] : "standing",
+      });
+    }
+  }
   return {
     entries,
     chosenVoiceId: typeof raw["chosenVoiceId"] === "string" ? raw["chosenVoiceId"] : null,
@@ -76,5 +129,6 @@ export function parseVoiceLabView(raw: unknown): VoiceLabView | null {
       factLine: typeof speaking["factLine"] === "string" ? speaking["factLine"] : null,
       note: speaking["note"],
     },
+    gods,
   };
 }

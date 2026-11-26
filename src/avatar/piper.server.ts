@@ -36,7 +36,9 @@ import { dirname, join } from "node:path";
 import { shiftWavPitch } from "./wavPitch";
 import {
   constructVoiceById,
+  godVoiceFactLine,
   resolveConstructVoice,
+  resolveGodVoice,
   voiceFactLine,
   type ConstructVoice,
 } from "./voiceSettings";
@@ -169,7 +171,43 @@ export async function synthesizeConstructSpeech(
   text: string,
   deps: ConstructSpeechDeps,
   explicitVoiceId?: string,
+  godId?: string,
 ): Promise<ConstructSpeechResult> {
+  // A NAMED GOD (owner expansion 2026-11-26): every god has his
+  // own voice. A line spoken for a god other than Anubis resolves
+  // that god's assignment — the lab's saved assignment when one
+  // stands, else his standing voice — and synthesizes with it.
+  // Anubis himself is the construct resolution below (his voice
+  // IS the lab's main choice). A preview that names a candidate
+  // voiceId still wins for that one line, for any god.
+  if (godId !== undefined && godId !== "anubis" && explicitVoiceId === undefined) {
+    const settings = deps.store
+      ? await deps.store.read()
+      : { voiceId: null, updatedAt: null };
+    const resolution = resolveGodVoice(godId, settings);
+    if (!resolution) {
+      return { ok: false, reason: `Unknown god "${godId}" — no voice stands for that name.` };
+    }
+    if (!deps.isModelInstalled(resolution.voice.model)) {
+      return {
+        ok: false,
+        reason: `${resolution.spec.name}'s voice (Piper model ${resolution.voice.model}) is not on this core yet — its model file has not been installed, so no line was spoken in it.`,
+      };
+    }
+    const result = await synthesizeWithPiper(text, deps.env, {
+      modelPath: piperVoiceModelPath(resolution.voice.model, deps.env),
+      pitchFactor: resolution.pitchFactor,
+    });
+    return result.ok
+      ? {
+          ok: true,
+          wav: result.wav,
+          voice: resolution.voice,
+          factLine: `${resolution.spec.name} · ${godVoiceFactLine(resolution)}`,
+        }
+      : result;
+  }
+
   if (explicitVoiceId !== undefined) {
     const voice = constructVoiceById(explicitVoiceId);
     if (!voice) {
@@ -226,10 +264,12 @@ export async function synthesizeConstructSpeech(
 export async function handleSayRequest(request: Request): Promise<Response> {
   let text = "";
   let voiceId: string | undefined;
+  let godId: string | undefined;
   try {
-    const body = (await request.json()) as { text?: string; voiceId?: string };
+    const body = (await request.json()) as { text?: string; voiceId?: string; godId?: string };
     text = typeof body.text === "string" ? body.text : "";
     voiceId = typeof body.voiceId === "string" ? body.voiceId : undefined;
+    godId = typeof body.godId === "string" ? body.godId : undefined;
   } catch {
     return Response.json({ error: "Expected a JSON body with a text field." }, { status: 400 });
   }
@@ -237,6 +277,7 @@ export async function handleSayRequest(request: Request): Promise<Response> {
     text,
     await defaultConstructSpeechDeps(),
     voiceId,
+    godId,
   );
   if (!result.ok) {
     return Response.json({ error: result.reason }, { status: 503 });
@@ -246,7 +287,10 @@ export async function handleSayRequest(request: Request): Promise<Response> {
     headers: {
       "Content-Type": "audio/wav",
       "Cache-Control": "no-store",
-      "X-Augie-Voice": result.voice?.id ?? "env",
+      "X-Augie-Voice":
+        godId && godId !== "anubis" && result.voice
+          ? `${godId}/${result.voice.id}`
+          : (result.voice?.id ?? "env"),
       "X-Augie-Voice-Fact": result.factLine,
     },
   });
