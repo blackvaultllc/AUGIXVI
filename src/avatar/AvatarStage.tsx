@@ -25,6 +25,7 @@ import {
   Clapperboard,
   Camera,
   Bell,
+  CircleDot,
   Coffee,
   DoorOpen,
   Ear,
@@ -330,6 +331,7 @@ import { createLocalEar, type EarState, type LocalEar } from "./localEar";
 import { stageStatusLabel } from "./voiceHearing";
 import { VoiceIndicator } from "./VoiceIndicator";
 import { VoiceCalibrationPanel } from "./VoiceCalibrationPanel";
+import { VoiceLabPanel } from "./VoiceLabPanel";
 import { TrustedDevicesPanel } from "./TrustedDevicesPanel";
 import { PhoneBrainPanel } from "./PhoneBrainPanel";
 import {
@@ -379,8 +381,10 @@ import { getCameraSpeech, markCameraSpeechRouted } from "./cameraPresence.server
 import { getSectorAlertState } from "./sectorWatch.server";
 import { getInboxState } from "./notifications.server";
 import { NotificationsWindow } from "./NotificationsWindow";
+import { DeitiesWindow } from "./DeitiesWindow";
 import { PersonalVaultWindow } from "./PersonalVaultWindow";
 import { StopSafetyWindow } from "./StopSafetyWindow";
+import { DarkHoleWindow } from "./DarkHoleWindow";
 import { alertRingReading } from "./alertRing";
 import {
   currentSoundFeed,
@@ -1027,12 +1031,19 @@ export function AvatarStage({
   // carries the real unread count from the core store, read
   // on the poll below; the window is NotificationsWindow.
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [deitiesOpen, setDeitiesOpen] = useState(false);
   // Personal safety pass (owner order 2026-11-26): his papers
   // in the vault, and the law base + stop mode. Owner surface
   // only — these windows open from the operator's own Tools.
   const [vaultOpen, setVaultOpen] = useState(false);
   const [stopSafetyOpen, setStopSafetyOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
+  // THE DARK HOLE (owner order 2026-11-26): his library —
+  // files broken down to pieces on the core, filed under his
+  // own categories, reassembled only through the manifest.
+  // Opens from Tools → Records & safety; the window is
+  // DarkHoleWindow. Owner surface only, never the learner's.
+  const [darkHoleOpen, setDarkHoleOpen] = useState(false);
   // LISTENING MODE WINDOW (Part 12): the armed silent ear's control
   // surface. Opens from Tools → Rooms and from "open listening mode".
   const [listeningOpen, setListeningOpen] = useState(false);
@@ -3792,6 +3803,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     captainsLogOpen ||
     sandboxOpen ||
     libraryOpen ||
+    deitiesOpen ||
     lawOpen ||
     analyticsOpen ||
     listeningOpen ||
@@ -4668,6 +4680,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     onClick={() => setStopSafetyOpen(true)}
                   />
                   <CommandAction
+                    icon={CircleDot}
+                    label="Dark Hole"
+                    onClick={() => setDarkHoleOpen(true)}
+                  />
+                  <CommandAction
                     icon={Clapperboard}
                     label="Captain's Log"
                     onClick={() => setCaptainsLogOpen(true)}
@@ -4676,6 +4693,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     icon={BookOpen}
                     label="Library"
                     onClick={() => setLibraryOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Sun}
+                    label="The Eight and the Gods"
+                    onClick={() => setDeitiesOpen(true)}
                   />
                   <CommandAction
                     icon={Scale}
@@ -4918,6 +4940,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   The gods speak in a deeper British man's voice — a woman's voice only when the
                   speaker is a woman. The level is yours; full is the standing default.
                 </p>
+                <VoiceLabPanel />
               </CommandGroup>
               <CommandGroup label="Voice calibration — only my operator's voice">
                 <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
@@ -5012,8 +5035,10 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         </button>
       )}
       {inboxOpen && <NotificationsWindow onClose={() => setInboxOpen(false)} />}
+      {deitiesOpen && <DeitiesWindow onClose={() => setDeitiesOpen(false)} />}
       {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
       {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}
+      {darkHoleOpen && <DarkHoleWindow onClose={() => setDarkHoleOpen(false)} />}
       {remoteCodesOpen && <RemoteCodesWindow onClose={() => setRemoteCodesOpen(false)} />}
       {identifyOpen && <IdentifyWindow onClose={() => setIdentifyOpen(false)} />}
       {formationOpen && <FormationWindow onClose={() => setFormationOpen(false)} />}

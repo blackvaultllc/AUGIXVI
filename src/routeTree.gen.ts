@@ -16,6 +16,7 @@ import { Route as ManualRouteImport } from './routes/manual'
 import { Route as PhoneBridgeRouteImport } from './routes/phone-bridge'
 import { Route as ApiSayRouteImport } from './routes/api.say'
 import { Route as ApiTranscribeRouteImport } from './routes/api.transcribe'
+import { Route as ApiVoiceRouteImport } from './routes/api.voice'
 import { Route as AvatarAnalyzeRouteImport } from './routes/avatar_.analyze'
 import { Route as AvatarCubeRouteImport } from './routes/avatar_.cube'
 import { Route as AvatarGameRouteImport } from './routes/avatar_.game'
@@ -84,6 +85,11 @@ const ApiSayRoute = ApiSayRouteImport.update({
 const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
   id: '/api/transcribe',
   path: '/api/transcribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVoiceRoute = ApiVoiceRouteImport.update({
+  id: '/api/voice',
+  path: '/api/voice',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AvatarAnalyzeRoute = AvatarAnalyzeRouteImport.update({
@@ -267,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/phone-bridge': typeof PhoneBridgeRoute
   '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/voice': typeof ApiVoiceRoute
   '/avatar/analyze': typeof AvatarAnalyzeRoute
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
@@ -310,6 +317,7 @@ export interface FileRoutesByTo {
   '/phone-bridge': typeof PhoneBridgeRoute
   '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/voice': typeof ApiVoiceRoute
   '/avatar/analyze': typeof AvatarAnalyzeRoute
   '/avatar/cube': typeof AvatarCubeRoute
   '/avatar/game': typeof AvatarGameRoute
@@ -354,6 +362,7 @@ export interface FileRoutesById {
   '/phone-bridge': typeof PhoneBridgeRoute
   '/api/say': typeof ApiSayRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/voice': typeof ApiVoiceRoute
   '/avatar_/analyze': typeof AvatarAnalyzeRoute
   '/avatar_/cube': typeof AvatarCubeRoute
   '/avatar_/game': typeof AvatarGameRoute
@@ -399,6 +408,7 @@ export interface FileRouteTypes {
     | '/phone-bridge'
     | '/api/say'
     | '/api/transcribe'
+    | '/api/voice'
     | '/avatar/analyze'
     | '/avatar/cube'
     | '/avatar/game'
@@ -442,6 +452,7 @@ export interface FileRouteTypes {
     | '/phone-bridge'
     | '/api/say'
     | '/api/transcribe'
+    | '/api/voice'
     | '/avatar/analyze'
     | '/avatar/cube'
     | '/avatar/game'
@@ -485,6 +496,7 @@ export interface FileRouteTypes {
     | '/phone-bridge'
     | '/api/say'
     | '/api/transcribe'
+    | '/api/voice'
     | '/avatar_/analyze'
     | '/avatar_/cube'
     | '/avatar_/game'
@@ -529,6 +541,7 @@ export interface RootRouteChildren {
   PhoneBridgeRoute: typeof PhoneBridgeRoute
   ApiSayRoute: typeof ApiSayRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
+  ApiVoiceRoute: typeof ApiVoiceRoute
   AvatarAnalyzeRoute: typeof AvatarAnalyzeRoute
   AvatarCubeRoute: typeof AvatarCubeRoute
   AvatarGameRoute: typeof AvatarGameRoute
@@ -614,6 +627,13 @@ declare module '@tanstack/react-router' {
       path: '/api/transcribe'
       fullPath: '/api/transcribe'
       preLoaderRoute: typeof ApiTranscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/voice': {
+      id: '/api/voice'
+      path: '/api/voice'
+      fullPath: '/api/voice'
+      preLoaderRoute: typeof ApiVoiceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/avatar_/analyze': {
@@ -865,6 +885,7 @@ const rootRouteChildren: RootRouteChildren = {
   PhoneBridgeRoute: PhoneBridgeRoute,
   ApiSayRoute: ApiSayRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
+  ApiVoiceRoute: ApiVoiceRoute,
   AvatarAnalyzeRoute: AvatarAnalyzeRoute,
   AvatarCubeRoute: AvatarCubeRoute,
   AvatarGameRoute: AvatarGameRoute,
