@@ -66,6 +66,7 @@ import {
 import { cameraCanControl } from "./cameras/cameraRegistry";
 import {
   audioBand,
+  captureReasoningForEvent,
   crossExamLogText,
   decideBedroom,
   decideCommon,
@@ -73,8 +74,10 @@ import {
   decideFrontTruck,
   decideWeapon,
   descriptionFromAnswer,
+  evidenceStillReasoning,
   isNotableReading,
   judgmentDue,
+  judgmentReasoning,
   judgmentText,
   motionBand,
   plateNoteFor,
@@ -486,6 +489,7 @@ async function raiseEvent(
             ? `The Captain's truck — a person at it (${camera.name}) is not cleared by the house rules.`
             : `Possible break-in at the front — ${camera.name} read a person at a vehicle or forcing entry.`,
     reading: decision.text,
+    reasoning: captureReasoningForEvent(eventKind, camera.name),
     frames,
     evidence: [],
     personReading: "",
@@ -543,7 +547,7 @@ async function raiseEvent(
   // the core. Nothing leaves the core.
   if (config.zone === "front" || eventKind === "weapon") {
     try {
-      await captureEvidence(eventId, camera, sectorStore);
+      await captureEvidence(eventId, camera, sectorStore, eventKind);
     } catch {
       // the event stands on its kept frames; evidence is a duty,
       // never a single point of failure for the event itself
@@ -607,6 +611,7 @@ async function captureEvidence(
   eventId: string,
   camera: StoredCamera,
   sectorStore: SectorWatchStore,
+  eventKind: SectorEvent["kind"],
 ): Promise<void> {
   const lens = camera.lenses[0];
   if (!lens) return;
@@ -634,7 +639,13 @@ async function captureEvidence(
     const plate = plateReadingFromAnswer(
       await askVisionText([shot.toString("base64")], PLATE_READING_PROMPT),
     );
-    stills.push({ file: name, at: Date.now(), plate, plateNote: plateNoteFor(plate) });
+    stills.push({
+      file: name,
+      at: Date.now(),
+      plate,
+      plateNote: plateNoteFor(plate),
+      reasoning: evidenceStillReasoning(eventKind, stills.length),
+    });
   }
   const personReading = firstShot
     ? descriptionFromAnswer(
@@ -734,6 +745,7 @@ async function maybeEscalateJudgment(
       cameraName: camera.name,
       zone: config.zone,
       text: judgmentText(config.zone, camera.name),
+      reasoning: judgmentReasoning(camera.name),
       still,
       crossExam,
       acknowledged: false,

@@ -172,6 +172,14 @@ export interface SectorEvidenceStill {
   plate: string | null;
   /** Plain words: what the plate reading stands on. */
   plateNote: string;
+  /**
+   * WHY this still was kept (the Captain's proof-of-concept
+   * order, 2026-11-26): the plain sentence that travels with
+   * the picture wherever it is shown or exported — the trigger
+   * and the Second Look outcome that earned its place on the
+   * record. "" on records written before reasoning was kept.
+   */
+  reasoning: string;
 }
 
 export interface SectorEvent {
@@ -188,6 +196,14 @@ export interface SectorEvent {
    * and it is still a model's reading, labeled as one.
    */
   reading: string;
+  /**
+   * WHY the pictures for this event were kept (proof of
+   * concept, the Captain's order 2026-11-26): the trigger and
+   * the Second Look outcome, in one plain sentence that
+   * travels with the captures into the inbox and the property
+   * feed. "" on events written before reasoning was kept.
+   */
+  reasoning: string;
   /** Still file names inside the core's sector-events folder. */
   frames: string[];
   /**
@@ -228,6 +244,13 @@ export interface SectorJudgment {
   zone: SectorZone;
   /** One plain line: what caught his eye — his reading, labeled as one. */
   text: string;
+  /**
+   * WHY the picture was kept (proof of concept): a first
+   * reading caught his eye and the escalation question,
+   * asked again, said yes — below the event line, labeled
+   * his judgment. "" on items written before reasoning was kept.
+   */
+  reasoning: string;
   /** The kept picture's file name in sector-events/, or "" when none could be kept. */
   still: string;
   /** The cross-examination record behind this judgment. */
@@ -365,6 +388,7 @@ export function sanitizeEvidenceStill(v: unknown): SectorEvidenceStill | null {
     at,
     plate: cleanString(v["plate"], 24) ?? null,
     plateNote: cleanString(v["plateNote"], 300) ?? "No plate reading stands for this still.",
+    reasoning: cleanString(v["reasoning"], 600) ?? "",
   };
 }
 
@@ -396,6 +420,7 @@ export function sanitizeSectorEvent(v: unknown): SectorEvent | null {
             : "front-threat",
     summary,
     reading: cleanString(v["reading"], 600) ?? "",
+    reasoning: cleanString(v["reasoning"], 600) ?? "",
     frames,
     evidence: Array.isArray(v["evidence"])
       ? v["evidence"]
@@ -424,6 +449,7 @@ export function sanitizeSectorJudgment(v: unknown): SectorJudgment | null {
     cameraName: cleanString(v["cameraName"], 80) ?? "Camera",
     zone,
     text,
+    reasoning: cleanString(v["reasoning"], 600) ?? "",
     still: cleanStillName(v["still"]) ?? "",
     crossExam: sanitizeCrossExam(v["crossExam"]),
     acknowledged: v["acknowledged"] === true,
@@ -868,4 +894,52 @@ export function motionBand(coverage: number | null): string {
 export function crossExamLogText(subject: string, entries: CrossExamEntry[]): string {
   const parts = entries.map((e) => `${e.tool} — ${e.reading}`).join("; ");
   return `Cross-examination for ${subject}: ${parts}. Each is a labeled reading from its own tool; they are recorded side by side, never merged into a certainty.`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Reasoning — why a kept picture was kept (proof of concept)          */
+/*                                                                     */
+/* The Captain's order, 2026-11-26: "if he captures pictures           */
+/* for a reason I need proof of concept understanding reasoning        */
+/* and I need it to be saved" — his example: a Temu delivery           */
+/* person not wearing delivery clothes gets captured and               */
+/* retained anyway, so that if something happens later, the            */
+/* image AND the reasoning exist. Every kept capture therefore         */
+/* carries one plain sentence: the real trigger and the Second         */
+/* Look outcome that earned its place. The sentence is built           */
+/* from the event's own kind — never free-form, never invented.        */
+/* ------------------------------------------------------------------ */
+
+/** Why an event's pictures were kept — one sentence, from the trigger + the two looks. */
+export function captureReasoningForEvent(kind: SectorEventKind, cameraName: string): string {
+  const tail =
+    "Both looks agreed before anything was kept — it is still a model's draft reading, and the picture is the evidence. Kept on the core so that if anything comes of this moment later, the picture and the reason it was kept are both on the record.";
+  switch (kind) {
+    case "weapon":
+      return `${cameraName}: this picture was kept because the weapon question was answered yes twice — a person read as holding a gun or something like it. ${tail}`;
+    case "bedroom-no-access":
+      return `${cameraName}: this picture was kept because a person was confirmed in the Captain's room and the house rules could not clear them — no enrolled face matched, or the face check gave no verdict. ${tail}`;
+    case "front-truck":
+      return `${cameraName}: this picture was kept because a person was confirmed at the Captain's truck and the house rules could not clear them — by his rule, the only one who gets in that truck is him. ${tail}`;
+    case "front-threat":
+      return `${cameraName}: this picture was kept because a person was confirmed at a vehicle or forcing entry at the front. ${tail}`;
+  }
+}
+
+/** Why one evidence-burst still was kept — the burst exists because the event was confirmed. */
+export function evidenceStillReasoning(kind: SectorEventKind, index: number): string {
+  const subject =
+    kind === "weapon"
+      ? "a top-tier weapon reading"
+      : kind === "bedroom-no-access"
+        ? "a no-access reading in the Captain's room"
+        : kind === "front-truck"
+          ? "a person confirmed at the Captain's truck"
+          : "a confirmed front reading";
+  return `Evidence still ${index + 1} of the burst kept for that event: a full-resolution frame captured around the moment because ${subject} was confirmed on a second look. Kept so the moment can be checked later — a delivery person in plain clothes is captured and retained the same way, in case the picture matters after the fact.`;
+}
+
+/** Why a judgment picture was kept — his eye caught it, the escalation look agreed it was worth keeping. */
+export function judgmentReasoning(cameraName: string): string {
+  return `${cameraName}: this picture was kept on Anubis's judgment — a first reading caught his eye (a draft the second look did not confirm), and the escalation question, asked once more, said it was worth your eyes. Below the event line: never confirmed as an event, and labeled his judgment call wherever it travels.`;
 }
