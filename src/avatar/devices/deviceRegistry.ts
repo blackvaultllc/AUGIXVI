@@ -245,6 +245,18 @@ export type DeviceProfile = {
   /** His explicit grant that Osiris may CONTROL this device. */
   controlGranted?: boolean | undefined;
   /**
+   * THE SUMMONS (cybernetic pass, 2026-11-26 — his standing
+   * Batman Signal doctrine, generalized from the wand): when
+   * this flag stands on a card, the device's signal APPEARING
+   * on a presence check raises him (notify + a log line), and
+   * its vanishing raises a stood-down note. It is a watching
+   * flag, never a control flag — it grants nothing. Default
+   * ABSENT (= off), set only by the Captain's hand (his own
+   * toggle, or his Confirm on a construct's proposal — the
+   * same propose/confirm discipline as the Permission Law).
+   */
+  summonsMe?: boolean | undefined;
+  /**
    * RETIRED (owner order 2026-11-24): the device is gone from the
    * Captain's hands — sold, given away, destroyed. Retirement is
    * NOT deletion: the card, its control map, and its command
@@ -565,6 +577,7 @@ export function sanitizeProfile(v: unknown): DeviceProfile | null {
     beaconRole: v["beaconRole"] === true ? true : undefined,
     ownerConfirmed: v["ownerConfirmed"] === true ? true : undefined,
     controlGranted: v["controlGranted"] === true ? true : undefined,
+    summonsMe: v["summonsMe"] === true ? true : undefined,
     retired: sanitizeRetired(v["retired"]),
     lastSeenRssi:
       typeof v["lastSeenRssi"] === "number" && v["lastSeenRssi"] >= -120 && v["lastSeenRssi"] <= 0

@@ -17,6 +17,7 @@
  * Plain TS so the whole flow is unit-testable without a stage.
  */
 import { analyzeImageBase64, type VisionReading } from "../PictureAnalysis";
+import { runSecondLook, type SecondLookOutcome } from "../secondLook";
 
 /** The label every camera reading renders under. Exact copy is
  *  pinned by test — the words are the honesty contract. */
@@ -30,14 +31,17 @@ export function cameraSnapshotUrl(token: string, cameraId: string, lensId: strin
 }
 
 export type CameraAnalysisOutcome =
-  | { ok: true; frame: Blob; reading: VisionReading }
+  | { ok: true; frame: Blob; reading: VisionReading; secondLook: SecondLookOutcome }
   | { ok: false; note: string };
 
-/** The per-lens analysis state the panel renders. */
+/** The per-lens analysis state the panel renders. The done state
+ *  carries the Second Look's verdicts WITH the reading (the
+ *  cybernetic pass, 2026-11-26) — saved on the record, so the
+ *  stamps shown are the stamps earned, never re-derived. */
 export type LensAnalysisState =
   | { kind: "idle" }
   | { kind: "working"; elapsed: number; partial: string }
-  | { kind: "done"; reading: VisionReading; at: number }
+  | { kind: "done"; reading: VisionReading; at: number; secondLook: SecondLookOutcome }
   | { kind: "failed"; note: string };
 
 /** Frame bytes → base64. Chunked: a full-size frame is a few
@@ -89,7 +93,19 @@ export async function analyzeCameraView(args: {
       ...(args.onText ? { onText: args.onText } : {}),
       fetchFn,
     });
-    return { ok: true, frame, reading };
+    // THE SECOND LOOK (cybernetic pass, 2026-11-26): every
+    // finding is checked again, one at a time, before the
+    // reading is shown — the camera analyzer's inventions are
+    // exactly what this pass exists to catch. runSecondLook
+    // never throws; an unreachable model lands as "unavailable"
+    // and the panel labels the reading FIRST PASS ONLY.
+    const secondLook = await runSecondLook({
+      brain: args.brain,
+      base64,
+      findings: reading.findings,
+      fetchFn,
+    });
+    return { ok: true, frame, reading, secondLook };
   } catch (err) {
     return {
       ok: false,

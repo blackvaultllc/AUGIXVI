@@ -293,6 +293,61 @@ export function runPresenceCheck(
   return { devices: next, activated, scan };
 }
 
+/* ------------------------- THE SUMMONS ------------------------------- */
+
+/**
+ * THE SUMMONS (cybernetic pass, 2026-11-26 — the survey's Batman
+ * row, and his standing Batman Signal doctrine generalized from
+ * the wand): a device whose card carries the Summons flag raises
+ * the Captain when its signal APPEARS and notes the stand-down
+ * when it VANISHES. This is the detector — a pure comparison of
+ * the registry before and after a REAL presence check. Callers
+ * run it only on checks that actually scanned (runPresenceCheck
+ * already refuses to move anything on an unavailable scan), so a
+ * summons can never fire from a scan that never happened.
+ *
+ * The signal is reported as strength-and-trend only (the card's
+ * recorded RSSI) — never a distance, never a battery guess.
+ */
+export type SummonsTransition = {
+  device: DeviceProfile;
+  kind: "appeared" | "vanished";
+  at: number;
+  /** The sighting's recorded strength, when the card carries one. */
+  rssi?: number | undefined;
+};
+
+export function summonsTransitions(
+  before: DeviceProfile[],
+  after: DeviceProfile[],
+  at: number,
+): SummonsTransition[] {
+  const beforeById = new Map(before.map((d) => [d.id, d]));
+  const out: SummonsTransition[] = [];
+  for (const device of after) {
+    if (device.summonsMe !== true || device.retired) continue;
+    const was = beforeById.get(device.id)?.presence ?? "unknown";
+    if (was !== "active" && device.presence === "active") {
+      out.push({ device, kind: "appeared", at, rssi: device.lastSeenRssi });
+    } else if (was === "active" && device.presence === "gone") {
+      out.push({ device, kind: "vanished", at });
+    }
+  }
+  return out;
+}
+
+/** A summons transition in plain words — for the notify + log. */
+export function summonsLine(t: SummonsTransition): string {
+  if (t.kind === "appeared") {
+    return (
+      `Summons: ${t.device.displayName}'s signal is up` +
+      (t.rssi !== undefined ? ` — last heard at ${t.rssi} dBm (strength only)` : "") +
+      `. Its card carries your Summons, so its appearing raises you.`
+    );
+  }
+  return `Summons: ${t.device.displayName}'s signal is gone — the Summons stands down.`;
+}
+
 export type PresenceCheckVia = "heartbeat" | "manual" | "open";
 
 /**

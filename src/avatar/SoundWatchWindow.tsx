@@ -64,6 +64,15 @@ import {
   YamnetClassifier,
   type ClassifierState,
 } from "./soundClassifier";
+import {
+  acknowledgeAllSoundAlerts,
+  acknowledgeSoundAlert,
+  currentSoundFeed,
+  publishSoundEntry,
+  subscribeSoundFeed,
+  unacknowledgedSoundAlerts,
+  type SoundFeedEntry,
+} from "./soundWatchFeed";
 
 const TICK_MS = 100;
 const MAX_LOG_ENTRIES = 80;
@@ -99,6 +108,12 @@ export function SoundWatchWindow({
   const [error, setError] = useState("");
   const [liveDb, setLiveDb] = useState(-100);
   const [entries, setEntries] = useState<SoundEventEntry[]>([]);
+  // The shared feed (soundWatchFeed.ts): every classification is
+  // published there so the Alert Ring and the Identifier read the
+  // same record; acknowledgment of an alert happens here, in its
+  // owning surface, and lands on the feed.
+  const [feed, setFeed] = useState<SoundFeedEntry[]>(() => currentSoundFeed());
+  useEffect(() => subscribeSoundFeed(setFeed), []);
   const [library, setLibrary] = useState<SoundLibraryEntry[]>(() =>
     loadSoundLibrary(browserStorage()),
   );
@@ -202,6 +217,7 @@ export function SoundWatchWindow({
         applyLibrary(recordLibraryHit(libraryRef.current, decision.libraryId));
       }
       setEntries((prev) => [entry, ...prev].slice(0, MAX_LOG_ENTRIES));
+      publishSoundEntry(entry);
       if (entry.alert) onAlertRef.current?.(soundAlertLine(entry));
     },
     [applyLibrary],
@@ -332,7 +348,14 @@ export function SoundWatchWindow({
     [applyLibrary, teachNames],
   );
 
-  const alerts = entries.filter((e) => e.alert);
+  // Standing alerts read off the FEED: every alert entry this
+  // window makes is published there, and a feed alert survives
+  // the window closing — its acknowledgment still happens here,
+  // in the owning surface. The window's own entries only enrich
+  // the rows (distance, character) for sounds heard this session.
+  const feedAlerts = feed.filter((f) => f.alert);
+  const entryById = new Map(entries.map((e) => [e.id, e]));
+  const waitingAlerts = unacknowledgedSoundAlerts(feed);
   const unclassifiedCount = entries.filter((e) => e.source === "unclassified").length;
   const watching = phase === "watching" || phase === "starting" || phase === "yielding";
 
@@ -409,17 +432,58 @@ export function SoundWatchWindow({
           )}
         </div>
 
-        {alerts.length > 0 && (
+        {feedAlerts.length > 0 && (
           <section className="window-soundwatch__alerts" aria-label="Alerts">
-            <h3>Alerts</h3>
+            <h3>
+              Alerts
+              {waitingAlerts.length > 0
+                ? ` — ${waitingAlerts.length} waiting for your acknowledgment`
+                : ""}
+            </h3>
+            <p className="window-hint">
+              An alert you have not acknowledged keeps Anubis&apos;s ring in its alert state.
+              Acknowledge it here when you have seen it — that is the only way the ring clears.
+            </p>
             <ul className="window-soundwatch__log">
-              {alerts.map((entry) => (
-                <li key={entry.id} className="window-soundwatch__entry is-alert">
-                  <b>{entryTitle(entry)}</b> · {distanceBandText(entry.distanceBand)} ·{" "}
-                  {new Date(entry.at).toLocaleTimeString()} · {entry.character}
-                </li>
-              ))}
+              {feedAlerts.map((record) => {
+                const entry = entryById.get(record.id);
+                return (
+                  <li key={record.id} className="window-soundwatch__entry is-alert">
+                    {entry ? (
+                      <>
+                        <b>{entryTitle(entry)}</b> · {distanceBandText(entry.distanceBand)} ·{" "}
+                        {new Date(entry.at).toLocaleTimeString()} · {entry.character}
+                      </>
+                    ) : (
+                      <>
+                        <b>{record.label ?? "UNCLASSIFIED"}</b> ·{" "}
+                        {new Date(record.at).toLocaleTimeString()} · heard in an earlier sitting
+                      </>
+                    )}{" "}
+                    {record.acknowledged ? (
+                      <span>· Acknowledged</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="window-btn"
+                        onClick={() => acknowledgeSoundAlert(record.id)}
+                      >
+                        Acknowledge
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
+            {waitingAlerts.length > 1 && (
+              <button
+                type="button"
+                className="window-btn"
+                onClick={() => acknowledgeAllSoundAlerts()}
+              >
+                Acknowledge all
+              </button>
+            )}
           </section>
         )}
 

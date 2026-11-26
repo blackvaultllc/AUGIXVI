@@ -32,8 +32,8 @@ function arcPath(startDeg: number, endDeg: number, radius: number): string {
   return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${radius} ${radius} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
 }
 
-export function PresenceRing({ ready, speaking, listening, acting }: RingSignals) {
-  const state = ringPresenceState({ ready, speaking, listening, acting });
+export function PresenceRing({ ready, speaking, listening, acting, alert }: RingSignals) {
+  const state = ringPresenceState({ ready, speaking, listening, acting, alert });
   const segments = ringSegments(state);
   return (
     <svg

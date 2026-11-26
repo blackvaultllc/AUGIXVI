@@ -45,8 +45,12 @@ import { profileBleDevice, webBluetoothAvailable } from "./devices/bleProfiler";
 import { DeviceCommandsPanel } from "./devices/DeviceCommandsPanel";
 import {
   applyStateToStorage,
+  lawInForce,
+  lawInForceLine,
   pendingFlagRequests,
   resolveFlagRequest,
+  setAllStop as applyAllStop,
+  type AllStopState,
   type DeviceFlagRequest,
 } from "./devices/deviceStoreCore";
 import {
@@ -65,10 +69,14 @@ import {
   runPresenceCheck,
   scanWifiEnvironment,
   subscribePresenceWatch,
+  summonsLine,
+  summonsTransitions,
   watchedSsid,
   type PresenceCheckVia,
   type PresenceWatchState,
 } from "./devices/presence";
+import { recordSummonsInCore } from "./devices/summonsClient";
+import { earnedMaps, earnedMapsLine } from "./devices/earnedMaps";
 import { HEARTBEAT_PERIOD_MS } from "./heartbeat";
 import type { WatcherView } from "./devices/wifiWatch";
 
@@ -96,6 +104,7 @@ const EMPTY_FORM = {
   beaconRole: false,
   ownerConfirmed: false,
   controlGranted: false,
+  summonsMe: false,
   lastSeenRssi: "",
   streamType: "",
   streamAddress: "",
@@ -162,6 +171,10 @@ export function DevicesWindow({
    *  here for the Captain's own Confirm; the construct never
    *  grants itself anything. */
   const [flagRequests, setFlagRequests] = useState<DeviceFlagRequest[]>([]);
+  /** THE ALL-STOP (cybernetic pass, 2026-11-26): the core store's
+   *  halt flag, mirrored here for the Captain's hand — his button
+   *  below is the only control that exists for it. */
+  const [allStop, setAllStop] = useState<AllStopState>(() => currentDeviceState().allStop);
   const bleAvailable = useMemo(() => webBluetoothAvailable(), []);
 
   const fireActivation = (device: DeviceProfile) => {
@@ -189,8 +202,16 @@ export function DevicesWindow({
     const { devices: next, activated } = runPresenceCheck(before, result, result.at);
     notePresenceCheck(result, via, JSON.stringify(next) !== JSON.stringify(before));
     setDevices(next);
+    // THE SUMMONS (cybernetic pass, 2026-11-26): transitions this
+    // real check just caused are written to the core's events
+    // record and named in the note; the stage's heartbeat raises
+    // its notify for transitions IT sees, and a transition is
+    // recorded once — by the check that caused it.
+    const summons = summonsTransitions(before, next, result.at);
+    for (const transition of summons) recordSummonsInCore(summonsLine(transition));
     setScanNote(
-      `Check at ${new Date(result.at).toLocaleTimeString()}: ${result.networks.length} network(s) seen.`,
+      `Check at ${new Date(result.at).toLocaleTimeString()}: ${result.networks.length} network(s) seen.` +
+        (summons.length > 0 ? ` ${summons.map(summonsLine).join(" ")}` : ""),
     );
     for (const device of activated) fireActivation(device);
   };
@@ -225,6 +246,7 @@ export function DevicesWindow({
       if (merged) {
         setDevices(loadRegistry());
         setFlagRequests(pendingFlagRequests(merged));
+        setAllStop(merged.allStop);
       }
     })();
   }, []);
@@ -239,6 +261,19 @@ export function DevicesWindow({
       if (state) setFlagRequests(pendingFlagRequests(state));
     });
   }, [devices]);
+
+  /** The Captain's hand on the ALL-STOP — the same road as his
+   *  flag decisions: build the next core state, cache it, hold
+   *  it, push it to the core. Engaging and releasing are both
+   *  written to the device command log by setAllStop itself. */
+  const toggleAllStop = (active: boolean) => {
+    const base = currentDeviceState();
+    const next = applyAllStop({ ...base, registry: devicesRef.current }, active, Date.now());
+    applyStateToStorage(next);
+    rememberDeviceState(next);
+    setAllStop(next.allStop);
+    void pushDevicesToCore();
+  };
 
   /** The Captain's hand on a construct flag request: Confirm is
    *  the only road by which Anubis's ask becomes a grant. */
@@ -367,6 +402,7 @@ export function DevicesWindow({
       beaconRole: device.beaconRole === true,
       ownerConfirmed: device.ownerConfirmed === true,
       controlGranted: device.controlGranted === true,
+      summonsMe: device.summonsMe === true,
       lastSeenRssi: device.lastSeenRssi !== undefined ? String(device.lastSeenRssi) : "",
       streamType: device.measured.streamType ?? "",
       streamAddress: device.measured.streamAddress ?? "",
@@ -426,6 +462,7 @@ export function DevicesWindow({
       beaconRole: form.beaconRole ? (true as const) : undefined,
       ownerConfirmed: form.ownerConfirmed ? (true as const) : undefined,
       controlGranted: form.controlGranted ? (true as const) : undefined,
+      summonsMe: form.summonsMe ? (true as const) : undefined,
       lastSeenRssi: parseNumber(form.lastSeenRssi),
       address: form.address.trim() ? form.address.trim() : undefined,
       protocol: form.protocol.trim() ? form.protocol.trim() : undefined,
@@ -495,6 +532,92 @@ export function DevicesWindow({
           numbers that were actually measured. Nothing is guessed — a capability appears only when
           the device declares it or you measured it.
         </p>
+
+        {/* THE ALL-STOP + THE LAW IN FORCE (cybernetic pass,
+            2026-11-26): the Captain's halt and the Permission
+            Law's standing, counted live from the registry every
+            render — never stored, never stale. */}
+        <section className="window-devices__allstop" aria-label="The All-Stop and the Law in Force">
+          <h3>The All-Stop</h3>
+          <p className="window-devices__meta" role="status">
+            {allStop.active ? (
+              <>
+                <strong>STOPPED.</strong> Every device command is refused — by the send engine and
+                by the bridge — until you release the stop.
+                {allStop.at > 0
+                  ? ` In force since ${new Date(allStop.at).toLocaleString()}.`
+                  : ""}
+              </>
+            ) : (
+              <>
+                <strong>Live.</strong> Device commands may be sent — each one still under its own
+                Permission Law grant.
+                {allStop.at > 0
+                  ? ` The stop last changed hands ${new Date(allStop.at).toLocaleString()}.`
+                  : ""}
+              </>
+            )}
+          </p>
+          <div className="window-devices__actions">
+            {allStop.active ? (
+              <button type="button" className="window-btn" onClick={() => toggleAllStop(false)}>
+                Release the ALL-STOP
+              </button>
+            ) : (
+              <button type="button" className="window-btn" onClick={() => toggleAllStop(true)}>
+                Engage the ALL-STOP — halt every device command
+              </button>
+            )}
+          </div>
+          <h4>The Law in Force</h4>
+          <p className="window-devices__meta">
+            {lawInForceLine(
+              lawInForce({
+                ...currentDeviceState(),
+                registry: devices,
+                flagRequests,
+                allStop,
+              }),
+            )}
+            . Counted from the registry as it stands now.
+          </p>
+        </section>
+
+        {/* EARNED MAPS (cybernetic pass, 2026-11-26): the shelf
+            of control maps, each earned from a real device —
+            derived from the registry and profiles as they stand,
+            never stored as a claim. */}
+        {(() => {
+          const maps = earnedMaps({ ...currentDeviceState(), registry: devices });
+          return (
+            <section className="window-devices__allstop" aria-label="Earned control maps">
+              <h3>Earned Maps</h3>
+              <p className="window-devices__meta">{earnedMapsLine(maps)}</p>
+              {maps.length > 0 && (
+                <ul className="window-devices__maps">
+                  {maps.map((map) => (
+                    <li key={map.profileId} className="window-devices__meta">
+                      <strong>{map.className}</strong> — {map.profileName}. Earned from{" "}
+                      {map.earnedFrom},{" "}
+                      {new Date(map.earnedAt).toLocaleDateString()}.{" "}
+                      {map.standing === "active" ? (
+                        "ACTIVE — a live device carries this map."
+                      ) : (
+                        <>
+                          TEMPLATE — earned from {map.earnedFrom}, retired{" "}
+                          {map.retiredAt
+                            ? new Date(map.retiredAt).toLocaleDateString()
+                            : "date not recorded"}
+                          ; kept for the next device of its class.
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          );
+        })()}
 
         {watcher.kind === "live" && watcher.view.active ? (
           <p className="window-devices__watcher" role="status">
@@ -722,6 +845,15 @@ export function DevicesWindow({
               Control granted — Osiris may CONTROL this device (off by default; only I grant
               this, per device)
             </label>
+            <label className="window-devices__check">
+              <input
+                type="checkbox"
+                checked={form.summonsMe}
+                onChange={(e) => setForm({ ...form, summonsMe: e.target.checked })}
+              />
+              Summons — when this device's signal appears, raise me; when it vanishes, note it
+              stood down (a watching flag only — it grants no control)
+            </label>
             <label>
               Wi-Fi SSID (hotspot devices)
               <input
@@ -941,6 +1073,12 @@ export function DevicesWindow({
                 Permission Law: {selected.ownerConfirmed ? "owner-confirmed" : "not owner-confirmed"}{" "}
                 · control {selected.controlGranted ? "GRANTED by the operator" : "not granted — observation only"}.
               </p>
+              {selected.summonsMe && (
+                <p className="window-devices__meta">
+                  Summons: this device's signal appearing raises you; its vanishing notes the
+                  stand-down. Watching only — no control rides on it.
+                </p>
+              )}
               {selected.retired && (
                 <p className="window-devices__meta" role="status">
                   <strong>SOLD — retired {retiredDateLabel(selected.retired)}.</strong>{" "}
@@ -961,6 +1099,13 @@ export function DevicesWindow({
                         : ""}
                       {request.controlGranted !== undefined &&
                         `control granted → ${request.controlGranted ? "yes" : "no"}`}
+                      {(request.ownerConfirmed !== undefined ||
+                        request.controlGranted !== undefined) &&
+                      request.summonsMe !== undefined
+                        ? " · "
+                        : ""}
+                      {request.summonsMe !== undefined &&
+                        `summons → ${request.summonsMe ? "on" : "off"}`}
                       . {request.reason}
                     </p>
                     <p>

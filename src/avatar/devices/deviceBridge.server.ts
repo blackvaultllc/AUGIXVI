@@ -98,6 +98,20 @@ export async function runDeviceFrame(
       };
     }
   }
+  // THE ALL-STOP (cybernetic pass, 2026-11-26): the bridge checks
+  // the core store's halt flag on EVERY request it serves, before
+  // any sender is resolved or run — the server-side twin of the
+  // send engine's refusal, so a caller that reaches the bridge
+  // directly meets the same stop. The Captain releases it only
+  // from his Devices window.
+  if (state.allStop.active) {
+    return {
+      ok: false,
+      status: 423,
+      error:
+        "The ALL-STOP is in force — the Captain has halted every device command at the bridge. Nothing was sent.",
+    };
+  }
   const home = env["HOME"]?.trim() || homedir();
   const resolution = resolveDeviceSender(state, req.deviceId, home);
   if (!resolution.ok) return resolution;

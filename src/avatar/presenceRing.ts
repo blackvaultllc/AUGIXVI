@@ -14,7 +14,13 @@
  */
 import type { AvatarState } from "./AvatarBridge";
 
-export type RingPresenceState = "speaking" | "listening" | "thinking" | "idle" | "connecting";
+export type RingPresenceState =
+  | "alert"
+  | "speaking"
+  | "listening"
+  | "thinking"
+  | "idle"
+  | "connecting";
 
 /** The live signals the stage holds for a presence, named plainly. */
 export interface RingSignals {
@@ -26,15 +32,26 @@ export interface RingSignals {
   listening: boolean;
   /** The god is visibly carrying out work (thinking / presenting). */
   acting: boolean;
+  /**
+   * A REAL alert stands unacknowledged (the cybernetic pass,
+   * 2026-11-26): an alert-flagged sound Sound Watch heard and the
+   * Captain has not yet acknowledged, or Khadija's call still
+   * ringing unanswered in the Daddy Inbox. Computed by the stage
+   * from those records (alertRing.ts) — never from anything else.
+   * Absent = no alert. The alert outranks every other state: it
+   * is the one reading that must not wait its turn.
+   */
+  alert?: boolean | undefined;
 }
 
 /**
  * The ring's state, from the signals — the same priority the
  * medallion's own state word has always used (AnubisPresence):
- * connecting until ready, then speaking, listening, working,
- * and at rest, idle.
+ * an unacknowledged alert first, then connecting until ready,
+ * speaking, listening, working, and at rest, idle.
  */
 export function ringPresenceState(signals: RingSignals): RingPresenceState {
+  if (signals.alert) return "alert";
   if (!signals.ready) return "connecting";
   if (signals.speaking) return "speaking";
   if (signals.listening) return "listening";
@@ -54,7 +71,7 @@ export function ringPresenceStateForBridge(state: AvatarState, ready: boolean): 
 
 export const RING_SEGMENT_COUNT = 24;
 
-export type RingSegmentTone = "gold" | "cyan" | "dim";
+export type RingSegmentTone = "gold" | "cyan" | "alert" | "dim";
 
 export interface RingSegment {
   index: number;
@@ -65,6 +82,9 @@ export interface RingSegment {
  * Which segments a state lights, and in which tone. The pattern
  * is a gauge, not a meter: it says WHICH state he is in, never
  * how much of anything — there is no quantity here to invent.
+ * - alert: the whole ring lit in the alert tone — a real alert
+ *   stands unacknowledged; the component pulses it on the
+ *   stage's own heartbeat clock (tempo only, never a reading).
  * - speaking: the whole ring lit, gold — he holds the floor.
  * - thinking: every other segment lit, cyan — work in motion.
  * - listening: every third segment lit, cyan — the ear is open.
@@ -76,6 +96,9 @@ export function ringSegments(state: RingPresenceState): RingSegment[] {
   for (let index = 0; index < RING_SEGMENT_COUNT; index++) {
     let tone: RingSegmentTone = "dim";
     switch (state) {
+      case "alert":
+        tone = "alert";
+        break;
       case "speaking":
         tone = "gold";
         break;

@@ -21,6 +21,7 @@
  */
 import { useState } from "react";
 import { ANNOTATION_DRAFT_LABEL, UNPLACED_NOTE, type PlacedFinding } from "./analysisAnnotations";
+import { verdictAt, verdictLabel, type FindingVerdict } from "./secondLook";
 
 export type MarksMode =
   /** The placement pass answered; placed items carry points. */
@@ -48,6 +49,8 @@ export function AnnotatedAnalysis({
   items,
   marksMode,
   failureNote,
+  verdicts,
+  secondLookNote,
 }: {
   src: string;
   alt: string;
@@ -56,6 +59,13 @@ export function AnnotatedAnalysis({
   marksMode: MarksMode;
   /** The plain-words note for failed mode (fallback or partial). */
   failureNote?: string;
+  /** THE SECOND LOOK's verdicts (cybernetic pass, 2026-11-26),
+   *  aligned with items by index — saved with the analysis, so
+   *  the stamps here are the stamps the pass earned. */
+  verdicts?: FindingVerdict[] | undefined;
+  /** The second look's standing line: checking…, or the
+   *  FIRST PASS ONLY label when the pass could not run. */
+  secondLookNote?: string | undefined;
 }) {
   const [active, setActive] = useState<number | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
@@ -141,29 +151,47 @@ export function AnnotatedAnalysis({
             Marking the things found on the picture…
           </p>
         )}
+        {secondLookNote && (
+          <p className="analyzer-draft-label" role="status">
+            {secondLookNote}
+          </p>
+        )}
+        {verdicts && (
+          <p className="analyzer-draft-label">
+            Second look: VERIFIED means the check confirmed the finding; NOT CONFIRMED stays on
+            the record, dimmed — it is not a fact.
+          </p>
+        )}
         <ol className="analyzer-findings__list">
-          {items.map((item, index) => (
-            <li
-              key={`${index}-${item.text}`}
-              className={
-                active === index
-                  ? "analyzer-findings__item analyzer-findings__item--active"
-                  : "analyzer-findings__item"
-              }
-              onMouseEnter={() => setActive(index)}
-              onMouseLeave={() => setActive(null)}
-            >
-              <span className="analyzer-findings__num" aria-hidden="true">
-                {index + 1}
-              </span>
-              <span className="analyzer-findings__text">
-                {item.text}
-                {marksMode === "placed" && item.point === null && (
-                  <span className="analyzer-findings__unplaced"> — {UNPLACED_NOTE}</span>
-                )}
-              </span>
-            </li>
-          ))}
+          {items.map((item, index) => {
+            const verdict = verdicts ? verdictAt(verdicts, index) : null;
+            return (
+              <li
+                key={`${index}-${item.text}`}
+                className={
+                  (active === index
+                    ? "analyzer-findings__item analyzer-findings__item--active"
+                    : "analyzer-findings__item") +
+                  (verdict === "not-confirmed" ? " analyzer-findings__item--not-confirmed" : "")
+                }
+                onMouseEnter={() => setActive(index)}
+                onMouseLeave={() => setActive(null)}
+              >
+                <span className="analyzer-findings__num" aria-hidden="true">
+                  {index + 1}
+                </span>
+                <span className="analyzer-findings__text">
+                  {item.text}
+                  {marksMode === "placed" && item.point === null && (
+                    <span className="analyzer-findings__unplaced"> — {UNPLACED_NOTE}</span>
+                  )}
+                  {verdict && (
+                    <span className="analyzer-findings__stamp"> — {verdictLabel(verdict)}</span>
+                  )}
+                </span>
+              </li>
+            );
+          })}
         </ol>
       </div>
     </div>

@@ -4976,6 +4976,49 @@
   margin: 0;
   padding-left: 1.2rem;
 }
+/* SECOND LOOK (cybernetic pass, 2026-11-26): not-confirmed
+   camera findings stay listed, dimmed, stamped. */
+.window-cameras__findings li.is-not-confirmed {
+  opacity: 0.55;
+}
+.window-cameras__stamp {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+/* THE IDENTIFIER + THE FORMATION (cybernetic pass, 2026-11-26):
+   cabinet cards inside their windows — the stage stays Anubis
+   alone; these live behind their menus like every window. */
+.window-identify,
+.window-formation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.6rem;
+}
+.window-identify__card,
+.window-formation__card {
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+}
+.window-identify__card h3,
+.window-formation__card h3 {
+  margin: 0.1rem 0 0.35rem;
+}
+.window-identify__headline,
+.window-formation__headline {
+  font-weight: 700;
+  margin: 0.2rem 0;
+}
+.window-identify__search {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.window-identify__search input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .window-cameras__ptz {
   display: flex;
   flex-direction: column;
@@ -5095,6 +5138,21 @@
 .window-devices__watcher--quiet {
   border-color: var(--avatar-hud-line);
   opacity: 0.85;
+}
+/* THE ALL-STOP + THE LAW IN FORCE (cybernetic pass, 2026-11-26):
+   the Captain's halt stands at the head of the Devices window,
+   panelled like the watcher state above it. */
+.window-devices__allstop {
+  background: var(--dev-panel);
+  border: 1px solid var(--avatar-hud-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  margin: 0 0 0.6rem;
+  max-width: 34rem;
+}
+.window-devices__allstop h3,
+.window-devices__allstop h4 {
+  margin: 0.2rem 0 0.35rem;
 }
 .window-devices__unavailable svg {
   flex: 0 0 auto;
@@ -8639,6 +8697,34 @@
   gap: clamp(12px, 2vw, 20px);
   z-index: 6;
 }
+/* THE CALL CARD (cybernetic pass, 2026-11-26): the small card
+   beside a called god's circle — name, real role, state word.
+   It exists only while the pop-up exists (while he is called);
+   at rest the stage stays Anubis alone, card and all. */
+.called-god-popup__card {
+  background: rgb(8 14 28 / 82%);
+  border: 1px solid var(--avatar-hud-line, #2b3f5f);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  max-width: 13rem;
+  pointer-events: none;
+}
+.called-god-popup__name {
+  margin: 0;
+  font-weight: 700;
+}
+.called-god-popup__role {
+  margin: 0.1rem 0 0;
+  font-size: 0.85em;
+  opacity: 0.9;
+}
+.called-god-popup__state {
+  margin: 0.2rem 0 0;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .god-medallion {
   position: relative;
   width: clamp(72px, 12vmin, 104px);
@@ -9407,6 +9493,16 @@
 .analyzer-findings__item--active {
   background: #1a2336;
   outline: 1px solid #7dd3fc;
+}
+/* SECOND LOOK (cybernetic pass, 2026-11-26): a finding the
+   second look did not confirm stays on the record, dimmed,
+   wearing its stamp — never deleted, never dressed as fact. */
+.analyzer-findings__item--not-confirmed {
+  opacity: 0.55;
+}
+.analyzer-findings__stamp {
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 .analyzer-findings__num {
   flex: 0 0 auto;

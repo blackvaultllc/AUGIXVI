@@ -210,7 +210,12 @@ function LensView({
         setStillNote(
           `Snapshot — ${new Date().toLocaleTimeString()} (the frame the analyzer read)`,
         );
-        setAnalysis({ kind: "done", reading: outcome.reading, at: Date.now() });
+        setAnalysis({
+          kind: "done",
+          reading: outcome.reading,
+          at: Date.now(),
+          secondLook: outcome.secondLook,
+        });
       } else {
         setAnalysis({ kind: "failed", note: outcome.note });
       }

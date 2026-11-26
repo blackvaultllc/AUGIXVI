@@ -37,6 +37,7 @@ import { CANONICAL_VISION_MODEL } from "./visionModel";
 import { PLACEMENT_FALLBACK_NOTE, placeFindings, type PlacedFinding } from "./analysisAnnotations";
 import { normalizeImageOrientation } from "./imageOrientation";
 import { AnnotatedAnalysis } from "./AnnotatedAnalysis";
+import { runSecondLook, type FindingVerdict } from "./secondLook";
 
 const ANALYZE_PROMPT = [
   "You are the analytic window of Augie, a local AI assistant.",
@@ -213,6 +214,16 @@ type Analysis = {
     | { kind: "pending" }
     | { kind: "placed"; items: PlacedFinding[] }
     | { kind: "failed"; note: string };
+  /** THE SECOND LOOK (cybernetic pass, 2026-11-26): the
+   *  verification pass's verdicts, saved WITH the analysis so
+   *  every later showing carries the same stamps. Checking while
+   *  the pass runs; done with per-finding verdicts; first-pass-
+   *  only when the pass could not run — labeled, never faked. */
+  secondLook:
+    | { kind: "none" }
+    | { kind: "checking" }
+    | { kind: "done"; verdicts: FindingVerdict[] }
+    | { kind: "first-pass-only"; note: string };
 };
 
 const panelStyle: React.CSSProperties = {
@@ -275,7 +286,7 @@ export function PictureAnalysis() {
   const [busy, setBusy] = useState(false);
   /** Which pass is running: the reading itself, or the marker
    *  placement pass that follows it. */
-  const [phase, setPhase] = useState<"reading" | "placing">("reading");
+  const [phase, setPhase] = useState<"reading" | "placing" | "second-look">("reading");
   /** Streaming state (defect fix 2026-11-22): the answer so far and
    * the seconds on the clock, both live from the first second. */
   const [streamText, setStreamText] = useState("");
@@ -408,6 +419,7 @@ export function PictureAnalysis() {
         source,
         image: dataUrl,
         marks: parsed.findings.length > 0 ? { kind: "pending" } : { kind: "none" },
+        secondLook: parsed.findings.length > 0 ? { kind: "checking" } : { kind: "none" },
       });
       if (parsed.findings.length > 0) {
         // The marker pass: the same model looks at the same picture
@@ -424,6 +436,27 @@ export function PictureAnalysis() {
                   outcome.status === "placed"
                     ? { kind: "placed", items: outcome.items }
                     : { kind: "failed", note: PLACEMENT_FALLBACK_NOTE },
+              }
+            : prev,
+        );
+        // THE SECOND LOOK (cybernetic pass, 2026-11-26): after
+        // the marks, the model is asked about each finding one
+        // at a time — VERIFIED or NOT CONFIRMED, saved with this
+        // analysis. An unreachable model labels the analysis
+        // FIRST PASS ONLY; no stamp is ever faked.
+        setPhase("second-look");
+        const second = await runSecondLook({ brain, base64, findings: parsed.findings });
+        setAnalysis((prev) =>
+          prev && prev.at === at
+            ? {
+                ...prev,
+                secondLook:
+                  second.status === "done"
+                    ? { kind: "done", verdicts: second.verdicts }
+                    : {
+                        kind: "first-pass-only",
+                        note: `FIRST PASS ONLY — the second look could not run (${second.reason}), so none of these findings is verified.`,
+                      },
               }
             : prev,
         );
@@ -447,6 +480,13 @@ export function PictureAnalysis() {
               ? {
                   kind: "failed",
                   note: "The reading was cut off partway, so nothing is marked on the picture — this is the plain list.",
+                }
+              : { kind: "none" },
+          secondLook:
+            parsed.findings.length > 0
+              ? {
+                  kind: "first-pass-only",
+                  note: "FIRST PASS ONLY — the reading was cut off, so no second look ran and none of these findings is verified.",
                 }
               : { kind: "none" },
         });
@@ -609,7 +649,9 @@ export function PictureAnalysis() {
             {busy
               ? phase === "placing"
                 ? `Marking… ${elapsed}s`
-                : `Analyzing… ${elapsed}s`
+                : phase === "second-look"
+                  ? `Second look… ${elapsed}s`
+                  : `Analyzing… ${elapsed}s`
               : "Scan the room"}
           </button>
         </div>
@@ -702,6 +744,14 @@ export function PictureAnalysis() {
                       : "pending"
                 }
                 {...(analysis.marks.kind === "failed" ? { failureNote: analysis.marks.note } : {})}
+                {...(analysis.secondLook.kind === "done"
+                  ? { verdicts: analysis.secondLook.verdicts }
+                  : {})}
+                {...(analysis.secondLook.kind === "checking"
+                  ? { secondLookNote: "Second look: checking each finding again, one at a time…" }
+                  : analysis.secondLook.kind === "first-pass-only"
+                    ? { secondLookNote: analysis.secondLook.note }
+                    : {})}
               />
             </>
           )}

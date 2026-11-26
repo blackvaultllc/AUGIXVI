@@ -64,11 +64,48 @@ export type DeviceFlagRequest = {
   /** The flag values Anubis proposes. Absent = leave as-is. */
   ownerConfirmed?: boolean | undefined;
   controlGranted?: boolean | undefined;
+  /** The Summons flag Anubis proposes. Absent = leave as-is. */
+  summonsMe?: boolean | undefined;
   /** Why Anubis asks, in its own words. */
   reason: string;
   at: number;
   status: "pending" | "applied" | "denied";
 };
+
+/**
+ * THE ALL-STOP (cybernetic pass, 2026-11-26 — the survey's
+ * Terminator row, inverted: where Skynet could not be stopped,
+ * this system carries a stop that always works). One halt flag
+ * in the core store. While it stands, EVERY device command is
+ * refused — the send engine refuses before any channel is
+ * touched, and the device bridge checks the flag again on every
+ * request it serves, so no road around it exists. Only the
+ * Captain's hand engages or releases it (setAllStop runs from
+ * his Devices window; the construct has no road to it at all).
+ * `at` is when the flag last changed hands; merges take the
+ * later change, and a tie fails toward STOPPED — a halt is never
+ * lost to a coin flip.
+ */
+export type AllStopState = {
+  active: boolean;
+  at: number;
+};
+
+export const ALL_STOP_STORAGE_KEY = "augi.devices.all-stop.v1";
+
+export function sanitizeAllStop(v: unknown): AllStopState {
+  if (!isRecord(v)) return { active: false, at: 0 };
+  return {
+    active: v["active"] === true,
+    at: typeof v["at"] === "number" && v["at"] > 0 ? v["at"] : 0,
+  };
+}
+
+/** Merge rule for the halt: the later change wins; a tie stops. */
+export function mergeAllStop(a: AllStopState, b: AllStopState): AllStopState {
+  if (a.at !== b.at) return a.at > b.at ? a : b;
+  return { active: a.active || b.active, at: a.at };
+}
 
 export type DeviceCoreState = {
   version: 1;
@@ -81,6 +118,8 @@ export type DeviceCoreState = {
   profiles: DeviceCommandProfile[];
   log: CommandLogEntry[];
   flagRequests: DeviceFlagRequest[];
+  /** The All-Stop halt flag — see AllStopState above. */
+  allStop: AllStopState;
   updatedAt: number;
 };
 
@@ -92,6 +131,7 @@ export function emptyDeviceCoreState(): DeviceCoreState {
     profiles: [],
     log: [],
     flagRequests: [],
+    allStop: { active: false, at: 0 },
     updatedAt: 0,
   };
 }
@@ -183,6 +223,7 @@ export function retireWepwawetEntry(device: DeviceProfile): DeviceProfile {
     ...device,
     ownerConfirmed: undefined,
     controlGranted: undefined,
+    summonsMe: undefined,
     retired: device.retired ?? { at: WEPWAWET_SOLD_AT, note: WEPWAWET_RETIRED_NOTE },
   };
 }
@@ -207,7 +248,8 @@ export function enforceWepwawetRetirement(state: DeviceCoreState): DeviceCoreSta
     if (
       device.retired &&
       device.ownerConfirmed === undefined &&
-      device.controlGranted === undefined
+      device.controlGranted === undefined &&
+      device.summonsMe === undefined
     ) {
       return device;
     }
@@ -235,6 +277,7 @@ export function seedDeviceCoreState(): DeviceCoreState {
     profiles: [],
     log: [],
     flagRequests: [],
+    allStop: { active: false, at: 0 },
     updatedAt: WEPWAWET_SOLD_AT,
   };
 }
@@ -258,6 +301,7 @@ export function sanitizeFlagRequest(v: unknown): DeviceFlagRequest | null {
     deviceName: typeof v["deviceName"] === "string" ? v["deviceName"].slice(0, 120) : "",
     ownerConfirmed: typeof v["ownerConfirmed"] === "boolean" ? v["ownerConfirmed"] : undefined,
     controlGranted: typeof v["controlGranted"] === "boolean" ? v["controlGranted"] : undefined,
+    summonsMe: typeof v["summonsMe"] === "boolean" ? v["summonsMe"] : undefined,
     reason: typeof v["reason"] === "string" ? v["reason"].slice(0, 500) : "",
     at: v["at"],
     status: status === "applied" || status === "denied" ? status : "pending",
@@ -304,6 +348,7 @@ export function sanitizeDeviceCoreState(v: unknown): DeviceCoreState {
     profiles,
     log,
     flagRequests,
+    allStop: sanitizeAllStop(v["allStop"]),
     updatedAt: typeof v["updatedAt"] === "number" ? v["updatedAt"] : 0,
   });
 }
@@ -423,6 +468,11 @@ export function localStateFromStorage(storage: StorageLike | null = defaultStora
           .slice(-MAX_COMMAND_LOG);
       }
     }
+    const rawAllStop = storage.getItem(ALL_STOP_STORAGE_KEY);
+    if (rawAllStop) {
+      const parsed: unknown = JSON.parse(rawAllStop);
+      state.allStop = sanitizeAllStop(parsed);
+    }
   } catch {
     // a broken cache reads as what parsed — never a throw
   }
@@ -431,7 +481,7 @@ export function localStateFromStorage(storage: StorageLike | null = defaultStora
   return enforceWepwawetRetirement(state);
 }
 
-/** Write a core state into the browser cache's three stores. */
+/** Write a core state into the browser cache's stores. */
 export function applyStateToStorage(
   state: DeviceCoreState,
   storage: StorageLike | null = defaultStorage(),
@@ -441,6 +491,7 @@ export function applyStateToStorage(
     storage.setItem(DEVICES_STORAGE_KEY, JSON.stringify(state.registry));
     storage.setItem(COMMAND_BINDINGS_KEY, JSON.stringify(state.bindings));
     storage.setItem(COMMAND_LOG_KEY, JSON.stringify(state.log.slice(-MAX_COMMAND_LOG)));
+    storage.setItem(ALL_STOP_STORAGE_KEY, JSON.stringify(state.allStop));
   } catch {
     // storage unavailable — the core still holds the state
   }
@@ -501,6 +552,7 @@ export function mergeLocalIntoCore(
     profiles: [...profilesById.values()],
     log,
     flagRequests: [...requestsById.values()].slice(-MAX_FLAG_REQUESTS),
+    allStop: mergeAllStop(core.allStop, local.allStop),
     updatedAt: Math.max(core.updatedAt, local.updatedAt),
   });
 }
@@ -521,6 +573,7 @@ export function proposeFlagChange(
     deviceId: string;
     ownerConfirmed?: boolean | undefined;
     controlGranted?: boolean | undefined;
+    summonsMe?: boolean | undefined;
     reason: string;
     now: number;
   },
@@ -538,7 +591,13 @@ export function proposeFlagChange(
     args.controlGranted !== undefined && args.controlGranted !== (device.controlGranted === true)
       ? args.controlGranted
       : undefined;
-  if (ownerConfirmed === undefined && controlGranted === undefined) return null;
+  const summonsMe =
+    args.summonsMe !== undefined && args.summonsMe !== (device.summonsMe === true)
+      ? args.summonsMe
+      : undefined;
+  if (ownerConfirmed === undefined && controlGranted === undefined && summonsMe === undefined) {
+    return null;
+  }
   flagRequestCounter += 1;
   const request: DeviceFlagRequest = {
     id: `flagreq-${args.now}-${flagRequestCounter}`,
@@ -546,6 +605,7 @@ export function proposeFlagChange(
     deviceName: device.displayName,
     ownerConfirmed,
     controlGranted,
+    summonsMe,
     reason: args.reason.slice(0, 500),
     at: args.now,
     status: "pending",
@@ -597,6 +657,12 @@ export function resolveFlagRequest(
             ? (true as const)
             : undefined
           : d.controlGranted,
+      summonsMe:
+        request.summonsMe !== undefined
+          ? request.summonsMe
+            ? (true as const)
+            : undefined
+          : d.summonsMe,
     };
   });
   return { ...state, registry, flagRequests, updatedAt: now };
@@ -605,4 +671,95 @@ export function resolveFlagRequest(
 /** Pending flag requests, oldest first — what the stage surfaces. */
 export function pendingFlagRequests(state: DeviceCoreState): DeviceFlagRequest[] {
   return state.flagRequests.filter((r) => r.status === "pending");
+}
+
+/* ------------------------- the All-Stop ------------------------------ */
+
+/** The log device id every All-Stop record carries. */
+export const ALL_STOP_LOG_DEVICE_ID = "all-stop";
+
+/**
+ * THE CAPTAIN'S HAND on the halt: engage or release the
+ * All-Stop. Every change is written into the device command log
+ * (the dossier's rule) as its own record — device "All devices",
+ * result "refused" while the halt stands (that is what the halt
+ * DOES to commands) and the release recorded as the Captain's
+ * act with its note carrying the meaning. No other caller
+ * exists: the construct's tools hold no road to this function,
+ * and the Devices window calls it only from his button.
+ */
+export function setAllStop(state: DeviceCoreState, active: boolean, now: number): DeviceCoreState {
+  if (state.allStop.active === active) return state;
+  const entry: CommandLogEntry = {
+    id: `cmdlog-${now}-allstop-${active ? "engage" : "release"}`,
+    deviceId: ALL_STOP_LOG_DEVICE_ID,
+    deviceName: "All devices",
+    profileId: "",
+    commandId: active ? "all-stop-engage" : "all-stop-release",
+    commandName: active ? "ALL-STOP engaged" : "ALL-STOP released",
+    detail: "",
+    at: now,
+    result: active ? "refused" : "sent",
+    note: active
+      ? "The Captain engaged the ALL-STOP. From this moment every device command is refused — by the send engine and by the bridge — until he releases it."
+      : "The Captain released the ALL-STOP. Device commands may be sent again — each one still under its own Permission Law grant.",
+  };
+  return {
+    ...state,
+    allStop: { active, at: now },
+    log: [...state.log, entry].slice(-MAX_COMMAND_LOG),
+    updatedAt: now,
+  };
+}
+
+/* ----------------------- the Law in Force ---------------------------- */
+
+export type LawInForce = {
+  /** Every card on the registry, retired included (they are records). */
+  registered: number;
+  /** Cards with owner confirmation AND the control grant standing. */
+  controlGranted: number;
+  /** Cards control may NOT touch (no grant, or retired). */
+  noControl: number;
+  /** Flag requests waiting for the Captain's hand right now. */
+  flagRequestsWaiting: number;
+  /** The All-Stop stands — every command refused regardless. */
+  allStopActive: boolean;
+};
+
+/**
+ * THE LAW IN FORCE (cybernetic pass, 2026-11-26): the Permission
+ * Law's standing, counted from the live registry at the moment
+ * of asking. Nothing here is stored or remembered — the counts
+ * are re-derived from the cards every time, so the readout can
+ * never drift from the law it reports.
+ */
+export function lawInForce(state: DeviceCoreState): LawInForce {
+  let controlGranted = 0;
+  for (const device of state.registry) {
+    if (!device.retired && device.ownerConfirmed === true && device.controlGranted === true) {
+      controlGranted += 1;
+    }
+  }
+  return {
+    registered: state.registry.length,
+    controlGranted,
+    noControl: state.registry.length - controlGranted,
+    flagRequestsWaiting: pendingFlagRequests(state).length,
+    allStopActive: state.allStop.active,
+  };
+}
+
+/** The Law in Force as one plain-words line. */
+export function lawInForceLine(law: LawInForce): string {
+  const parts = [
+    `${law.registered} device${law.registered === 1 ? "" : "s"} registered`,
+    `${law.controlGranted} with control granted`,
+    `${law.noControl} under NO CONTROL`,
+    law.flagRequestsWaiting === 1
+      ? "1 flag request waiting for your hand"
+      : `${law.flagRequestsWaiting} flag requests waiting for your hand`,
+  ];
+  if (law.allStopActive) parts.push("ALL-STOP IN FORCE — every command refused");
+  return parts.join(" · ");
 }
