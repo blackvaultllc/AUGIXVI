@@ -206,7 +206,7 @@ export function speechBubbleFor(input: {
   return { god, text };
 }
 
-const HELPER_CALL_NAMES: readonly { god: PresenceGodId; name: string }[] = [
+const HELPER_CALL_NAMES: readonly { god: "montu" | "osiris"; name: string }[] = [
   { god: "montu", name: "montu" },
   { god: "osiris", name: "osiris" },
 ];
@@ -232,7 +232,7 @@ const HELPER_CALL_NAMES: readonly { god: PresenceGodId; name: string }[] = [
 export function parseHelperCall(
   text: string,
   currentAddressee: Addressee,
-): PresenceGodId | null {
+): "montu" | "osiris" | null {
   const line = text
     .toLowerCase()
     .replace(/\s+/g, " ")
