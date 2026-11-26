@@ -446,6 +446,22 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "The sign-in landing (Montu) and the orbital view around the /avatar stage (the Earth).",
       },
       {
+        id: "stage-login-gate",
+        title: "The login gate — Montu's check: camera, microphone, and your voice",
+        state: "live",
+        what: "Montu does not just stand at the gate now — the gate works (Captain's order, 2026-11-26). A regular sign-in starts with MONTU'S GATE CHECK on the sign-in card: the browser asks for your camera and microphone, and without both there is no entry — the gate says so in plain words, and a device with no camera gets that same plain statement instead of a loop. With the camera granted, the gate takes ONE picture of whoever is signing in — your doorbell picture — and keeps it in the core with the attempt record, whether the sign-in succeeds or fails. Then you speak the words from your creed — “cast in the name of God, ye not guilty” — and the gate checks the voice against your enrolled voice. If the words and the voice are yours, the gate names you: ZERO. If the voice is plainly NOT yours, that attempt is refused and recorded with its picture. If the check cannot judge — you have not enrolled yet, the speech service is quiet, the room is noisy — it does NOT lock you out: your email and password carry the entry, exactly as before, and the attempt record carries a note saying the voice gave no verdict. Your credentials are still the key; the voice is a second lock laid on top, never a replacement. The camera and microphone are released the moment the check ends — nothing is left running. Khadija's door has the same camera: it can take her picture, and when it hears her say her name it names her ONE; her entries are written in the gate log as hers, plainly, never as an alarm — and her door still opens on her name and birth year alone. Every attempt — yours, hers, a stranger's refused voice, a failed password — is in Tools → Records & safety → Gate Log under “At the gate”, with the flagged ones marked FOR YOUR REVIEW and their pictures one tap away. The records and pictures live only in the core, locked down like the vault. HONEST STATE: built and merged 2026-11-26; it reaches your screens at the next update, and your own sign-in is the proof. Your voiceprint enrollment is still the one open step — until you enroll (Voice Calibration), every entry rides on credentials with the no-verdict note, which is the gate working as designed, not a failure.",
+        steps: [
+          "Open Augie signed out. Under Montu, tap RUN THE GATE CHECK on the sign-in card.",
+          "Allow the camera and the microphone when the browser asks. You will see your own camera view while the check runs.",
+          "Say the words out loud: “cast in the name of God, ye not guilty.”",
+          "If the gate names you ZERO, sign in with your email and password as always, then your authenticator code.",
+          "If the gate says it could not judge your voice, sign in the same way — your credentials carry it, and the note is in the gate log.",
+          "To see who has been at your door: sign in, open the Gate Log, and read “At the gate — who came to the door”. Tap SEE THE PICTURE on any attempt that has one.",
+          "At Khadija's door she can tap the same check, say her name, and be named ONE — her name and birth year open her door either way.",
+        ],
+        where: "The sign-in landing under Montu, Khadija's door, and the Gate Log window (Tools → Records & safety). The attempt records and pictures live in the core only.",
+      },
+      {
         id: "stage-phone-perf",
         title: "The phone runs steady — the phone render profile, and hands that load",
         state: "live",

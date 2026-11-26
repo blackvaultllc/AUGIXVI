@@ -41,6 +41,9 @@ import {
   startLearnerSession,
   validateLearnerSignIn,
 } from "./learnerProfile";
+import { GateCheckPanel } from "../GateCheckPanel";
+import { LEARNER_GATE_NAME } from "../loginGate";
+import { postGateAttemptRecord } from "../loginGateClient";
 import {
   addDiaryEntry,
   isDiarySetUp,
@@ -181,6 +184,25 @@ function LearnerSignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const [year, setYear] = useState("");
   const [message, setMessage] = useState("");
   const [remembered, setRemembered] = useState(() => hasRememberedLearnerDevice());
+  // THE GATE AT HER DOOR (owner order 2026-11-26): the gate camera
+  // may take her picture and name her "One" when it hears her name,
+  // and her entry is written in Daddy's gate log as hers — plainly,
+  // never as an alarm. Her door still opens on her name and birth
+  // year alone: the gate check never bars her (her wall is unchanged).
+  const gatePhotoRef = useRef<Blob | null>(null);
+  const gateNamedRef = useRef(false);
+
+  function recordHerEntry() {
+    void postGateAttemptRecord({
+      door: "learner",
+      result: "learner-entry",
+      namedAs: gateNamedRef.current ? LEARNER_GATE_NAME : null,
+      note: gateNamedRef.current
+        ? "The gate heard her name and named her One."
+        : "Came in on her name and birth year.",
+      photo: gatePhotoRef.current,
+    });
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -190,11 +212,15 @@ function LearnerSignIn({ onSignedIn }: { onSignedIn: () => void }) {
     }
     startLearnerSession();
     rememberLearnerDevice();
+    recordHerEntry();
     onSignedIn();
   }
 
   function comeBackIn() {
-    if (enterWithRememberedDevice()) onSignedIn();
+    if (enterWithRememberedDevice()) {
+      recordHerEntry();
+      onSignedIn();
+    }
   }
 
   function forgetThisDevice() {
@@ -221,6 +247,15 @@ function LearnerSignIn({ onSignedIn }: { onSignedIn: () => void }) {
         ) : (
           <p>This door is just for Khadija. Type your name and your birth year.</p>
         )}
+        <GateCheckPanel
+          door="learner"
+          onSnapshot={(photo) => {
+            gatePhotoRef.current = photo;
+          }}
+          onLearnerHeard={(named) => {
+            gateNamedRef.current = named;
+          }}
+        />
         <form className="learner-signin__form" onSubmit={submit}>
           <label>
             Your name

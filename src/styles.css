@@ -5174,6 +5174,72 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.window-gate-log__section {
+  font-size: 0.95rem;
+  margin: 0.8rem 0 0;
+  border-top: 1px solid var(--avatar-hud-line);
+  padding-top: 0.7rem;
+}
+.window-gate-log__item--flagged {
+  border-color: #b3543f;
+}
+.window-gate-log__flag {
+  color: #d97b5f;
+  font-weight: 600;
+}
+.window-gate-log__photo {
+  display: block;
+  margin-top: 0.45rem;
+  max-width: 220px;
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--avatar-hud-line);
+}
+
+/* The login gate check (2026-11-26) — Montu's post on the sign-in
+   card and at Khadija's door. Light by law: one small preview while
+   the check runs, nothing animated, nothing left running. */
+.gate-check {
+  border: 1px solid var(--avatar-hud-line, rgba(201, 162, 39, 0.45));
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  margin: 0.8rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+}
+.gate-check__title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  margin: 0;
+}
+.gate-check p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.gate-check__named {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.gate-check__warn {
+  color: #d97b5f;
+}
+.gate-check__button {
+  align-self: flex-start;
+  min-height: 2.6rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.gate-check__preview {
+  width: 160px;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--avatar-hud-line, rgba(201, 162, 39, 0.45));
+}
 
 /* Remote Codes window (2026-11-24) — the RF/IR knowledge load:
    code lookup + remote surface + setup numbers. Bifocal standard:

@@ -6,9 +6,12 @@ import {
   verifySupabaseOperatorSession,
 } from "./operatorAuth.server";
 import { AvatarStage } from "./AvatarStage";
+import { GateCheckPanel } from "./GateCheckPanel";
 import { MummyGuardianDeterrent } from "./MummyGuardian";
 import { SpaceView } from "./SpaceView";
 import { LearnerHeartDoor } from "./learner/LearnerHeartDoor";
+import { CAPTAIN_GATE_NAME, type GateAttemptResult, type GateVoiceOutcome } from "./loginGate";
+import { postGateAttemptRecord } from "./loginGateClient";
 import { confirmThisDevice, fetchDeviceStatus } from "./trustedDevice";
 
 type GateState =
@@ -122,6 +125,44 @@ export function OperatorGate() {
   const [operatorFullName, setOperatorFullName] = useState<string | null>(null);
   const [deviceStatus, setDeviceStatus] = useState<{ trusted: boolean; ip: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // THE LOGIN GATE (owner order 2026-11-26): Montu's gate check runs
+  // before the credentials. "passed" means the voice layer is
+  // satisfied — his voice matched, or the check gave no verdict and
+  // credentials carry the entry (never locked out of his own house).
+  // A plain voice no-match leaves the gate shut for that attempt;
+  // the attempt itself is already recorded by the panel.
+  const [gatePass, setGatePass] = useState<"pending" | "passed" | "refused">("pending");
+  const gateOutcomeRef = useRef<GateVoiceOutcome | null>(null);
+  const gatePhotoRef = useRef<Blob | null>(null);
+  const gateArmedRef = useRef(false);
+  const gateRecordedRef = useRef(false);
+
+  const handleGateOutcome = useCallback((outcome: GateVoiceOutcome) => {
+    gateOutcomeRef.current = outcome;
+    gateArmedRef.current = true;
+    setGatePass(outcome === "no-match" ? "refused" : "passed");
+  }, []);
+
+  // The attempt's concluding record — success or failure — written
+  // once per gate flow, with the gate's snapshot attached. Only a
+  // flow that actually ran the gate check records one; a returning
+  // session (no fresh attempt) records nothing.
+  const recordGateConclusion = useCallback((result: GateAttemptResult) => {
+    if (!gateArmedRef.current || gateRecordedRef.current) return;
+    gateRecordedRef.current = true;
+    void postGateAttemptRecord({
+      door: "operator",
+      result,
+      namedAs: result === "voice-match" ? CAPTAIN_GATE_NAME : null,
+      note:
+        result === "voice-match"
+          ? "His voice and his words matched at the gate check."
+          : result === "credentials-fallback"
+            ? "The voice check gave no verdict; credentials carried the entry."
+            : "The sign-in was refused after the gate check.",
+      photo: gatePhotoRef.current,
+    });
+  }, []);
   const activeAccessTokenRef = useRef("");
   const verifiedTokenRef = useRef("");
   const verifyingTokenRef = useRef("");
@@ -240,6 +281,7 @@ export function OperatorGate() {
           return;
         }
         if (!result.authorized) {
+          recordGateConclusion("sign-in-failed");
           await client.auth.signOut();
           setOperatorName(null);
           setOperatorFullName(null);
@@ -249,6 +291,9 @@ export function OperatorGate() {
           setMessage("This account is not authorized for operator access.");
           return;
         }
+        recordGateConclusion(
+          gateOutcomeRef.current === "match" ? "voice-match" : "credentials-fallback",
+        );
         setOperatorName(result.operatorName ?? null);
         setOperatorFullName(result.operatorFullName ?? null);
         setOperatorClaimed(true);
@@ -270,7 +315,7 @@ export function OperatorGate() {
         if (verifyingTokenRef.current === accessToken) verifyingTokenRef.current = "";
       }
     },
-    [beginMfa, client],
+    [beginMfa, client, recordGateConclusion],
   );
 
   useEffect(() => {
@@ -291,6 +336,11 @@ export function OperatorGate() {
         activeAccessTokenRef.current = "";
         verifiedTokenRef.current = "";
         verifyingTokenRef.current = "";
+        gateOutcomeRef.current = null;
+        gatePhotoRef.current = null;
+        gateArmedRef.current = false;
+        gateRecordedRef.current = false;
+        setGatePass("pending");
         if (transitionTimeoutRef.current !== null) {
           window.clearTimeout(transitionTimeoutRef.current);
           transitionTimeoutRef.current = null;
@@ -340,6 +390,7 @@ export function OperatorGate() {
       });
       setPassword("");
       if (error || !data.session) {
+        recordGateConclusion("sign-in-failed");
         setDenied(true);
         setMessage("Sign-in failed. Check the email and password and try again.");
         return;
@@ -548,6 +599,15 @@ export function OperatorGate() {
               : "This device or network is not confirmed yet, so full verification applies. After a successful sign-in this device is confirmed automatically — there is no checkbox and nothing extra to click."}
           </p>
         )}
+        {!registrationMode && (
+          <GateCheckPanel
+            door="operator"
+            onSnapshot={(photo) => {
+              gatePhotoRef.current = photo;
+            }}
+            onOperatorOutcome={handleGateOutcome}
+          />
+        )}
         <form
           className="operator-auth__form"
           onSubmit={(event) =>
@@ -581,7 +641,17 @@ export function OperatorGate() {
               {message}
             </p>
           )}
-          <button type="submit" disabled={busy}>
+          {!registrationMode && gatePass === "pending" && (
+            <p className="operator-auth__device">
+              Run Montu&apos;s gate check above first — then sign in.
+            </p>
+          )}
+          {!registrationMode && gatePass === "refused" && (
+            <p className="operator-auth__error" role="alert">
+              The gate refused that voice. Run the gate check again to sign in.
+            </p>
+          )}
+          <button type="submit" disabled={busy || (!registrationMode && gatePass !== "passed")}>
             {busy
               ? registrationMode
                 ? "Setting up…"
