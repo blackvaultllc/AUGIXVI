@@ -19,13 +19,20 @@
  */
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
+  COUNCIL_BACKGROUND,
   GOD_BACKGROUNDS,
   GOD_DOMAINS,
+  GOD_PERSONALITIES,
   HELPER_GREETINGS,
+  councilOpenLineFor,
   godBackground,
   godInPerspective,
   helperLeaveLine,
+  parseCouncilCall,
+  parseCouncilEnd,
   parseHelperCall,
   speechBubbleFor,
 } from "@/avatar/godPresence";
@@ -189,5 +196,105 @@ describe("the chat attachment hand-off", () => {
     stashChatAttachment(file);
     expect(takeChatAttachment()).toBe(file);
     expect(takeChatAttachment()).toBeNull();
+  });
+});
+
+describe("personalities from history — built from the Hall record, nothing invented", () => {
+  it("every speaking god carries a personality, each grounded in named record facts", () => {
+    for (const god of ["anubis", "montu", "osiris"] as const) {
+      expect(GOD_PERSONALITIES[god].manner.length).toBeGreaterThan(60);
+      expect(GOD_PERSONALITIES[god].groundedIn.length).toBeGreaterThan(60);
+    }
+    // The grounding names the Hall's own facts — traceable, not invented.
+    expect(GOD_PERSONALITIES.anubis.groundedIn).toContain("weighing of the heart");
+    expect(GOD_PERSONALITIES.anubis.groundedIn).toContain("Lord of the Sacred Land");
+    expect(GOD_PERSONALITIES.montu.groundedIn).toContain("Mentuhotep");
+    expect(GOD_PERSONALITIES.montu.groundedIn).toContain("Armant");
+    expect(GOD_PERSONALITIES.osiris.groundedIn).toContain("first king of Egypt");
+    expect(GOD_PERSONALITIES.osiris.groundedIn).toContain("Duat");
+  });
+
+  it("each manner is its own god's — measured, martial, kingly — never one voice copied", () => {
+    expect(GOD_PERSONALITIES.anubis.manner).toContain("Measured and exact");
+    expect(GOD_PERSONALITIES.montu.manner).toContain("Direct and martial");
+    expect(GOD_PERSONALITIES.osiris.manner).toContain("Kingly and patient");
+  });
+
+  it("the manner rides in the speaker directive beside the focus line", () => {
+    expect(speakerDirective("anubis")).toContain("Your manner, from the record:");
+    expect(speakerDirective("anubis")).toContain("Measured and exact");
+    expect(speakerDirective("montu")).toContain("Direct and martial");
+    expect(speakerDirective("osiris")).toContain("Kingly and patient");
+  });
+
+  it("no personality is written for a god with no speaking construct — Horusec's thin record stays plain", () => {
+    expect(Object.keys(GOD_PERSONALITIES).sort()).toEqual(["anubis", "montu", "osiris"]);
+  });
+});
+
+describe("the council — an Egyptian seat, called and ended by whole-line words", () => {
+  it("call everybody seats them all — the mandatory meeting", () => {
+    expect(parseCouncilCall("call everybody")).toEqual(["montu", "osiris"]);
+    expect(parseCouncilCall("Call a council.")).toEqual(["montu", "osiris"]);
+    expect(parseCouncilCall("mandatory meeting")).toEqual(["montu", "osiris"]);
+    expect(parseCouncilCall("el consejo")).toEqual(["montu", "osiris"]);
+  });
+
+  it("a named seat fills alone", () => {
+    expect(parseCouncilCall("call a council with Montu")).toEqual(["montu"]);
+    expect(parseCouncilCall("call everybody with osiris")).toEqual(["osiris"]);
+    expect(councilOpenLineFor(["montu"])).toContain("Montu stands with me");
+    expect(councilOpenLineFor(["montu", "osiris"])).toContain("Montu and Osiris stand with me");
+  });
+
+  it("talk about a council never seats one", () => {
+    expect(parseCouncilCall("the council said the road is closed")).toBeNull();
+    expect(parseCouncilCall("what is a council")).toBeNull();
+    expect(parseCouncilCall("call everybody back tomorrow about the truck")).toBeNull();
+    expect(parseCouncilCall("")).toBeNull();
+  });
+
+  it("the end words close it; ordinary lines do not", () => {
+    expect(parseCouncilEnd("end the council")).toBe(true);
+    expect(parseCouncilEnd("The council is done.")).toBe(true);
+    expect(parseCouncilEnd("dismiss the council")).toBe(true);
+    expect(parseCouncilEnd("the council was great")).toBe(false);
+  });
+
+  it("while the council sits, the background settles to the council setting", () => {
+    expect(
+      godInPerspective({ frontGod: "montu", addressee: "montu", councilOpen: true }),
+    ).toBe("council");
+    expect(COUNCIL_BACKGROUND.god).toBe("council");
+    // Its picture is not placed yet — the wallpaper stands, nothing substituted.
+    expect(COUNCIL_BACKGROUND.image).toBeNull();
+    expect(COUNCIL_BACKGROUND.historyLine).toContain("Horus");
+    expect(COUNCIL_BACKGROUND.historyLine).toContain("El Consejo");
+  });
+
+  it("a council-seated god stands at presence scale with the council state word", () => {
+    const { container } = render(
+      <CalledGodPopUp god="osiris" speaking={false} seat="council" onSelect={vi.fn()} />,
+    );
+    const popup = container.querySelector(".called-god-popup--council-seat");
+    expect(popup).not.toBeNull();
+    expect(popup?.querySelector(".called-god-popup__state")?.textContent).toBe("In council");
+    expect(popup?.querySelector(".presence-ring")).not.toBeNull();
+  });
+});
+
+describe("the naming law — nothing Arthurian stands in this doctrine", () => {
+  it("no Camelot, no Arthur, no round table in the doctrine's code or the manual", () => {
+    const arthurian = /camelot|excalibur|king arthur|round table/i;
+    for (const path of [
+      "src/avatar/godPresence.ts",
+      "src/avatar/godStage.ts",
+      "src/avatar/CalledGodPopUp.tsx",
+      "src/avatar/SpeechBubble.tsx",
+      "src/avatar/manualContent.ts",
+    ]) {
+      const source = readFileSync(resolve(process.cwd(), path), "utf8");
+      expect(source).not.toMatch(arthurian);
+    }
   });
 });

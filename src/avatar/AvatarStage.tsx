@@ -177,12 +177,18 @@ import {
 import { CalledGodPopUp } from "./CalledGodPopUp";
 import { SpeechBubble } from "./SpeechBubble";
 import {
+  COUNCIL_BACKGROUND,
+  COUNCIL_CLOSE_LINE,
+  councilOpenLineFor,
   godBackground,
   godInPerspective,
   helperLeaveLine,
   HELPER_GREETINGS,
+  parseCouncilCall,
+  parseCouncilEnd,
   parseHelperCall,
   speechBubbleFor,
+  type CouncilMember,
   type PresenceGodId,
 } from "./godPresence";
 import { stashChatAttachment } from "./chatAttachment";
@@ -906,6 +912,12 @@ export function AvatarStage({
   // presentation only: his anchored placements and sizes hold.
   const [council, setCouncil] = useState<StagePerspective[]>([]);
   const conversationView = conversationViewFor(perspective, council);
+  // THE COUNCIL SESSION's close, reached by ref from the
+  // paths defined before it (the council state itself stands
+  // with the helper, below): turning to one god, to the Owner
+  // seat, or to the construct ends a sitting council silently
+  // — the meeting is over when he turns elsewhere.
+  const councilCloseRef = useRef<((speak: boolean) => void) | null>(null);
   // SUMMON — THE CALL PASSES (owner order 2026-11-26 ~04:32
   // CST — the law in godStage.ts; this SUPERSEDES the
   // summon-to-the-front of 2026-11-24 for taps): a call on a
@@ -946,6 +958,7 @@ export function AvatarStage({
       // One god holds the front at a time: a tap no longer seats
       // a council beside the commander (superseded above).
       setCouncil([]);
+      councilCloseRef.current?.(false);
       setPerspective(god);
     },
     [applyAddressee, summonGod],
@@ -960,6 +973,7 @@ export function AvatarStage({
     setFrontGod(null);
     setFrontGreeting(null);
     setCouncil([]);
+    councilCloseRef.current?.(false);
     setPerspective("black-hatter");
   }, []);
   const selectGodRef = useRef(selectGod);
@@ -1404,6 +1418,53 @@ export function AvatarStage({
     }, 1600);
   }, [say]);
 
+  // THE COUNCIL (God Presence doctrine point 7, owner order
+  // 2026-11-26 ~13:54 CST — godPresence.ts): a meeting mode.
+  // While it sits, the seated gods stand at PRESENCE scale
+  // beside Anubis, who chairs from the center; the background
+  // settles to the council setting; whoever he names answers
+  // (the standing addressee routing), Anubis otherwise. It is
+  // an Egyptian seat — El Consejo is its second name — and
+  // no other mythology's court stands in it. Ending it returns the
+  // stage to its rest: Anubis alone. PERFORMANCE LAW: the
+  // council reuses the standing pop-up components — no new
+  // render loop, no new animation system; the seated gods
+  // render only while the session is open, at zero cost at
+  // rest.
+  const [councilSession, setCouncilSession] = useState<readonly CouncilMember[] | null>(null);
+  const councilRef = useRef<readonly CouncilMember[] | null>(null);
+  const openCouncil = useCallback(
+    (members: readonly CouncilMember[]) => {
+      councilRef.current = members;
+      setCouncilSession(members);
+      // The chair is Anubis: the conversation returns to him
+      // as the council seats.
+      applyAddressee("anubis");
+      say(councilOpenLineFor(members));
+    },
+    [applyAddressee, say],
+  );
+  const closeCouncil = useCallback(
+    (speak: boolean) => {
+      if (councilRef.current === null) return;
+      councilRef.current = null;
+      setCouncilSession(null);
+      if (speak) say(COUNCIL_CLOSE_LINE);
+    },
+    [say],
+  );
+  councilCloseRef.current = closeCouncil;
+  // The seated gods' pop-up presence (the same fade law as
+  // every call): Montu's council pop-up is separate from his
+  // call pop-up — while he HOLDS the call the call pop-up
+  // stands; in council he stands by his seat in the session.
+  const councilMontuPop = usePopUpPresence(
+    councilSession?.includes("montu") ?? false,
+  );
+  const councilOsirisPop = usePopUpPresence(
+    councilSession?.includes("osiris") ?? false,
+  );
+
   // THE CHAT BOX'S ATTACHMENT ROUTER (owner order, voice call
   // 2026-11-26 ~13:48 CST): a picture picked in the chat box
   // goes to Picture Analysis (stashed, the window opens, the
@@ -1458,7 +1519,7 @@ export function AvatarStage({
   // or whose file fails to load keeps the wallpaper: the
   // failed god is remembered here so a broken file never
   // flickers, and never wears a substitute.
-  const [godBackdropFailedFor, setGodBackdropFailedFor] = useState<PresenceGodId | null>(null);
+  const [godBackdropFailedFor, setGodBackdropFailedFor] = useState<PresenceGodId | "council" | null>(null);
   // CHANGE WALLPAPER (owner order 2026-11-24 ~17:26 EST): he went
   // looking in the menu for the wallpaper and could not find it —
   // the Scene tab now opens with a plainly labeled "Change
@@ -1493,15 +1554,17 @@ export function AvatarStage({
   const openConstruct = useCallback(() => {
     setConstructOpen(true);
     setCouncil([]);
+    closeCouncil(false);
     setPerspective("construct");
-  }, []);
+  }, [closeCouncil]);
   const closeConstruct = useCallback(() => {
     setConstructOpen(false);
     setConstructDock(null);
     setConstructOnStage(false);
     setCouncil([]);
+    closeCouncil(false);
     setPerspective(perspectiveAfterClose());
-  }, []);
+  }, [closeCouncil]);
 
   // THE LAYERING LAW (owner order 2026-11-24): the sand
   // construct renders NOWHERE on the main stage by default —
@@ -2882,6 +2945,25 @@ export function AvatarStage({
         say(`AUGI steps to the ${side}, Captain — side-on and out of your way.`);
         return;
       }
+      // THE COUNCIL (God Presence doctrine point 7): a call to
+      // council seats the gods beside Anubis for a meeting —
+      // "call everybody" seats them all. A council-end word
+      // closes it. Both are checked before every other call
+      // form, and while the council sits, a dismissal word
+      // ends the council first (in the dismissal block below).
+      if (councilRef.current !== null && parseCouncilEnd(avatarRequest)) {
+        closeCouncil(true);
+        return;
+      }
+      const councilCall = parseCouncilCall(avatarRequest);
+      if (councilCall) {
+        if (councilRef.current !== null) {
+          say("The council already sits, Captain.");
+        } else {
+          openCouncil(councilCall);
+        }
+        return;
+      }
       // A CALL FOR A SECOND GOD (God Presence doctrine, owner
       // order 2026-11-26 ~13:51 CST): while a god already holds
       // the call or the conversation, a call form naming ANOTHER
@@ -2927,6 +3009,13 @@ export function AvatarStage({
       // summoned to send, the line is ordinary conversation and
       // falls through untouched.
       if (isDismissal(avatarRequest)) {
+        // A sitting council ends FIRST (God Presence doctrine
+        // point 7): the gods return to their work and the stage
+        // returns to its rest.
+        if (councilRef.current !== null) {
+          closeCouncil(true);
+          return;
+        }
         // A helper standing with the call is sent back FIRST
         // (God Presence doctrine): he shows his allegiance and
         // returns to his work, and the god who holds the
@@ -4292,8 +4381,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           and below every presence, and it is gone the moment
           the call ends. */}
       {(() => {
-        const perspectiveGod = godInPerspective({ frontGod, addressee });
-        const record = perspectiveGod ? godBackground(perspectiveGod) : null;
+        const perspectiveGod = godInPerspective({
+          frontGod,
+          addressee,
+          councilOpen: councilSession !== null,
+        });
+        const record = perspectiveGod
+          ? perspectiveGod === "council"
+            ? COUNCIL_BACKGROUND
+            : godBackground(perspectiveGod)
+          : null;
         if (!perspectiveGod || !record?.image || godBackdropFailedFor === perspectiveGod) {
           return null;
         }
@@ -4305,6 +4402,8 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             alt=""
             aria-hidden="true"
             draggable={false}
+            loading="lazy"
+            decoding="async"
             data-god={perspectiveGod}
             onError={() => setGodBackdropFailedFor(perspectiveGod)}
           />
@@ -4400,7 +4499,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           receded={stageScreenOpen}
           inPerspective={perspective === "anubis"}
           inCall={conversationView === "call" && perspective === "anubis"}
-          inCouncil={council.includes("anubis")}
+          inCouncil={council.includes("anubis") || councilSession !== null}
           atAttention={perspective === "anubis"}
           onSelect={() => {
             if (frontGodRef.current === "montu") selectGod("anubis");
@@ -4464,6 +4563,62 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             openChatBox();
           }}
         />
+      )}
+      {/* THE COUNCIL SEATED (God Presence doctrine point 7):
+          while the council sits, each seated god stands at
+          PRESENCE scale by his council seat — Montu at his
+          flank (unless he holds the call itself, where his
+          call pop-up already stands), Osiris at the
+          lower-left council seat. They keep their value —
+          living faces, rings, their own chats a tap away.
+          Anubis chairs from the center, as ever. PERFORMANCE
+          LAW: these are the standing pop-up components,
+          rendered only while the session is open. */}
+      {!clearScreen &&
+        worldScreen === "live" &&
+        councilMontuPop.shown &&
+        frontGod !== "montu" && (
+          <CalledGodPopUp
+            god="montu"
+            speaking={addressee === "montu" && state === "SPEAKING"}
+            leaving={councilMontuPop.leaving}
+            scale="presence"
+            seat="council"
+            onSelect={() => {
+              applyAddressee("montu");
+              openChatBox();
+            }}
+          />
+        )}
+      {!clearScreen && worldScreen === "live" && councilOsirisPop.shown && (
+        <CalledGodPopUp
+          god="osiris"
+          speaking={addressee === "osiris" && state === "SPEAKING"}
+          leaving={councilOsirisPop.leaving}
+          scale="presence"
+          seat="council"
+          onSelect={() => {
+            applyAddressee("osiris");
+            openChatBox();
+          }}
+        />
+      )}
+      {/* THE COUNCIL CHIP: the session's standing sign — its
+          Egyptian name and its Spanish second name together —
+          with the way out on it. Light DOM, open only while
+          the council sits. */}
+      {!clearScreen && worldScreen === "live" && councilSession && (
+        <div className="council-chip" role="status">
+          <span className="council-chip__name">THE COUNCIL · EL CONSEJO</span>
+          <span className="council-chip__state">in session</span>
+          <button
+            type="button"
+            className="council-chip__end"
+            onClick={() => closeCouncil(true)}
+          >
+            End the council
+          </button>
+        </div>
       )}
       {/* THE SPEECH BUBBLE (same doctrine): while a god is
           actually speaking, his words stand in a comic bubble

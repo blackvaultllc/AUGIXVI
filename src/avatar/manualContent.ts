@@ -664,7 +664,21 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
           "Send a god home with the dismissal words — he bows, and the stage is Anubis's again.",
         ],
         where: "The stage and the chat box — the call, the helper, and the bubble all live there.",
-        note: "At rest the stage is still Anubis alone — nothing in this entry changes that. A god's background picture joins when real art for that god is placed in the app; until then the record in the code (godPresence.ts) names every god's picture as not placed yet.",
+        note: "At rest the stage is still Anubis alone — nothing in this entry changes that. A god's background picture joins when real art for that god is placed in the app; until then the record in the code (godPresence.ts) names every god's picture as not placed yet. EACH GOD'S PERSONALITY IS FROM HIS HISTORY (your order, 2026-11-26): how a god speaks and carries himself is built from his record in the Hall — Anubis measured and exact, the guardian of the scales; Montu direct and martial, Thebes' war god reporting like a commander; Osiris kingly and patient, the risen judge who speaks of the record and what returns. Nothing is invented: where a record is thin, the personality stays plain — Horusec's record is thin by the Hall's own word, and he carries no built personality. AND THE PERFORMANCE LAW STANDS OVER ALL OF IT (your order, the same day): presence runs LIGHT — the standing parts reused, a god's background one lazy-loaded picture that stands only while he is in perspective, motion gentle enough for a modest device, and nothing running at rest.",
+      },
+      {
+        id: "gods-council",
+        title: "The Council — El Consejo — call the gods into session",
+        state: "live",
+        what: "Your order (2026-11-26): a meeting mode. Call the council and the gods take their seats beside Anubis, who chairs from the center — each at his full value, his own voice, his own personality from his history — and you discuss. Call EVERYBODY and it is a mandatory meeting: every god seated. Name who answers as you talk; say nothing and Anubis carries it as chair. The seat is Egyptian: in the old tellings the gods sat in council to weigh the claim of Horus against Set — and its second name is El Consejo, for your Spanish blood. No other mythology's court is named in it, by your law. While the council sits, the background settles to the council setting (its picture is not placed yet, so your wallpaper stands, the same honest state as the gods' own backgrounds), and a standing sign at the top reads THE COUNCIL · EL CONSEJO with the way out on it.",
+        steps: [
+          "Type or say “call a council” — or “call everybody” for the mandatory meeting. To seat one god beside Anubis: “call a council with Montu.”",
+          "Talk as you would at a table — name the god who should answer (“Montu, your report”), or speak plainly and Anubis chairs.",
+          "End it with “end the council” — or the dismissal words (“that'll be all”) — and the gods return to their work; the stage rests with Anubis alone again.",
+          "Turning to one god, the Owner seat, or the construct also ends a sitting council, quietly.",
+        ],
+        where: "The stage and the chat box — the call to council is a chat line, the seats and the sign stand on the stage.",
+        note: "Outside the council the resting law holds untouched: Anubis alone. The council adds no weight at rest — its seats render only while it sits (the performance law).",
       },
       {
         id: "gods-capabilities",
