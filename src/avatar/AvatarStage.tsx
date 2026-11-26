@@ -269,6 +269,7 @@ import { SignalMapWindow } from "./SignalMapWindow";
 import { IdentifyWindow } from "./IdentifyWindow";
 import { FormationWindow } from "./FormationWindow";
 import { LogsWindow } from "./LogsWindow";
+import { UpdateControl } from "./UpdateControl";
 import { TestAreaWindow } from "./TestAreaWindow";
 import { ListeningWindow } from "./ListeningWindow";
 import { AnatomyWindow } from "./AnatomyWindow";
@@ -4799,6 +4800,12 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             </div>
           </div>
         </div>
+        {/* THE UPDATE CONTROL (owner order 2026-11-26 ~17:37 CST):
+            his own button, in his Status panel — tap it and this
+            copy pulls the newest build, rebuilds, and restarts
+            itself through the one fixed update path, with the
+            plain result shown here. No terminal, no middleman. */}
+        <UpdateControl />
         {aiOffline && !clearScreen && (
           <div className="avatar-hud__offline" role="status">
             <span>OFFLINE</span>

@@ -1266,6 +1266,54 @@
   line-height: 1.45;
   max-width: 21rem;
 }
+/* THE UPDATE CONTROL (owner order 2026-11-26): his own update
+   button under the brand block — same gold record style, one
+   plainly labeled button, one-line rows. Static DOM, no motion
+   beyond the button's own press (performance law). */
+.avatar-stage .avatar-update {
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid rgb(212 175 55 / 30%);
+  margin-bottom: 0.55rem;
+  max-width: 21rem;
+}
+.avatar-stage .avatar-update__title {
+  color: #ffd94d;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  margin-bottom: 0.3rem;
+}
+.avatar-stage .avatar-update__line {
+  color: rgb(245 231 189 / 85%);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.avatar-stage .avatar-update__line--warn {
+  color: #ffb37a;
+}
+.avatar-stage .avatar-update__value {
+  color: #ffd94d;
+  font-family: var(--font-mono);
+}
+.avatar-stage .avatar-update__button {
+  margin-top: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0.45rem 1rem;
+  border: 1px solid rgb(212 175 55 / 65%);
+  border-radius: 0.5rem;
+  background: rgb(212 175 55 / 12%);
+  color: #ffd94d;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.avatar-stage .avatar-update__button--confirm {
+  background: rgb(212 175 55 / 28%);
+  color: #fff3cf;
+}
 @media (max-width: 700px) {
   .avatar-stage .avatar-status-tab {
     top: 1rem;
