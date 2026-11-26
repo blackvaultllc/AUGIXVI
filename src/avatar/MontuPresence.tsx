@@ -24,6 +24,13 @@
  * same anchor law as every stage medallion (useMedallionAnchor):
  * grab it to move it, stretch it from its corner, and where he
  * leaves it is where it stays.
+ *
+ * THE ONE-GOD SCREEN (owner order 2026-11-26 ~04:32 CST): the
+ * stage no longer renders THIS presence — while Montu holds the
+ * call he stands as the small pop-up (CalledGodPopUp), and
+ * Anubis never leaves the center. This component stands in the
+ * codebase UNRENDERED — hidden, not deleted, like the god
+ * himself under the same order.
  */
 import { useState } from "react";
 import { MONTU_BINDING } from "./medallionPortraits";

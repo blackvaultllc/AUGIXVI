@@ -1,7 +1,9 @@
 /**
- * OSIRIS STANDS ALONE (owner order 2026-11-24 ~16:57 EST — the
- * Captain's refinement over his screenshot of the deployed
- * build).
+ * OSIRIS'S CALL POP-UP (owner order 2026-11-26 ~04:32 CST,
+ * superseding his standing place of 2026-11-24 ~16:57 EST —
+ * the Captain's refinement over his screenshot of the deployed
+ * build): the stage renders this medallion only while Osiris
+ * holds the call.
  *
  * Osiris's medallion sits BARE on the stage at the top-left —
  * no blue box, no panel, no border, no chat attached — animated

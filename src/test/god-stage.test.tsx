@@ -5,9 +5,9 @@ import {
   GOD_GREETINGS,
   MEDALLION_GODS,
   RESTING_FRONT,
+  calledPopUpGod,
   frontAfterDismiss,
   frontAfterSummon,
-  restingMedallionGods,
 } from "@/avatar/godStage";
 import {
   ANUBIS_MOTION_PROFILE,
@@ -19,29 +19,30 @@ import {
   gazeOffsetForStep,
   motionProfileFor,
 } from "@/avatar/godMotion";
-import { GodMedallions } from "@/avatar/GodMedallions";
+import { CalledGodPopUp } from "@/avatar/CalledGodPopUp";
 import { LivingPortrait, ANUBIS_FEATURES, MONTU_FEATURES } from "@/avatar/LivingPortrait";
 
 /**
- * THE RESTING LAW (owner order 2026-11-24 ~16:57 EST — the
- * Captain's refinement over his screenshot of the deployed
- * gods-on-the-sides build: "this is so wrong… Definitely not
- * at all"):
- * - NO EDGE FIGURES: the side rails / slots are gone entirely;
- *   nothing stands on the stage's left/right edges.
- * - ANUBIS IS CENTER AT REST, circular, his regular front
- *   size — the way he stood before the gods-on-the-sides
- *   change (the wallpaper-rest of that morning is superseded).
- * - THE OTHER GODS REST AS SMALL CIRCLES on the stage, in the
- *   same circular format as Osiris's medallion.
- * - DISMISSAL RETURNS ANUBIS TO THE CENTER, the default.
+ * THE ONE-GOD LAW (owner order 2026-11-26 ~04:32 CST,
+ * superseding the resting law of 2026-11-24 ~16:57 EST):
+ * - AT REST, ANUBIS ALONE: center, circular, his regular front
+ *   size — and NO other god rendered: no Osiris at the
+ *   top-left, no resting circles at the lower-right, nothing
+ *   on the stage's left/right edges.
+ * - A CALLED GOD POPS UP SMALL: while he holds the call he
+ *   stands as a small medallion pop-up in the seat his
+ *   medallion always kept; when the call ends the pop-up goes
+ *   away and the stage is Anubis-only again.
+ * - DISMISSAL RETURNS THE CALL TO ANUBIS, the default.
+ * - HIDDEN, NOT DELETED: every god keeps his place in the
+ *   system; he is simply not rendered until called.
  * And every god still moves on the SHARED RIG (Osiris's
  * values) with his OWN motion on top of it — including the
  * rebuilt blink that answers his defect: "when he blinks his
  * eyes don't look right — at all."
  */
-describe("the resting law — Anubis at the center, the others as small circles", () => {
-  it("at load, ANUBIS holds the front — the stage rests on him, not on the wallpaper", () => {
+describe("the one-god law — Anubis alone at rest, the others only when called", () => {
+  it("at load, ANUBIS holds the call — the stage rests on him alone, not on the wallpaper", () => {
     expect(RESTING_FRONT).toBe("anubis");
     expect(DEFAULT_FRONT).toBe("anubis");
   });
@@ -50,16 +51,16 @@ describe("the resting law — Anubis at the center, the others as small circles"
     expect(MEDALLION_GODS).toEqual(["anubis", "montu"]);
   });
 
-  it("a summon puts the called god at front — and sends the holder back to his resting circle", () => {
+  it("a summon gives the call to the called god — Anubis does not move", () => {
     expect(frontAfterSummon("anubis", "montu")).toBe("montu");
     expect(frontAfterSummon("montu", "anubis")).toBe("anubis");
     expect(frontAfterSummon("anubis", "anubis")).toBe("anubis");
     expect(frontAfterSummon(null, "montu")).toBe("montu");
   });
 
-  it("a dismissal returns ANUBIS to the center — the stage never rests empty", () => {
+  it("a dismissal returns the call to ANUBIS — the stage never rests empty", () => {
     expect(frontAfterDismiss("montu", "montu")).toBe("anubis");
-    // Dismissing a god who is not at front changes nothing.
+    // Dismissing a god who does not hold the call changes nothing.
     expect(frontAfterDismiss("montu", "anubis")).toBe("montu");
     expect(frontAfterDismiss(null, "montu")).toBeNull();
   });
@@ -68,10 +69,17 @@ describe("the resting law — Anubis at the center, the others as small circles"
     expect(frontAfterDismiss("anubis", "anubis")).toBe("anubis");
   });
 
-  it("the god at front has no resting circle; every other god's circle stands", () => {
-    expect(restingMedallionGods("anubis")).toEqual(["montu"]);
-    expect(restingMedallionGods("montu")).toEqual(["anubis"]);
-    expect(restingMedallionGods(null)).toEqual(["anubis", "montu"]);
+  it("at rest NO pop-up stands — neither at Anubis's rest nor while the Owner seat stands", () => {
+    expect(calledPopUpGod("anubis")).toBeNull();
+    expect(calledPopUpGod(null)).toBeNull();
+    expect(calledPopUpGod(RESTING_FRONT)).toBeNull();
+  });
+
+  it("a called god's pop-up stands while he holds the call — and dismissal lowers it", () => {
+    expect(calledPopUpGod("montu")).toBe("montu");
+    expect(calledPopUpGod(frontAfterSummon("anubis", "montu"))).toBe("montu");
+    // The dismissal ends the call: no pop-up, Anubis alone again.
+    expect(calledPopUpGod(frontAfterDismiss("montu", "montu"))).toBeNull();
   });
 
   it("the greeting: his name, his allegiance, and he asks what the Captain needs", () => {
@@ -137,7 +145,7 @@ describe("the shared rig, each god's own motion (owner amendment 2026-11-24)", (
   });
 });
 
-describe("the resting circles — small living medallions, fixed by the layout", () => {
+describe("the call pop-up — a small living medallion, fixed by the layout", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -145,37 +153,50 @@ describe("the resting circles — small living medallions, fixed by the layout",
     vi.useRealTimers();
   });
 
-  it("at rest Montu stands in his circle — a round medallion, not an edge figure", () => {
+  it("a called Montu stands as his pop-up — a round medallion, not an edge figure", () => {
     const { container } = render(
-      <GodMedallions front="anubis" speakingGod={null} onSummon={() => undefined} />,
+      <CalledGodPopUp god="montu" speaking={false} onSelect={() => undefined} />,
     );
-    const montu = container.querySelector('[data-god="montu"]');
-    expect(montu).not.toBeNull();
-    expect(montu!.classList.contains("god-medallion")).toBe(true);
+    const popUp = container.querySelector(".called-god-popup");
+    expect(popUp).not.toBeNull();
+    expect(popUp!.getAttribute("data-god")).toBe("montu");
+    const circle = container.querySelector('button[data-god="montu"]');
+    expect(circle).not.toBeNull();
+    expect(circle!.classList.contains("god-medallion")).toBe(true);
+    expect(circle!.classList.contains("called-god-popup__circle")).toBe(true);
     // A living face, not a button picture.
-    expect(montu!.querySelector('[data-testid="living-face"]')).not.toBeNull();
-    // Anubis is at the front — he has no resting circle.
-    expect(container.querySelector('[data-god="anubis"]')).toBeNull();
+    expect(circle!.querySelector('[data-testid="living-face"]')).not.toBeNull();
     // No rails, no slots, nothing addressed to a side.
     expect(container.querySelector(".god-side-rail")).toBeNull();
     expect(container.querySelector("[data-side]")).toBeNull();
   });
 
-  it("while Montu holds the front, Anubis's circle stands in the row", () => {
+  it("Anubis has NO pop-up — the center is his place, he renders nothing here", () => {
     const { container } = render(
-      <GodMedallions front="montu" speakingGod={null} onSummon={() => undefined} />,
+      <CalledGodPopUp god="anubis" speaking={false} onSelect={() => undefined} />,
     );
-    expect(container.querySelector('[data-god="anubis"]')).not.toBeNull();
-    expect(container.querySelector('[data-god="montu"]')).toBeNull();
+    expect(container.querySelector(".called-god-popup")).toBeNull();
+    expect(container.querySelector('[data-god="anubis"]')).toBeNull();
   });
 
-  it("a click on a circle summons that god", () => {
-    const onSummon = vi.fn();
+  it("a tap on the pop-up face opens his chat", () => {
+    const onSelect = vi.fn();
     const { container } = render(
-      <GodMedallions front="anubis" speakingGod={null} onSummon={onSummon} />,
+      <CalledGodPopUp god="montu" speaking={false} onSelect={onSelect} />,
     );
-    fireEvent.click(container.querySelector('[data-god="montu"]')!);
-    expect(onSummon).toHaveBeenCalledWith("montu");
+    fireEvent.click(container.querySelector('button[data-god="montu"]')!);
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("the pop-up wears its states: speaking lights the circle, the bow and the leaving tail dress the root", () => {
+    const { container } = render(
+      <CalledGodPopUp god="montu" speaking bowing leaving onSelect={() => undefined} />,
+    );
+    const popUp = container.querySelector(".called-god-popup")!;
+    expect(popUp.classList.contains("called-god-popup--bowing")).toBe(true);
+    expect(popUp.classList.contains("called-god-popup--leaving")).toBe(true);
+    const circle = container.querySelector('button[data-god="montu"]')!;
+    expect(circle.classList.contains("god-medallion--speaking")).toBe(true);
   });
 });
 

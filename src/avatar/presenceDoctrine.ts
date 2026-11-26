@@ -28,6 +28,14 @@
  *   takes a spot that overlaps nobody — not Anubis, not the owner,
  *   not another god (the spot itself is computed in
  *   medallionAnchor.ts, clearMedallionSpot).
+ * - THE ONE-GOD SCREEN (owner order 2026-11-26 ~04:32 CST,
+ *   superseding the resting layout of 2026-11-24): at rest
+ *   ANUBIS IS THE ONLY PRESENCE RENDERED — Osiris's medallion
+ *   and every other god's circle stand only while that god
+ *   holds the call (addressed, summoned, or relayed to), as a
+ *   small pop-up in the seat his medallion always kept, and go
+ *   away when the call ends. Hidden, never deleted: every
+ *   construct keeps his whole place in the system.
  *
  * Amun-Ra is untouched by this doctrine: his top seat is bound, not
  * rendered as a station (stagePerspective.ts, TOP_SEAT). The mummy
