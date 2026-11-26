@@ -73,6 +73,13 @@ import {
   unacknowledgedSoundAlerts,
   type SoundFeedEntry,
 } from "./soundWatchFeed";
+import {
+  SILENT_SENSOR_HONESTY_NOTE,
+  SILENT_SENSOR_NAME,
+  SOUND_LEVEL_REFERENCE,
+  SOUND_LEVEL_REFERENCE_BASIS,
+  soundLevelReferenceLine,
+} from "./cameras/silentSensor";
 
 const TICK_MS = 100;
 const MAX_LOG_ENTRIES = 80;
@@ -587,6 +594,24 @@ export function SoundWatchWindow({
               ))}
             </ul>
           )}
+        </section>
+
+        <section className="window-soundwatch__library" aria-label="Sound level reference">
+          <h3>Sound levels — the reference table</h3>
+          <p className="window-hint">{SOUND_LEVEL_REFERENCE_BASIS}</p>
+          <ul className="window-soundwatch__log">
+            {SOUND_LEVEL_REFERENCE.map((row) => (
+              <li key={row.id} className="window-soundwatch__entry">
+                <div>{soundLevelReferenceLine(row)}</div>
+              </li>
+            ))}
+          </ul>
+          <p className="window-hint">{SILENT_SENSOR_HONESTY_NOTE}</p>
+          <p className="window-hint">
+            {SILENT_SENSOR_NAME} — the back motion sensors&apos; siren, enrolled under Montu&apos;s
+            name — is taught and kept on the core, in the Cameras window&apos;s presence records:
+            the cameras are the ears that hear it.
+          </p>
         </section>
 
         <p className="window-soundwatch__note">{SOUND_WATCH_ENGINE_NOTE}</p>
