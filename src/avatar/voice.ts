@@ -9,7 +9,12 @@ import {
 } from "./speechVoice";
 
 export type VoiceProvider = {
-  speak(text: string, onEnded: () => void): Promise<void>;
+  /**
+   * Speak a line. `godId` (owner expansion 2026-11-26) names the
+   * god whose voice speaks it — the core resolves that god's
+   * Voice Lab assignment; absent, the line is Anubis's.
+   */
+  speak(text: string, onEnded: () => void, godId?: string): Promise<void>;
   stop(): void;
 };
 
@@ -175,11 +180,16 @@ export function createVoiceProvider(
    * back to the browser voice; the fallback is honest (the Logs/Test
    * Area can check /api/say directly).
    */
-  const speakWithPiper = async (text: string, onEnded: () => void, gen: number) => {
+  const speakWithPiper = async (
+    text: string,
+    onEnded: () => void,
+    gen: number,
+    godId?: string,
+  ) => {
     const response = await fetch("/api/say", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, ...(godId ? { godId } : {}) }),
     });
     if (!response.ok) throw new Error(`Piper route answered ${response.status}`);
     const blob = await response.blob();
@@ -203,13 +213,13 @@ export function createVoiceProvider(
   };
 
   return {
-    async speak(text, onEnded) {
+    async speak(text, onEnded, godId) {
       const currentGeneration = ++generation;
       if (!voiceId) {
         // No cloud voice configured: Piper (local) first, browser as
         // the honest fallback when Piper isn't on this host.
         try {
-          await speakWithPiper(text, onEnded, currentGeneration);
+          await speakWithPiper(text, onEnded, currentGeneration, godId);
         } catch {
           if (currentGeneration !== generation) return;
           clearAudio();

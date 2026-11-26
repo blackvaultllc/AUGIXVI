@@ -46,6 +46,14 @@ export type OllamaAIOptions = {
    */
   getSpeakerDirective?: () => string | null;
   /**
+   * THE SPEAKER'S VOICE (owner expansion 2026-11-26): the god the
+   * Captain is addressing, consulted per spoken line like the
+   * speaker directive — a reply speaks in the addressed god's own
+   * voice (his lab assignment or his standing voice), resolved by
+   * the core's speech path.
+   */
+  getSpeakerGod?: () => string | null;
+  /**
    * THE CAPABILITY BRIEF (owner defect 2026-11-23): what Augie can
    * actually access and do — camera, the dog, Sound Watch, the
    * Permission Law — consulted per message like the speaker
@@ -81,8 +89,12 @@ export const DEFAULT_SYSTEM =
 export type OllamaAI = {
   /** Feed user text (from speech recognition or the keyboard). Returns the assistant's reply. */
   handleText(text: string): Promise<string>;
-  /** Make the assistant speak arbitrary text through TTS. */
-  speak(text: string): void;
+  /**
+   * Make the assistant speak arbitrary text through TTS. `godId`
+   * names the god whose voice speaks the line (owner expansion
+   * 2026-11-26); absent, the current addressee's voice is used.
+   */
+  speak(text: string, godId?: string): void;
   setMuted(muted: boolean): void;
   setOperatorIdentity(name: string | null): void;
   /** Retry the configured Ollama server immediately. */
@@ -142,7 +154,7 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
     timers = [];
   };
 
-  const speak = (text: string, then: () => void) => {
+  const speak = (text: string, then: () => void, godId?: string) => {
     if (disposed) return;
     voice.stop();
     onSpeak?.(text);
@@ -151,7 +163,13 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
       return;
     }
     bridge.setState("SPEAKING");
-    void voice.speak(text, then);
+    // The god argument rides only when a god OTHER than Anubis is
+    // speaking — Anubis is the say path's own default, and the
+    // two-argument call shape the house has always used stands
+    // untouched for his lines.
+    const god = godId ?? opts.getSpeakerGod?.() ?? undefined;
+    if (god && god !== "anubis") void voice.speak(text, then, god);
+    else void voice.speak(text, then);
   };
 
   const setOffline = (next: boolean) => {
@@ -445,9 +463,9 @@ export function attachOllamaAI(bridge: AvatarBridge, opts: OllamaAIOptions = {})
 
   return {
     handleText,
-    speak: (t: string) => {
+    speak: (t: string, godId?: string) => {
       clearTimers();
-      speak(t, listen);
+      speak(t, listen, godId);
     },
     setMuted: (next: boolean) => {
       muted = next;

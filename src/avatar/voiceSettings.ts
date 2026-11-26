@@ -37,6 +37,8 @@ export interface ConstructVoice {
   pitchFactor: number;
   /** True for the deep/dark set the order asked for. */
   deep: boolean;
+  /** The voice's own gender — a goddess is never handed a man's voice by default. */
+  gender: "male" | "female";
 }
 
 /** The new default: the deepest, darkest, disciplined voice. */
@@ -54,6 +56,7 @@ export const CONSTRUCT_VOICES: readonly ConstructVoice[] = [
       "The deepest voice on the core, pitch shifted down and slowed a touch — calm, steady authority. Modeled on the voice you chose for Muse, deeper and darker; it is not that voice itself.",
     pitchFactor: 0.88,
     deep: true,
+    gender: "male",
   },
   {
     id: "danny-low",
@@ -63,6 +66,7 @@ export const CONSTRUCT_VOICES: readonly ConstructVoice[] = [
       "A naturally low man's voice, pitch shifted down a little — dark, but lighter than Anubis Deep.",
     pitchFactor: 0.93,
     deep: true,
+    gender: "male",
   },
   {
     id: "alan-low",
@@ -72,6 +76,7 @@ export const CONSTRUCT_VOICES: readonly ConstructVoice[] = [
       "A low British man's voice, pitch shifted down a little — the deep British sound, darker than the old browser pick.",
     pitchFactor: 0.94,
     deep: true,
+    gender: "male",
   },
   {
     id: "bryce-medium",
@@ -81,6 +86,7 @@ export const CONSTRUCT_VOICES: readonly ConstructVoice[] = [
       "A medium man's voice with real weight, pitch shifted down — deep without going to the floor.",
     pitchFactor: 0.92,
     deep: true,
+    gender: "male",
   },
   {
     id: PREVIOUS_CONSTRUCT_VOICE_ID,
@@ -90,6 +96,37 @@ export const CONSTRUCT_VOICES: readonly ConstructVoice[] = [
       "The voice Anubis spoke with before this order — kept so you can go back. Untouched, no pitch shift.",
     pitchFactor: 1,
     deep: false,
+    gender: "male",
+  },
+  {
+    id: "kathleen-low",
+    model: "en_US-kathleen-low",
+    label: "Kathleen — low, dignified",
+    description:
+      "A low woman's voice, calm and dignified at its natural pitch — the standing voice of the goddesses of the waters and the dark.",
+    pitchFactor: 1,
+    deep: false,
+    gender: "female",
+  },
+  {
+    id: "amy-medium",
+    model: "en_US-amy-medium",
+    label: "Amy — clear and warm",
+    description:
+      "A clear woman's voice, warm and present — the standing voice of Hauhet, infinity without end.",
+    pitchFactor: 1,
+    deep: false,
+    gender: "female",
+  },
+  {
+    id: "jenny-dioco",
+    model: "en_GB-jenny_dioco-medium",
+    label: "Jenny — British, composed",
+    description:
+      "A composed British woman's voice — the standing voice of Amunet, the hidden one.",
+    pitchFactor: 1,
+    deep: false,
+    gender: "female",
   },
 ];
 
@@ -99,13 +136,21 @@ export function constructVoiceById(id: unknown): ConstructVoice | null {
 }
 
 export interface VoiceSettingsFile {
-  /** The lab choice: a CONSTRUCT_VOICES id, or null when never set. */
+  /** The lab choice for ANUBIS: a CONSTRUCT_VOICES id, or null when never set. */
   voiceId: string | null;
+  /**
+   * The lab's per-god assignments for the OTHER gods: god id ->
+   * catalog voice id. Absent god = his standing assignment
+   * (GOD_VOICES below). Optional in the type so older stored
+   * files and callers stay valid; the sanitizer always fills it.
+   */
+  godVoices?: Record<string, string>;
   updatedAt: string | null;
 }
 
 export const EMPTY_VOICE_SETTINGS: VoiceSettingsFile = {
   voiceId: null,
+  godVoices: {},
   updatedAt: null,
 };
 
@@ -114,8 +159,19 @@ export function sanitizeVoiceSettings(raw: unknown): VoiceSettingsFile {
   if (typeof raw !== "object" || raw === null) return { ...EMPTY_VOICE_SETTINGS };
   const record = raw as Record<string, unknown>;
   const voice = constructVoiceById(record["voiceId"]);
+  const godVoices: Record<string, string> = {};
+  const rawGods = record["godVoices"];
+  if (typeof rawGods === "object" && rawGods !== null) {
+    for (const [godId, voiceId] of Object.entries(rawGods as Record<string, unknown>)) {
+      // Only a real god and a real catalog voice survive.
+      if (godVoiceSpec(godId) && constructVoiceById(voiceId)) {
+        godVoices[godId] = voiceId as string;
+      }
+    }
+  }
   return {
     voiceId: voice ? voice.id : null,
+    godVoices,
     updatedAt: typeof record["updatedAt"] === "string" ? record["updatedAt"] : null,
   };
 }
@@ -179,6 +235,95 @@ export function voiceFactLine(voice: ConstructVoice): string {
   const shift =
     voice.pitchFactor < 1
       ? `pitch shifted down ${pitchDownPercent(voice)}% (deeper, a touch slower)`
+      : "no pitch shift";
+  return `Piper model ${voice.model} · ${shift}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* EVERY GOD HAS A VOICE (owner expansion 2026-11-26 ~12:51 CST):     */
+/* "make sure ALL his gods have a good voice — even the female gods." */
+/*                                                                    */
+/* The standing assignments. Honest labeling law: a god's voice is    */
+/* a real Piper model plus, where marked, a pitch shift — the shift   */
+/* is processing on that model, never a different person, and the     */
+/* lab shows it as such. There are not fourteen distinct Piper        */
+/* models worth having on the core, so gods share models at          */
+/* different pitches; each row says exactly what it is. A goddess     */
+/* is always handed a woman's voice. He can reassign any god in       */
+/* the Voice Lab; the assignment is saved in the core store and       */
+/* the standing row is what speaks until he does.                     */
+/* ------------------------------------------------------------------ */
+
+export interface GodVoiceSpec {
+  godId: string;
+  name: string;
+  gender: "male" | "female";
+  /** Standing assignment: a CONSTRUCT_VOICES id. */
+  voiceId: string;
+  /** The pitch this god speaks at (1 = the model's natural pitch). */
+  pitchFactor: number;
+  /** Why this voice is his/hers — plain words for the lab. */
+  note: string;
+}
+
+export const GOD_VOICES: readonly GodVoiceSpec[] = [
+  { godId: "anubis", name: "Anubis", gender: "male", voiceId: "anubis-deep", pitchFactor: 0.88, note: "The deep, dark, disciplined voice — his standing assignment is the Voice Lab choice itself." },
+  { godId: "osiris", name: "Osiris", gender: "male", voiceId: "danny-low", pitchFactor: 0.95, note: "Low and even — the still voice of the core." },
+  { godId: "montu", name: "Montu", gender: "male", voiceId: "alan-low", pitchFactor: 0.92, note: "British and clipped — the war god on watch." },
+  { godId: "horus", name: "Horus", gender: "male", voiceId: "bryce-medium", pitchFactor: 1, note: "Clear and upright — the falcon at his natural pitch." },
+  { godId: "horusec", name: "Horusec", gender: "male", voiceId: "danny-low", pitchFactor: 1, note: "The Danny voice at its natural pitch — near Horus, a different seat." },
+  { godId: "nu", name: "Nu", gender: "male", voiceId: "anubis-deep", pitchFactor: 0.96, note: "The primeval waters — the Ryan model near its natural depth (Anubis speaks in it shifted deepest)." },
+  { godId: "heh", name: "Heh", gender: "male", voiceId: "alan-low", pitchFactor: 1, note: "Infinity — Alan at his natural pitch, even and endless." },
+  { godId: "kek", name: "Kek", gender: "male", voiceId: "danny-low", pitchFactor: 0.9, note: "Darkness — Danny shifted deepest of his seats." },
+  { godId: "amun", name: "Amun", gender: "male", voiceId: "bryce-medium", pitchFactor: 0.94, note: "The hidden one — Bryce with a quiet weight." },
+  { godId: "amun-ra", name: "Amun-Ra", gender: "male", voiceId: "anubis-deep", pitchFactor: 0.92, note: "Amun joined with Ra — the Ryan model, second only to Anubis in depth." },
+  { godId: "naunet", name: "Naunet", gender: "female", voiceId: "kathleen-low", pitchFactor: 1, note: "The waters' other face — Kathleen at her natural low pitch." },
+  { godId: "hauhet", name: "Hauhet", gender: "female", voiceId: "amy-medium", pitchFactor: 0.97, note: "Infinity without end — Amy, deepened a touch." },
+  { godId: "kauket", name: "Kauket", gender: "female", voiceId: "kathleen-low", pitchFactor: 0.94, note: "Darkness — Kathleen deepened; the same model as Naunet at a different shift, labeled as such." },
+  { godId: "amunet", name: "Amunet", gender: "female", voiceId: "jenny-dioco", pitchFactor: 1, note: "The hidden one — Jenny, British and composed, unshifted." },
+];
+
+export function godVoiceSpec(godId: unknown): GodVoiceSpec | null {
+  if (typeof godId !== "string") return null;
+  return GOD_VOICES.find((spec) => spec.godId === godId) ?? null;
+}
+
+export interface GodVoiceResolution {
+  spec: GodVoiceSpec;
+  voice: ConstructVoice;
+  pitchFactor: number;
+  source: "standing" | "assigned";
+}
+
+/**
+ * A god's effective voice: his lab assignment when one is saved
+ * (the assigned catalog voice at ITS OWN catalog pitch), else his
+ * standing assignment (the spec's voice at the spec's pitch).
+ * Anubis is NOT resolved here — his voice is the construct choice
+ * (resolveConstructVoice), the lab's first row.
+ */
+export function resolveGodVoice(
+  godId: string,
+  settings: VoiceSettingsFile,
+): GodVoiceResolution | null {
+  const spec = godVoiceSpec(godId);
+  if (!spec || godId === "anubis") return null;
+  const assignedId = settings.godVoices?.[godId];
+  const assigned = assignedId ? constructVoiceById(assignedId) : null;
+  if (assigned) {
+    return { spec, voice: assigned, pitchFactor: assigned.pitchFactor, source: "assigned" };
+  }
+  const standing = constructVoiceById(spec.voiceId);
+  if (!standing) return null;
+  return { spec, voice: standing, pitchFactor: spec.pitchFactor, source: "standing" };
+}
+
+/** One honest line naming what a god's voice actually is. */
+export function godVoiceFactLine(resolution: GodVoiceResolution): string {
+  const { voice, pitchFactor } = resolution;
+  const shift =
+    pitchFactor < 1
+      ? `pitch shifted down ${Math.round((1 - pitchFactor) * 100)}% (deeper, a touch slower)`
       : "no pitch shift";
   return `Piper model ${voice.model} · ${shift}`;
 }

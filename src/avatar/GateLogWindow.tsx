@@ -9,16 +9,18 @@
  * signed-in stage like every other window.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FloatingWindow } from "./windows/FloatingWindow";
 import { getSupabaseClientConfig } from "./operatorAuth.server";
 import { getGateLog, type GateLogView } from "./gateLog.server";
+import { getGateAttemptPhoto, getGateAttempts, type GateAttemptsView } from "./loginGate.server";
+import { gateAttemptFlagged, gateAttemptResultWords } from "./loginGate";
 
 type GateLogState =
   | { kind: "loading" }
   | { kind: "denied"; configured: boolean }
   | { kind: "unavailable" }
-  | { kind: "ready"; view: GateLogView };
+  | { kind: "ready"; view: GateLogView; attempts: GateAttemptsView | null };
 
 async function loadAuthClient(): Promise<SupabaseClient | null> {
   let url = import.meta.env["VITE_SUPABASE_URL"]?.trim();
@@ -36,6 +38,8 @@ async function loadAuthClient(): Promise<SupabaseClient | null> {
 
 export function GateLogWindow({ onClose }: { onClose: () => void }) {
   const [state, setState] = useState<GateLogState>({ kind: "loading" });
+  const [photos, setPhotos] = useState<Record<string, string>>({});
+  const tokenRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setState({ kind: "loading" });
@@ -48,6 +52,7 @@ export function GateLogWindow({ onClose }: { onClose: () => void }) {
         setState({ kind: "denied", configured: true });
         return;
       }
+      tokenRef.current = accessToken;
       const view = await getGateLog({ data: { accessToken } });
       if (!view.authorized) {
         setState({ kind: "denied", configured: view.configured });
@@ -57,9 +62,25 @@ export function GateLogWindow({ onClose }: { onClose: () => void }) {
         setState({ kind: "unavailable" });
         return;
       }
-      setState({ kind: "ready", view });
+      // The doorbell record rides along — same verified token, and a
+      // failure here never takes the knock log down with it.
+      const attempts = await getGateAttempts({ data: { accessToken } }).catch(() => null);
+      setState({ kind: "ready", view, attempts });
     } catch {
       setState({ kind: "unavailable" });
+    }
+  }, []);
+
+  const showPhoto = useCallback(async (photoFile: string) => {
+    const accessToken = tokenRef.current;
+    if (!accessToken) return;
+    try {
+      const photo = await getGateAttemptPhoto({ data: { accessToken, photoFile } });
+      if (photo.dataUrl) {
+        setPhotos((current) => ({ ...current, [photoFile]: photo.dataUrl as string }));
+      }
+    } catch {
+      /* a photo that cannot be read simply stays unshown */
     }
   }, []);
 
@@ -118,6 +139,55 @@ export function GateLogWindow({ onClose }: { onClose: () => void }) {
             <button type="button" className="window-btn" onClick={() => void load()}>
               Refresh
             </button>
+            {state.attempts?.available && (
+              <>
+                <h3 className="window-gate-log__section">At the gate — who came to the door</h3>
+                <p className="window-gate-log__count">
+                  {state.attempts.total === 0
+                    ? "No gate attempts recorded."
+                    : `${state.attempts.total} attempt${state.attempts.total === 1 ? "" : "s"} recorded.`}
+                </p>
+                {state.attempts.entries.length > 0 && (
+                  <ol className="window-gate-log__list">
+                    {state.attempts.entries.map((entry, index) => (
+                      <li
+                        key={`${entry.ts}-${index}`}
+                        className={`window-gate-log__item${gateAttemptFlagged(entry) ? " window-gate-log__item--flagged" : ""}`}
+                      >
+                        <div className="window-gate-log__meta">
+                          {new Date(entry.ts).toLocaleString()} ·{" "}
+                          {entry.door === "learner" ? "Khadija's door" : "Operator gate"}
+                          {gateAttemptFlagged(entry) && (
+                            <span className="window-gate-log__flag"> · For your review</span>
+                          )}
+                        </div>
+                        <div className="window-gate-log__path">
+                          {gateAttemptResultWords(entry.result)}
+                          {entry.namedAs ? ` — named ${entry.namedAs}` : ""}
+                        </div>
+                        {entry.note && <div className="window-gate-log__agent">{entry.note}</div>}
+                        {entry.photoFile &&
+                          (photos[entry.photoFile] ? (
+                            <img
+                              className="window-gate-log__photo"
+                              src={photos[entry.photoFile]}
+                              alt="The face at the gate for this attempt"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="window-btn"
+                              onClick={() => void showPhoto(entry.photoFile as string)}
+                            >
+                              See the picture
+                            </button>
+                          ))}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </>
+            )}
           </>
         )}
       </div>
