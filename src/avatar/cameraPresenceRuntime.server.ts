@@ -40,6 +40,7 @@ import { getCameraPresenceStore } from "./cameraPresenceStore.server";
 import { cameraCanControl, type CameraLens } from "./cameras/cameraRegistry";
 import {
   describeIntent,
+  followMaySteer,
   followVelocity,
   hearsAnubisName,
   motionCentroidIn,
@@ -47,6 +48,8 @@ import {
   parseStrictYesNo,
   patrolVelocityAt,
   presenceFor,
+  streamFollowsPtzFromCoverage,
+  streamProbeNote,
   PERSON_CHECK_PROMPT,
   SAME_PERSON_PROMPT,
   type CameraCommandIntent,
@@ -132,6 +135,20 @@ async function nudgePtz(camera: StoredCamera, pan: number, tilt: number, ms = 65
   await new Promise((r) => setTimeout(r, ms));
   await drivePtz(camera, 0, 0, true);
   return true;
+}
+
+/**
+ * The same nudge, exported for Sector Watch's judgment aim —
+ * the caller gates it (control granted + ALL-STOP) exactly as
+ * the follow loop gates its own steering.
+ */
+export async function nudgeCameraLens(
+  camera: StoredCamera,
+  pan: number,
+  tilt: number,
+  ms = 650,
+): Promise<boolean> {
+  return nudgePtz(camera, pan, tilt, ms);
 }
 
 function ptzLens(camera: StoredCamera): CameraLens | null {
@@ -422,7 +439,14 @@ function brainBaseUrl(): string {
   return raw.replace(/\/+$/, "").replace(/\/api\/chat$/, "").replace(/\/api\/generate$/, "");
 }
 
-async function askVisionYesNo(imagesBase64: string[], prompt: string): Promise<boolean | null> {
+/**
+ * The one analyzer road for strict yes/no vision questions —
+ * shared with Sector Watch (sectorWatchRuntime.server.ts) so
+ * every watcher in the house asks the same brain the same way:
+ * the local vision model, a reply that must begin with yes or
+ * no, and null for anything else (no verdict, never a guess).
+ */
+export async function askVisionYesNo(imagesBase64: string[], prompt: string): Promise<boolean | null> {
   try {
     const base = brainBaseUrl();
     const tagsRes = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(8000) });
@@ -442,6 +466,43 @@ async function askVisionYesNo(imagesBase64: string[], prompt: string): Promise<b
     if (!res.ok) return null;
     const data = (await res.json()) as { response?: string };
     return parseStrictYesNo(data.response ?? "");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The analyzer's free-text answer — the same local vision
+ * model, asked for words instead of a verdict (a plate reading,
+ * a one-line description). Null when the model does not answer:
+ * callers label whatever it returns a DRAFT READING and keep
+ * the still as the evidence; the words are an index, never the
+ * record of truth.
+ */
+export async function askVisionText(
+  imagesBase64: string[],
+  prompt: string,
+): Promise<string | null> {
+  try {
+    const base = brainBaseUrl();
+    const tagsRes = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(8000) });
+    if (!tagsRes.ok) return null;
+    const tags = (await tagsRes.json()) as { models?: { name?: string }[] };
+    const installed = (tags.models ?? []).map((m) => m.name).filter((n): n is string => Boolean(n));
+    const model =
+      installed.find((n) => n === "llava:7b") ??
+      installed.find((n) => /(llava|vision|moondream|bakllava|minicpm-v|gemma3|qwen[0-9.]*vl)/i.test(n));
+    if (!model) return null;
+    const res = await fetch(`${base}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(60_000),
+      body: JSON.stringify({ model, prompt, images: imagesBase64, stream: false, options: { num_predict: 80 } }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { response?: string };
+    const text = (data.response ?? "").trim();
+    return text ? text : null;
   } catch {
     return null;
   }
@@ -490,7 +551,14 @@ export function ensureFollowLoop(cameraId: string): void {
             return { ...f, cameras: { ...f.cameras, [cameraId]: s } };
           });
           const velocity = followVelocity(centroid);
-          if (velocity) await nudgePtz(camera, velocity.pan, velocity.tilt, 550);
+          // Steering by picture is only honest where the pulled
+          // stream follows the moving lens (the stream probe's
+          // measured word). Where it measured false, the follow
+          // still watches and reports from the fixed view — it
+          // just does not nudge a lens its picture cannot see.
+          if (velocity && followMaySteer(state.streamFollowsPtz)) {
+            await nudgePtz(camera, velocity.pan, velocity.tilt, 550);
+          }
         }
       }
       prevGray = gray;
@@ -676,6 +744,79 @@ function wavRms(bytes: Buffer): number {
     offset += 8 + size;
   }
   return 0;
+}
+
+/**
+ * The camera's current audio level — a 3-second pull measured
+ * with the listener's own RMS. Sector Watch's cross-examination
+ * consults it as a stress INDICATOR (a measurable input, labeled
+ * as one). Null when no level could be measured — the caller
+ * records UNAVAILABLE and claims nothing.
+ */
+export async function measureCameraAudioLevel(
+  camera: StoredCamera,
+): Promise<{ rms: number } | null> {
+  const lens = ptzLens(camera);
+  if (!lens) return null;
+  const { spawn } = await import("node:child_process");
+  const fs = await import("node:fs/promises");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { rtspUrlFor } = await import("./cameras/cameraBridge.server");
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), `augie-cam-level-${camera.id}-`));
+  const file = path.join(dir, "level.wav");
+  try {
+    const code = await new Promise<number | null>((resolve) => {
+      let child: ReturnType<typeof spawn>;
+      try {
+        child = spawn("ffmpeg", [
+          "-hide_banner",
+          "-loglevel",
+          "error",
+          "-rtsp_transport",
+          "tcp",
+          "-i",
+          rtspUrlFor(camera, lens),
+          "-t",
+          "3",
+          "-vn",
+          "-ac",
+          "1",
+          "-ar",
+          "16000",
+          "-y",
+          file,
+        ]);
+      } catch {
+        resolve(null);
+        return;
+      }
+      const killer = setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // already gone
+        }
+        resolve(null);
+      }, 12_000);
+      child.on("error", () => {
+        clearTimeout(killer);
+        resolve(null);
+      });
+      child.on("close", (c) => {
+        clearTimeout(killer);
+        resolve(typeof c === "number" ? c : null);
+      });
+    });
+    if (code !== 0) return null;
+    const bytes = await fs.readFile(file);
+    if (bytes.length === 0) return null;
+    return { rms: wavRms(bytes) };
+  } catch {
+    return null;
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
 }
 
 export async function ensureListener(camera: StoredCamera): Promise<void> {
@@ -940,6 +1081,55 @@ export async function probePresence(camera: StoredCamera): Promise<PresenceProbe
     return { ...f, cameras: { ...f.cameras, [camera.id]: s } };
   });
   return { ok: true, spotlightNote: spotlight.note, trackingNote: tracking.note };
+}
+
+/**
+ * THE STREAM PROBE — measure, per camera, whether the stream
+ * the core pulls swings when the moving lens is panned. The
+ * brief's first word ("frames never follow PTZ") was disproven
+ * live on the Bedroom unit (2026-11-26 ~09:09 CST: an ONVIF pan
+ * swung the pulled frame, door view → wall view, then back),
+ * while the Command unit's pulled stream never changed across
+ * three moves — so this is a MEASURED property, never a
+ * hard-coded one. The probe takes a frame, commands a solid
+ * pan, takes another frame, and records how much of the picture
+ * changed (the evidence travels with the verdict). The head is
+ * then panned back toward where it started. It MOVES the camera,
+ * so it stands behind the same gates as every send: control
+ * granted + the ALL-STOP.
+ */
+export async function probeStreamFollow(camera: StoredCamera): Promise<ExecResult> {
+  if (!cameraCanControl(camera)) {
+    return { ok: false, note: "The stream probe moves the camera, and control is not granted on this camera." };
+  }
+  if (await allStopInForce()) {
+    return { ok: false, note: "The ALL-STOP is in force — the stream probe is held like every other action." };
+  }
+  const presenceStore = await getCameraPresenceStore();
+  if (!presenceStore) return { ok: false, note: "No local presence store — the stream probe cannot record its measurement." };
+  const lens = ptzLens(camera);
+  if (!lens) return { ok: false, note: "This camera has no movable lens — there is no stream-follow question to measure." };
+  const { grabGrayFrame } = await import("./cameras/cameraBridge.server");
+  const before = await grabGrayFrame(camera, lens, 96, 54, 10_000);
+  if (!before) return { ok: false, note: "No frame came back before the test pan — nothing is claimed about this stream." };
+  const moved = await nudgePtz(camera, 0.8, 0, 1_200);
+  if (!moved) return { ok: false, note: "The test pan did not run — the camera did not take the move." };
+  await new Promise((r) => setTimeout(r, 500));
+  const after = await grabGrayFrame(camera, lens, 96, 54, 10_000);
+  // Return the head toward where the probe found it.
+  await nudgePtz(camera, -0.8, 0, 1_200);
+  const centroid = after ? motionCentroidIn(before, after, 96, 54, 28, 0) : null;
+  const coverage = after ? (centroid ? centroid.coverage : 0) : null;
+  const follows = streamFollowsPtzFromCoverage(coverage);
+  const note = streamProbeNote(coverage);
+  await presenceStore.update((f) => {
+    const s = presenceFor(f, camera.id);
+    s.streamFollowsPtz = follows;
+    s.streamProbedAt = Date.now();
+    s.streamNote = note;
+    return { ...f, cameras: { ...f.cameras, [camera.id]: s } };
+  });
+  return { ok: follows !== null, note };
 }
 
 /** Re-arm whatever the store says should be running (after a

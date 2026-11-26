@@ -96,7 +96,34 @@ export const saveCamera = createServerFn({ method: "POST" })
     }
     const password =
       typeof data.password === "string" && data.password.length > 0 ? data.password : undefined;
-    const stored: StoredCamera = { ...profile, password };
+    // UNIFORM PERMISSIONS (the Captain's rule, 2026-11-26): a
+    // NEWLY registered camera takes the shared permission
+    // profile by default — its flags are never hand-set at
+    // registration. An existing camera saved again keeps the
+    // flags on the form; if the Captain changed them by hand,
+    // the profile reconcile adopts the change as that camera's
+    // deviation and shows it as one.
+    const existing = await store.get(profile.id);
+    let flags = { ownerConfirmed: profile.ownerConfirmed, controlGranted: profile.controlGranted };
+    if (!existing) {
+      const { getPermissionsProfileStore } = await import("./permissionsProfileStore.server");
+      const profileStore = await getPermissionsProfileStore();
+      if (profileStore) {
+        // Seed the profile from the standing fleet first if it
+        // has never been born — the new camera takes the fleet's
+        // shared word, not an unborn default.
+        if (!(await profileStore.read()).born) {
+          const { reconcilePermissions } = await import("./permissionsProfileRuntime.server");
+          await reconcilePermissions();
+        }
+        const shared = (await profileStore.read()).profile;
+        flags = {
+          ownerConfirmed: shared.ownerConfirmed ? true : undefined,
+          controlGranted: shared.controlGranted ? true : undefined,
+        };
+      }
+    }
+    const stored: StoredCamera = { ...profile, ...flags, password };
     await store.upsert(stored);
     return { authorized: true, stored: true, note: `${profile.name} is registered.` };
   });
@@ -305,6 +332,13 @@ export const ptzCamera = createServerFn({ method: "POST" })
     // A direct move ends any patrol on this camera — the pad is
     // the Captain's hand on the lens, and the patrol yields.
     if (!data.stop) await stopPatrol(data.cameraId, "a direct PTZ move replaced it");
+    // Sector Watch (2026-11-26): his hand on the lens also
+    // pauses the autonomous watch on this camera for a stretch —
+    // the watch never judges a frame he is busy aiming.
+    if (!data.stop) {
+      const { noteManualDrive } = await import("./sectorWatchRuntime.server");
+      noteManualDrive(data.cameraId);
+    }
     const lens = camera.lenses.find((l) => l.kind === "ptz");
     if (!lens) return { authorized: true, moved: false, note: "This camera has no PTZ lens registered." };
 

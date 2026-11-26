@@ -20,6 +20,7 @@ import {
   clearCreatorEnrollment,
   enrollCreatorFace,
   probeCameraPresence,
+  probeCameraStreamFollow,
   setCameraHearing,
   type CameraPresenceView,
   type CameraPresenceViewState,
@@ -201,7 +202,37 @@ export function CameraPresenceSection({
         >
           Probe presence doors (spotlight · tracking)
         </button>
+        {camera.lenses.some((l) => l.kind === "ptz") && (
+          <button
+            type="button"
+            className="window-btn"
+            disabled={busy || !canControl}
+            onClick={() =>
+              void run(async () => {
+                const r = await probeCameraStreamFollow({ data: { accessToken: token, cameraId: camera.id } });
+                return { note: r.note };
+              })
+            }
+          >
+            Probe the stream (does it follow the moving lens?)
+          </button>
+        )}
       </div>
+      <p className="window-cameras__grant">
+        Stream follows the moving lens:{" "}
+        {state?.streamFollowsPtz === null || state?.streamFollowsPtz === undefined
+          ? "not measured yet"
+          : state.streamFollowsPtz
+            ? "YES — measured by the stream probe"
+            : "NO — measured by the stream probe; the pulled frames stay on the fixed view"}
+        . {state?.streamNote ?? ""}
+      </p>
+      {state?.follow.active && state?.streamFollowsPtz === false && (
+        <p className="window-cameras__grant">
+          Follow on this camera watches and reports from the fixed view but does not steer — its picture cannot
+          see the lens move (stream probe, above).
+        </p>
+      )}
 
       {state?.spotlight.door ? (
         <div className="window-cameras__actions">

@@ -95,6 +95,19 @@ export interface CameraPresenceState {
   follow: FollowState;
   spotlight: SpotlightState;
   tracking: TrackingState;
+  /**
+   * MEASURED, per camera (the stream probe): does the stream
+   * the core pulls swing when the moving lens is panned?
+   * true = the pulled frames follow the PTZ (proven on the
+   * Bedroom unit, 2026-11-26); false = the pulled frames stay
+   * on the fixed view while the head moves (the Command unit's
+   * evidence); null = never measured — nobody claims either
+   * way until the probe runs.
+   */
+  streamFollowsPtz: boolean | null;
+  streamProbedAt: number | null;
+  /** Plain words: what the stream probe measured. */
+  streamNote: string;
 }
 
 export type HearingEventKind = "name" | "command" | "speech";
@@ -132,11 +145,32 @@ export interface CreatorEnrollment {
   at: number;
 }
 
+/**
+ * One member of the household, enrolled by the Captain (Sector
+ * Watch, 2026-11-26): a name and reference frames, kept on the
+ * core only (the household-faces folder). The bedroom rule
+ * checks a person in the Captain's room against this list —
+ * the Captain and Khadija are the names the rule expects.
+ */
+export interface HouseholdEnrollment {
+  /** The name the rule knows this face by ("The Captain", "Khadija"). */
+  name: string;
+  cameraId: string;
+  cameraName: string;
+  /** Reference frame file names inside the core's household-faces folder. */
+  frames: string[];
+  at: number;
+}
+
+export const HOUSEHOLD_MAX = 8;
+
 export interface CameraPresenceFile {
   cameras: Record<string, CameraPresenceState>;
   hearing: HearingEvent[];
   recordings: RecordingInfo[];
   enrollment: CreatorEnrollment | null;
+  /** The household faces Sector Watch checks against (may be empty). */
+  household: HouseholdEnrollment[];
 }
 
 export const HEARING_MAX = 60;
@@ -150,11 +184,14 @@ export function defaultPresenceState(): CameraPresenceState {
     follow: { active: false, startedAt: null, basis: null, lastCentroid: null, lastPersonAt: null },
     spotlight: { door: null, on: null, probedAt: null, note: "Not probed yet — run the presence probe." },
     tracking: { door: null, on: null, probedAt: null, note: "Not probed yet — run the presence probe." },
+    streamFollowsPtz: null,
+    streamProbedAt: null,
+    streamNote: "Not measured yet — run the stream probe to learn whether this camera's stream follows its moving lens.",
   };
 }
 
 export function emptyPresenceFile(): CameraPresenceFile {
-  return { cameras: {}, hearing: [], recordings: [], enrollment: null };
+  return { cameras: {}, hearing: [], recordings: [], enrollment: null, household: [] };
 }
 
 /* ------------------------------------------------------------------ */
@@ -222,6 +259,9 @@ export function sanitizePresenceState(v: unknown): CameraPresenceState {
       probedAt: cleanTime(tracking["probedAt"]),
       note: cleanString(tracking["note"], 400) ?? base.tracking.note,
     },
+    streamFollowsPtz: cleanBoolOrNull(v["streamFollowsPtz"]),
+    streamProbedAt: cleanTime(v["streamProbedAt"]),
+    streamNote: cleanString(v["streamNote"], 400) ?? base.streamNote,
   };
 }
 
@@ -300,7 +340,56 @@ export function sanitizePresenceFile(v: unknown): CameraPresenceFile {
       };
     }
   }
-  return { cameras, hearing, recordings, enrollment };
+  const household = Array.isArray(v["household"])
+    ? v["household"]
+        .map(sanitizeHouseholdEnrollment)
+        .filter((m): m is HouseholdEnrollment => m !== null)
+        .slice(0, HOUSEHOLD_MAX)
+    : [];
+  return { cameras, hearing, recordings, enrollment, household };
+}
+
+export function sanitizeHouseholdEnrollment(v: unknown): HouseholdEnrollment | null {
+  if (!isRecord(v)) return null;
+  const name = cleanString(v["name"], 60);
+  const cameraId = cleanString(v["cameraId"], 64);
+  const at = cleanTime(v["at"]);
+  const frames = Array.isArray(v["frames"])
+    ? v["frames"].filter((f): f is string => typeof f === "string" && f.length > 0).slice(0, 6)
+    : [];
+  if (!name || !cameraId || at === null || frames.length === 0) return null;
+  return {
+    name,
+    cameraId,
+    cameraName: cleanString(v["cameraName"], 80) ?? "Camera",
+    frames,
+    at,
+  };
+}
+
+/**
+ * The faces the bedroom rule checks against: the household list
+ * as enrolled, and — until the Captain enrolls anyone there —
+ * the standing creator enrollment standing in as the Captain's
+ * own entry (it IS his face; its frames live in the
+ * creator-faces folder, the household's in household-faces —
+ * the reader tries both). Empty means recognition does not
+ * exist yet, and the rule says so instead of pretending.
+ */
+export function effectiveHousehold(file: CameraPresenceFile): HouseholdEnrollment[] {
+  if (file.household.length > 0) return file.household;
+  if (file.enrollment) {
+    return [
+      {
+        name: "The Captain",
+        cameraId: file.enrollment.cameraId,
+        cameraName: file.enrollment.cameraName,
+        frames: file.enrollment.frames,
+        at: file.enrollment.at,
+      },
+    ];
+  }
+  return [];
 }
 
 /** The state for one camera, born at the honest default when absent. */
@@ -711,6 +800,54 @@ export function flipAnalyticsEnable(configXml: string, itemName: string, on: boo
   );
   if (!re.test(configXml)) return null;
   return configXml.replace(re, `$1${on ? "true" : "false"}$3`);
+}
+
+/* ------------------------------------------------------------------ */
+/* The stream probe — does the pulled stream follow the moving lens    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The share of the frame that must change across a solid test
+ * pan before the probe calls it "the stream follows the lens".
+ * A real pan swings the whole scene (a large share); a fixed
+ * stream shows only life passing through it (a small, local
+ * share). The measured share is recorded either way — the
+ * verdict never travels without its evidence.
+ */
+export const STREAM_FOLLOW_MIN_COVERAGE = 0.15;
+
+/**
+ * The verdict from the probe's measurement: the share of the
+ * frame that changed between the frame before a test pan and
+ * the frame after it. Null coverage (a frame never came back)
+ * is null the verdict — unmeasured, never guessed.
+ */
+export function streamFollowsPtzFromCoverage(coverage: number | null): boolean | null {
+  if (coverage === null || !Number.isFinite(coverage)) return null;
+  return coverage >= STREAM_FOLLOW_MIN_COVERAGE;
+}
+
+/** Plain words for a stream-probe measurement, evidence included. */
+export function streamProbeNote(coverage: number | null): string {
+  if (coverage === null) {
+    return "The stream probe could not compare frames — one of the two frames never came back, so nothing about this stream is claimed.";
+  }
+  const pct = Math.round(coverage * 100);
+  return streamFollowsPtzFromCoverage(coverage)
+    ? `Measured: ${pct}% of the picture changed across a test pan — this camera's stream FOLLOWS its moving lens. Frame analysis (follow, watch) sees what the lens sees.`
+    : `Measured: only ${pct}% of the picture changed across a test pan — this camera's stream does NOT follow its moving lens; the pulled frames stay on the fixed view while the head turns. Follow and the watch judge that fixed view on this camera.`;
+}
+
+/**
+ * May the follow STEER on this camera? Only where the pulled
+ * stream follows the moving lens (measured true) or has not
+ * been measured yet (the follow's original road). Where the
+ * probe measured false, steering by picture is blind — the
+ * follow still watches and reports from the fixed view, but it
+ * does not nudge a lens its picture cannot see move.
+ */
+export function followMaySteer(streamFollowsPtz: boolean | null): boolean {
+  return streamFollowsPtz !== false;
 }
 
 /** The current value of one SimpleItem in a configuration document. */
