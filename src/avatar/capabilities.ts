@@ -128,6 +128,20 @@ export const CAPABILITY_LINES: readonly CapabilityLine[] = [
       "is served only into his own signed-in window. Vault files never leave " +
       "the core and never ride any outside call.",
   },
+  {
+    manualId: "projects-saved-area",
+    line:
+      "HIS PROJECTS AND THE SAVED AREA FOR WEBSITES: the Captain's project " +
+      "sites stand in a registry inside you — he opens one, sees it as an " +
+      "editor sees it, and leaves MARKS on the page: a place, and his typed " +
+      "note of what needs doing. The marks are saved on the core in the " +
+      "saved area for websites. When he says 'check my saved area for " +
+      "websites,' read it (the getSavedWebsiteArea door) and work from what " +
+      "his marks say — the open marks are the work list, project by project. " +
+      "A registry entry marked UNCONFIRMED is an address or source that has " +
+      "not been checked yet: say so plainly, never present it as verified, " +
+      "and never invent a project or a mark that is not in the area.",
+  },
 ];
 
 /** The compressed brief for the small on-phone brain's small context. */

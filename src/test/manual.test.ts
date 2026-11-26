@@ -19,6 +19,7 @@ const REQUIRED_CATEGORIES = [
   "Personal safety — your papers, the law base, and stop mode",
   "Sound Watch",
   "The world builder",
+  "Projects — your websites, marked by you",
   "Devices & the registry",
   "The universal command module",
   "NODS — Network Operator Domain Synthesizer",

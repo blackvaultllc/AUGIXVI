@@ -71,7 +71,7 @@ export function ringPresenceStateForBridge(state: AvatarState, ready: boolean): 
 
 export const RING_SEGMENT_COUNT = 24;
 
-export type RingSegmentTone = "gold" | "cyan" | "alert" | "dim";
+export type RingSegmentTone = "gold" | "amber" | "goldred" | "alert" | "dim";
 
 export interface RingSegment {
   index: number;
@@ -85,11 +85,21 @@ export interface RingSegment {
  * - alert: the whole ring lit in the alert tone — a real alert
  *   stands unacknowledged; the component pulses it on the
  *   stage's own heartbeat clock (tempo only, never a reading).
- * - speaking: the whole ring lit, gold — he holds the floor.
- * - thinking: every other segment lit, cyan — work in motion.
- * - listening: every third segment lit, cyan — the ear is open.
+ * - speaking: the whole ring lit, gold-red — he holds the floor.
+ * - thinking: every other segment lit, gold-red — work in motion.
+ * - listening: every third segment lit, gold-red — the ear open.
  * - idle: the four quarter points lit, gold — at rest, present.
- * - connecting: the four quarter points lit, cyan — not ready.
+ * - connecting: the four quarter points lit, amber — not ready.
+ *
+ * THE GOLD ORDERS (owner orders 2026-11-26, from his phone):
+ * the cybernetic blue the theme shipped with is OUT ("the blue
+ * little lines, the blue around — I don't like that") — no
+ * state of the ring reads blue, ever. AT REST the ring is gold.
+ * ACTIVE — he is talking, working, or listening — the ring
+ * turns GOLD-RED: gold moving toward red, the heat of an
+ * engaged construct, distinct from rest gold and from the
+ * ALERT state, which stays pure red (and pulses) as the
+ * emergency signal alone.
  */
 export function ringSegments(state: RingPresenceState): RingSegment[] {
   const segments: RingSegment[] = [];
@@ -100,19 +110,19 @@ export function ringSegments(state: RingPresenceState): RingSegment[] {
         tone = "alert";
         break;
       case "speaking":
-        tone = "gold";
+        tone = "goldred";
         break;
       case "thinking":
-        tone = index % 2 === 0 ? "cyan" : "dim";
+        tone = index % 2 === 0 ? "goldred" : "dim";
         break;
       case "listening":
-        tone = index % 3 === 0 ? "cyan" : "dim";
+        tone = index % 3 === 0 ? "goldred" : "dim";
         break;
       case "idle":
         tone = index % 6 === 0 ? "gold" : "dim";
         break;
       case "connecting":
-        tone = index % 6 === 0 ? "cyan" : "dim";
+        tone = index % 6 === 0 ? "amber" : "dim";
         break;
     }
     segments.push({ index, tone });
