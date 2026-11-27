@@ -4584,6 +4584,151 @@
   line-height: 1.45;
   opacity: 0.9;
 }
+
+/* Binary window (owner order 2026-11-27): his binary stands dim
+   behind the lesson; the lesson itself stays plain and readable. */
+.binary-window {
+  position: relative;
+  overflow: hidden;
+}
+.binary-window__rain {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  overflow: hidden;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  letter-spacing: 0.35em;
+  color: var(--avatar-hud-accent, #d4af37);
+  opacity: 0.08;
+  pointer-events: none;
+  user-select: none;
+}
+.binary-window__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  line-height: 1.5;
+}
+.binary-window__body h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+.binary-window__body h4 {
+  margin: 0.7rem 0 0.35rem;
+  font-size: 0.9rem;
+}
+.binary-window__body p {
+  margin: 0.3rem 0;
+}
+.binary-window__byte {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.35rem;
+  margin: 0.5rem 0;
+}
+.binary-window__bit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.45rem 0.1rem;
+  border: 1px solid var(--avatar-hud-line, rgb(212 175 55 / 45%));
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 35%);
+  color: inherit;
+  cursor: pointer;
+}
+.binary-window__bit[aria-pressed="true"] {
+  background: rgb(212 175 55 / 22%);
+  border-color: var(--avatar-hud-accent, #d4af37);
+}
+.binary-window__place {
+  font-size: 0.68rem;
+  opacity: 0.75;
+}
+.binary-window__digit {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+.binary-window__sum {
+  font-weight: 600;
+}
+.binary-window__bits-line {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.3em;
+  opacity: 0.7;
+}
+.binary-window__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+  font-weight: 600;
+}
+.binary-window__input {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+  padding: 0.5rem;
+  border: 1px solid var(--avatar-hud-line, rgb(212 175 55 / 45%));
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 35%);
+  color: inherit;
+  resize: vertical;
+}
+.binary-window__output {
+  min-height: 1.4em;
+  font-size: 1.05rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.binary-window__output--mono {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+.binary-window__warn {
+  color: #ffb703;
+  font-size: 0.85rem;
+}
+.binary-window__chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+  gap: 0.35rem;
+}
+.binary-window__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.4rem 0.15rem;
+  border: 1px solid var(--avatar-hud-line, rgb(212 175 55 / 35%));
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 30%);
+  color: inherit;
+  cursor: pointer;
+}
+.binary-window__cell:hover,
+.binary-window__cell:focus-visible {
+  border-color: var(--avatar-hud-accent, #d4af37);
+}
+.binary-window__cell-char {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.binary-window__cell-bits {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+.binary-window__cell-code {
+  font-size: 0.68rem;
+  opacity: 0.65;
+}
 .window-logs__list {
   list-style: none;
   margin: 0;

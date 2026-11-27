@@ -18,6 +18,7 @@ import {
   AudioLines,
   BarChart3,
   Bluetooth,
+  Binary,
   BookOpen,
   Box,
   Brain,
@@ -273,6 +274,7 @@ import { UpdateControl } from "./UpdateControl";
 import { TestAreaWindow } from "./TestAreaWindow";
 import { ListeningWindow } from "./ListeningWindow";
 import { AnatomyWindow } from "./AnatomyWindow";
+import { BinaryWindow } from "./BinaryWindow";
 import { DepartmentsWindow } from "./DepartmentsWindow";
 import { CaptainsLogWindow } from "./CaptainsLogWindow";
 import { SandboxWindow } from "./SandboxWindow";
@@ -1043,6 +1045,7 @@ export function AvatarStage({
   const [logsOpen, setLogsOpen] = useState(false);
   const [testAreaOpen, setTestAreaOpen] = useState(false);
   const [anatomyOpen, setAnatomyOpen] = useState(false);
+  const [binaryOpen, setBinaryOpen] = useState(false);
   const [departmentsOpen, setDepartmentsOpen] = useState(false);
   const [captainsLogOpen, setCaptainsLogOpen] = useState(false);
   // SANDBOX WINDOW: the attack-simulation + antivirus-design bench —
@@ -4231,6 +4234,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     logsOpen ||
     testAreaOpen ||
     anatomyOpen ||
+    binaryOpen ||
     departmentsOpen ||
     captainsLogOpen ||
     sandboxOpen ||
@@ -4349,6 +4353,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         { icon: Bug, label: "Sandbox", open: () => setSandboxOpen(true) },
         { icon: FlaskConical, label: "Test Area", open: () => setTestAreaOpen(true) },
         { icon: Network, label: "Anatomy", open: () => setAnatomyOpen(true) },
+        { icon: Binary, label: "Binary", open: () => setBinaryOpen(true) },
         { icon: BookOpen, label: "Knowledge", open: () => setKnowledgeOpen((open) => !open) },
         { icon: BookOpen, label: "Notepad", open: () => openWindow("notepad") },
         { icon: Presentation, label: "Chalkboard", open: () => openWindow("chalkboard") },
@@ -5436,6 +5441,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                     label="Anatomy"
                     onClick={() => setAnatomyOpen(true)}
                   />
+                  <CommandAction icon={Binary} label="Binary" onClick={() => setBinaryOpen(true)} />
                 </div>
               </CommandGroup>
               <CommandGroup label="Windows — I can open them too, I still decide">
@@ -5704,6 +5710,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {logsOpen && <LogsWindow onClose={() => setLogsOpen(false)} />}
       {testAreaOpen && <TestAreaWindow onClose={() => setTestAreaOpen(false)} />}
       {anatomyOpen && <AnatomyWindow onClose={() => setAnatomyOpen(false)} />}
+      {binaryOpen && <BinaryWindow onClose={() => setBinaryOpen(false)} />}
       {departmentsOpen && <DepartmentsWindow onClose={() => setDepartmentsOpen(false)} />}
       {captainsLogOpen && <CaptainsLogWindow onClose={() => setCaptainsLogOpen(false)} />}
       {sandboxOpen && <SandboxWindow onClose={() => setSandboxOpen(false)} />}
