@@ -291,17 +291,20 @@ describe("the phone composition = the desktop composition", () => {
 
   it("Anubis on a phone-sized stage is BIG — most of the smaller dimension, centered", () => {
     // Portrait 390×844 and landscape 844×390 (his phone photo's
-    // shape): the clamp seats him at 358 — 92% of the stage's
-    // smaller dimension — dead center both ways.
+    // shape). The 2026-11-23 clamp seated him at 358 — 92% of
+    // the stage's smaller dimension; the phone fix pass
+    // (2026-11-27, item 1: "a little bit smaller") caps a
+    // phone-sized stage at 80% of the short side — 312 here —
+    // still big, still dead center both ways.
     expect(defaultMedallionGeometry("anubis", 390, 844)).toEqual({
-      x: 16,
-      y: 243,
-      size: 358,
+      x: 39,
+      y: 266,
+      size: 312,
     });
     expect(defaultMedallionGeometry("anubis", 844, 390)).toEqual({
-      x: 243,
-      y: 16,
-      size: 358,
+      x: 266,
+      y: 39,
+      size: 312,
     });
   });
 

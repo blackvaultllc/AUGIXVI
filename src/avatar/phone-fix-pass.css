@@ -1,0 +1,330 @@
+/* =====================================================================
+   PHONE FIX PASS (owner orders 2026-11-27, from his phone
+   screenshots of 00:41–00:43 CST and his verdicts after): the
+   Matrix Wall's room, the agents' three buttons, the asset
+   tracers, the Detective View, and the phone geometry that
+   closes the screenshot defects — crushed panel text, the
+   notifications gap, blue on the chrome, panels colliding
+   with the message bar and the medallion, the ring's rest
+   color. Imported LAST on the surfaces it serves, so these
+   rules stand over the older sheets where they speak.
+   ===================================================================== */
+
+/* ---- THE MATRIX WALL: a boxed room of gold binary rain ----
+   Five flat canvases folded by transforms inside a perspective
+   frame: back wall, floor, ceiling, left, right — streams
+   running their own directions. Pure dress, behind everything,
+   never a surface anything can tap. */
+.matrix-wall {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #050403;
+  perspective: 62rem;
+  pointer-events: none;
+  /* The stage layer a background picture stands on (the
+     god-backdrop's own layer): over the WebGL room's painted
+     ground — the wall REPLACES that ground as the background —
+     and under every presence, window, and word. */
+  z-index: 1;
+}
+.matrix-wall--page {
+  position: fixed;
+  z-index: 0;
+}
+.matrix-wall__plane {
+  position: absolute;
+  display: block;
+}
+.matrix-wall__plane--back {
+  left: 13%;
+  right: 13%;
+  top: 11%;
+  bottom: 19%;
+  width: 74%;
+  height: 70%;
+}
+.matrix-wall__plane--floor {
+  left: 13%;
+  right: 13%;
+  bottom: -4%;
+  width: 74%;
+  height: 26%;
+  transform: rotateX(63deg);
+  transform-origin: bottom center;
+}
+.matrix-wall__plane--ceiling {
+  left: 13%;
+  right: 13%;
+  top: -3%;
+  width: 74%;
+  height: 16%;
+  transform: rotateX(-63deg);
+  transform-origin: top center;
+}
+.matrix-wall__plane--left {
+  left: -4%;
+  top: 11%;
+  bottom: 19%;
+  width: 19%;
+  height: 70%;
+  transform: rotateY(57deg);
+  transform-origin: left center;
+}
+.matrix-wall__plane--right {
+  right: -4%;
+  top: 11%;
+  bottom: 19%;
+  width: 19%;
+  height: 70%;
+  transform: rotateY(-57deg);
+  transform-origin: right center;
+}
+/* The agents' pages: their content stands over the wall. */
+.violet-shell,
+.learner-shell {
+  position: relative;
+  isolation: isolate;
+}
+.violet-shell > :not(.matrix-wall),
+.learner-shell > :not(.matrix-wall) {
+  position: relative;
+  z-index: 1;
+}
+/* Her header words were dark ink for the pastel ground; on the
+   wall they stand in warm light gold, so her name and her
+   greeting stay readable over the rain. Her cards keep their
+   own white faces, untouched. Only the walled shell (her
+   signed-in page) carries this — the gate keeps its pastel. */
+.learner-shell:has(> .matrix-wall) > .learner-header h1 {
+  color: #ffe9b0;
+}
+.learner-shell:has(> .matrix-wall) > .learner-header p {
+  color: #d9c491;
+}
+
+/* ---- THE AGENT'S THREE BUTTONS (items 11–12) ---- */
+.agent-contact {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  border: 1px solid rgb(212 175 55 / 45%);
+  border-radius: 0.8rem;
+  background: rgb(10 9 4 / 88%);
+  color: #f5e7bd;
+}
+.agent-contact__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.agent-contact__btn {
+  flex: 1 1 9rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgb(212 175 55 / 65%);
+  border-radius: 0.6rem;
+  background: rgb(212 175 55 / 10%);
+  color: #ffd94d;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.agent-contact__btn--emergency,
+.agent-contact__emergency .agent-contact__btn--emergency {
+  border-color: rgb(255 83 71 / 80%);
+  background: rgb(255 83 71 / 14%);
+  color: #ffb3ab;
+}
+.agent-contact__form,
+.agent-contact__emergency {
+  margin-top: 0.7rem;
+}
+.agent-contact__form label {
+  display: block;
+  font-size: 0.9rem;
+}
+.agent-contact__form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgb(212 175 55 / 40%);
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 55%);
+  color: #fff6dd;
+  font: inherit;
+  font-size: 1rem;
+}
+.agent-contact__form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+.agent-contact__form-row button {
+  min-height: 2.6rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgb(212 175 55 / 55%);
+  border-radius: 0.55rem;
+  background: rgb(212 175 55 / 12%);
+  color: #ffd94d;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.agent-contact__form-row button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.agent-contact__note {
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+  color: rgb(245 231 189 / 85%);
+}
+
+/* ---- ASSET TRACERS (item 13) ---- */
+.asset-tracers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  font-size: 0.9rem;
+}
+.asset-tracers__plot {
+  width: 100%;
+  height: 11rem;
+  border: 1px solid rgb(212 175 55 / 35%);
+  border-radius: 0.6rem;
+  background: rgb(0 0 0 / 45%);
+}
+.asset-tracers__item {
+  border: 1px solid rgb(212 175 55 / 25%);
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.7rem;
+}
+.asset-tracers__item--moved {
+  border-color: rgb(255 83 71 / 75%);
+}
+.asset-tracers__meta {
+  opacity: 0.85;
+  font-size: 0.82rem;
+}
+.asset-tracers__form {
+  display: grid;
+  gap: 0.45rem;
+}
+.asset-tracers__form input,
+.asset-tracers__form select {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgb(212 175 55 / 40%);
+  border-radius: 0.45rem;
+  background: rgb(0 0 0 / 55%);
+  color: #fff6dd;
+  font: inherit;
+  font-size: 1rem;
+}
+
+/* ---- DETECTIVE VIEW (item 14) ---- */
+.detective-view {
+  position: relative;
+}
+.detective-view__img--night {
+  filter: brightness(1.35) contrast(1.1) sepia(0.9) hue-rotate(55deg) saturate(2.2);
+}
+.detective-view__img--thermal {
+  filter: invert(0.92) hue-rotate(185deg) saturate(3.2) contrast(1.25);
+}
+.detective-view__flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+.detective-flag {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgb(212 175 55 / 70%);
+  background: rgb(10 9 4 / 88%);
+  color: #ffd94d;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.detective-flag--weapon {
+  border-color: rgb(255 83 71 / 90%);
+  color: #ffb3ab;
+}
+.detective-flag--unacked {
+  box-shadow: 0 0 0 2px rgb(255 217 77 / 35%);
+}
+.detective-view__truth {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin-top: 0.4rem;
+}
+
+/* ---- PHONE GEOMETRY — the screenshot defects, closed ---- */
+@media (max-width: 700px) {
+  /* Item 3 — THE STATUS PANEL READS FULL-WIDTH: inside the
+     panel, the two HUD clusters take the panel's whole width
+     in one column — no 48vw/46vw squeeze, no one-word-per-line
+     tower (the SaaS brand line stands at reading width). */
+  .avatar-stage .avatar-status-panel div.avatar-hud--tl,
+  .avatar-stage .avatar-status-panel div.avatar-hud--tr {
+    max-width: none;
+    width: 100%;
+  }
+  .avatar-stage .avatar-status-panel .avatar-hud__brand-line,
+  .avatar-stage .avatar-status-panel .avatar-update {
+    max-width: none;
+  }
+  /* Item 6 — THE PANEL ENDS ABOVE THE BAR: the status panel's
+     height is capped so its foot never reaches the chat dock
+     (the dock's clearance plus the folded bar's height). */
+  .avatar-stage .avatar-status-panel {
+    max-height: calc(100dvh - 3.9rem - var(--chat-dock-clearance, 4.5rem) - 4.25rem);
+  }
+  /* Item 6 — WINDOWS ARE CONTAINERS, on the phone too: a
+     floating window never takes the whole screen unless the
+     Captain maximizes it himself (the maximized class is his
+     own act and is exempt). */
+  .avatar-stage .floating-window:not(.floating-window--maximized) {
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+  }
+  /* Item 2 — THE BUBBLE STAYS IN ITS LANE on the phone: while
+     he reads the conversation, no bubble paints over it — the
+     stage suppresses the bubble outright when the chat box is
+     open (AvatarStage); standing alone it is capped small and
+     high, clear of the dock. */
+  .avatar-stage .speech-bubble {
+    max-width: min(15rem, 54vw);
+  }
+  .avatar-stage .speech-bubble__text {
+    font-size: 0.9rem;
+  }
+  /* Item 4 — THE INBOX FITS ITS CONTENTS: the notifications
+     window is fit-content now (the component), and its items
+     stand compact — one tidy list, no cavern under one line. */
+  .avatar-stage .window-inbox__item {
+    margin-bottom: 0.5rem;
+  }
+  /* The quick menu keeps its one-line rows at phone width —
+     the panel takes the screen's width less margins, labels
+     clip with an ellipsis, never wrap into a column. */
+  .avatar-stage .stage-quick-menu__panel {
+    width: min(19rem, calc(100vw - 1.5rem));
+  }
+}
+
+/* Item 5 — GOLD CARRIES THE READINGS: the status/intensity
+   values rendered light blue (#8fd0ff) against his standing
+   order. The values are gold now, on every surface; the
+   hearing lane's hairline trades its blue for the same gold
+   family. (A deliberate theme pick still colors the construct
+   itself — the 3D presence — never these readings.) */
+.avatar-stage .avatar-hud__value {
+  color: #ffd94d;
+}
+.avatar-stage .voice-indicator {
+  border-top-color: rgb(212 175 55 / 35%);
+}

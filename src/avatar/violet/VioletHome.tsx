@@ -14,6 +14,8 @@
  */
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { SectionRequestButton } from "../SectionRequestButton";
+import { AgentContactButtons } from "../AgentContactButtons";
+import { MatrixWall } from "../MatrixWall";
 import {
   calculateExpression,
   formatCalcValue,
@@ -108,6 +110,11 @@ export function VioletHome() {
 
   return (
     <main className="violet-shell">
+      {/* ONE INTERFACE FOR ALL (owner order 2026-11-27): the
+          same Matrix Wall stands behind her side as behind
+          his — the same gold binary, tuned to her seat
+          (finance: measured tempo, sparser rain). */}
+      <MatrixWall role="finance" variant="page" />
       <header className="violet-header">
         <div>
           <h1>{VIOLET_PROFILE.fullName}</h1>
@@ -180,6 +187,49 @@ export function VioletHome() {
         onSubmit={async (text) => {
           const result = await violetSubmitRequest({ data: { token, text } });
           return { ok: result.ok, message: result.note };
+        }}
+      />
+
+      {/* THE THREE BUTTONS (phone fix pass 2026-11-27, items
+          11–12): problem, message, emergency — the same doors
+          every agent carries, run through her own session door.
+          Her emergency is honest about its reach: it files an
+          EMERGENCY request into his notifications the moment it
+          is sent; her side holds no call door, and the button
+          says so before she presses it. */}
+      <AgentContactButtons
+        captainLabel="the Captain"
+        emergencyNote="This files an EMERGENCY request straight into the Captain's notifications — he sees it the moment it lands. It does not place a call; your side has no call door."
+        onReportError={async (text) => {
+          const result = await violetSubmitRequest({
+            data: { token, text: `PROBLEM REPORT — ${text}` },
+          });
+          return {
+            ok: result.ok,
+            message: result.ok
+              ? "The Captain has it — the problem stands in his notifications now, and he fixes it."
+              : result.note,
+          };
+        }}
+        onMessage={async (text) => {
+          const result = await violetSubmitRequest({
+            data: { token, text: `MESSAGE — ${text}` },
+          });
+          return { ok: result.ok, message: result.note };
+        }}
+        onEmergency={async () => {
+          const result = await violetSubmitRequest({
+            data: {
+              token,
+              text: "EMERGENCY — Violet pressed her emergency button. She needs the Captain now.",
+            },
+          });
+          return {
+            ok: result.ok,
+            message: result.ok
+              ? "Sent. Your emergency stands in the Captain's notifications right now."
+              : result.note,
+          };
         }}
       />
 

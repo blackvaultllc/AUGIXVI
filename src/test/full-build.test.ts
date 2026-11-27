@@ -74,7 +74,7 @@ describe("settings that stick (augi.avatar.settings.v1)", () => {
 
   it("falls back to defaults when the store is corrupt — never crashes", () => {
     const bad = { getItem: () => "{not json", setItem: () => {} } as unknown as Storage;
-    expect(loadAvatarSettings(bad)).toMatchObject({ theme: "cyan" });
+    expect(loadAvatarSettings(bad)).toMatchObject({ theme: "gold" });
   });
 });
 

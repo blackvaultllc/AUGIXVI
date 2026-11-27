@@ -4,7 +4,14 @@
  * he set: the background/backdrop is his to set, and the choice
  * persists like every other part of his arrangement.
  *
- * Two kinds stand today:
+ * Three kinds stand today:
+ * - "matrix-wall": THE MATRIX WALL (owner order 2026-11-27,
+ *   "always and forever"): his gold binary rain, live and
+ *   moving, boxed in 3D — the construct's permanent background,
+ *   superseding the picture backgrounds on the stage. It is
+ *   the DEFAULT: a stage with no saved pick stands on the
+ *   wall. (The model is matrixWall.ts; the painter is
+ *   MatrixWall.tsx.)
  * - "world": the living particle world itself (the world scenes —
  *   the Room, the Office, the Desert of particles, and the rest).
  * - "desert-photo": THE DESERT — a high-quality photograph the
@@ -15,10 +22,15 @@
  *   repo the stage falls back to the living world — never a broken
  *   image, never a substitute picture.
  *
+ * A saved pick still stands where he left it — the wall is the
+ * default and the foundation, not a cage: he can set the Desert
+ * or the World from the Scene tab like always, and the pick
+ * persists. What changed is only where a fresh stage starts.
+ *
  * Asset convention, the same as every presence: one registered
  * path under public/, replaceable in place.
  */
-export type StageBackdropId = "world" | "desert-photo";
+export type StageBackdropId = "matrix-wall" | "world" | "desert-photo";
 
 /** Where the Captain's desert photograph drops in. */
 export const DESERT_BACKDROP_SRC = "/backdrops/desert.webp";
@@ -30,6 +42,12 @@ export const STAGE_BACKDROPS: readonly {
   /** The image asset for a photo backdrop; null for the living world. */
   image: string | null;
 }[] = [
+  {
+    id: "matrix-wall",
+    name: "The Matrix Wall",
+    blurb: "His gold binary rain — live, moving, boxed in 3D. The foundation, always and forever.",
+    image: null,
+  },
   {
     id: "world",
     name: "The Living World",
@@ -48,11 +66,14 @@ const STORAGE_KEY = "augi.avatar.backdrop.v1";
 
 export function loadStageBackdrop(): StageBackdropId {
   try {
-    return globalThis.localStorage?.getItem(STORAGE_KEY) === "desert-photo"
-      ? "desert-photo"
-      : "world";
+    const saved = globalThis.localStorage?.getItem(STORAGE_KEY);
+    if (saved === "desert-photo") return "desert-photo";
+    if (saved === "world") return "world";
+    // No pick on record: the stage stands on the Matrix Wall —
+    // his standing order of 2026-11-27, "always and forever."
+    return "matrix-wall";
   } catch {
-    return "world";
+    return "matrix-wall";
   }
 }
 

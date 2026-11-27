@@ -47,8 +47,8 @@ export function defaultSettings(): AvatarSettings {
     // much, and a saved choice (any value he picked) always outranks this.
     bloom: 0,
     glitch: 0.4,
-    theme: "cyan" as ThemeChoice,
-    customColor: "#22d3ee",
+    theme: "gold" as ThemeChoice,
+    customColor: "#d4af37",
     sensitivity: 0.8,
     cooldownMs: 800,
     backdropImage: null,

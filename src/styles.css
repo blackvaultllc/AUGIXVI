@@ -167,8 +167,8 @@
   background: var(--background, #02040a);
   color: var(--foreground, #f8fafc);
   font-family: var(--font-mono, monospace);
-  --avatar-hud-line: var(--hud-line, #3b82f6);
-  --avatar-hud-accent: var(--avatar-accent, var(--hud-accent, #22d3ee));
+  --avatar-hud-line: var(--hud-line, rgb(212 175 55 / 50%));
+  --avatar-hud-accent: var(--avatar-accent, var(--hud-accent, #d4af37));
   --avatar-hud-surface: var(--hud-surface, rgb(2 6 23 / 82%));
   --avatar-hud-warn: var(--hud-warn, #f87171);
 }

@@ -174,6 +174,7 @@ export function NotificationsWindow({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       initialWidth={520}
       initialHeight={560}
+      fitContentHeight
     >
       <div className="window-inbox">
         {denied ? (

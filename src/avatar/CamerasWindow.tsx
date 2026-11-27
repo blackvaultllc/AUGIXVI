@@ -47,6 +47,14 @@ import { CameraAnalysisBlock } from "./cameras/CameraAnalysisBlock";
 import { getCameraPresence, type CameraPresenceView } from "./cameraPresence.server";
 import { CameraPresenceRecords, CameraPresenceSection } from "./cameras/CameraPresencePanel";
 import { SectorWatchPanel } from "./cameras/SectorWatchPanel";
+import { getSectorWatch } from "./sectorWatch.server";
+import {
+  DETECTIVE_MODES,
+  detectiveFlagsForCamera,
+  type DetectiveFlag,
+  type DetectiveMode,
+} from "./cameras/detectiveFlags";
+import "./phone-fix-pass.css";
 import { PermissionsProfilePanel } from "./cameras/PermissionsProfilePanel";
 import { loadRegistry, upsertDevice, type DeviceProfile } from "./devices/deviceRegistry";
 
@@ -168,6 +176,31 @@ function LensView({
   const stillRef = useRef<string | null>(null);
   const [brain] = useState(() => loadBrainAddress());
   const [analysis, setAnalysis] = useState<LensAnalysisState>({ kind: "idle" });
+  // DETECTIVE VIEW (phone fix pass 2026-11-27, item 14 — Top
+  // 100 #53): the named view over this lens's picture — the
+  // night-vision and thermal-look display layers, and the
+  // FLAGS standing against this camera on the Sector Watch
+  // record (detectiveFlags.ts). The flags load from the same
+  // sector door the Sector Watch panel reads; no event on the
+  // record, no flag on the view.
+  const [detectiveMode, setDetectiveMode] = useState<DetectiveMode>("off");
+  const [detectiveFlags, setDetectiveFlags] = useState<DetectiveFlag[] | null>(null);
+  useEffect(() => {
+    if (detectiveMode === "off") return;
+    let cancelled = false;
+    void getSectorWatch({ data: { accessToken: token } })
+      .then((view) => {
+        if (!cancelled && view?.authorized) {
+          setDetectiveFlags(detectiveFlagsForCamera(view.events, camera.id));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setDetectiveFlags([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [detectiveMode, camera.id, token]);
 
   const showFrame = useCallback((blob: Blob) => {
     if (stillRef.current) URL.revokeObjectURL(stillRef.current);
@@ -236,22 +269,51 @@ function LensView({
           {lens.verified ? "path verified — frames pulled" : "path not yet proven"}
         </span>
       </div>
-      {live && !streamFailed ? (
-        <img
-          className="window-cameras__video"
-          src={streamUrl(token, camera.id, lens.id)}
-          alt={`${camera.name} — ${lens.label} live view`}
-          onError={() => setStreamFailed(true)}
-        />
-      ) : still ? (
-        <img className="window-cameras__video" src={still} alt={`${camera.name} — ${lens.label} snapshot`} />
-      ) : (
-        <div className="window-cameras__novideo">
-          {streamFailed
-            ? "The live bridge got no picture from this lens. Try a snapshot, or run Probe — the path may be silent until the camera's app password is set."
-            : "No picture yet. Start the live view or take a snapshot."}
-        </div>
-      )}
+      <div className="detective-view">
+        {live && !streamFailed ? (
+          <img
+            className={`window-cameras__video detective-view__img detective-view__img--${detectiveMode}`}
+            src={streamUrl(token, camera.id, lens.id)}
+            alt={`${camera.name} — ${lens.label} live view`}
+            onError={() => setStreamFailed(true)}
+          />
+        ) : still ? (
+          <img
+            className={`window-cameras__video detective-view__img detective-view__img--${detectiveMode}`}
+            src={still}
+            alt={`${camera.name} — ${lens.label} snapshot`}
+          />
+        ) : (
+          <div className="window-cameras__novideo">
+            {streamFailed
+              ? "The live bridge got no picture from this lens. Try a snapshot, or run Probe — the path may be silent until the camera's app password is set."
+              : "No picture yet. Start the live view or take a snapshot."}
+          </div>
+        )}
+        {detectiveMode !== "off" && detectiveFlags && detectiveFlags.length > 0 && (
+          <div className="detective-view__flags" aria-label="Flags standing against this camera">
+            {detectiveFlags.slice(0, 6).map((flag) => (
+              <span
+                key={flag.eventId}
+                className={`detective-flag detective-flag--${flag.kind}${flag.acknowledged ? "" : " detective-flag--unacked"}`}
+                title={`${flag.summary} — ${new Date(flag.at).toLocaleString()}${flag.acknowledged ? "" : " · not yet acknowledged"}`}
+              >
+                {flag.label}
+              </span>
+            ))}
+          </div>
+        )}
+        {detectiveMode !== "off" && (
+          <p className="detective-view__truth">
+            {DETECTIVE_MODES.find((m) => m.id === detectiveMode)?.truth}{" "}
+            {detectiveFlags === null
+              ? "Reading this camera's flags from the Sector Watch record…"
+              : detectiveFlags.length === 0
+                ? "No flags stand against this camera on the Sector Watch record."
+                : `${detectiveFlags.length} flag${detectiveFlags.length === 1 ? "" : "s"} on the record for this camera.`}
+          </p>
+        )}
+      </div>
       <div className="window-cameras__actions">
         <button
           type="button"
@@ -274,6 +336,24 @@ function LensView({
         >
           {analysis.kind === "working" ? `Analyzing… ${analysis.elapsed}s` : "Analyze this view"}
         </button>
+        {/* DETECTIVE VIEW — one named view, three layers (item
+            14): plain, night vision, thermal-look, with the
+            flags over the picture. Existing feed, no new
+            hardware; the thermal-look is labeled false color
+            on its face (detectiveFlags.ts carries the words). */}
+        <span role="group" aria-label="Detective View">
+          {DETECTIVE_MODES.map((mode) => (
+            <button
+              key={mode.id}
+              type="button"
+              className="window-btn"
+              aria-pressed={detectiveMode === mode.id}
+              onClick={() => setDetectiveMode(mode.id)}
+            >
+              {mode.id === "off" ? "Detective: off" : mode.label}
+            </button>
+          ))}
+        </span>
         {stillNote && (
           <span className="window-hint" role="status">
             {stillNote}

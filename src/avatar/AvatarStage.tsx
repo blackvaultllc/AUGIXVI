@@ -406,6 +406,9 @@ import { getSectorAlertState } from "./sectorWatch.server";
 import { getInboxState, getNotifications } from "./notifications.server";
 import { isSeriousSystemEntry, seriousSpeechLine } from "./seriousSpeech";
 import { NotificationsWindow } from "./NotificationsWindow";
+import { MatrixWall } from "./MatrixWall";
+import { AssetTracersWindow } from "./AssetTracersWindow";
+import "./phone-fix-pass.css";
 import { ExchangeWindow } from "./ExchangeWindow";
 import { DeitiesWindow } from "./DeitiesWindow";
 import { PersonalVaultWindow } from "./PersonalVaultWindow";
@@ -456,8 +459,8 @@ const DEFAULTS: Settings = {
   maxParticles: 120000,
   bloom: 0.25,
   glitch: 0.4,
-  theme: "cyan",
-  customColor: "#22d3ee",
+  theme: "gold",
+  customColor: "#d4af37",
   sensitivity: 0.8,
   cooldownMs: 800,
   backdropImage: null,
@@ -1083,6 +1086,30 @@ export function AvatarStage({
   // carries the real unread count from the core store, read
   // on the poll below; the window is NotificationsWindow.
   const [inboxOpen, setInboxOpen] = useState(false);
+  // ASSET TRACERS (phone fix pass 2026-11-27, item 13): the
+  // tracker tags on the truck, the vest, and the gear.
+  const [assetTracersOpen, setAssetTracersOpen] = useState(false);
+  // THE CHAT BOX'S FOLDED STATE + THE PHONE MEASURE (phone fix
+  // pass 2026-11-27, item 2): while the conversation box stands
+  // OPEN on a phone-width stage, the speech bubble does not
+  // render — the reply lives in the thread, and nothing paints
+  // over what he is reading. The box reports its state through
+  // onMinimizedChange; the phone measure follows the same
+  // breakpoint the box itself uses.
+  const [chatBoxMinimized, setChatBoxMinimized] = useState(true);
+  const [phoneStage, setPhoneStage] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia(`(max-width: ${COMMAND_BOX_PHONE_BREAKPOINT}px)`).matches,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia(`(max-width: ${COMMAND_BOX_PHONE_BREAKPOINT}px)`);
+    const onChange = (event: MediaQueryListEvent) => setPhoneStage(event.matches);
+    query.addEventListener?.("change", onChange);
+    return () => query.removeEventListener?.("change", onChange);
+  }, []);
   // THE LEFT RAIL (owner order 2026-11-26 ~13:48 CST): the
   // NOTIFICATIONS pill moved from the top-right to the
   // top-LEFT, and directly under it his SETTINGS quick-access —
@@ -4214,6 +4241,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     listeningOpen ||
     devicesOpen ||
     camerasOpen ||
+    assetTracersOpen ||
     remoteCodesOpen ||
     identifyOpen ||
     formationOpen ||
@@ -4289,6 +4317,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         { icon: Activity, label: "Pulse", open: () => setPulseOpen(true) },
         { icon: AudioLines, label: "Sound Watch", open: () => setSoundWatchOpen(true) },
         { icon: Waves, label: "Signal Map", open: () => setSignalMapOpen(true) },
+        { icon: LocateFixed, label: "Asset Tracers", open: () => setAssetTracersOpen(true) },
         { icon: ScanSearch, label: "Picture Analysis", open: () => setAnalyzeOpen(true) },
         { icon: ScanSearch, label: "Identify", open: () => setIdentifyOpen(true) },
       ],
@@ -4363,6 +4392,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       onTouchStart={onStageTouchStart}
       onTouchEnd={onStageTouchEnd}
     >
+      {/* THE MATRIX WALL (owner order 2026-11-27 — "always and
+          forever"): his gold binary rain, live and moving,
+          boxed in 3D, stands as the stage's ground whenever it
+          is the set backdrop — the default every fresh stage
+          opens on. It lies under the wallpaper layer and the
+          gods' own backgrounds, exactly where a foundation
+          belongs, and it never covers a face: every presence
+          stands above it. */}
+      {backdrop === "matrix-wall" && worldScreen === "live" && <MatrixWall role="owner" />}
       {backdrop === "desert-photo" && backdropArtReady && (
         <img
           className="avatar-stage__backdrop"
@@ -4631,6 +4669,17 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           muted or written-only line never bubbles. */}
       {!clearScreen &&
         worldScreen === "live" &&
+        // THE SEND POP-UP DEFECT, CLOSED (phone fix pass
+        // 2026-11-27, item 2): on his phone, hitting send raised
+        // the bubble over the open conversation — a reply he was
+        // trying to READ, covered by the same words standing
+        // beside the god's head. While the chat box stands open
+        // on a phone-width stage the bubble does not render at
+        // all: the reply lives in the thread, whole, and the
+        // stage stays clean. On the desktop, and on the phone
+        // with the box folded to its bar, the bubble keeps its
+        // doctrine — beside the speaker's head, while he speaks.
+        !(phoneStage && !chatBoxMinimized) &&
         (() => {
           const bubble = speechBubbleFor({ bridgeState: state, addressee, words: lastWords });
           return bubble ? <SpeechBubble god={bubble.god} text={bubble.text} /> : null;
@@ -4931,6 +4980,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           partnerSpeaking={state === "SPEAKING"}
           away={worldScreen !== "live"}
           onReturnToChat={returnToChat}
+          onMinimizedChange={setChatBoxMinimized}
           onMinimizeShortcut={(controls) => {
             // ONE REGISTRATION, TWO HOLDERS (merge of the two
             // 2026-11-24 rounds): the builder fold (sibling pass)
@@ -5098,7 +5148,9 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                       say(
                         option.id === "desert-photo"
                           ? "The Desert backdrop is set — your photograph, Captain, when it lands at its place."
-                          : "The living world is the backdrop again.",
+                          : option.id === "matrix-wall"
+                            ? "The Matrix Wall stands — your gold binary, live and moving, as the ground of the construct."
+                            : "The living world is the backdrop again.",
                       );
                     }}
                   />
@@ -5648,6 +5700,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {analyzeOpen && <AnalyticWindow onClose={() => setAnalyzeOpen(false)} />}
       {gateLogOpen && <GateLogWindow onClose={() => setGateLogOpen(false)} />}
       {signalMapOpen && <SignalMapWindow onClose={() => setSignalMapOpen(false)} />}
+      {assetTracersOpen && <AssetTracersWindow onClose={() => setAssetTracersOpen(false)} />}
       {logsOpen && <LogsWindow onClose={() => setLogsOpen(false)} />}
       {testAreaOpen && <TestAreaWindow onClose={() => setTestAreaOpen(false)} />}
       {anatomyOpen && <AnatomyWindow onClose={() => setAnatomyOpen(false)} />}

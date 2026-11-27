@@ -365,6 +365,7 @@ export function CommandBox({
   userSource = "typed",
   history,
   onMinimizeShortcut,
+  onMinimizedChange,
   onWindowControls,
   partnerSpeaking,
   away = false,
@@ -418,6 +419,14 @@ export function CommandBox({
   history?: ReplyHistoryEntry[] | undefined;
   /** Lets AvatarStage ("/minimize" etc.) collapse or restore the box. */
   onMinimizeShortcut?: (controls: { minimize: () => void; restore: () => void }) => void;
+  /**
+   * The box's folded state, reported as it changes (phone fix
+   * pass 2026-11-27, item 2): the stage reads it to keep the
+   * speech bubble out of the open conversation on the phone —
+   * while he reads the thread, no bubble paints over it; the
+   * reply stands in the thread, where it belongs.
+   */
+  onMinimizedChange?: (minimized: boolean) => void;
   /**
    * THE WINDOW'S KEYS, HANDED TO OSIRIS (owner order 2026-11-24
    * ~16:57 EST): the four window keys — anchor, reset, the
@@ -576,6 +585,12 @@ export function CommandBox({
   useEffect(() => {
     onMinimizeShortcut?.({ minimize: minimizeNow, restore: restoreNow });
   }, [onMinimizeShortcut, minimizeNow, restoreNow]);
+
+  // The folded state, reported as it changes (phone fix pass
+  // 2026-11-27, item 2 — see the prop's note).
+  useEffect(() => {
+    onMinimizedChange?.(minimized);
+  }, [onMinimizedChange, minimized]);
 
   const toggleMinimized = useCallback(() => {
     setMinimized((current) => !current);
