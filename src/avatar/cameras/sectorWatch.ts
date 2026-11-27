@@ -98,10 +98,95 @@ export interface SectorWatchSettings {
   /** Seconds between watch cycles, per camera. */
   intervalSec: number;
   cameras: Record<string, SectorCameraConfig>;
+  /**
+   * AUTONOMY (owner order 2026-11-27: "My cameras need to
+   * make sure that they're autonomous until further notice.
+   * They can look where they want. They can gather what they
+   * want."). Autonomous patrol is the DEFAULT mode: a watched
+   * camera chooses its own look targets inside its assigned
+   * zone (ZONE_LOOK_TARGETS below) and gathers under the
+   * watch's existing rules. It stays on until a RECORDED order
+   * turns it off — the off state exists only as a record with
+   * a time on it, never as a silent default.
+   */
+  autonomy: AutonomyState;
+}
+
+export interface AutonomyState {
+  enabled: boolean;
+  /** When the current state was set by a recorded order (ms epoch); null = the born default. */
+  since: number | null;
+  /** Plain words: where this state came from. */
+  note: string;
+}
+
+export const AUTONOMY_DEFAULT_NOTE =
+  "Autonomy stands ON by the Captain's standing order of 2026-11-27 — autonomous until further notice. The cameras choose their own look targets inside their zones and gather under the Sector Watch rules.";
+
+export const AUTONOMY_OFF_NOTE =
+  "Autonomy was turned OFF by a recorded order. The cameras hold the Captain's set patrol and watch only — no self-chosen targets — until a recorded order turns autonomy back on.";
+
+export function defaultAutonomyState(): AutonomyState {
+  return { enabled: true, since: null, note: AUTONOMY_DEFAULT_NOTE };
+}
+
+/** A recorded order changing autonomy — the only road on or off. */
+export function autonomyByOrder(enabled: boolean, at: number): AutonomyState {
+  return enabled
+    ? { enabled: true, since: at, note: "Autonomy turned ON by a recorded order — autonomous until further notice." }
+    : { enabled: false, since: at, note: AUTONOMY_OFF_NOTE };
+}
+
+/**
+ * The look targets a camera chooses among, per zone — inside
+ * its assigned sector, never outside it. Autonomy is freedom
+ * WITHIN the zone law, not freedom from it.
+ */
+export const ZONE_LOOK_TARGETS: Record<SectorZone, string[]> = {
+  front: ["the vehicles", "the entry doors", "the Captain's truck", "the driveway approach"],
+  bedroom: ["the room door", "the room at rest", "the window side"],
+  common: ["the walkway", "the open area", "the seating"],
+};
+
+/** One full pass through a zone's targets takes this long per target. */
+export const AUTONOMY_SEGMENT_MS = 8000;
+
+/** Pan positions the autonomous look steps through, left to right and back. */
+const AUTONOMY_PAN_STEPS = [-0.6, -0.3, 0, 0.3, 0.6, 0.3, 0, -0.3];
+
+export interface AutonomousLook {
+  target: string;
+  targetIndex: number;
+  /** PTZ pan velocity that carries the head toward this target's step. */
+  pan: number;
+}
+
+/**
+ * The autonomous look, pure over elapsed time: the camera
+ * works through its zone's targets in order, one segment
+ * each, forever — the same determinism as the patrol pattern,
+ * so the loop is just "ask what autonomy says now". The pan
+ * is the step for the current segment; between segments the
+ * head settles (the caller drives steps as nudges, exactly
+ * like the patrol's legs).
+ */
+export function autonomousLookAt(
+  zone: SectorZone,
+  elapsedMs: number,
+  segmentMs: number = AUTONOMY_SEGMENT_MS,
+): AutonomousLook {
+  const targets = ZONE_LOOK_TARGETS[zone];
+  const segment = Math.max(0, Math.floor(elapsedMs / Math.max(1000, segmentMs)));
+  const targetIndex = segment % targets.length;
+  return {
+    target: targets[targetIndex]!,
+    targetIndex,
+    pan: AUTONOMY_PAN_STEPS[segment % AUTONOMY_PAN_STEPS.length]!,
+  };
 }
 
 export function defaultSectorSettings(): SectorWatchSettings {
-  return { intervalSec: WATCH_INTERVAL_DEFAULT_SEC, cameras: {} };
+  return { intervalSec: WATCH_INTERVAL_DEFAULT_SEC, cameras: {}, autonomy: defaultAutonomyState() };
 }
 
 /** The config for one camera — the stored one, or its honest default. */
@@ -357,7 +442,33 @@ export function sanitizeSectorSettings(v: unknown): SectorWatchSettings {
         ? Math.min(WATCH_INTERVAL_MAX_SEC, Math.max(WATCH_INTERVAL_MIN_SEC, Math.round(interval)))
         : base.intervalSec,
     cameras,
+    autonomy: sanitizeAutonomyState(v["autonomy"]),
   };
+}
+
+/**
+ * Autonomy sanitizes ON unless a recorded order turned it
+ * off: the stored off state survives only in its exact shape
+ * (enabled === false WITH the time the order landed). Any
+ * other shape — absent, half-written, a bare false with no
+ * record behind it — reads as the standing default: ON.
+ */
+export function sanitizeAutonomyState(v: unknown): AutonomyState {
+  const base = defaultAutonomyState();
+  if (!isRecord(v)) return base;
+  if (v["enabled"] === false) {
+    const since = cleanTime(v["since"]);
+    if (since === null) return base; // an unrecorded "off" is not an order — autonomy stands
+    return { enabled: false, since, note: cleanString(v["note"], 400) ?? AUTONOMY_OFF_NOTE };
+  }
+  if (v["enabled"] === true) {
+    return {
+      enabled: true,
+      since: cleanTime(v["since"]),
+      note: cleanString(v["note"], 400) ?? base.note,
+    };
+  }
+  return base;
 }
 
 const READING_KINDS: WatchReadingKind[] = [

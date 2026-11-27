@@ -23,11 +23,13 @@ import {
   forgetSilentSensor,
   probeCameraPresence,
   probeCameraStreamFollow,
+  setCameraEyeMode,
   setCameraHearing,
   type CameraPresenceView,
   type CameraPresenceViewState,
 } from "../cameraPresence.server";
 import { cameraCanControl, type CameraProfile } from "./cameraRegistry";
+import { CAMERA_EYE_MODES, eyeLabel, type CameraEyeMode } from "./cameraEyes";
 import {
   heardLevelText,
   soundLevelReferenceLine,
@@ -89,7 +91,9 @@ export function CameraPresenceSection({
     | "record-stop"
     | "spotlight"
     | "tracking"
-    | "turn-to-speaker";
+    | "turn-to-speaker"
+    | "gesture-yes"
+    | "gesture-no";
   const act = (action: PresenceAction, on?: boolean) =>
     run(() =>
       cameraPresenceAction({
@@ -182,6 +186,12 @@ export function CameraPresenceSection({
                 Stop all motion
               </button>
             )}
+            <button type="button" className="window-btn" disabled={busy || !canControl} onClick={() => void act("gesture-yes")}>
+              Nod yes
+            </button>
+            <button type="button" className="window-btn" disabled={busy || !canControl} onClick={() => void act("gesture-no")}>
+              Shake no
+            </button>
           </div>
           {state?.follow.active && (
             <p className="window-cameras__grant">
@@ -252,6 +262,40 @@ export function CameraPresenceSection({
       ) : (
         <p className="window-cameras__grant">{state?.agamossLight.note ?? ""}</p>
       )}
+
+      <div className="window-cameras__actions">
+        <span>
+          Eyes: <strong>{state ? eyeLabel(state.eyes.mode) : "red"}</strong>
+          {state?.eyes.by ? ` — set by ${state.eyes.by}` : " — standing order"}
+        </span>
+        {CAMERA_EYE_MODES.map((mode: CameraEyeMode) => (
+          <button
+            key={mode}
+            type="button"
+            className="window-btn"
+            disabled={busy || state?.eyes.mode === mode}
+            onClick={() =>
+              void run(() =>
+                setCameraEyeMode({
+                  data: {
+                    accessToken: token,
+                    cameraId: camera.id,
+                    mode,
+                    by: "the Captain",
+                    reason: "set by the Captain's hand from the Presence panel",
+                  },
+                }),
+              )
+            }
+          >
+            {eyeLabel(mode)}
+          </button>
+        ))}
+      </div>
+      <p className="window-cameras__grant">
+        Red eyes stand by the Captain's order (2026-11-27) — a camera never sits dark. A construct may change
+        the eyes only to see something better, and every change is written in the eye log below with its reason.
+      </p>
 
       {state?.spotlight.door ? (
         <div className="window-cameras__actions">
@@ -472,6 +516,12 @@ export function AgamossCard({ view }: { view: CameraPresenceView }) {
         listening — if it is off, he is not), he turns toward where you were last seen, and he nods yes.
       </p>
       <p className="window-cameras__probe">
+        The other constructs carry wake addresses of their own (order 2026-11-27): “Montu awaken” /
+        “Montu wake up” and “Anubis awaken” / “Anubis wake up” — the same law: the full phrase, in your
+        matched voice only. Their wakes are heard and recorded under the named construct; they do not
+        open an Agamoss session at the camera.
+      </p>
+      <p className="window-cameras__probe">
         The head code: YES = nod up and down twice. NO = shake left and right three times. A number =
         turn right and nod the first digit, turn left and nod the second (right 8, left 6 = 86). A zero
         is one slow nod. He only answers from real checks — what he heard, what the camera reads, the
@@ -548,6 +598,28 @@ export function CameraPresenceRecords({
                   ? " · voice: another person (no voiceprint match)"
                   : ""}{" "}
               — “{event.text}”{event.acted ? ` → ${event.acted}` : ""}
+            </p>
+          ))
+        )}
+      </div>
+
+      <div className="window-cameras__card">
+        <div className="window-cameras__head">
+          <strong>The eye log</strong>
+          <span>
+            every change of a camera's eyes (order 2026-11-27) — red stands by default; a change names who
+            made it and why, or it does not happen
+          </span>
+        </div>
+        {view.eyeChanges.length === 0 ? (
+          <p className="window-cameras__grant">
+            No eye changes yet — every camera's eyes stand red, by the standing order.
+          </p>
+        ) : (
+          view.eyeChanges.map((entry) => (
+            <p key={entry.id} className="window-cameras__probe">
+              <strong>{entry.cameraName}</strong> · {dayTime(entry.at)} · {eyeLabel(entry.from)} →{" "}
+              {eyeLabel(entry.to)} · by {entry.by} — {entry.reason}
             </p>
           ))
         )}

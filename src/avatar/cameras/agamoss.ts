@@ -124,6 +124,66 @@ export function isWakeOnlyLine(text: string, phrases: string[]): boolean {
   return rest.length === 0 || /^(please|now|hey|yo)$/.test(rest);
 }
 
+/* ------------------------------------------------------------------ */
+/* Construct wake addresses — Montu and Anubis (owner order            */
+/* 2026-11-27: he called "Montu awaken" and "Anubis awaken" and        */
+/* nothing answered; the wake law now carries their addresses          */
+/* alongside Agamoss's).                                               */
+/*                                                                     */
+/* The shape is the same law as Agamoss's: a FULL phrase addressed     */
+/* to the construct — never the bare name. "Awaken" is the address     */
+/* he used; "wake up" stands beside it. A Montu or Anubis wake does    */
+/* not open an Agamoss camera session (that door is Agamoss's); it     */
+/* is heard, recorded, and routed to the construct it names — the      */
+/* hearing record says which one was called, and the voice gate        */
+/* stands exactly as it does for Agamoss: only the Captain's           */
+/* matched voice activates anything.                                   */
+/* ------------------------------------------------------------------ */
+
+export type ConstructName = "agamoss" | "montu" | "anubis";
+
+export const CONSTRUCT_WAKE_PHRASES: Record<Exclude<ConstructName, "agamoss">, string[]> = {
+  montu: ["montu awaken", "montu wake up"],
+  anubis: ["anubis awaken", "anubis wake up"],
+};
+
+export interface ConstructWake {
+  construct: Exclude<ConstructName, "agamoss">;
+  /** The matched phrase, normalized. */
+  phrase: string;
+}
+
+/**
+ * The construct wake test for Montu and Anubis: does this line
+ * carry one of their full wake phrases, whole and in order?
+ * The bare name returns null, always — same law as Agamoss.
+ */
+export function matchConstructWake(text: string): ConstructWake | null {
+  const line = ` ${normalizeSpeechText(text)} `;
+  let best: ConstructWake | null = null;
+  for (const construct of ["montu", "anubis"] as const) {
+    for (const phrase of CONSTRUCT_WAKE_PHRASES[construct]) {
+      const p = normalizeSpeechText(phrase);
+      if (p && line.includes(` ${p} `) && (best === null || p.length > best.phrase.length)) {
+        best = { construct, phrase: p };
+      }
+    }
+  }
+  return best;
+}
+
+/** Plain words naming a construct as the record speaks of them. */
+export function constructLabel(construct: ConstructName): string {
+  switch (construct) {
+    case "agamoss":
+      return "Agamoss";
+    case "montu":
+      return "Montu";
+    case "anubis":
+      return "Anubis";
+  }
+}
+
 /**
  * Sanitize the stored wake list: normalized phrases, each
  * carrying his name, no dupes, capped. An absent or unusable
@@ -256,6 +316,41 @@ export function describeGesture(kind: "yes" | "no" | "number", value?: number): 
   if (kind === "yes") return "nodded yes (up and down, twice)";
   if (kind === "no") return "shook no (left and right, three times)";
   return `signed the number ${value ?? "?"} (right, nod the first digit; left, nod the second)`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Named PTZ gestures — the little robots' head answers                */
+/* (owner order 2026-11-27: the PTZ cameras are little robots          */
+/* with eyes, lights, and ears; they must be able to move the          */
+/* head around and gesture — the YES nod and the NO shake — as         */
+/* named, callable behaviors in the camera control layer, for          */
+/* the constructs to answer him with).                                 */
+/* ------------------------------------------------------------------ */
+
+export type CameraGestureKind = "yes" | "no";
+
+export interface CameraGesture {
+  kind: CameraGestureKind;
+  /** The callable name — how a construct asks for it. */
+  name: string;
+  /** Plain words: what the head does. */
+  words: string;
+}
+
+export const CAMERA_GESTURES: CameraGesture[] = [
+  { kind: "yes", name: "nod-yes", words: "nodded yes (up and down, twice)" },
+  { kind: "no", name: "shake-no", words: "shook no (left and right, three times)" },
+];
+
+/** The steps behind a named gesture — the same head code the answers use. */
+export function gestureStepsFor(kind: CameraGestureKind): GestureStep[] {
+  return kind === "yes" ? yesGesture() : noGesture();
+}
+
+/** Look a gesture up by its callable name; null when no such behavior exists. */
+export function cameraGestureByName(name: string): CameraGesture | null {
+  const wanted = name.trim().toLowerCase();
+  return CAMERA_GESTURES.find((g) => g.name === wanted) ?? null;
 }
 
 /* ------------------------------------------------------------------ */

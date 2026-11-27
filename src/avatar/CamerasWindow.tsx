@@ -26,6 +26,7 @@ import {
   getCameras,
   probeCamera,
   ptzCamera,
+  redetectCamera,
   removeCamera,
   saveCamera,
   type CamerasView,
@@ -565,6 +566,68 @@ function CameraForm({
   );
 }
 
+/**
+ * RE-DETECTION (owner order 2026-11-27): the registry knows a
+ * camera by its serial number. A camera that was unplugged,
+ * moved, or given a new address by the router is found again
+ * by asking the unit at its new address who it is — the
+ * registration re-attaches by serial, same name and
+ * permissions, and its armed presence resumes. Nothing is
+ * ever removed here: a serial leaves the registry only on
+ * the Captain's explicit sell/remove order.
+ */
+function RedetectCard({ token, refresh }: { token: string; refresh: () => void }) {
+  const [host, setHost] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="window-cameras__card">
+      <div className="window-cameras__head">
+        <strong>Find a moved camera by its serial</strong>
+        <span>
+          a registered camera that reappears at a new address is re-detected by the serial it reports —
+          its registration, name, and permissions move with it, and its watch resumes
+        </span>
+      </div>
+      <div className="window-cameras__row">
+        <label>
+          The address it answers at now
+          <input
+            type="text"
+            value={host}
+            placeholder="e.g. 10.0.0.87"
+            onChange={(e) => setHost(e.target.value)}
+          />
+        </label>
+        <div className="window-cameras__actions">
+          <button
+            type="button"
+            className="window-btn"
+            disabled={busy || !host.trim()}
+            onClick={() => {
+              setBusy(true);
+              void redetectCamera({ data: { accessToken: token, host: host.trim() } })
+                .then((r) => {
+                  setNote(r.note);
+                  refresh();
+                })
+                .catch(() => setNote("The core did not answer — nothing was changed."))
+                .finally(() => setBusy(false));
+            }}
+          >
+            Ask who is there
+          </button>
+        </div>
+      </div>
+      {note && (
+        <p className="window-cameras__grant" role="status">
+          {note}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CameraCard({
   camera,
   token,
@@ -807,6 +870,9 @@ export function CamerasPanel() {
               token={token ?? ""}
               refreshPresence={() => void refreshPresence()}
             />
+          )}
+          {state.view.cameras.length > 0 && state.view.storageAvailable && (
+            <RedetectCard token={token ?? ""} refresh={() => void refresh()} />
           )}
           {state.view.cameras.length > 0 && state.view.storageAvailable && (
             <SectorWatchPanel cameras={state.view.cameras} token={token ?? ""} presenceView={presenceView} />

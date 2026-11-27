@@ -147,6 +147,39 @@ export const removeCamera = createServerFn({ method: "POST" })
     return { authorized: true, stored: true, note: "Camera removed from the registry." };
   });
 
+/* --------------------------- re-detection --------------------------- */
+
+export type RedetectCameraInput = TokenInput & { host: string; onvifPort?: number };
+
+export type RedetectResult = { authorized: boolean; ok: boolean; note: string };
+
+/**
+ * SERIAL RE-DETECTION (owner order 2026-11-27): the registry
+ * knows a camera by its serial number. When a registered unit
+ * reappears at a new address, this asks the unit at the
+ * candidate address to identify itself; if the serial it
+ * answers with is registered, the registration re-attaches
+ * there — same id, name, and permissions — and its armed
+ * presence resumes. Removal is NOT part of this road: a
+ * serial leaves the registry only on the Captain's explicit
+ * sell/remove order (removeCamera above, his hand only).
+ */
+export const redetectCamera = createServerFn({ method: "POST" })
+  .validator((input: unknown): RedetectCameraInput => {
+    if (!isTokenInput(input) || typeof (input as RedetectCameraInput).host !== "string") {
+      throw new Error("Invalid re-detection request.");
+    }
+    return input as RedetectCameraInput;
+  })
+  .handler(async ({ data }): Promise<RedetectResult> => {
+    if (!(await authorized(data.accessToken))) {
+      return { authorized: false, ok: false, note: "The operator session is gone — sign in again." };
+    }
+    const runtime = await import("./cameraPresenceRuntime.server");
+    const result = await runtime.redetectCameraAtHost(data.host, data.onvifPort);
+    return { authorized: true, ok: result.ok, note: result.note };
+  });
+
 /* ------------------------------- probe ------------------------------- */
 
 export type LensProbe = {

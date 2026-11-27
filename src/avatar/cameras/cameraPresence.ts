@@ -45,6 +45,14 @@ import {
   sanitizeAgamossState,
   type AgamossState,
 } from "./agamoss";
+import {
+  defaultEyeState,
+  sanitizeEyeChangeEntry,
+  sanitizeEyeState,
+  EYE_CHANGES_MAX,
+  type CameraEyeState,
+  type EyeChangeEntry,
+} from "./cameraEyes";
 
 /* ------------------------------------------------------------------ */
 /* State shapes                                                        */
@@ -55,6 +63,14 @@ export interface PatrolState {
   startedAt: number | null;
   /** One full left (or right) leg of the sweep, milliseconds. */
   sweepMs: number;
+  /**
+   * This patrol was armed by AUTONOMY (2026-11-27), not by the
+   * Captain's hand or voice. The distinction matters exactly
+   * once: when a recorded order turns autonomy off, only the
+   * autonomy-armed patrols stand down — his own patrols are
+   * his and keep running.
+   */
+  autonomous: boolean;
 }
 
 export type FollowBasis = "person" | "movement";
@@ -119,6 +135,14 @@ export interface CameraPresenceState {
   streamProbedAt: number | null;
   /** Plain words: what the stream probe measured. */
   streamNote: string;
+  /**
+   * THE EYES (owner order 2026-11-27): RED by default and
+   * always — the law and the change log live in cameraEyes.ts.
+   * A construct may change them only to see something better,
+   * and that change is logged with its reason or it does not
+   * stand. There is no off state.
+   */
+  eyes: CameraEyeState;
 }
 
 export type HearingEventKind = "name" | "command" | "speech";
@@ -271,6 +295,13 @@ export interface CameraPresenceFile {
    * in agamoss.ts.
    */
   agamoss: AgamossState;
+  /**
+   * THE EYE-CHANGE LOG (2026-11-27): every change of a
+   * camera's eyes away from — or back to — red, with who made
+   * it and why. A change that is not in this log did not
+   * happen; a change with no reason never reaches this log.
+   */
+  eyeChanges: EyeChangeEntry[];
 }
 
 export const HEARING_MAX = 60;
@@ -280,13 +311,14 @@ export function defaultPresenceState(): CameraPresenceState {
   return {
     hearing: false,
     commands: false,
-    patrol: { active: false, startedAt: null, sweepMs: 6000 },
+    patrol: { active: false, startedAt: null, sweepMs: 6000, autonomous: false },
     follow: { active: false, startedAt: null, basis: null, lastCentroid: null, lastPersonAt: null },
     spotlight: { door: null, on: null, probedAt: null, note: "Not probed yet — run the presence probe." },
     tracking: { door: null, on: null, probedAt: null, note: "Not probed yet — run the presence probe." },
     streamFollowsPtz: null,
     streamProbedAt: null,
     streamNote: "Not measured yet — run the stream probe to learn whether this camera's stream follows its moving lens.",
+    eyes: defaultEyeState(),
   };
 }
 
@@ -300,6 +332,7 @@ export function emptyPresenceFile(): CameraPresenceFile {
     voiceStrengthening: { count: 0, lastAt: null },
     silentSensor: emptySilentSensorState(),
     agamoss: emptyAgamossState(),
+    eyeChanges: [],
   };
 }
 
@@ -348,6 +381,7 @@ export function sanitizePresenceState(v: unknown): CameraPresenceState {
       startedAt: cleanTime(patrol["startedAt"]),
       sweepMs:
         typeof sweep === "number" && sweep >= 2000 && sweep <= 30_000 ? sweep : base.patrol.sweepMs,
+      autonomous: patrol["autonomous"] === true,
     },
     follow: {
       active: follow["active"] === true,
@@ -371,6 +405,7 @@ export function sanitizePresenceState(v: unknown): CameraPresenceState {
     streamFollowsPtz: cleanBoolOrNull(v["streamFollowsPtz"]),
     streamProbedAt: cleanTime(v["streamProbedAt"]),
     streamNote: cleanString(v["streamNote"], 400) ?? base.streamNote,
+    eyes: sanitizeEyeState(v["eyes"]),
   };
 }
 
@@ -474,6 +509,12 @@ export function sanitizePresenceFile(v: unknown): CameraPresenceFile {
     voiceStrengthening,
     silentSensor: sanitizeSilentSensorState(v["silentSensor"]),
     agamoss: sanitizeAgamossState(v["agamoss"]),
+    eyeChanges: Array.isArray(v["eyeChanges"])
+      ? v["eyeChanges"]
+          .map(sanitizeEyeChangeEntry)
+          .filter((e): e is EyeChangeEntry => e !== null)
+          .slice(0, EYE_CHANGES_MAX)
+      : [],
   };
 }
 
