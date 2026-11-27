@@ -4765,6 +4765,133 @@
   font-size: 0.68rem;
   opacity: 0.65;
 }
+.binary-window__progress {
+  font-weight: 600;
+}
+.binary-window__slow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+}
+.binary-window__rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.binary-window__rail-btn {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--avatar-hud-line, rgb(212 175 55 / 40%));
+  border-radius: 999px;
+  background: rgb(0 0 0 / 30%);
+  color: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.binary-window__rail-btn[aria-pressed="true"] {
+  background: rgb(212 175 55 / 25%);
+  border-color: var(--avatar-hud-accent, #d4af37);
+}
+.binary-window__drill {
+  margin-top: 1rem;
+  padding: 0.7rem;
+  border: 1px solid var(--avatar-hud-line, rgb(212 175 55 / 40%));
+  border-radius: 0.6rem;
+  background: rgb(0 0 0 / 30%);
+}
+.binary-window__drill-prompt {
+  font-weight: 600;
+}
+.binary-window__drill-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+.binary-window__verdict {
+  margin-top: 0.5rem;
+}
+.binary-window__choices {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin: 0.4rem 0;
+}
+.binary-window__steps {
+  margin: 0.4rem 0;
+  padding-left: 1.4rem;
+  line-height: 1.55;
+}
+.binary-window__table {
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+.binary-window__table th,
+.binary-window__table td {
+  border: 1px solid rgb(212 175 55 / 30%);
+  padding: 0.2rem 0.5rem;
+  text-align: center;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.binary-window__range {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.2rem, 1fr));
+  gap: 0.2rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+}
+.binary-window__sizes {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+  line-height: 1.55;
+}
+.binary-window__readings {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.binary-window__arith-inputs {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+.binary-window__arith-inputs label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+.binary-window__rgb {
+  display: flex;
+  gap: 0.8rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.binary-window__rgb label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+.binary-window__swatch {
+  width: 4.5rem;
+  height: 3rem;
+  border: 1px solid var(--avatar-hud-line, rgb(212 175 55 / 45%));
+  border-radius: 0.5rem;
+}
+.binary-window__review {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+  line-height: 1.7;
+}
+.binary-window__gate {
+  margin-top: 0.6rem;
+}
 .window-logs__list {
   list-style: none;
   margin: 0;

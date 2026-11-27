@@ -182,6 +182,16 @@ export const BINARY_CHART: { group: string; note: string; entries: ChartEntry[] 
     note: "011 + the letter's number — same numbers as the capitals, one switch higher.",
     entries: chartRange(97, 122),
   },
+  {
+    group: "Punctuation & symbols",
+    note: "The marks that finish the printable set — the translator reads these too.",
+    entries: [
+      ...chartRange(33, 47),
+      ...chartRange(58, 64),
+      ...chartRange(91, 96),
+      ...chartRange(123, 126),
+    ],
+  },
 ];
 
 /**
