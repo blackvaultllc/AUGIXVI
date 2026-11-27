@@ -33,6 +33,18 @@ describe("the binary window — his page for the code", () => {
     expect(screen.getByLabelText("Translated binary")).toHaveTextContent("01001000 01101001");
   });
 
+  it("counts 0 to 20 the slow way and keeps the number apart from the typed character", () => {
+    render(<BinaryWindow onClose={vi.fn()} />);
+    expect(screen.getByText(/16, 8, 4, 2, 1/)).toBeInTheDocument();
+    expect(screen.getByText(/5 = 4 \+ 1 = 101/)).toBeInTheDocument();
+    expect(screen.getByText(/17 = 16 \+ 1 = 10001/)).toBeInTheDocument();
+    expect(screen.getByText("16 + 4 = 20")).toBeInTheDocument();
+    // The difference, labeled plainly: number 5 is 101; character '5' is 00110101.
+    expect(screen.getByText(/the number 5 by itself is/)).toBeInTheDocument();
+    expect(screen.getByText(/0011 \+ the digit's own binary/)).toBeInTheDocument();
+    expect(screen.getByText(/010 \+ the letter's number/)).toBeInTheDocument();
+  });
+
   it("carries the full chart — space, numbers, A–Z, a–z — and a tap loads the byte", () => {
     render(<BinaryWindow onClose={vi.fn()} />);
     expect(

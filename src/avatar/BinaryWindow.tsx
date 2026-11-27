@@ -21,6 +21,7 @@ import { FloatingWindow } from "./windows/FloatingWindow";
 import {
   BINARY_CHART,
   BIT_PLACES,
+  COUNTING_CHART,
   byteBreakdown,
   byteSumWords,
   byteToChar,
@@ -171,12 +172,43 @@ export function BinaryWindow({ onClose }: { onClose: () => void }) {
             )}
           </section>
 
+          <section aria-labelledby="binary-counting">
+            <h3 id="binary-counting">Counting — the numbers themselves, 0 to 20</h3>
+            <p>
+              Count the slow way. Write the places — for this range, <strong>16, 8, 4, 2, 1</strong>
+              . Take the biggest place that fits, subtract it, and keep going with what&apos;s left
+              until nothing remains. The places you took are where the 1s sit.
+            </p>
+            <p>
+              Worked out loud: <strong>5 = 4 + 1 = 101</strong> ·{" "}
+              <strong>7 = 4 + 2 + 1 = 111</strong> · <strong>9 = 8 + 1 = 1001</strong> ·{" "}
+              <strong>17 = 16 + 1 = 10001</strong>.
+            </p>
+            <div className="binary-window__counting">
+              {COUNTING_CHART.map((entry) => (
+                <div key={entry.value} className="binary-window__count-row">
+                  <span className="binary-window__count-value">{entry.value}</span>
+                  <span className="binary-window__count-bits">{entry.placed}</span>
+                  <span className="binary-window__count-sum">{entry.sum}</span>
+                  <span className="binary-window__count-plain">{entry.bits}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section aria-labelledby="binary-chart">
             <h3 id="binary-chart">The character chart — every byte, its letter</h3>
+            <p>
+              <strong>Keep the two apart:</strong> the number 5 by itself is <strong>101</strong>.
+              The character <strong>&apos;5&apos;</strong> — the one you type on a screen — is the
+              byte <strong>00110101</strong>. The counting chart above is the numbers; this chart is
+              the typed characters.
+            </p>
             <p>Tap any character to load its byte into the builder above.</p>
             {BINARY_CHART.map((group) => (
               <div key={group.group} className="binary-window__chart-group">
                 <h4>{group.group}</h4>
+                <p className="binary-window__chart-note">{group.note}</p>
                 <div className="binary-window__chart">
                   {group.entries.map((entry) => (
                     <button

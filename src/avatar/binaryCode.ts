@@ -153,12 +153,102 @@ function chartRange(from: number, to: number): ChartEntry[] {
 
 /**
  * THE CHARACTER CHART — the full set he ordered, in four groups:
- * space, the numbers, A–Z, a–z. Every entry agrees with the
+ * space, the typed numbers, A–Z, a–z. Every entry agrees with the
  * translator by construction (same codes, same padding).
+ *
+ * The group notes carry the patterns he reads them by (his order
+ * 2026-11-27): a typed digit is 0011 + the digit's own binary;
+ * a capital is 010 + the letter's number (A is 1); a small letter
+ * is 011 + the letter's number.
  */
-export const BINARY_CHART: { group: string; entries: ChartEntry[] }[] = [
-  { group: "Space", entries: [chartEntry(32)] },
-  { group: "Numbers", entries: chartRange(48, 57) },
-  { group: "Capital letters", entries: chartRange(65, 90) },
-  { group: "Small letters", entries: chartRange(97, 122) },
+export const BINARY_CHART: { group: string; note: string; entries: ChartEntry[] }[] = [
+  {
+    group: "Space",
+    note: "The space is a real character with its own byte: 00100000.",
+    entries: [chartEntry(32)],
+  },
+  {
+    group: "Typed numbers — the characters '0' to '9'",
+    note: "0011 + the digit's own binary. These are the characters you type — not the numbers themselves (the counting chart above is the numbers).",
+    entries: chartRange(48, 57),
+  },
+  {
+    group: "Capital letters",
+    note: "010 + the letter's number — A is 1, B is 2, all the way to Z at 26.",
+    entries: chartRange(65, 90),
+  },
+  {
+    group: "Small letters",
+    note: "011 + the letter's number — same numbers as the capitals, one switch higher.",
+    entries: chartRange(97, 122),
+  },
 ];
+
+/**
+ * COUNTING — the numbers themselves (supplement order 2026-11-27).
+ *
+ * A pure number wears no byte costume: 5 by itself is 101, while
+ * the character '5' typed on a screen is the byte 00110101. The
+ * numbers are counted the slow way, the way he works them: write
+ * the places (16, 8, 4, 2, 1 for this range), take the biggest
+ * place that fits, subtract, and keep going with what's left.
+ */
+
+/** A whole number as binary with no padding: 5 → "101", 0 → "0". */
+export function numberToBinary(value: number): string {
+  if (!Number.isInteger(value) || value < 0) return "";
+  return value.toString(2);
+}
+
+export interface CountingStep {
+  /** The place taken at this step. */
+  place: number;
+  /** What remains after taking it. */
+  remaining: number;
+}
+
+/**
+ * The slow method, step by step: from the number, take the
+ * biggest place that fits, subtract, repeat on the remainder.
+ * 17 → take 16 (1 left), take 1 (0 left).
+ */
+export function countingSteps(value: number): CountingStep[] {
+  if (!Number.isInteger(value) || value < 0) return [];
+  const steps: CountingStep[] = [];
+  let remaining = value;
+  let place = 1;
+  while (place * 2 <= value) place *= 2;
+  while (remaining > 0) {
+    if (place <= remaining) {
+      remaining -= place;
+      steps.push({ place, remaining });
+    }
+    place /= 2;
+  }
+  return steps;
+}
+
+/** The count written as its sum: "16 + 1 = 17". */
+export function countingSumWords(value: number): string {
+  const steps = countingSteps(value);
+  if (steps.length === 0) return "nothing is on = 0";
+  return `${steps.map((s) => String(s.place)).join(" + ")} = ${value}`;
+}
+
+/** One row of the counting chart. */
+export interface CountingEntry {
+  value: number;
+  /** The number's own binary, no padding: 5 → "101". */
+  bits: string;
+  /** The same bits under the five places 16-8-4-2-1: 5 → "00101". */
+  placed: string;
+  sum: string;
+}
+
+/** THE COUNTING CHART — the pure numbers, 0 through 20. */
+export const COUNTING_CHART: CountingEntry[] = Array.from({ length: 21 }, (_, value) => ({
+  value,
+  bits: numberToBinary(value),
+  placed: numberToBinary(value).padStart(5, "0"),
+  sum: countingSumWords(value),
+}));
