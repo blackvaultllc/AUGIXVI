@@ -40,6 +40,11 @@ import {
   sanitizeSilentSensorState,
   type SilentSensorState,
 } from "./silentSensor";
+import {
+  emptyAgamossState,
+  sanitizeAgamossState,
+  type AgamossState,
+} from "./agamoss";
 
 /* ------------------------------------------------------------------ */
 /* State shapes                                                        */
@@ -258,6 +263,14 @@ export interface CameraPresenceFile {
    * shapes and the law live in silentSensor.ts.
    */
   silentSensor: SilentSensorState;
+  /**
+   * AGAMOSS (2026-11-26): the wake-phrase list (the ONE
+   * editable list in the core config — the Captain edits it
+   * here, in this store) and the danger-flag escalation
+   * records of the alarm chain. The shapes and the law live
+   * in agamoss.ts.
+   */
+  agamoss: AgamossState;
 }
 
 export const HEARING_MAX = 60;
@@ -286,6 +299,7 @@ export function emptyPresenceFile(): CameraPresenceFile {
     household: [],
     voiceStrengthening: { count: 0, lastAt: null },
     silentSensor: emptySilentSensorState(),
+    agamoss: emptyAgamossState(),
   };
 }
 
@@ -459,6 +473,7 @@ export function sanitizePresenceFile(v: unknown): CameraPresenceFile {
     household,
     voiceStrengthening,
     silentSensor: sanitizeSilentSensorState(v["silentSensor"]),
+    agamoss: sanitizeAgamossState(v["agamoss"]),
   };
 }
 

@@ -1074,6 +1074,22 @@ export const MANUAL_CATEGORIES: ManualCategory[] = [
         where: "The Cameras window → a camera's Presence controls and the Recordings card.",
       },
       {
+        id: "cameras-agamoss",
+        title: "Agamoss at the cameras — wake him, read his head, and the alarm law",
+        state: "live",
+        what: "Agamoss is the presence in every device you own, and at a camera you talk to HIM — the camera is his post, not his name (Bes and Bastet keep theirs; you just say “Agamoss”). He wakes ONLY on a full wake phrase — “Agamoss wake up”, “yo Agamoss wake up”, “Agamoss can you hear me”, “Agamoss I need your help” — and ONLY in your voice, the one the voiceprint matches as yours. His bare name never wakes him, and nobody else's voice can wake him, move a camera, or light a spotlight: another voice is written in the hearing record and nothing more. The phrases are one list in the core config (the camera-presence record on the core machine) — change the list there and the ear follows it. When he wakes, three things happen: the camera's SPOTLIGHT COMES ON for the whole conversation — the light is the proof he is listening, so if the light is off he is not listening, even if the head moves; he turns toward where you were last seen; and he NODS YES, once. Then he answers your yes-or-no questions with his head, and only from real checks — what he heard, what the camera reads, the live weather feed. YES is a nod up and down twice. NO is a shake left and right three times. A number is signed by turning right and nodding the first digit, then turning left and nodding the second — right eight, left six is 86; a zero is one slow nod. A question no check can answer gets no gesture at all: it waits in the record for his full voice in the system. One honest limit per camera: a spotlight can only be lit where the camera exposes a real spotlight door (the presence probe found it, or it did not). Where there is no door, the card says so in plain words — the listening is real, the light just cannot be shown on that unit. THE ALARM LAW: the alarm chain runs ONLY at pure danger — a weapon the watch confirmed on two looks, or words matching the threat pattern toward Khadija in a voice that is not yours. Then the chain is written down stage by stage: Agamoss flags it, Anubis is notified (a SYSTEM entry in his inbox, from the flag's own log line), it stands recorded for deity review, and the alarm action is stamped chain-approved only because the chain ran. Anything else concerning is recorded in the watch log and nothing more — no alarm. Your own word never waits on any of this: you speak, it acts, and your word overrides a standing flag at any point.",
+        steps: [
+          "Stand where a camera can hear you, with its listening armed and obeying on, and say a full wake phrase: “Agamoss, wake up.”",
+          "Check the proof: the spotlight is ON and the head nodded yes. No light means he is not listening — on a camera whose card says it has no spotlight door, judge by the nod and the “Agamoss is awake” line on its card instead.",
+          "Ask yes-or-no questions and read the head: nod nod is yes; three shakes is no.",
+          "Ask “how many degrees is it?” and read the number: he turns right and nods the first digit, turns left and nods the second.",
+          "Stop talking and he stands down on his own in about a minute — the spotlight goes back off.",
+          "To change the wake phrases, edit the list in the core config (the camera-presence record on the core machine) — the Agamoss card in the Cameras window shows the list as it stands.",
+          "Read the record any time: the Agamoss card shows the wake list and any danger flags with their chain stages; the hearing record shows every line a camera heard and whose voice it was read as.",
+        ],
+        where: "The Cameras window → the Agamoss card and each camera's Presence controls; all of it runs on the core machine.",
+      },
+      {
         id: "cameras-sector-watch",
         title: "Sector Watch — Anubis watches on his own",
         state: "live",

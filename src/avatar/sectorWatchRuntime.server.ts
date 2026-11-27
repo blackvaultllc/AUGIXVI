@@ -322,6 +322,21 @@ async function runCycle(
     const weaponDecision = decideWeapon(weaponFirst, weaponSecond, camera.name);
     if (weaponDecision.outcome === "event") {
       await raiseEvent(camera, config, weaponDecision, frame, sectorStore, "weapon");
+      // THE ALARM LAW (Agamoss package, 2026-11-26): a CONFIRMED
+      // weapon — two yeses, never a draft — is pure danger, and
+      // Agamoss's chain runs on it: flag → Anubis notified →
+      // deity review → chain-approved alarm action. A failed
+      // chain write never takes the event down with it.
+      try {
+        const presence = await import("./cameraPresenceRuntime.server");
+        await presence.raiseAgamossDanger(
+          camera,
+          { weaponConfirmed: true, threatTowardKhadija: false },
+          `the watch's weapon question was answered yes twice at ${camera.name} — a person read as holding a gun or something like it (the analyzer's draft reading, confirmed on its second look)`,
+        );
+      } catch {
+        // the weapon event stands on its own record
+      }
       return;
     }
     await writeLog(sectorStore, logEntry(camera, config, weaponDecision));

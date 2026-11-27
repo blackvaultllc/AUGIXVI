@@ -57,6 +57,7 @@ import {
   VOICE_STRENGTHEN_MAX,
   type CameraCommandIntent,
   type CameraPresenceFile,
+  type CameraPresenceState,
   type HearingEvent,
   type RecordingInfo,
   type SpeakerLabel,
@@ -83,6 +84,30 @@ import {
   type CrossExamEntry,
 } from "./cameras/sectorWatch";
 import { getSectorWatchStore } from "./sectorWatchStore.server";
+import {
+  addEscalationAction,
+  advanceEscalation,
+  alarmMayFire,
+  answerWithGesture,
+  assessHeardThreat,
+  dangerLogText,
+  describeGesture,
+  gradeDanger,
+  interactionLight,
+  isWakeOnlyLine,
+  matchWakePhrase,
+  newEscalation,
+  noGesture,
+  numberGesture,
+  readsAsQuestion,
+  voiceMayCommand,
+  yesGesture,
+  AGAMOSS_DANGER_ID_PREFIX,
+  type AgamossEscalation,
+  type GestureAnswer,
+  type GestureChecks,
+  type GestureStep,
+} from "./cameras/agamoss";
 
 /* ------------------------------------------------------------------ */
 /* Gates                                                               */
@@ -381,6 +406,315 @@ export async function setUnitTracking(camera: StoredCamera, on: boolean): Promis
     return { ...f, cameras: { ...f.cameras, [camera.id]: s } };
   });
   return { ok: true, note: `The unit's own auto-tracking is ${on ? "on" : "off"} — set through its analytics door.` };
+}
+
+/* ------------------------------------------------------------------ */
+/* AGAMOSS — wake sessions, the head code, and the alarm chain         */
+/*                                                                     */
+/* A session is the conversation at one camera: it opens ONLY    */
+/* on a full wake phrase in the Captain's matched voice (the     */
+/* pure gate in agamoss.ts), and while it stands, the camera's   */
+/* spotlight is ON — the light state derives from the listening  */
+/* state through interactionLight, never from a separate         */
+/* toggle. The head answers from real checks only. The alarm     */
+/* chain is a logged pipeline (agamoss.ts carries its law); the  */
+/* Captain's own commands never enter it — they execute at       */
+/* once, ahead of it, exactly as they always have.               */
+/* ------------------------------------------------------------------ */
+
+const gestureBusy = new Set<string>();
+
+/** Play a gesture: timed ContinuousMove steps, each stopped clean. */
+export async function playGesture(camera: StoredCamera, steps: GestureStep[]): Promise<boolean> {
+  if (gestureBusy.has(camera.id)) return false;
+  if (await allStopInForce()) return false;
+  gestureBusy.add(camera.id);
+  try {
+    await stopPatrol(camera.id, "a gesture replaced it");
+    for (const step of steps) {
+      if (step.velocity === 0) {
+        await drivePtz(camera, 0, 0, true);
+        await new Promise((r) => setTimeout(r, step.ms));
+        continue;
+      }
+      const ok = await drivePtz(
+        camera,
+        step.axis === "pan" ? step.velocity : 0,
+        step.axis === "tilt" ? step.velocity : 0,
+        false,
+      );
+      if (!ok) {
+        await drivePtz(camera, 0, 0, true);
+        return false;
+      }
+      await new Promise((r) => setTimeout(r, step.ms));
+    }
+    await drivePtz(camera, 0, 0, true);
+    return true;
+  } finally {
+    gestureBusy.delete(camera.id);
+  }
+}
+
+async function playGestureAnswer(camera: StoredCamera, answer: GestureAnswer): Promise<boolean> {
+  let steps: GestureStep[] | null;
+  if (answer.kind === "yes") steps = yesGesture();
+  else if (answer.kind === "no") steps = noGesture();
+  else steps = numberGesture(answer.value);
+  if (!steps) return false;
+  return playGesture(camera, steps);
+}
+
+/** A conversation at a camera ends after this long without his voice. */
+export const AGAMOSS_SESSION_IDLE_MS = 45_000;
+
+interface AgamossSession {
+  startedAt: number;
+  lastHeardAt: number;
+  /** The session itself lit the spotlight — so the session puts it out. */
+  lightOwned: boolean;
+}
+
+const agamossSessions = new Map<string, AgamossSession>();
+let agamossSweeper: NodeJS.Timeout | null = null;
+
+export function agamossSessionLive(cameraId: string): boolean {
+  return agamossSessions.has(cameraId);
+}
+
+function touchAgamossSession(cameraId: string): void {
+  const session = agamossSessions.get(cameraId);
+  if (session) session.lastHeardAt = Date.now();
+}
+
+function ensureAgamossSweeper(): void {
+  if (agamossSweeper) return;
+  agamossSweeper = setInterval(() => {
+    const now = Date.now();
+    for (const [cameraId, session] of [...agamossSessions.entries()]) {
+      if (now - session.lastHeardAt > AGAMOSS_SESSION_IDLE_MS) {
+        void endAgamossSession(cameraId);
+      }
+    }
+  }, 5000);
+}
+
+async function startAgamossSession(
+  camera: StoredCamera,
+  state: CameraPresenceState,
+): Promise<string> {
+  const existing = agamossSessions.get(camera.id);
+  if (existing) {
+    existing.lastHeardAt = Date.now();
+    return `Agamoss is already awake at ${camera.name} — spotlight on, listening.`;
+  }
+  const session: AgamossSession = { startedAt: Date.now(), lastHeardAt: Date.now(), lightOwned: false };
+  agamossSessions.set(camera.id, session);
+  ensureAgamossSweeper();
+  // THE SPOTLIGHT IS THE LISTENING PROOF — derived, not toggled:
+  // listening ⇒ on, driven through the door the probe found.
+  // No door ⇒ the note says the proof cannot be shown here.
+  const light = interactionLight({ listening: true, spotlightDoor: state.spotlight.door });
+  let lightNote: string;
+  if (light.canDrive) {
+    const lit = await setSpotlight(camera, true);
+    session.lightOwned = lit.ok;
+    lightNote = lit.ok ? "Spotlight on." : `The spotlight door did not answer — ${lit.note}`;
+  } else {
+    lightNote = light.note;
+  }
+  // Turn toward the speaker as far as the presence data
+  // supports: the follow record's last measured position.
+  let turnNote = "";
+  if (state.follow.lastCentroid) {
+    const turn = await executeCameraIntent({ type: "turn-to-speaker", cameraId: camera.id }, camera.name);
+    if (turn.ok) turnNote = " Turned toward where you were last seen.";
+  }
+  // The wake confirmation — one YES nod.
+  const nodded = await playGesture(camera, yesGesture());
+  return (
+    `Agamoss woke at ${camera.name}. ${lightNote}${turnNote} ` +
+    (nodded ? "He nodded yes — awake and listening." : "The wake nod did not complete — the camera did not take the gesture.")
+  );
+}
+
+export async function endAgamossSession(cameraId: string): Promise<void> {
+  const session = agamossSessions.get(cameraId);
+  if (!session) return;
+  agamossSessions.delete(cameraId);
+  if (session.lightOwned) {
+    const camera = await loadCamera(cameraId);
+    if (camera) await setSpotlight(camera, false);
+  }
+}
+
+/* ------------------------- gesture checks ------------------------- */
+
+let weatherCache: {
+  at: number;
+  value: { temperatureF: number; rainChancePercent: number | null } | null;
+} | null = null;
+
+/**
+ * The core's weather reading for gesture answers — the same
+ * public feed the house's live feeds use (open-meteo), read
+ * for the Captain's home coordinates when the core carries
+ * them (AUGIE_HOME_LAT / AUGIE_HOME_LON). No coordinates or a
+ * failed fetch = NO SOURCE, and a weather question then gets
+ * no gesture — never a guessed sky.
+ */
+async function coreWeather(): Promise<{ temperatureF: number; rainChancePercent: number | null } | null> {
+  if (weatherCache && Date.now() - weatherCache.at < 10 * 60_000) return weatherCache.value;
+  const lat = Number(process.env["AUGIE_HOME_LAT"]);
+  const lon = Number(process.env["AUGIE_HOME_LON"]);
+  let value: { temperatureF: number; rainChancePercent: number | null } | null = null;
+  if (Number.isFinite(lat) && Number.isFinite(lon)) {
+    try {
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&hourly=precipitation_probability&forecast_days=1&temperature_unit=fahrenheit`,
+        { signal: AbortSignal.timeout(8000) },
+      );
+      if (res.ok) {
+        const data = (await res.json()) as {
+          current?: { temperature_2m?: number };
+          hourly?: { precipitation_probability?: (number | null)[] };
+        };
+        const temp = data.current?.temperature_2m;
+        if (typeof temp === "number") {
+          const probs = (data.hourly?.precipitation_probability ?? []).filter(
+            (n): n is number => typeof n === "number",
+          );
+          value = {
+            temperatureF: temp,
+            rainChancePercent: probs.length > 0 ? Math.max(...probs) : null,
+          };
+        }
+      }
+    } catch {
+      value = null;
+    }
+  }
+  weatherCache = { at: Date.now(), value };
+  return value;
+}
+
+async function gestureChecks(state: CameraPresenceState): Promise<GestureChecks> {
+  const weather = await coreWeather();
+  return {
+    heardCaptain: true,
+    // Only the analyzer's person basis spends as a person
+    // answer; measured movement alone stays null (no reading).
+    personPresent: state.follow.basis === "person" ? true : null,
+    rainChancePercent: weather?.rainChancePercent ?? null,
+    temperatureF: weather?.temperatureF ?? null,
+  };
+}
+
+/* ------------------------- the alarm chain ------------------------- */
+
+/**
+ * Run the alarm chain for a pure-danger flag. The gate is
+ * checked FIRST: a non-danger signal returns null and writes
+ * nothing — this path cannot be reached by anything else. The
+ * chain is written stage by stage into the escalation record:
+ * flagged → (the flag's sector-log line lands, from which
+ * Anubis's SYSTEM inbox entry derives — the notification) →
+ * deity review → chain-approved, and only then is the alarm
+ * action written, so its chain-approved stamp is computed
+ * from a completed chain. The alarm action itself is this
+ * house's top-tier alert path: the sector event + the inbox
+ * entry + the core events record. No physical siren actuator
+ * exists in the core to drive, and the action entry says so.
+ */
+export async function raiseAgamossDanger(
+  camera: StoredCamera,
+  signals: { weaponConfirmed: boolean; threatTowardKhadija: boolean },
+  reason: string,
+): Promise<string | null> {
+  if (!alarmMayFire(gradeDanger(signals))) return null;
+  const presenceStore = await getCameraPresenceStore();
+  const sectorStore = await getSectorWatchStore();
+  if (!presenceStore || !sectorStore) return null;
+  const now = Date.now();
+  const id = `${AGAMOSS_DANGER_ID_PREFIX}${now}-${camera.id}`;
+  let rec: AgamossEscalation = newEscalation({
+    id,
+    at: now,
+    cameraId: camera.id,
+    cameraName: camera.name,
+    reason,
+  });
+  await presenceStore.update((f) => ({
+    ...f,
+    agamoss: { ...f.agamoss, escalations: [rec, ...f.agamoss.escalations] },
+  }));
+  const sectorFile = await sectorStore.read();
+  const zone = sectorConfigFor(sectorFile.settings, camera.id).zone;
+  await sectorStore.update((f) => ({
+    ...f,
+    log: [
+      {
+        id,
+        at: now,
+        cameraId: camera.id,
+        cameraName: camera.name,
+        zone,
+        kind: "event" as const,
+        text: dangerLogText(camera.name, reason),
+      },
+      ...f.log,
+    ],
+  }));
+  rec = advanceEscalation(rec, "anubis-notified", Date.now());
+  rec = advanceEscalation(rec, "deity-review", Date.now());
+  rec = advanceEscalation(rec, "chain-approved", Date.now());
+  rec = addEscalationAction(
+    rec,
+    "Alarm action raised: the danger stands as a top-tier sector event and a SYSTEM entry in Anubis's inbox, and the watch keeps recording. No physical siren actuator exists in the core to drive — the alarm is this alert path, stated plainly.",
+    Date.now(),
+  );
+  const finalRec = rec;
+  await presenceStore.update((f) => ({
+    ...f,
+    agamoss: {
+      ...f.agamoss,
+      escalations: f.agamoss.escalations.map((e) => (e.id === id ? finalRec : e)),
+    },
+  }));
+  try {
+    const { appendAugieEvent } = await import("./eventsLog.server");
+    await appendAugieEvent({
+      type: "note",
+      summary: `Agamoss DANGER FLAG at ${camera.name}`,
+      detail: `${reason} Chain: flagged → Anubis notified → deity review → chain-approved alarm action.`,
+    });
+  } catch {
+    // the chain's own records stand; the events log is a mirror
+  }
+  return "the alarm chain ran — flagged by Agamoss, Anubis notified, recorded for deity review, alarm action chain-approved";
+}
+
+/** Concerning words: recorded as a watch-log draft. Never an alarm, never an event. */
+async function writeAgamossConcern(camera: StoredCamera, matched: string): Promise<void> {
+  const sectorStore = await getSectorWatchStore();
+  if (!sectorStore) return;
+  const sectorFile = await sectorStore.read();
+  const zone = sectorConfigFor(sectorFile.settings, camera.id).zone;
+  await sectorStore.update((f) => ({
+    ...f,
+    log: [
+      {
+        id: `agamoss-concern-${Date.now()}-${camera.id}`,
+        at: Date.now(),
+        cameraId: camera.id,
+        cameraName: camera.name,
+        zone,
+        kind: "draft" as const,
+        text: `${camera.name}: concerning words heard through the camera — ${matched}. Recorded as a draft in the watch log. NOT an alarm: the pure-danger grade was not met (no confirmed weapon; no threat toward Khadija from a voice that is not the Captain's).`,
+      },
+      ...f.log,
+    ],
+  }));
 }
 
 /* ------------------------------------------------------------------ */
@@ -1263,26 +1597,116 @@ async function handleHeard(
 
   let kind: HearingEvent["kind"] = "speech";
   let acted: string | null = null;
+  // Another person's line is written ALREADY ROUTED: the stage
+  // feeds unrouted speech to Anubis, and the voice gate says an
+  // unmatched voice is a presence-log entry only — never fed
+  // onward, never acted on.
+  let routed = speaker === "another";
 
-  const intent = state.commands ? parseCameraCommand(text, nameRefs, camera.id) : null;
-  if (intent) {
-    kind = "command";
-    const result = await executeCameraIntent(intent, camera.name);
-    acted = result.ok ? result.note : `Refused: ${result.note}`;
-  } else if (hearsAnubisName(text)) {
-    kind = "name";
-    if (state.commands && cameraCanControl(camera) && !(await allStopInForce())) {
-      const turn = await executeCameraIntent({ type: "turn-to-speaker", cameraId: camera.id }, camera.name);
-      acted = turn.note;
-    } else {
-      acted = state.follow.lastCentroid
-        ? "Heard his name — noted. (Turning is held: commands are off for this camera, control is not granted, or the ALL-STOP stands.)"
-        : "Heard his name — noted. This camera has no last-seen position to turn to.";
+  /* THE ALARM LAW stands in front of everything: the threat
+   * pattern toward Khadija, heard in a voice that is not the
+   * Captain's, runs the chain. Concerning words (harm with no
+   * Khadija reference) are recorded as a draft — never alarmed. */
+  const threat = assessHeardThreat(text);
+  if (threat.threatTowardKhadija && speaker !== "captain") {
+    const ran = await raiseAgamossDanger(
+      camera,
+      { weaponConfirmed: false, threatTowardKhadija: true },
+      `heard words matching the threat pattern toward Khadija (${threat.matched ?? "the pattern"}) in a voice that did not match the Captain's voiceprint`,
+    );
+    acted = ran
+      ? `DANGER FLAG — ${ran}. The words stand in the hearing record and the watch log.`
+      : "The threat pattern toward Khadija matched, but the danger chain could not be written — the hearing record stands, and nothing beyond it is claimed.";
+  } else if (threat.concerning && speaker !== "captain") {
+    await writeAgamossConcern(camera, threat.matched ?? "harm words");
+  }
+
+  const wake = matchWakePhrase(text, file.agamoss.wakePhrases);
+  const captain = voiceMayCommand(speaker);
+
+  /* THE VOICE GATE — commands and activation belong to the
+   * Captain's matched voice alone. */
+  if (!acted && !captain) {
+    const commandShaped = state.commands ? parseCameraCommand(text, nameRefs, camera.id) : null;
+    if (speaker === "another") {
+      acted =
+        wake || commandShaped
+          ? "Heard — but the voice did not match the Captain's voiceprint. Logged only: nothing was activated, nothing moved, nothing lit."
+          : "Heard and logged. The voice did not match the Captain's, so the line was not forwarded or acted on.";
+    } else if (wake) {
+      acted =
+        "Heard a wake phrase, but the voiceprint gave no verdict — no activation. Agamoss wakes only for the Captain's matched voice.";
+    } else if (commandShaped) {
+      acted =
+        "Heard a camera command, but the voiceprint gave no verdict — commands are accepted only from the Captain's matched voice, so nothing was done.";
     }
-  } else {
-    acted = state.commands
-      ? "Speech for Anubis — waiting in the record for the stage to feed it to him."
-      : "Heard and logged. Commands are off for this camera, so nothing was acted on or forwarded.";
+    // No verdict + plain speech falls through to the speech
+    // handling below, exactly as before — it is not a command.
+  }
+
+  /* THE CAPTAIN'S LINE — wake, commands, gesture answers. His
+   * word executes at once; it never enters the alarm chain. */
+  if (!acted && captain) {
+    let sessionNote: string | null = null;
+    if (wake && state.commands) {
+      kind = "command";
+      if (!cameraCanControl(camera)) {
+        sessionNote = `Heard your wake at ${camera.name}, Captain — but control is not granted on that camera, so Agamoss did not wake there: no light, no turn, no nod. The Permission Law holds it to observation only.`;
+      } else if (await allStopInForce()) {
+        sessionNote = `Heard your wake at ${camera.name}, Captain — but the ALL-STOP is in force, so Agamoss did not wake there. ${ALL_STOP_NOTE}`;
+      } else {
+        sessionNote = await startAgamossSession(camera, state);
+      }
+      if (isWakeOnlyLine(text, file.agamoss.wakePhrases)) acted = sessionNote;
+    }
+    if (!acted) {
+      const intent = state.commands ? parseCameraCommand(text, nameRefs, camera.id) : null;
+      if (intent) {
+        kind = "command";
+        touchAgamossSession(camera.id);
+        const result = await executeCameraIntent(intent, camera.name);
+        acted = result.ok ? result.note : `Refused: ${result.note}`;
+        if (sessionNote) acted = `${sessionNote} ${acted}`;
+      } else if (agamossSessionLive(camera.id)) {
+        touchAgamossSession(camera.id);
+        const answer = answerWithGesture(text, await gestureChecks(state));
+        if (answer) {
+          kind = "command";
+          const played = await playGestureAnswer(camera, answer);
+          const gestureWords =
+            answer.kind === "number"
+              ? describeGesture("number", answer.value)
+              : describeGesture(answer.kind);
+          acted = played
+            ? `Agamoss answered with his head: ${gestureWords} — ${answer.reason}.`
+            : "Agamoss had an answer standing on a real check, but the camera did not take the gesture — nothing is claimed.";
+          if (sessionNote) acted = `${sessionNote} ${acted}`;
+        } else if (readsAsQuestion(text)) {
+          acted =
+            "That question rides the system's own channel — the head has no honest gesture for it, so it waits in the record for Agamoss's full voice.";
+          if (sessionNote) acted = `${sessionNote} ${acted}`;
+        }
+      }
+    }
+    if (!acted && sessionNote) acted = sessionNote;
+  }
+
+  if (!acted) {
+    if (hearsAnubisName(text)) {
+      kind = "name";
+      if (captain && state.commands && cameraCanControl(camera) && !(await allStopInForce())) {
+        const turn = await executeCameraIntent({ type: "turn-to-speaker", cameraId: camera.id }, camera.name);
+        acted = turn.note;
+      } else {
+        acted = state.follow.lastCentroid
+          ? "Heard his name — noted. (Turning is held: the voice was not the Captain's matched voice, commands are off for this camera, control is not granted, or the ALL-STOP stands.)"
+          : "Heard his name — noted. This camera has no last-seen position to turn to.";
+      }
+    } else {
+      acted = state.commands
+        ? "Speech for Anubis — waiting in the record for the stage to feed it to him."
+        : "Heard and logged. Commands are off for this camera, so nothing was acted on or forwarded.";
+    }
   }
 
   if (voiceStrengthened) {
@@ -1299,7 +1723,7 @@ async function handleHeard(
     text,
     kind,
     acted,
-    routed: false,
+    routed,
     speaker,
   };
   await presenceStore.update((f) => ({ ...f, hearing: [event, ...f.hearing] }));

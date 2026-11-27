@@ -244,6 +244,15 @@ export function CameraPresenceSection({
         </p>
       )}
 
+      {state?.agamossAwake ? (
+        <p className="window-cameras__grant">
+          <strong>Agamoss is awake at this camera</strong> — a conversation stands: the spotlight is on
+          (the listening proof) and the head answers in the code below.
+        </p>
+      ) : (
+        <p className="window-cameras__grant">{state?.agamossLight.note ?? ""}</p>
+      )}
+
       {state?.spotlight.door ? (
         <div className="window-cameras__actions">
           <span>Spotlight (door: {state.spotlight.door.replace(/^aux:/, "")})</span>
@@ -430,6 +439,75 @@ export function SilentSensorCard({
   );
 }
 
+/**
+ * AGAMOSS — the wake, the head code, and the alarm chain, as
+ * the record stands (Agamoss package, 2026-11-26). Everything
+ * shown comes from the core's presence record: the wake list
+ * is the core config itself, and the danger flags are the
+ * chain's own logged stages — no stage is shown that the
+ * record does not hold.
+ */
+export function AgamossCard({ view }: { view: CameraPresenceView }) {
+  const { wakePhrases, escalations } = view.agamoss;
+  return (
+    <div className="window-cameras__card">
+      <div className="window-cameras__head">
+        <strong>Agamoss — wake him at a camera</strong>
+        <span>
+          He wakes ONLY on a full wake phrase in your matched voice — your name for him alone never wakes
+          him, and no other voice can wake him, move a camera, or light a spotlight.
+        </span>
+      </div>
+      <p className="window-cameras__probe">
+        The wake phrases (one list, kept in the core config — the camera-presence record on the core
+        machine; edit it there and the ear follows it):
+      </p>
+      {wakePhrases.map((p) => (
+        <p key={p} className="window-cameras__probe">
+          “{p}”
+        </p>
+      ))}
+      <p className="window-cameras__probe">
+        When he wakes: the spotlight comes ON for the whole conversation (the light is the proof he is
+        listening — if it is off, he is not), he turns toward where you were last seen, and he nods yes.
+      </p>
+      <p className="window-cameras__probe">
+        The head code: YES = nod up and down twice. NO = shake left and right three times. A number =
+        turn right and nod the first digit, turn left and nod the second (right 8, left 6 = 86). A zero
+        is one slow nod. He only answers from real checks — what he heard, what the camera reads, the
+        live weather feed. A question with no check behind it gets no gesture; it waits for his full
+        voice in the system.
+      </p>
+      <p className="window-cameras__probe">
+        The alarm law: the alarm chain runs ONLY at pure danger — a weapon the watch confirmed on two
+        looks, or threat words toward Khadija from a voice that is not yours. Everything else
+        concerning is recorded in the watch log and nothing more. Your own word never waits on the
+        chain — it acts at once and overrides any flag.
+      </p>
+      {escalations.length > 0 && (
+        <>
+          <div className="window-cameras__head">
+            <strong>Danger flags — the chain's record</strong>
+            <span>each stage was written as it happened; an action is chain-approved only after the chain ran</span>
+          </div>
+          {escalations.slice(0, 5).map((e) => (
+            <p key={e.id} className="window-cameras__probe">
+              <strong>{e.cameraName}</strong> · {dayTime(e.at)} — {e.reason} Stages:{" "}
+              {e.history.map((h) => h.stage).join(" → ")}.
+              {e.actions.map((a) => (
+                <span key={a.at}>
+                  {" "}
+                  Action: {a.text} [{a.chainApproved ? "chain-approved" : "NOT chain-approved"}]
+                </span>
+              ))}
+            </p>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function CameraPresenceRecords({
   view,
   token,
@@ -442,6 +520,8 @@ export function CameraPresenceRecords({
   const [note, setNote] = useState("");
   return (
     <>
+      <AgamossCard view={view} />
+
       <SilentSensorCard view={view} token={token} refreshPresence={refreshPresence} />
 
       <div className="window-cameras__card">

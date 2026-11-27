@@ -25,6 +25,11 @@ import {
   SILENT_SENSOR_NAME,
   type SilentSensorState,
 } from "./cameras/silentSensor";
+import {
+  emptyAgamossState,
+  interactionLight,
+  type AgamossState,
+} from "./cameras/agamoss";
 
 type TokenInput = { accessToken: string };
 
@@ -48,6 +53,14 @@ export type CameraPresenceViewState = CameraPresenceState & {
   listening: boolean;
   /** A recording is actually being written right now. */
   recordingNow: boolean;
+  /** An Agamoss conversation stands at this camera right now. */
+  agamossAwake: boolean;
+  /**
+   * The spotlight state DERIVED from the listening state
+   * (Agamoss package): shouldBeOn follows agamossAwake; canDrive
+   * says whether this unit exposes a door to show it with.
+   */
+  agamossLight: { shouldBeOn: boolean; canDrive: boolean; note: string };
 };
 
 export type CameraPresenceView = {
@@ -59,6 +72,8 @@ export type CameraPresenceView = {
   enrollment: CreatorEnrollment | null;
   /** Montu Silent Sensor: the enrolled siren profile + the standing candidate. */
   silentSensor: SilentSensorState;
+  /** Agamoss: the wake-phrase list (the core config) + the danger-flag chain records. */
+  agamoss: AgamossState;
 };
 
 export const getCameraPresence = createServerFn({ method: "POST" })
@@ -75,6 +90,7 @@ export const getCameraPresence = createServerFn({ method: "POST" })
       recordings: [],
       enrollment: null,
       silentSensor: { profile: null, candidate: null, lastTripAt: null },
+      agamoss: emptyAgamossState(),
     };
     if (!(await authorized(data.accessToken))) return empty;
     const presenceStore = await getCameraPresenceStore();
@@ -84,10 +100,13 @@ export const getCameraPresence = createServerFn({ method: "POST" })
     const file = await presenceStore.read();
     const cameras: Record<string, CameraPresenceViewState> = {};
     for (const [id, state] of Object.entries(file.cameras)) {
+      const awake = runtime.agamossSessionLive(id);
       cameras[id] = {
         ...state,
         listening: runtime.hearingLive(id),
         recordingNow: runtime.recordingLive(id),
+        agamossAwake: awake,
+        agamossLight: interactionLight({ listening: awake, spotlightDoor: state.spotlight.door }),
       };
     }
     return {
@@ -98,6 +117,7 @@ export const getCameraPresence = createServerFn({ method: "POST" })
       recordings: file.recordings.map((r) => ({ ...r, live: r.stoppedAt === null && runtime.recordingLive(r.cameraId) })),
       enrollment: file.enrollment,
       silentSensor: file.silentSensor,
+      agamoss: file.agamoss,
     };
   });
 
