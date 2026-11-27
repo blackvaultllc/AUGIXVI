@@ -18,9 +18,11 @@ import { getCameraStore } from "./cameraStore.server";
 import { getCameraPresenceStore } from "./cameraPresenceStore.server";
 import { getSectorWatchStore } from "./sectorWatchStore.server";
 import {
+  autonomyByOrder,
   sectorConfigFor,
   unacknowledgedJudgments,
   unacknowledgedSectorEvents,
+  type AutonomyState,
   type SectorCameraConfig,
   type SectorEvent,
   type SectorJudgment,
@@ -65,6 +67,8 @@ export type SectorWatchView = {
   /** True when the household list is standing on the creator enrollment alone. */
   householdFromCreatorOnly: boolean;
   unacknowledged: number;
+  /** Autonomy (2026-11-27): on by standing order until a recorded order turns it off. */
+  autonomy: AutonomyState;
 };
 
 const emptyView: SectorWatchView = {
@@ -79,6 +83,7 @@ const emptyView: SectorWatchView = {
   household: [],
   householdFromCreatorOnly: false,
   unacknowledged: 0,
+  autonomy: { enabled: true, since: null, note: "" },
 };
 
 export const getSectorWatch = createServerFn({ method: "POST" })
@@ -112,6 +117,7 @@ export const getSectorWatch = createServerFn({ method: "POST" })
       household: effectiveHousehold(presenceFile),
       householdFromCreatorOnly: presenceFile.household.length === 0 && presenceFile.enrollment !== null,
       unacknowledged: unacknowledgedSectorEvents(file).length,
+      autonomy: file.settings.autonomy,
     };
   });
 
@@ -242,6 +248,63 @@ export const setSectorInterval = createServerFn({ method: "POST" })
       authorized: true,
       ok: true,
       note: `The watch now looks every ${next.settings.intervalSec} seconds.`,
+    };
+  });
+
+/* ------------------------------ autonomy ------------------------------ */
+
+export type SetSectorAutonomyInput = TokenInput & { enabled: boolean };
+
+/**
+ * Autonomy on/off (owner order 2026-11-27): ON is the standing
+ * default — autonomous until further notice. Turning it either
+ * way is a RECORDED order: the state carries the time it
+ * landed, and the presence reconcile arms or releases the
+ * cameras' own patrols from this record.
+ */
+export const setSectorAutonomy = createServerFn({ method: "POST" })
+  .validator((input: unknown): SetSectorAutonomyInput => {
+    if (!isTokenInput(input) || typeof (input as SetSectorAutonomyInput).enabled !== "boolean") {
+      throw new Error("Invalid sector autonomy request.");
+    }
+    return input as SetSectorAutonomyInput;
+  })
+  .handler(async ({ data }): Promise<SectorNoteResult> => {
+    if (!(await authorized(data.accessToken))) {
+      return { authorized: false, ok: false, note: "The operator session is gone — sign in again." };
+    }
+    const sectorStore = await getSectorWatchStore();
+    if (!sectorStore) {
+      return { authorized: true, ok: false, note: "Sector Watch lives on the core machine — no local store here." };
+    }
+    const next = await sectorStore.update((file) => ({
+      ...file,
+      settings: { ...file.settings, autonomy: autonomyByOrder(data.enabled, Date.now()) },
+    }));
+    const runtime = await import("./cameraPresenceRuntime.server");
+    if (!data.enabled) {
+      // Autonomy standing down releases ONLY the patrols
+      // autonomy itself armed — the Captain's own patrols are
+      // his and keep running.
+      const presenceStore = await getCameraPresenceStore();
+      const cameraStore = await getCameraStore();
+      if (presenceStore && cameraStore) {
+        const presenceFile = await presenceStore.read();
+        for (const camera of await cameraStore.list()) {
+          const s = presenceFile.cameras[camera.id];
+          if (s?.patrol.active && s.patrol.autonomous) {
+            await runtime.stopPatrol(camera.id, "autonomy was turned off by a recorded order");
+          }
+        }
+      }
+    }
+    await runtime.reconcilePresence();
+    return {
+      authorized: true,
+      ok: true,
+      note: next.settings.autonomy.enabled
+        ? "Autonomy is ON — the cameras choose their own look targets inside their zones, until a recorded order turns it off."
+        : "Autonomy is OFF by recorded order — the cameras hold their set patrol and watch only.",
     };
   });
 

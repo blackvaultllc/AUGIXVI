@@ -37,7 +37,7 @@
  */
 import { getCameraStore, type StoredCamera } from "./cameraStore.server";
 import { getCameraPresenceStore } from "./cameraPresenceStore.server";
-import { cameraCanControl, type CameraLens } from "./cameras/cameraRegistry";
+import { cameraCanControl, findCameraBySerial, redetectCamera, type CameraLens, type CameraSighting } from "./cameras/cameraRegistry";
 import {
   describeIntent,
   followMaySteer,
@@ -79,10 +79,16 @@ import {
   type SilentSensorPending,
 } from "./cameras/silentSensor";
 import {
+  autonomousLookAt,
   crossExamLogText,
   sectorConfigFor,
   type CrossExamEntry,
 } from "./cameras/sectorWatch";
+import {
+  applyEyeChange,
+  describeEyeChange,
+  type CameraEyeMode,
+} from "./cameras/cameraEyes";
 import { getSectorWatchStore } from "./sectorWatchStore.server";
 import {
   addEscalationAction,
@@ -92,9 +98,11 @@ import {
   assessHeardThreat,
   dangerLogText,
   describeGesture,
+  gestureStepsFor,
   gradeDanger,
   interactionLight,
   isWakeOnlyLine,
+  matchConstructWake,
   matchWakePhrase,
   newEscalation,
   noGesture,
@@ -104,6 +112,7 @@ import {
   yesGesture,
   AGAMOSS_DANGER_ID_PREFIX,
   type AgamossEscalation,
+  type CameraGestureKind,
   type GestureAnswer,
   type GestureChecks,
   type GestureStep,
@@ -260,7 +269,7 @@ export async function executeCameraIntent(
     case "patrol-start": {
       await presenceStore.update((file) => {
         const state = presenceFor(file, intent.cameraId);
-        state.patrol = { ...state.patrol, active: true, startedAt: Date.now() };
+        state.patrol = { ...state.patrol, active: true, startedAt: Date.now(), autonomous: false };
         return { ...file, cameras: { ...file.cameras, [intent.cameraId]: state } };
       });
       ensurePatrolLoop(intent.cameraId);
@@ -425,8 +434,7 @@ export async function setUnitTracking(camera: StoredCamera, on: boolean): Promis
 const gestureBusy = new Set<string>();
 
 /** Play a gesture: timed ContinuousMove steps, each stopped clean. */
-export async function playGesture(camera: StoredCamera, steps: GestureStep[]): Promise<boolean> {
-  if (gestureBusy.has(camera.id)) return false;
+export async function playGesture(camera: StoredCamera, steps: GestureStep[]): Promise<boolean> {  if (gestureBusy.has(camera.id)) return false;
   if (await allStopInForce()) return false;
   gestureBusy.add(camera.id);
   try {
@@ -463,6 +471,150 @@ async function playGestureAnswer(camera: StoredCamera, answer: GestureAnswer): P
   else steps = numberGesture(answer.value);
   if (!steps) return false;
   return playGesture(camera, steps);
+}
+
+/**
+ * A NAMED PTZ GESTURE, callable on its own (owner order
+ * 2026-11-27: the PTZ cameras are little robots — they must be
+ * able to gesture, the YES nod and the NO shake, as named
+ * behaviors in the control layer for the constructs to answer
+ * him with). Same gates as every camera send: the Permission
+ * Law on the card, and the ALL-STOP. The behavior's steps are
+ * the head code in agamoss.ts (CAMERA_GESTURES / gestureStepsFor).
+ */
+export async function playCameraGesture(
+  cameraId: string,
+  kind: CameraGestureKind,
+): Promise<ExecResult> {
+  const camera = await loadCamera(cameraId);
+  if (!camera) return { ok: false, note: "That camera is not in the registry." };
+  if (!cameraCanControl(camera)) {
+    return { ok: false, note: `Refused — control is not granted on ${camera.name}, so its head does not move.` };
+  }
+  if (await allStopInForce()) return { ok: false, note: `Refused — the ALL-STOP is in force. ${ALL_STOP_NOTE}` };
+  if (!ptzLens(camera)) return { ok: false, note: `${camera.name} has no movable lens — it cannot gesture.` };
+  const played = await playGesture(camera, gestureStepsFor(kind));
+  return played
+    ? { ok: true, note: `${camera.name} ${describeGesture(kind)}.` }
+    : { ok: false, note: `${camera.name} did not take the gesture — nothing is claimed.` };
+}
+
+/* ------------------------------------------------------------------ */
+/* THE EYES — changes go through the law, and land in the log          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Change a camera's eyes (owner order 2026-11-27: red always;
+ * a construct changes them only to see something better, and
+ * the change is logged with its reason). The pure law
+ * (cameraEyes.ts) refuses a change with no reason or no one
+ * standing behind it — refused here in plain words, and the
+ * eyes stay where they were. There is no off to ask for.
+ */
+export async function setCameraEyes(
+  cameraId: string,
+  mode: CameraEyeMode,
+  by: string,
+  reason: string,
+): Promise<ExecResult> {
+  const presenceStore = await getCameraPresenceStore();
+  if (!presenceStore) return { ok: false, note: "No local presence store — the eye change cannot be recorded, so it is not made." };
+  const camera = await loadCamera(cameraId);
+  if (!camera) return { ok: false, note: "That camera is not in the registry." };
+  let note = "";
+  const next = await presenceStore.update((file) => {
+    const state = presenceFor(file, cameraId);
+    const applied = applyEyeChange(state.eyes, {
+      id: `eye-${cameraId}-${Date.now()}`,
+      at: Date.now(),
+      cameraId,
+      cameraName: camera.name,
+      to: mode,
+      by,
+      reason,
+    });
+    if (!applied) {
+      note =
+        state.eyes.mode === mode
+          ? `${camera.name}'s eyes already stand at ${mode} — nothing changed, nothing logged.`
+          : "Refused — an eye change needs who made it and why, in plain words. The eyes stay where they were.";
+      return file;
+    }
+    note = describeEyeChange(applied.entry);
+    return {
+      ...file,
+      cameras: { ...file.cameras, [cameraId]: { ...state, eyes: applied.state } },
+      eyeChanges: [applied.entry, ...file.eyeChanges].slice(0, 60),
+    };
+  });
+  void next;
+  return { ok: note.startsWith(`${camera.name}:`), note };
+}
+
+/* ------------------------------------------------------------------ */
+/* SERIAL RE-DETECTION (owner order 2026-11-27)                        */
+/*                                                                     */
+/* The registry knows a camera by its serial. When a unit is           */
+/* sighted at a candidate address, the core asks the unit at           */
+/* that address who it is (ONVIF device information, with the          */
+/* registered camera's own credentials). If the serial it              */
+/* answers with is a REGISTERED serial, the registration               */
+/* re-attaches: same id, same name, same Permission Law flags —        */
+/* new address — and the presence reconcile resumes running it         */
+/* (hearing / patrol / follow re-arm from the record). A serial        */
+/* that matches nothing is reported as unknown and nothing is          */
+/* registered, moved, or removed: removal is the Captain's             */
+/* explicit sell/remove order, and it lives nowhere in this            */
+/* path.                                                               */
+/* ------------------------------------------------------------------ */
+
+export async function redetectCameraAtHost(candidateHost: string, onvifPort?: number): Promise<ExecResult> {
+  const cameraStore = await getCameraStore();
+  if (!cameraStore) return { ok: false, note: "No local camera store — re-detection cannot run here." };
+  const host = candidateHost.trim();
+  if (!host) return { ok: false, note: "No candidate address was given — there is nothing to ask." };
+  const registered = await cameraStore.list();
+  const withSerial = registered.filter((c) => c.serial);
+  if (withSerial.length === 0) {
+    return { ok: false, note: "No registered camera carries a serial yet — re-detection has no identity to match against. A camera's serial is recorded when its probe first reads it." };
+  }
+  const { onvifDeviceInfo } = await import("./cameras/onvifClient.server");
+  // Ask the unit at the candidate address to identify itself,
+  // trying each registered camera's credentials in turn — the
+  // unit answers only to its own login.
+  for (const candidate of withSerial) {
+    const info = await onvifDeviceInfo(host, onvifPort ?? candidate.onvifPort, candidate.username, candidate.password ?? "");
+    if (info.state !== "ok" || !info.value.serial) continue;
+    const match = findCameraBySerial(registered, info.value.serial);
+    if (!match) {
+      return {
+        ok: false,
+        note: `A unit at ${host} reported serial ${info.value.serial}, which is not in the registry — nothing was registered, moved, or removed.`,
+      };
+    }
+    const updated = redetectCamera(match, {
+      serial: info.value.serial,
+      host,
+      onvifPort: onvifPort ?? match.onvifPort,
+      manufacturer: info.value.manufacturer,
+      model: info.value.model,
+      firmware: info.value.firmware,
+    });
+    if (!updated) continue;
+    await cameraStore.upsert(updated);
+    await reconcilePresence();
+    return {
+      ok: true,
+      note:
+        updated.host === match.host && match.host === host
+          ? `${match.name} answered at ${host} under its registered serial — it stands confirmed at its address, and its armed presence resumed.`
+          : `${match.name} re-detected by its serial at ${host} (it was registered at ${match.host}) — the registration moved with it, same name, same permissions, and its armed presence resumed.`,
+    };
+  }
+  return {
+    ok: false,
+    note: `Nothing at ${host} answered as a registered camera — no registered serial was read there. The registrations stand exactly as they were.`,
+  };
 }
 
 /** A conversation at a camera ends after this long without his voice. */
@@ -721,11 +873,11 @@ async function writeAgamossConcern(camera: StoredCamera, matched: string): Promi
 /* Patrol loop                                                         */
 /* ------------------------------------------------------------------ */
 
-const patrolLoops = new Map<string, { timer: NodeJS.Timeout; lastSent: number | null }>();
+const patrolLoops = new Map<string, { timer: NodeJS.Timeout; lastSent: number | null; lastLookIndex: number | null }>();
 
 export function ensurePatrolLoop(cameraId: string): void {
   if (patrolLoops.has(cameraId)) return;
-  const loop = { timer: null as unknown as NodeJS.Timeout, lastSent: null as number | null };
+  const loop = { timer: null as unknown as NodeJS.Timeout, lastSent: null as number | null, lastLookIndex: null as number | null };
   const tick = async () => {
     try {
       const presenceStore = await getCameraPresenceStore();
@@ -749,6 +901,29 @@ export function ensurePatrolLoop(cameraId: string): void {
           await drivePtz(camera, wanted, 0, false);
         }
         loop.lastSent = wanted;
+      }
+      // AUTONOMY (2026-11-27): while autonomy stands on, the
+      // patrol's legs are the camera's own look targets in its
+      // zone — when the autonomous look steps to a new target,
+      // the head nudges toward that target's step. The sweep
+      // above still runs between targets; autonomy chooses
+      // WHERE it rests its gaze, inside the zone, always.
+      const sectorStore = await getSectorWatchStore();
+      if (sectorStore) {
+        const sectorFile = await sectorStore.read();
+        if (sectorFile.settings.autonomy.enabled) {
+          const zone = sectorConfigFor(sectorFile.settings, cameraId).zone;
+          const look = autonomousLookAt(zone, Date.now() - state.patrol.startedAt);
+          if (look.targetIndex !== loop.lastLookIndex) {
+            loop.lastLookIndex = look.targetIndex;
+            if (look.pan !== 0) {
+              await drivePtz(camera, look.pan, 0, false);
+              await new Promise((r) => setTimeout(r, 600));
+              await drivePtz(camera, 0, 0, true);
+              loop.lastSent = null; // the sweep re-decides next tick from its own pattern
+            }
+          }
+        }
       }
     } catch {
       // a failed tick never kills the loop silently into a stuck
@@ -778,7 +953,7 @@ export async function stopPatrol(cameraId: string, _reason: string): Promise<voi
     await presenceStore.update((file) => {
       const state = presenceFor(file, cameraId);
       if (!state.patrol.active) return file;
-      state.patrol = { ...state.patrol, active: false, startedAt: null };
+      state.patrol = { ...state.patrol, active: false, startedAt: null, autonomous: false };
       return { ...file, cameras: { ...file.cameras, [cameraId]: state } };
     });
   }
@@ -1622,6 +1797,7 @@ async function handleHeard(
   }
 
   const wake = matchWakePhrase(text, file.agamoss.wakePhrases);
+  const constructWake = matchConstructWake(text);
   const captain = voiceMayCommand(speaker);
 
   /* THE VOICE GATE — commands and activation belong to the
@@ -1630,12 +1806,12 @@ async function handleHeard(
     const commandShaped = state.commands ? parseCameraCommand(text, nameRefs, camera.id) : null;
     if (speaker === "another") {
       acted =
-        wake || commandShaped
+        wake || constructWake || commandShaped
           ? "Heard — but the voice did not match the Captain's voiceprint. Logged only: nothing was activated, nothing moved, nothing lit."
           : "Heard and logged. The voice did not match the Captain's, so the line was not forwarded or acted on.";
-    } else if (wake) {
+    } else if (wake || constructWake) {
       acted =
-        "Heard a wake phrase, but the voiceprint gave no verdict — no activation. Agamoss wakes only for the Captain's matched voice.";
+        "Heard a wake phrase, but the voiceprint gave no verdict — no activation. The constructs wake only for the Captain's matched voice.";
     } else if (commandShaped) {
       acted =
         "Heard a camera command, but the voiceprint gave no verdict — commands are accepted only from the Captain's matched voice, so nothing was done.";
@@ -1658,6 +1834,22 @@ async function handleHeard(
         sessionNote = await startAgamossSession(camera, state);
       }
       if (isWakeOnlyLine(text, file.agamoss.wakePhrases)) acted = sessionNote;
+    }
+    /* CONSTRUCT WAKES (owner order 2026-11-27): "Montu
+     * awaken" and "Anubis awaken" are working addresses now.
+     * They do not open an Agamoss session — that door is
+     * Agamoss's — they are heard, recorded under the named
+     * construct, and answered in the record. No movement and
+     * no light are claimed for them: Anubis's hearing at the
+     * cameras is the presence pipeline itself, and Montu's
+     * post is the security side, not this lens. */
+    if (!acted && constructWake) {
+      kind = "command";
+      acted =
+        constructWake.construct === "anubis"
+          ? `Heard your wake at ${camera.name}, Captain — Anubis is the one listening at every camera, and he stands awake to you here. The wake is on the record under his name.`
+          : `Heard your wake for Montu at ${camera.name}, Captain — it stands recorded on the security record under his name. The cameras keep their watch.`;
+      if (sessionNote) acted = `${sessionNote} ${acted}`;
     }
     if (!acted) {
       const intent = state.commands ? parseCameraCommand(text, nameRefs, camera.id) : null;
@@ -1904,11 +2096,41 @@ export async function reconcilePresence(): Promise<void> {
   const cameraStore = await getCameraStore();
   if (!presenceStore || !cameraStore) return;
   const file = await presenceStore.read();
+  /* AUTONOMY (owner order 2026-11-27 — autonomous until
+   * further notice): while autonomy stands on, a watched
+   * camera that can be controlled carries its own patrol —
+   * the reconcile arms it from the record like every other
+   * armed state, so a restart, a re-detection, or a surface
+   * refresh brings the autonomous watch back up on its own.
+   * The ALL-STOP and the Permission Law stand in front of it
+   * exactly as they stand in front of every send. */
+  const sectorStore = await getSectorWatchStore();
+  const sectorFile = sectorStore ? await sectorStore.read() : null;
+  const autonomyOn = sectorFile?.settings.autonomy.enabled === true;
+  const stopAll = autonomyOn ? await allStopInForce() : false;
   for (const camera of await cameraStore.list()) {
     const state = presenceFor(file, camera.id);
     if (state.hearing) await ensureListener(camera);
     if (state.patrol.active) ensurePatrolLoop(camera.id);
     if (state.follow.active) ensureFollowLoop(camera.id);
+    if (
+      autonomyOn &&
+      !stopAll &&
+      !state.patrol.active &&
+      !state.follow.active &&
+      sectorFile &&
+      sectorConfigFor(sectorFile.settings, camera.id).watch &&
+      cameraCanControl(camera) &&
+      ptzLens(camera)
+    ) {
+      await presenceStore.update((f) => {
+        const s = presenceFor(f, camera.id);
+        if (s.patrol.active) return f;
+        s.patrol = { ...s.patrol, active: true, startedAt: Date.now(), autonomous: true };
+        return { ...f, cameras: { ...f.cameras, [camera.id]: s } };
+      });
+      ensurePatrolLoop(camera.id);
+    }
   }
 }
 

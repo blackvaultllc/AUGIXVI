@@ -30,6 +30,11 @@ import {
   interactionLight,
   type AgamossState,
 } from "./cameras/agamoss";
+import {
+  CAMERA_EYE_MODES,
+  type CameraEyeMode,
+  type EyeChangeEntry,
+} from "./cameras/cameraEyes";
 
 type TokenInput = { accessToken: string };
 
@@ -74,6 +79,8 @@ export type CameraPresenceView = {
   silentSensor: SilentSensorState;
   /** Agamoss: the wake-phrase list (the core config) + the danger-flag chain records. */
   agamoss: AgamossState;
+  /** The eye-change log (2026-11-27): every change of a camera's eyes, with who and why. */
+  eyeChanges: EyeChangeEntry[];
 };
 
 export const getCameraPresence = createServerFn({ method: "POST" })
@@ -91,6 +98,7 @@ export const getCameraPresence = createServerFn({ method: "POST" })
       enrollment: null,
       silentSensor: { profile: null, candidate: null, lastTripAt: null },
       agamoss: emptyAgamossState(),
+      eyeChanges: [],
     };
     if (!(await authorized(data.accessToken))) return empty;
     const presenceStore = await getCameraPresenceStore();
@@ -118,6 +126,7 @@ export const getCameraPresence = createServerFn({ method: "POST" })
       enrollment: file.enrollment,
       silentSensor: file.silentSensor,
       agamoss: file.agamoss,
+      eyeChanges: file.eyeChanges,
     };
   });
 
@@ -177,7 +186,9 @@ export type PresenceAction =
   | "record-stop"
   | "spotlight"
   | "tracking"
-  | "turn-to-speaker";
+  | "turn-to-speaker"
+  | "gesture-yes"
+  | "gesture-no";
 
 export type CameraActionInput = TokenInput & {
   cameraId: string;
@@ -216,11 +227,61 @@ export const cameraPresenceAction = createServerFn({ method: "POST" })
       const result = await runtime.setUnitTracking(camera, data.on);
       return { authorized: true, ok: result.ok, note: result.note };
     }
+    if (data.action === "gesture-yes" || data.action === "gesture-no") {
+      // A named PTZ gesture (2026-11-27): the little robot's
+      // head answers — nod yes, shake no. The runtime stands
+      // behind the same gates as every send.
+      const result = await runtime.playCameraGesture(
+        data.cameraId,
+        data.action === "gesture-yes" ? "yes" : "no",
+      );
+      return { authorized: true, ok: result.ok, note: result.note };
+    }
     const intent =
       data.action === "spotlight"
         ? ({ type: "spotlight", cameraId: data.cameraId, on: data.on === true } as const)
         : ({ type: data.action, cameraId: data.cameraId } as const);
     const result = await runtime.executeCameraIntent(intent, camera.name);
+    return { authorized: true, ok: result.ok, note: result.note };
+  });
+
+/* ------------------------------ the eyes ------------------------------ */
+
+export type SetEyeModeInput = TokenInput & {
+  cameraId: string;
+  mode: CameraEyeMode;
+  /** Who is making the change — the Captain or a construct, by name. */
+  by: string;
+  /** Why — the change is logged with it, or it does not happen. */
+  reason: string;
+};
+
+/**
+ * Change a camera's eyes (owner order 2026-11-27: red always;
+ * a change only to see something better, logged with its
+ * reason). There is no off among the modes — the type itself
+ * refuses it before the runtime ever sees the request.
+ */
+export const setCameraEyeMode = createServerFn({ method: "POST" })
+  .validator((input: unknown): SetEyeModeInput => {
+    const raw = input as SetEyeModeInput;
+    if (
+      !isTokenInput(input) ||
+      typeof raw.cameraId !== "string" ||
+      !(CAMERA_EYE_MODES as string[]).includes(raw.mode) ||
+      typeof raw.by !== "string" ||
+      typeof raw.reason !== "string"
+    ) {
+      throw new Error("Invalid eye change request.");
+    }
+    return raw;
+  })
+  .handler(async ({ data }): Promise<PresenceNoteResult> => {
+    if (!(await authorized(data.accessToken))) {
+      return { authorized: false, ok: false, note: "The operator session is gone — sign in again." };
+    }
+    const runtime = await import("./cameraPresenceRuntime.server");
+    const result = await runtime.setCameraEyes(data.cameraId, data.mode, data.by, data.reason);
     return { authorized: true, ok: result.ok, note: result.note };
   });
 

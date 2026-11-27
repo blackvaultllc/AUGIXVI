@@ -63,6 +63,81 @@ export function cameraCanControl(camera: Pick<CameraProfile, "ownerConfirmed" | 
   return camera.ownerConfirmed === true && camera.controlGranted === true;
 }
 
+/* ------------------------------------------------------------------ */
+/* THE SERIAL LAW (owner order 2026-11-27): the registry knows a       */
+/* camera by its SERIAL NUMBER — that is how the units were            */
+/* registered from the company. The network address is where a         */
+/* camera happens to sit today; the serial is WHO it is.              */
+/*                                                                     */
+/*   · RE-DETECTION: when a registered camera reappears somewhere      */
+/*     else — unplugged, moved, a new address from the router — a      */
+/*     sighting that carries its serial re-attaches it: the            */
+/*     registration keeps its id, its name, its Permission Law         */
+/*     flags and its lenses, and takes the sighting's address.         */
+/*     The presence layer then resumes running it (the runtime's       */
+/*     reconcile re-arms hearing/patrol/follow from the record,        */
+/*     which is keyed by the camera's id — and the id never             */
+/*     changed).                                                       */
+/*   · REMOVAL: a serial leaves the registry ONLY on the Captain's     */
+/*     explicit sell/remove order. Nothing here removes anything:      */
+/*     a camera that stops answering is a camera that stopped          */
+/*     answering — its registration stands until he says otherwise.    */
+/* ------------------------------------------------------------------ */
+
+/** Serials compare without case, spaces, or separators — the unit's own spelling rules vary. */
+export function normalizeSerial(serial: string | undefined | null): string | null {
+  if (!serial) return null;
+  const cleaned = serial.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return cleaned.length >= 4 ? cleaned : null;
+}
+
+/** The registered camera a serial belongs to — the identity lookup the re-detection stands on. */
+export function findCameraBySerial<T extends Pick<CameraProfile, "serial">>(
+  cameras: T[],
+  serial: string | undefined | null,
+): T | null {
+  const wanted = normalizeSerial(serial);
+  if (!wanted) return null;
+  return cameras.find((c) => normalizeSerial(c.serial) === wanted) ?? null;
+}
+
+/** A sighting of a unit somewhere on the network: what it reported about itself, and where. */
+export interface CameraSighting {
+  /** The serial the unit itself reported at the sighting address. */
+  serial: string;
+  host: string;
+  onvifPort?: number | undefined;
+  rtspPort?: number | undefined;
+  manufacturer?: string | null | undefined;
+  model?: string | null | undefined;
+  firmware?: string | null | undefined;
+}
+
+/**
+ * Re-attach a registration to a sighting — the re-detection
+ * merge. The sighting must carry the REGISTERED camera's own
+ * serial (the unit reporting who it is); anything else returns
+ * null and the registration does not move. What survives is
+ * the registration: id, name, lenses, Permission Law flags,
+ * addedAt. What updates is where it sits: host and ports, and
+ * the fingerprint fields the unit re-reported.
+ */
+export function redetectCamera<T extends CameraProfile>(registered: T, sighting: CameraSighting): T | null {
+  const mine = normalizeSerial(registered.serial);
+  if (!mine || normalizeSerial(sighting.serial) !== mine) return null;
+  const host = sighting.host.trim();
+  if (!host) return null;
+  return {
+    ...registered,
+    host,
+    onvifPort: sighting.onvifPort ?? registered.onvifPort,
+    rtspPort: sighting.rtspPort ?? registered.rtspPort,
+    manufacturer: sighting.manufacturer || registered.manufacturer,
+    model: sighting.model || registered.model,
+    firmware: sighting.firmware || registered.firmware,
+  };
+}
+
 /* ------------------------------ sanitize ------------------------------ */
 
 function isRecord(v: unknown): v is Record<string, unknown> {

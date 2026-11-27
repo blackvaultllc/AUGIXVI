@@ -24,6 +24,7 @@ import {
   getSectorStill,
   getSectorWatch,
   removeHousehold,
+  setSectorAutonomy,
   setSectorCamera,
   setSectorInterval,
   type SectorWatchView,
@@ -225,6 +226,26 @@ export function SectorWatchPanel({
               Save interval
             </button>
           </div>
+        </div>
+        <p className="window-cameras__grant">
+          <strong>Autonomy: {view.autonomy.enabled ? "ON" : "OFF"}</strong> —{" "}
+          {view.autonomy.enabled
+            ? "the cameras choose their own look targets inside their zones and carry their own patrol, until a recorded order turns it off (Captain's order, 2026-11-27)."
+            : `off by recorded order${view.autonomy.since ? ` since ${dayTime(view.autonomy.since)}` : ""} — the cameras hold their set patrol and watch only.`}
+        </p>
+        <div className="window-cameras__actions">
+          <button
+            type="button"
+            className="window-btn"
+            disabled={busy}
+            onClick={() =>
+              void run(() =>
+                setSectorAutonomy({ data: { accessToken: token, enabled: !view.autonomy.enabled } }),
+              )
+            }
+          >
+            {view.autonomy.enabled ? "Turn autonomy off (recorded order)" : "Turn autonomy on"}
+          </button>
         </div>
 
         {cameras.map((camera) => {
