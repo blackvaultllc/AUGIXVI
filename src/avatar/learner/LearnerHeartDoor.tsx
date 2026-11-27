@@ -9,6 +9,12 @@ import { Heart } from "lucide-react";
  * mode and the operator's always goes through a fresh page load, so no
  * in-memory operator state rides along with her, and her door grants
  * nothing on the operator side.
+ *
+ * PLACEMENT (owner order 2026-11-27): the heart sits in the bottom
+ * corner of the screen, clear of the sign-in card's text — centered,
+ * it covered the disclaimer heading and Violet's door. No name is
+ * printed under or beside it; the heart alone is her mark. (The
+ * accessible name stays for screen readers; nothing shows on screen.)
  */
 export function LearnerHeartDoor() {
   return (
@@ -17,14 +23,12 @@ export function LearnerHeartDoor() {
         type="button"
         className="learner-heart-door__button"
         aria-label="Khadija's door — open the learning side"
-        title="Khadija's door"
         onClick={() => {
           window.location.assign("/learner");
         }}
       >
         <Heart aria-hidden="true" fill="currentColor" />
       </button>
-      <span className="learner-heart-door__label">Khadija</span>
     </footer>
   );
 }

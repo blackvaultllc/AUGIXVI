@@ -54,7 +54,10 @@ describe("the heart door", () => {
     render(<LearnerHeartDoor />);
     const button = screen.getByRole("button", { name: /Khadija's door/i });
     expect(button).toBeInTheDocument();
-    expect(screen.getByText("Khadija")).toBeInTheDocument();
+    // No name printed under or beside the heart (owner order
+    // 2026-11-27): the heart alone is her mark on screen; the name
+    // survives only as the button's accessible label.
+    expect(screen.queryByText("Khadija")).toBeNull();
   });
 });
 

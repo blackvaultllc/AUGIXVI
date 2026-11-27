@@ -152,8 +152,15 @@ describe("operator sign-in gate", () => {
 
     expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
     // Hidden fields (2026-11-27): the Sign in button renders only
-    // once the gate check reports — in jsdom the panel cannot run,
-    // so it reports no-verdict and the fields arrive asynchronously.
+    // once the gate check reports. In jsdom the panel cannot run —
+    // and it no longer reports a no-verdict by itself (that was the
+    // automatic bypass): the fields stay hidden until the visitor
+    // presses the gate's continue button, which records the
+    // attempt first.
+    expect(screen.queryByLabelText("Email")).toBeNull();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Continue with email and password" }),
+    );
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Set up first operator account" }),
@@ -291,6 +298,11 @@ describe("operator sign-in gate", () => {
       operatorFullName: null,
     });
     render(<OperatorGate />);
+    // jsdom cannot run the gate check: the visitor continues by the
+    // gate's button (which records the attempt), then signs in.
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Continue with email and password" }),
+    );
     const signInButton = await screen.findByRole("button", { name: "Sign in" });
 
     fireEvent.submit(signInButton.closest("form")!);
@@ -317,6 +329,9 @@ describe("operator sign-in gate", () => {
       operatorFullName: null,
     });
     render(<OperatorGate />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Continue with email and password" }),
+    );
     const form = await screen.findByRole("button", { name: "Sign in" });
 
     fireEvent.submit(form.closest("form")!);
@@ -373,6 +388,9 @@ describe("operator sign-in gate", () => {
       });
 
     render(<OperatorGate />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Continue with email and password" }),
+    );
     const signInButton = await screen.findByRole("button", { name: "Sign in" });
     fireEvent.submit(signInButton.closest("form")!);
 

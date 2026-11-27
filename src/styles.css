@@ -1280,6 +1280,11 @@
   max-height: min(88vh, 48rem);
   overflow-y: auto;
   padding: 1.5rem;
+  /* The heart door stands fixed in the screen's bottom corner
+     (owner order 2026-11-27): the card's last lines — the
+     disclaimer heading and Violet's door — end well above that
+     corner, so the heart never covers them again. */
+  padding-bottom: 6rem;
   border: 1px solid oklch(0.78 0.14 82 / 45%);
   border-radius: 0.75rem;
   background: oklch(0.12 0.02 60 / 92%);
@@ -6942,14 +6947,10 @@
    door sits on the app footer of the operator landing. */
 .learner-heart-door {
   position: fixed;
-  left: 50%;
-  bottom: max(0.9rem, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
   z-index: 60;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
   pointer-events: none;
 }
 .learner-heart-door__button {
@@ -6975,14 +6976,6 @@
   outline: 3px solid #ffb703;
   outline-offset: 2px;
 }
-.learner-heart-door__label {
-  font-family: ui-rounded, "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #fff7ea;
-  text-shadow: 0 1px 6px rgb(0 0 0 / 70%);
-}
-
 .learner-shell {
   height: 100dvh;
   overflow: hidden;

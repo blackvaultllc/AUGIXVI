@@ -33,6 +33,22 @@
  * the entry, and the gate never calls a code it cannot check
  * against a registry a match. Where the detector does not
  * exist, the panel says so plainly and never fakes a scan.
+ *
+ * THE BYPASS, FIXED (owner report 2026-11-27 — "the gate check
+ * does not actually run"): three defects made the check a
+ * wave-through. (1) A browser that could not open media reported
+ * a no-verdict BY ITSELF on mount — fields appeared with no gate
+ * activity and no record; now the visitor presses a continue
+ * button that writes the attempt first. (2) The snapshot was
+ * taken before the camera delivered a frame, so the record
+ * often carried no picture; the check now waits for a real
+ * frame. (3) On a copy with no road to the home core, the
+ * judging services (transcription + voiceprint, both served
+ * from the core) never answer, so every run ended in the same
+ * silent no-verdict; the outcome is still a no-verdict —
+ * credentials carry the entry, he is never locked out — but the
+ * gate now names the reason on its face: the picture was taken
+ * and logged, and the voice could not be judged from here.
  */
 import { useEffect, useRef, useState } from "react";
 import { Camera, IdCard, Mic, ScanQrCode } from "lucide-react";
@@ -56,6 +72,7 @@ type PanelState =
   | "checking"
   | "match"
   | "fallback"
+  | "core-unreachable"
   | "no-match"
   | "denied"
   | "no-camera"
@@ -144,7 +161,7 @@ export function GateCheckPanel({
   const [heardWords, setHeardWords] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const unavailableReportedRef = useRef(false);
+  const [continued, setContinued] = useState(false);
   const busyRef = useRef(false);
 
   // THE THREE PATHS (operator door only — see the header note).
@@ -161,14 +178,26 @@ export function GateCheckPanel({
   const scanStopRef = useRef(false);
 
   // A browser that cannot open media at all can never run the
-  // check: for the operator that is a no-verdict — credentials
-  // carry the entry and the gate says so (never locked out).
-  useEffect(() => {
-    if (state === "unavailable" && !unavailableReportedRef.current) {
-      unavailableReportedRef.current = true;
-      if (door === "operator") onOperatorOutcome?.("no-verdict");
-    }
-  }, [state, door, onOperatorOutcome]);
+  // check. It used to report a no-verdict on its own the moment it
+  // mounted — the sign-in fields simply appeared, no gate activity,
+  // no record: an automatic bypass (owner report 2026-11-27, "the
+  // gate check does not actually run"). Now nothing is reported
+  // until the visitor presses the continue button below: the
+  // attempt is written in the gate log first, and only then do the
+  // credentials carry the entry (never locked out — the button is
+  // right there, and the gate says what happened).
+  function continueWithoutCheck() {
+    if (continued) return;
+    setContinued(true);
+    void postGateAttemptRecord({
+      door,
+      result: "credentials-fallback",
+      namedAs: null,
+      note: "This browser cannot open the camera and microphone, so the gate check could not run. The visitor continued to credentials by the button on the gate.",
+      photo: null,
+    });
+    onOperatorOutcome?.("no-verdict");
+  }
 
   // The stream is never left running: release on unmount, always.
   useEffect(() => {
@@ -184,6 +213,24 @@ export function GateCheckPanel({
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
+  }
+
+  /**
+   * Wait until the camera is actually delivering a frame. The
+   * snapshot used to be taken the instant play() resolved — often
+   * before the first frame existed — so the attempt record carried
+   * no picture at all and the "picture" step of the gate had not
+   * really run (owner report 2026-11-27). Poll briefly; a camera
+   * that never delivers a frame proceeds without one, noted by the
+   * missing photo, and never bars the door by itself.
+   */
+  async function waitForFrame(): Promise<void> {
+    const deadline = Date.now() + 2500;
+    while (Date.now() < deadline) {
+      const video = videoRef.current;
+      if (video && video.videoWidth > 0 && video.readyState >= 2) return;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   }
 
   async function captureSnapshot(): Promise<Blob | null> {
@@ -240,7 +287,10 @@ export function GateCheckPanel({
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => undefined);
       }
-      // One frame, at the attempt — the doorbell picture.
+      // One frame, at the attempt — the doorbell picture. Wait for
+      // the camera to deliver a real frame first, so the picture
+      // step of the check genuinely happens.
+      await waitForFrame();
       const photo = await captureSnapshot();
       if (photo) onSnapshot?.(photo);
 
@@ -278,8 +328,10 @@ export function GateCheckPanel({
 
       // Operator: transcription (the words) + voiceprint (the voice).
       let transcript: string | null = null;
+      let transcribeAnswered = false;
       try {
         transcript = await transcribeClip(audio);
+        transcribeAnswered = true;
       } catch {
         transcript = null;
       }
@@ -312,6 +364,16 @@ export function GateCheckPanel({
           note: "The voice at the gate was not the Captain's. The attempt was refused.",
           photo,
         });
+      } else if (!transcribeAnswered && !verifyAnswered) {
+        // Neither judging service answered at all. Those services
+        // live on the home core (the speech service at the core's
+        // own address); a copy with no road to the core — the
+        // online copy today — can take the picture and write the
+        // log but can never judge a voice. That is still a
+        // no-verdict (credentials carry the entry, never locked
+        // out), but the gate says THIS, plainly, instead of
+        // dressing a structural bypass up as a check that ran.
+        setState("core-unreachable");
       } else {
         setState("fallback");
       }
@@ -576,6 +638,14 @@ export function GateCheckPanel({
               entry, and the attempt is written in the gate log.
             </p>
           )}
+          {state === "core-unreachable" && (
+            <p>
+              Your picture was taken and this attempt is written in the gate log. The gate&apos;s
+              ears — the speech service that hears your words and judges your voice — live on the
+              home computer, and this copy could not reach them, so your voice could not be judged
+              from here. Your email and password carry this entry.
+            </p>
+          )}
           {state === "no-match" && (
             <p className="gate-check__warn" role="alert">
               That voice is not the Captain&apos;s. This attempt has been recorded with its
@@ -594,11 +664,22 @@ export function GateCheckPanel({
               microphone to let anyone in — sign in from a device that has both.
             </p>
           )}
-          {state === "unavailable" && (
+          {state === "unavailable" && !continued && (
+            <>
+              <p>
+                This browser cannot open the camera and microphone here, so the gate check cannot
+                run. Your email and password can still carry this entry — press the button and
+                the attempt is noted in the gate log first.
+              </p>
+              <button type="button" className="gate-check__button" onClick={continueWithoutCheck}>
+                Continue with email and password
+              </button>
+            </>
+          )}
+          {state === "unavailable" && continued && (
             <p>
-              This browser cannot open the camera and microphone here, so the gate check cannot
-              run. Your email and password carry this entry, and the attempt is noted in the gate
-              log.
+              Noted in the gate log — this browser could not run the gate check. Your email and
+              password carry this entry.
             </p>
           )}
         </>
@@ -638,6 +719,7 @@ export function GateCheckPanel({
           state === "no-camera" ||
           state === "no-match" ||
           state === "fallback" ||
+          state === "core-unreachable" ||
           state === "match") && (
           <button type="button" className="gate-check__button" onClick={() => void runCheck()}>
             {state === "idle"
