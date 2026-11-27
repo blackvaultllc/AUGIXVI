@@ -42,6 +42,8 @@ import {
   validateLearnerSignIn,
 } from "./learnerProfile";
 import { SectionRequestButton } from "../SectionRequestButton";
+import { AgentContactButtons } from "../AgentContactButtons";
+import { MatrixWall } from "../MatrixWall";
 import { GateCheckPanel } from "../GateCheckPanel";
 import { LEARNER_GATE_NAME } from "../loginGate";
 import { postGateAttemptRecord } from "../loginGateClient";
@@ -129,6 +131,11 @@ export function LearnerHome() {
 
   return (
     <div className="learner-shell">
+      {/* ONE INTERFACE FOR ALL (owner order 2026-11-27): the
+          same Matrix Wall stands behind her page as behind her
+          father's — the same gold binary, tuned calm and
+          sparse for her seat (the learner's tuning). */}
+      <MatrixWall role="learner" variant="page" />
       <header className="learner-header">
         <div>
           <h1>Hi, {LEARNER_FIRST_NAME}!</h1>
@@ -180,6 +187,92 @@ export function LearnerHome() {
           core, standing in his notifications — and nothing
           comes back but a thank-you. The doorway is on her
           allowlist for exactly this, like her daddy doorway. */}
+      {/* THE THREE BUTTONS (phone fix pass 2026-11-27, items
+          11–12 — Khadija included, by his word): problem,
+          message, emergency. Problems and messages ride her
+          request doorway to Daddy's notifications; EMERGENCY
+          places her daddy call — his Augie rings, and the call
+          stands in his inbox if he is not there. Both doorways
+          are hers already, on her allowlist; nothing new opens
+          toward her. */}
+      <AgentContactButtons
+        captainLabel="Daddy"
+        emergencyNote="This calls Daddy on his Augie right away — it rings for him. If he is not at his Augie, your call waits in his inbox where he will see it."
+        onReportError={async (text) => {
+          try {
+            const response = await fetch("/api/learner/request", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ text: `PROBLEM REPORT — ${text}` }),
+            });
+            if (!response.ok) {
+              return {
+                ok: false,
+                message: "That could not reach Daddy from this page — tell Daddy, and he will fix it.",
+              };
+            }
+            return {
+              ok: true,
+              message: "Daddy has it! The problem is standing in his notifications now, and he will fix it.",
+            };
+          } catch {
+            return {
+              ok: false,
+              message: "That could not reach Daddy from this page — tell Daddy, and he will fix it.",
+            };
+          }
+        }}
+        onMessage={async (text) => {
+          try {
+            const response = await fetch("/api/learner/daddy", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ action: "message", text }),
+            });
+            const view = (await response.json()) as { ok?: boolean };
+            if (!view.ok) {
+              return {
+                ok: false,
+                message: "Your words could not reach Daddy's Augie from this page — tell Daddy, and he will fix it.",
+              };
+            }
+            return { ok: true, message: "Sent to Daddy! He will see your words on his Augie." };
+          } catch {
+            return {
+              ok: false,
+              message: "Your words could not go out from this page — tell Daddy, and he will fix it.",
+            };
+          }
+        }}
+        onEmergency={async () => {
+          try {
+            const response = await fetch("/api/learner/daddy", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ action: "call" }),
+            });
+            const view = (await response.json()) as { ok?: boolean; daddyOnline?: boolean };
+            if (!view.ok) {
+              return {
+                ok: false,
+                message: "Your call could not reach Daddy's Augie from this page — tell Daddy, and he will fix it.",
+              };
+            }
+            return {
+              ok: true,
+              message: view.daddyOnline
+                ? "Calling Daddy — his Augie is ringing right now!"
+                : "Daddy is not at his Augie right now. Your call is in his inbox — he will see that you called, the moment he is back.",
+            };
+          } catch {
+            return {
+              ok: false,
+              message: "Your call could not go out from this page — tell Daddy, and he will fix it.",
+            };
+          }
+        }}
+      />
+
       <SectionRequestButton
         heading="Want something new in your Academy?"
         prompt="If you wish your page had something it doesn't have yet, ask here. Your words go straight to Daddy, and he will see them on his Augie."

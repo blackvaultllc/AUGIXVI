@@ -89,7 +89,15 @@ export interface RingSegment {
  * - thinking: every other segment lit, gold-red — work in motion.
  * - listening: every third segment lit, gold-red — the ear open.
  * - idle: the four quarter points lit, gold — at rest, present.
- * - connecting: the four quarter points lit, amber — not ready.
+ * - connecting: the four quarter points lit, GOLD — not ready
+ *   yet, but at rest until he speaks (phone fix pass,
+ *   2026-11-27, item 7: his screenshots showed ORANGE segments
+ *   standing at rest with the mic off — the ring was sitting
+ *   in "connecting" amber while the stage loaded, and amber
+ *   reads orange. His law is plain: REST IS GOLD. Connecting
+ *   is a rest state — he is not speaking, working, or
+ *   listening — so its lit points burn the rest gold, and no
+ *   state of this ring ever reads orange at rest again).
  *
  * THE GOLD ORDERS (owner orders 2026-11-26, from his phone):
  * the cybernetic blue the theme shipped with is OUT ("the blue
@@ -122,7 +130,7 @@ export function ringSegments(state: RingPresenceState): RingSegment[] {
         tone = index % 6 === 0 ? "gold" : "dim";
         break;
       case "connecting":
-        tone = index % 6 === 0 ? "amber" : "dim";
+        tone = index % 6 === 0 ? "gold" : "dim";
         break;
     }
     segments.push({ index, tone });

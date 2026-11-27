@@ -88,8 +88,10 @@ describe("settings persistence — close it, open it, it's still his", () => {
     expect(cleaned.maxParticles).toBe(200_000);
     expect(cleaned.bloom).toBe(2.5);
     expect(cleaned.glitch).toBe(0);
-    expect(cleaned.theme).toBe("cyan");
-    expect(cleaned.customColor).toBe("#22d3ee");
+    // Junk falls back to the DEFAULTS — gold since the phone
+    // fix pass (2026-11-27, item 5: blue/cyan out, gold carries).
+    expect(cleaned.theme).toBe("gold");
+    expect(cleaned.customColor).toBe("#d4af37");
     expect(cleaned.sensitivity).toBe(0.1);
     expect(cleaned.cooldownMs).toBe(5_000);
     expect(sanitizeAvatarSettings(null)).toEqual(defaultSettings());

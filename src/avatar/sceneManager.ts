@@ -7,7 +7,7 @@ type MoveDirection = "left" | "right" | "forward" | "back" | "up" | "down";
 type WorldPoint = Readonly<{ x: number; z: number }>;
 
 const GROUND_Y = -3.2;
-const DEFAULT_THEME_COLOR = "#22d3ee";
+const DEFAULT_THEME_COLOR = "#d4af37";
 
 function appendLine(
   output: number[],

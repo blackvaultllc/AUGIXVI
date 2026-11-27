@@ -36,7 +36,15 @@ export type ThemePalette = {
 };
 export type ThemePreference = { theme: ThemeChoice; customColor: string };
 
-export const DEFAULT_THEME_PREFERENCE: ThemePreference = { theme: "cyan", customColor: "#22d3ee" };
+/**
+ * THE DEFAULT IS GOLD (owner standing order 2026-11-26,
+ * enforced by the phone fix pass 2026-11-27, item 5): the
+ * blue/cyan the theme shipped with is OUT — "the blue little
+ * lines, the blue around — I don't like that" — and gold
+ * carries the house. A fresh surface stands gold; a color he
+ * picks himself still stands where he left it.
+ */
+export const DEFAULT_THEME_PREFERENCE: ThemePreference = { theme: "gold", customColor: "#d4af37" };
 const STORAGE_KEY = "augi.avatar.theme.v1";
 
 export function getThemePalette(theme: ThemeChoice, customColor: string): ThemePalette {
@@ -82,7 +90,7 @@ export function loadThemePreference(): ThemePreference {
       typeof preference.customColor === "string" && /^#[\da-f]{6}$/i.test(preference.customColor)
         ? preference.customColor
         : DEFAULT_THEME_PREFERENCE.customColor;
-    return { theme: preference.theme ?? "cyan", customColor };
+    return { theme: preference.theme ?? "gold", customColor };
   } catch {
     return DEFAULT_THEME_PREFERENCE;
   }

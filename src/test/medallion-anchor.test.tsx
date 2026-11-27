@@ -322,8 +322,11 @@ describe("stage backdrops", () => {
     localStorage.clear();
   });
 
-  it("registers the living world and the Desert photo slot", () => {
-    expect(STAGE_BACKDROPS.map((b) => b.id)).toEqual(["world", "desert-photo"]);
+  it("registers the Matrix Wall, the living world, and the Desert photo slot", () => {
+    // THE MATRIX WALL (owner order 2026-11-27) stands first in
+    // the registry — the permanent background, "always and
+    // forever"; the older two remain his picks to set.
+    expect(STAGE_BACKDROPS.map((b) => b.id)).toEqual(["matrix-wall", "world", "desert-photo"]);
     const desert = STAGE_BACKDROPS.find((b) => b.id === "desert-photo");
     expect(desert?.name).toBe("Desert");
     expect(desert?.image).toBe(DESERT_BACKDROP_SRC);
@@ -331,11 +334,14 @@ describe("stage backdrops", () => {
   });
 
   it("the choice persists — a fresh start returns to his backdrop", () => {
-    expect(loadStageBackdrop()).toBe("world");
+    // No pick on record: the stage stands on the Matrix Wall.
+    expect(loadStageBackdrop()).toBe("matrix-wall");
     saveStageBackdrop("desert-photo");
     expect(loadStageBackdrop()).toBe("desert-photo");
     saveStageBackdrop("world");
     expect(loadStageBackdrop()).toBe("world");
+    saveStageBackdrop("matrix-wall");
+    expect(loadStageBackdrop()).toBe("matrix-wall");
   });
 });
 

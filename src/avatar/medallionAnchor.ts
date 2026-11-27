@@ -139,11 +139,22 @@ export function defaultMedallionGeometry(
     // phone-sized stages — big was ordered, and CENTERED with it.
     // On a stage too small for 560 he wears what fits (358 of a
     // 390-wide stage) and the seat centers on the size he wears.
-    const fitted = clampMedallionGeometry(
+    let fitted = clampMedallionGeometry(
       { x: 0, y: 0, size },
       stageW,
       stageH,
     ).size;
+    // A LITTLE SMALLER ON THE PHONE (owner order 2026-11-27,
+    // phone fix list item 1): on his phone the medallion filled
+    // most of the screen — 92% of the stage's short side. His
+    // words: shrink it "a little bit," not a drastic cut. On a
+    // phone-sized stage (either dimension phone-narrow) he now
+    // wears at most 80% of the short side — 312 of a 390 stage —
+    // still big, still centered, with stage showing around him.
+    // Desktop keeps the full measure he ordered kept.
+    if (stageW <= 700 || stageH <= 500) {
+      fitted = Math.min(fitted, Math.round(Math.min(stageW, stageH) * 0.8));
+    }
     return clampMedallionGeometry(
       {
         x: (stageW - fitted) / 2,

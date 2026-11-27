@@ -75,7 +75,11 @@ describe("the presence ring's readings — real state only", () => {
     expect(lit("thinking", "goldred")).toBe(12);
     expect(lit("listening", "goldred")).toBe(8);
     expect(lit("idle", "gold")).toBe(4);
-    expect(lit("connecting", "amber")).toBe(4);
+    // REST IS GOLD (phone fix pass 2026-11-27, item 7): the
+    // connecting state is a rest state — its four points burn
+    // gold now, never the amber that read orange at rest.
+    expect(lit("connecting", "gold")).toBe(4);
+    expect(lit("connecting", "amber")).toBe(0);
     for (const state of ["speaking", "listening", "thinking", "idle", "connecting", "alert"] as const) {
       expect(lit(state, "cyan")).toBe(0);
     }

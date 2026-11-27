@@ -67,7 +67,7 @@ export function FloatingWindow({
   children,
   initialWidth = 420,
   initialHeight = 320,
-  accent = "var(--avatar-hud-accent, #22d3ee)",
+  accent = "var(--avatar-hud-accent, #d4af37)",
   fitContentHeight = false,
 }: {
   id: string;
