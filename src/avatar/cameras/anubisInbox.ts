@@ -70,6 +70,7 @@ import {
   type SectorWatchFile,
 } from "./sectorWatch";
 import { SILENT_SENSOR_NAME, SILENT_SENSOR_TRIP_ID_PREFIX } from "./silentSensor";
+import { AGAMOSS_DANGER_ID_PREFIX } from "./agamoss";
 
 /* ------------------------------------------------------------------ */
 /* Entries                                                             */
@@ -437,12 +438,45 @@ function silentSensorEntries(sector: SectorWatchFile): AnubisNotification[] {
  * the same ids, so the store merge dedupes by id and a
  * Captain's read marks survive re-derivation.
  */
+/**
+ * AGAMOSS DANGER FLAGS: the confirmed alarm-chain entries in
+ * the watch log (kind "event", id carrying the danger prefix
+ * the hearing/watch pipelines stamp when the alarm law's chain
+ * runs). This derivation IS the chain's "Anubis notified"
+ * step — a SYSTEM entry standing on the flag's own log line,
+ * its text naming the camera and the check that fired. Flags
+ * are pure danger only (a confirmed weapon, the threat pattern
+ * toward Khadija); nothing else ever carries the prefix, so
+ * nothing else ever derives this entry.
+ */
+function agamossDangerEntries(sector: SectorWatchFile): AnubisNotification[] {
+  const out: AnubisNotification[] = [];
+  for (const entry of sector.log) {
+    if (entry.kind !== "event" || !entry.id.startsWith(AGAMOSS_DANGER_ID_PREFIX)) continue;
+    out.push({
+      id: `ntf-agamoss-${entry.id}`,
+      at: entry.at,
+      kind: "system",
+      title: "Agamoss — DANGER FLAG (the alarm chain ran)",
+      text: entry.text,
+      sourceEventId: entry.id,
+      cameraId: entry.cameraId,
+      cameraName: entry.cameraName,
+      still: "",
+      reasoning: "",
+      read: false,
+    });
+  }
+  return out;
+}
+
 export function deriveNotifications(sources: InboxSources): AnubisNotification[] {
   return [
     ...captureEntries(sources.sector),
     ...suggestionEntries(sources),
     ...systemEntries(sources),
     ...silentSensorEntries(sources.sector),
+    ...agamossDangerEntries(sources.sector),
   ].sort((a, b) => b.at - a.at);
 }
 
