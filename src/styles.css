@@ -639,6 +639,14 @@
 .avatar-space-view__landing-overlay > * {
   pointer-events: auto;
 }
+/* KHADIJA'S HEART DOOR FLOATS at the bottom center of the landing
+   (fixed, z-60, her order 2026-11-21): the landing's content box
+   keeps clear of it, so the sign-in card can never slide under her
+   heart — the overlap across the Email field in the Captain's
+   2026-11-27 screenshots. Her door itself is unchanged. */
+.avatar-space-view--landing .avatar-space-view__landing-overlay {
+  padding-bottom: max(7rem, env(safe-area-inset-bottom));
+}
 /* MONTU GUARDS THE GATE (owner order 2026-11-24 ~10:00 EST): the
    spinning Earth is OFF the front intro. Montu, the war god, stands
    at the login surface in a big circular medallion presented exactly
@@ -1262,26 +1270,36 @@
   display: none;
 }
 
+/* GOLD ONLY ON THE GATE (owner order 2026-11-27): the login
+   surface carries gold and warm neutrals — no cyan, no blue —
+   whatever the global HUD tokens say elsewhere in the app. The
+   warm color is set on the card itself so every word inside it
+   (the gate check included) inherits warm, never cyan. */
 .operator-auth__card {
   width: min(25rem, 100%);
   max-height: min(88vh, 48rem);
   overflow-y: auto;
   padding: 1.5rem;
-  border: 1px solid oklch(0.78 0.14 215 / 35%);
+  border: 1px solid oklch(0.78 0.14 82 / 45%);
   border-radius: 0.75rem;
-  background: oklch(0.12 0.035 255 / 92%);
+  background: oklch(0.12 0.02 60 / 92%);
   backdrop-filter: blur(1rem);
-  box-shadow: 0 1rem 4rem oklch(0.03 0.02 260 / 55%);
+  box-shadow: 0 1rem 4rem oklch(0.03 0.01 60 / 55%);
+  color: oklch(0.9 0.02 75);
+  /* The gate check inside this card draws its border from
+     --avatar-hud-line (cyan by global default): on the gate the
+     line is gold. Scoped here — her door keeps its own colors. */
+  --avatar-hud-line: oklch(0.78 0.14 82 / 45%);
 }
 .operator-auth__card h1 {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 500;
-  color: var(--hud-accent, oklch(0.86 0.14 215));
+  color: oklch(0.85 0.16 85);
 }
 .operator-auth__card > p {
   margin: 0.6rem 0 1.25rem;
-  color: oklch(0.8 0.03 230);
+  color: oklch(0.82 0.02 75);
   font-size: 0.85rem;
   line-height: 1.5;
 }
@@ -1297,20 +1315,20 @@
 .operator-auth__form input,
 .operator-auth__form button {
   min-height: 2.75rem;
-  border: 1px solid oklch(0.7 0.08 220 / 40%);
+  border: 1px solid oklch(0.78 0.1 82 / 40%);
   border-radius: 0.4rem;
-  background: oklch(0.1 0.03 260 / 85%);
+  background: oklch(0.1 0.015 60 / 85%);
   color: inherit;
   font: inherit;
   padding: 0.65rem 0.75rem;
 }
 .operator-auth__form input:focus {
-  outline: 2px solid oklch(0.78 0.14 215 / 80%);
+  outline: 2px solid oklch(0.78 0.14 82 / 80%);
   outline-offset: 1px;
 }
 .operator-auth__form button {
   margin-top: 0.25rem;
-  background: oklch(0.35 0.1 220 / 75%);
+  background: oklch(0.32 0.09 82 / 80%);
   cursor: pointer;
 }
 .operator-auth__form button:disabled {
@@ -1322,7 +1340,7 @@
   font-size: 0.75rem;
 }
 .operator-auth__device {
-  color: oklch(0.82 0.09 155);
+  color: oklch(0.85 0.1 85);
   font-size: 0.78rem;
   line-height: 1.45;
 }
@@ -1331,7 +1349,7 @@
   margin-top: 0.9rem;
   border: 0;
   background: transparent;
-  color: oklch(0.82 0.1 210);
+  color: oklch(0.85 0.12 85);
   font: inherit;
   font-size: 0.72rem;
   text-decoration: underline;
@@ -1354,7 +1372,7 @@
 .operator-auth__enrollment code {
   max-width: 100%;
   overflow-wrap: anywhere;
-  color: oklch(0.86 0.1 210);
+  color: oklch(0.86 0.12 85);
   font-size: 0.75rem;
   text-align: center;
 }
@@ -5291,6 +5309,34 @@
   max-width: 100%;
   border-radius: 8px;
   border: 1px solid var(--avatar-hud-line, rgba(201, 162, 39, 0.45));
+}
+/* The three verification paths (2026-11-27): picture, badge scan,
+   ID upload — one row of choices, the active one filled gold. */
+.gate-check__paths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.gate-check__path {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.4rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--avatar-hud-line, rgba(201, 162, 39, 0.45));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.gate-check__path[aria-pressed="true"] {
+  background: oklch(0.78 0.14 82 / 22%);
+  border-color: oklch(0.78 0.14 82 / 75%);
+}
+.gate-check__file {
+  display: none;
 }
 
 /* Remote Codes window (2026-11-24) — the RF/IR knowledge load:
@@ -10145,13 +10191,29 @@
 }
 
 /* ---------- The login disclaimer + Violet's door (2026-11-26) ---------- */
+/* Cascaded 2026-11-27: the disclaimer stands behind ONE toggle
+   button — nothing of it is printed on the landing surface. */
 .operator-auth__disclaimer {
   margin-top: 1.25rem;
   padding-top: 1rem;
   border-top: 1px solid oklch(0.85 0.16 85 / 35%);
 }
+.operator-auth__disclaimer-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: oklch(0.85 0.16 85);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  padding: 0.25rem 0;
+}
 .operator-auth__disclaimer h2 {
-  margin: 0 0 0.5rem;
+  margin: 0.75rem 0 0.5rem;
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -10162,7 +10224,11 @@
   margin: 0.35rem 0;
   font-size: 0.78rem;
   line-height: 1.5;
-  color: oklch(0.82 0.03 230);
+  color: oklch(0.82 0.02 75);
+}
+.operator-auth__register p {
+  margin: 0.5rem 0 0;
+  text-align: center;
 }
 .operator-auth__violet-door {
   margin-top: 1rem;

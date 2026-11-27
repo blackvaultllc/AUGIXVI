@@ -151,7 +151,10 @@ describe("operator sign-in gate", () => {
     render(<OperatorGate />);
 
     expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    // Hidden fields (2026-11-27): the Sign in button renders only
+    // once the gate check reports — in jsdom the panel cannot run,
+    // so it reports no-verdict and the fields arrive asynchronously.
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Set up first operator account" }),
     ).toBeInTheDocument();
@@ -169,6 +172,88 @@ describe("operator sign-in gate", () => {
         auth: expect.objectContaining({ persistSession: true, autoRefreshToken: true }),
       }),
     );
+  });
+
+  it("hides the credential fields until Montu's gate check passes", async () => {
+    // A browser that CAN open camera and microphone: the gate check
+    // sits idle until it is run, so no outcome is reported and the
+    // credential fields must not exist yet (owner order 2026-11-27 —
+    // the landing is a verification page, fields hidden until pass).
+    vi.stubGlobal(
+      "MediaRecorder",
+      class {
+        static isTypeSupported() {
+          return false;
+        }
+      },
+    );
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: vi.fn() },
+    });
+    try {
+      render(<OperatorGate />);
+
+      expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Run the gate check" })).toBeInTheDocument();
+      expect(screen.queryByLabelText("Email")).toBeNull();
+      expect(screen.queryByLabelText("Password")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
+      // The disclaimer stands cascaded behind its one button — its
+      // words are not printed on the landing surface.
+      expect(screen.queryByText("Authorized access only")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Disclaimer and legal notice" }));
+      expect(screen.getByText("Authorized access only")).toBeInTheDocument();
+      // The register turn-away answers exactly as ordered.
+      fireEvent.click(screen.getByRole("button", { name: "Do you need to register?" }));
+      expect(
+        screen.getByText("Registrations are down until further notice."),
+      ).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+      Reflect.deleteProperty(navigator, "mediaDevices");
+    }
+  });
+
+  it("offers badge scan and ID upload at the gate before any sign-in field", async () => {
+    // The three verification paths (owner order 2026-11-27): picture,
+    // badge QR scan, ID upload — all before the credential fields.
+    vi.stubGlobal(
+      "MediaRecorder",
+      class {
+        static isTypeSupported() {
+          return false;
+        }
+      },
+    );
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: vi.fn() },
+    });
+    try {
+      render(<OperatorGate />);
+
+      expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
+      // Badge path: jsdom has no BarcodeDetector, so the gate says so
+      // plainly and the fields stay hidden — no fake scan, no pass.
+      fireEvent.click(screen.getByRole("button", { name: "Scan my badge" }));
+      fireEvent.click(screen.getByRole("button", { name: "Start the badge scan" }));
+      expect(screen.getByText(/cannot read QR codes live/)).toBeInTheDocument();
+      expect(screen.queryByLabelText("Email")).toBeNull();
+      // Upload path: an ID picture is received, logged, and only then
+      // do the credential fields appear.
+      fireEvent.click(screen.getByRole("button", { name: "Upload my ID" }));
+      const fileInput = screen.getByLabelText("Upload a picture of your ID or badge");
+      fireEvent.change(fileInput, {
+        target: { files: [new File(["badge"], "badge.png", { type: "image/png" })] },
+      });
+      expect(await screen.findByText(/Picture received/)).toBeInTheDocument();
+      expect(await screen.findByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+      Reflect.deleteProperty(navigator, "mediaDevices");
+    }
   });
 
   it("mounts the avatar only after the server authorizes a restored session", async () => {

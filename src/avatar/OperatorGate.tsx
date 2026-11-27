@@ -133,6 +133,12 @@ export function OperatorGate() {
   // A plain voice no-match leaves the gate shut for that attempt;
   // the attempt itself is already recorded by the panel.
   const [gatePass, setGatePass] = useState<"pending" | "passed" | "refused">("pending");
+  // THE VERIFICATION LANDING (owner order 2026-11-27): the legal
+  // text stands cascaded behind ONE button, and the register
+  // question carries its turn-away answer — neither is printed on
+  // the landing surface.
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
+  const [registerNotice, setRegisterNotice] = useState(false);
   const gateOutcomeRef = useRef<GateVoiceOutcome | null>(null);
   const gatePhotoRef = useRef<Blob | null>(null);
   const gateArmedRef = useRef(false);
@@ -582,6 +588,12 @@ export function OperatorGate() {
     );
   }
 
+  // HIDDEN FIELDS (owner order 2026-11-27): on the sign-in landing
+  // the credential fields do not exist until Montu's gate check
+  // passes. Registration (the one-time first-account setup) keeps
+  // its own form, as before — the owner is never locked out.
+  const showCredentials = registrationMode || gatePass === "passed";
+
   return (
     <OperatorLanding>
       <section className="operator-auth__card" aria-labelledby="operator-auth-title">
@@ -593,13 +605,6 @@ export function OperatorGate() {
             ? "Create the first operator account for this installation."
             : "Sign in to continue."}
         </p>
-        {!registrationMode && deviceStatus && (
-          <p className="operator-auth__device">
-            {deviceStatus.trusted
-              ? `This device is confirmed (IP ${deviceStatus.ip}). Welcome back — email and password, then your authenticator code. No extra steps, no checkbox.`
-              : "This device or network is not confirmed yet, so full verification applies. After a successful sign-in this device is confirmed automatically — there is no checkbox and nothing extra to click."}
-          </p>
-        )}
         {!registrationMode && (
           <GateCheckPanel
             door="operator"
@@ -609,59 +614,63 @@ export function OperatorGate() {
             onOperatorOutcome={handleGateOutcome}
           />
         )}
-        <form
-          className="operator-auth__form"
-          onSubmit={(event) =>
-            void (registrationMode ? createOperatorAccount(event) : signIn(event))
-          }
-        >
-          <label>
-            Email
-            <input
-              autoComplete="username"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Password
-            <input
-              autoComplete={registrationMode ? "new-password" : "current-password"}
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              minLength={8}
-              required
-            />
-          </label>
-          {denied && !registrationMode && <MummyGuardianDeterrent />}
-          {message && (
-            <p className="operator-auth__error" role="alert">
-              {message}
-            </p>
-          )}
-          {!registrationMode && gatePass === "pending" && (
-            <p className="operator-auth__device">
-              Run Montu&apos;s gate check above first — then sign in.
-            </p>
-          )}
-          {!registrationMode && gatePass === "refused" && (
-            <p className="operator-auth__error" role="alert">
-              The gate refused that voice. Run the gate check again to sign in.
-            </p>
-          )}
-          <button type="submit" disabled={busy || (!registrationMode && gatePass !== "passed")}>
-            {busy
-              ? registrationMode
-                ? "Setting up…"
-                : "Signing in…"
-              : registrationMode
-                ? "Create operator account"
-                : "Sign in"}
-          </button>
-        </form>
+        {/* A refused voice keeps the fields hidden; the refusal
+            stands here, on the landing, where the visitor reads it. */}
+        {!registrationMode && gatePass === "refused" && (
+          <p className="operator-auth__error" role="alert">
+            The gate refused that voice. Run the gate check again to sign in.
+          </p>
+        )}
+        {!showCredentials && message && (
+          <p className="operator-auth__error" role="alert">
+            {message}
+          </p>
+        )}
+        {showCredentials && (
+          <form
+            className="operator-auth__form"
+            onSubmit={(event) =>
+              void (registrationMode ? createOperatorAccount(event) : signIn(event))
+            }
+          >
+            <label>
+              Email
+              <input
+                autoComplete="username"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              Password
+              <input
+                autoComplete={registrationMode ? "new-password" : "current-password"}
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                minLength={8}
+                required
+              />
+            </label>
+            {denied && !registrationMode && <MummyGuardianDeterrent />}
+            {message && (
+              <p className="operator-auth__error" role="alert">
+                {message}
+              </p>
+            )}
+            <button type="submit" disabled={busy || (!registrationMode && gatePass !== "passed")}>
+              {busy
+                ? registrationMode
+                  ? "Setting up…"
+                  : "Signing in…"
+                : registrationMode
+                  ? "Create operator account"
+                  : "Sign in"}
+            </button>
+          </form>
+        )}
         {operatorClaimed === false && (
           <button
             className="operator-auth__mode"
@@ -674,19 +683,60 @@ export function OperatorGate() {
             {registrationMode ? "Back to sign in" : "Set up first operator account"}
           </button>
         )}
-        {/* THE LOGIN DISCLAIMER (Captain's order 2026-11-26): the
-            plain words every person at this gate reads before
-            they try the door — authorized access only, camera
-            and microphone on attempt, a photograph recorded
-            with the time, entry or not, attempts logged and
-            preserved. The text lives in ONE constant
-            (LOGIN_DISCLAIMER, loginDisclaimer.ts). */}
-        <aside className="operator-auth__disclaimer" aria-label="Login disclaimer">
-          <h2>{LOGIN_DISCLAIMER.title}</h2>
-          {LOGIN_DISCLAIMER.lines.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
-        </aside>
+        {/* THE REGISTER TURN-AWAY (owner order 2026-11-27): a
+            stranger who comes looking to register meets this
+            answer and turns around. */}
+        {!registrationMode && (
+          <div className="operator-auth__register">
+            <button
+              className="operator-auth__mode"
+              type="button"
+              aria-expanded={registerNotice}
+              onClick={() => setRegisterNotice((current) => !current)}
+            >
+              Do you need to register?
+            </button>
+            {registerNotice && (
+              <p className="operator-auth__device" role="status">
+                Registrations are down until further notice.
+              </p>
+            )}
+          </div>
+        )}
+        {/* THE LOGIN DISCLAIMER, CASCADED (Captain's order
+            2026-11-26 for the words; owner order 2026-11-27 for
+            the cascade): authorized access only, camera and
+            microphone on attempt, a photograph recorded with the
+            time, entry or not, attempts logged and preserved —
+            plus the device-confirmation words. All of it stands
+            behind ONE button, never printed on the landing. The
+            text lives in ONE constant (LOGIN_DISCLAIMER,
+            loginDisclaimer.ts). */}
+        <div className="operator-auth__disclaimer">
+          <button
+            className="operator-auth__disclaimer-toggle"
+            type="button"
+            aria-expanded={disclaimerOpen}
+            onClick={() => setDisclaimerOpen((current) => !current)}
+          >
+            Disclaimer and legal notice
+          </button>
+          {disclaimerOpen && (
+            <aside aria-label="Login disclaimer">
+              {!registrationMode && deviceStatus && (
+                <p className="operator-auth__device">
+                  {deviceStatus.trusted
+                    ? `This device is confirmed (IP ${deviceStatus.ip}). Welcome back — email and password, then your authenticator code. No extra steps, no checkbox.`
+                    : "This device or network is not confirmed yet, so full verification applies. After a successful sign-in this device is confirmed automatically — there is no checkbox and nothing extra to click."}
+                </p>
+              )}
+              <h2>{LOGIN_DISCLAIMER.title}</h2>
+              {LOGIN_DISCLAIMER.lines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </aside>
+          )}
+        </div>
         {/* Violet's door: the Financial Advisor has her own login
             and her own side (Captain's order 2026-11-26). A plain
             link — her side lives at /violet, behind her own
