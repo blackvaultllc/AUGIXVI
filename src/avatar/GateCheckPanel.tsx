@@ -20,9 +20,22 @@
  * is taken, she says her name, and the gate names her "One." Her
  * entry still rides on her own sign-in — the panel never bars her
  * door (her wall is unchanged).
+ *
+ * THE THREE PATHS (owner order 2026-11-27, operator door only):
+ * before any sign-in field exists, the visitor verifies one of
+ * three ways — (1) take their picture (the check above: photo +
+ * voice), (2) scan their badge QR code, (3) upload the ID/badge
+ * picture. Paths 2 and 3 read the badge with the browser's own
+ * BarcodeDetector where it exists; there is no decoder bundled
+ * with the app and no badge registry on this surface, so a read
+ * badge is written into the gate log with its serial and the
+ * attempt proceeds as a no-verdict — credentials still decide
+ * the entry, and the gate never calls a code it cannot check
+ * against a registry a match. Where the detector does not
+ * exist, the panel says so plainly and never fakes a scan.
  */
 import { useEffect, useRef, useState } from "react";
-import { Camera, Mic } from "lucide-react";
+import { Camera, IdCard, Mic, ScanQrCode } from "lucide-react";
 import {
   CAPTAIN_GATE_NAME,
   GATE_PHRASE,
@@ -56,6 +69,48 @@ function mediaSupported(): boolean {
     Boolean(navigator.mediaDevices?.getUserMedia) &&
     typeof MediaRecorder !== "undefined"
   );
+}
+
+function cameraSupported(): boolean {
+  return typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
+}
+
+/* ---------- Badge QR reading (operator paths 2 and 3) ---------- */
+type DetectedBarcode = { rawValue?: string };
+type BarcodeDetectorLike = {
+  detect: (source: ImageBitmap | HTMLVideoElement) => Promise<DetectedBarcode[]>;
+};
+
+function createBarcodeDetector(): BarcodeDetectorLike | null {
+  if (typeof window === "undefined") return null;
+  const ctor = (
+    window as unknown as {
+      BarcodeDetector?: new (options?: { formats: string[] }) => BarcodeDetectorLike;
+    }
+  ).BarcodeDetector;
+  if (!ctor) return null;
+  try {
+    return new ctor({ formats: ["qr_code"] });
+  } catch {
+    try {
+      return new ctor();
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** A badge QR carries the verify URL; the serial is its last path part. */
+function badgeSerialFromValue(value: string): string {
+  const serial = value.match(/\/verify\/([^/?#]+)/)?.[1];
+  if (serial) {
+    try {
+      return decodeURIComponent(serial);
+    } catch {
+      return serial;
+    }
+  }
+  return value.trim();
 }
 
 async function transcribeClip(audio: Blob): Promise<string> {
@@ -92,6 +147,19 @@ export function GateCheckPanel({
   const unavailableReportedRef = useRef(false);
   const busyRef = useRef(false);
 
+  // THE THREE PATHS (operator door only — see the header note).
+  // Every path ends at the same gate state in the parent: the
+  // sign-in fields exist only after one of them reports.
+  const [path, setPath] = useState<"photo" | "badge" | "upload">("photo");
+  const [badgeState, setBadgeState] = useState<
+    "idle" | "scanning" | "read" | "missed" | "unsupported" | "denied"
+  >("idle");
+  const [badgeSerial, setBadgeSerial] = useState("");
+  const [uploadState, setUploadState] = useState<"idle" | "done" | "error">("idle");
+  const [uploadName, setUploadName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const scanStopRef = useRef(false);
+
   // A browser that cannot open media at all can never run the
   // check: for the operator that is a no-verdict — credentials
   // carry the entry and the gate says so (never locked out).
@@ -104,7 +172,9 @@ export function GateCheckPanel({
 
   // The stream is never left running: release on unmount, always.
   useEffect(() => {
+    const scanStop = scanStopRef;
     return () => {
+      scanStop.current = true;
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     };
@@ -256,6 +326,126 @@ export function GateCheckPanel({
     }
   }
 
+  /* ---------- Path 2: scan the badge QR ---------- */
+
+  function choosePath(next: "photo" | "badge" | "upload") {
+    if (next !== "badge" && badgeState === "scanning") {
+      // Leaving the badge path mid-scan: stop looking, free the camera.
+      scanStopRef.current = true;
+      releaseStream();
+      busyRef.current = false;
+      setBadgeState("idle");
+    }
+    setPath(next);
+  }
+
+  async function runBadgeScan() {
+    if (busyRef.current) return;
+    const detector = createBarcodeDetector();
+    if (!detector || !cameraSupported()) {
+      // No live QR reading in this browser — say so plainly and
+      // never fake a scan. The upload path can still read a badge
+      // picture where the detector exists there.
+      setBadgeState("unsupported");
+      return;
+    }
+    busyRef.current = true;
+    scanStopRef.current = false;
+    setBadgeState("scanning");
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    } catch {
+      busyRef.current = false;
+      setBadgeState("denied");
+      return;
+    }
+    streamRef.current = stream;
+    let found = "";
+    let photo: Blob | null = null;
+    try {
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => undefined);
+      }
+      const deadline = Date.now() + 25_000;
+      while (!scanStopRef.current && Date.now() < deadline) {
+        const video = videoRef.current;
+        if (video && video.videoWidth > 0) {
+          try {
+            const codes = await detector.detect(video);
+            const raw = codes.find((code) => code.rawValue)?.rawValue;
+            if (raw) {
+              found = raw;
+              break;
+            }
+          } catch {
+            /* a frame that cannot be read is not a verdict — keep looking */
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+      if (found) photo = await captureSnapshot();
+    } finally {
+      releaseStream();
+      busyRef.current = false;
+    }
+    if (!found) {
+      if (!scanStopRef.current) setBadgeState("missed");
+      return;
+    }
+    if (photo) onSnapshot?.(photo);
+    const serial = badgeSerialFromValue(found);
+    setBadgeSerial(serial);
+    setBadgeState("read");
+    void postGateAttemptRecord({
+      door,
+      result: "credentials-fallback",
+      namedAs: null,
+      note: `Badge QR read at the gate (${serial}). The badge opened the credential step; email, password, and authenticator still decide the entry.`,
+      photo,
+    });
+    onOperatorOutcome?.("no-verdict");
+  }
+
+  /* ---------- Path 3: upload the ID / badge picture ---------- */
+
+  async function handleUploadFile(file: File) {
+    if (!file.type.startsWith("image/")) {
+      setUploadState("error");
+      return;
+    }
+    setUploadName(file.name);
+    // Read a badge QR out of the picture where the browser can.
+    let serial = "";
+    const detector = createBarcodeDetector();
+    if (detector && typeof createImageBitmap !== "undefined") {
+      try {
+        const bitmap = await createImageBitmap(file);
+        try {
+          const codes = await detector.detect(bitmap);
+          serial = codes.find((code) => code.rawValue)?.rawValue ?? "";
+        } finally {
+          bitmap.close();
+        }
+      } catch {
+        serial = "";
+      }
+    }
+    onSnapshot?.(file);
+    void postGateAttemptRecord({
+      door,
+      result: "credentials-fallback",
+      namedAs: null,
+      note: serial
+        ? `ID picture uploaded at the gate; badge QR read from it (${badgeSerialFromValue(serial)}). Credentials still decide the entry.`
+        : "ID picture uploaded at the gate and kept with the attempt record. Credentials still decide the entry.",
+      photo: file,
+    });
+    setUploadState("done");
+    onOperatorOutcome?.("no-verdict");
+  }
+
   const running = state === "requesting" || state === "speaking" || state === "checking";
 
   return (
@@ -264,7 +454,104 @@ export function GateCheckPanel({
         <Camera aria-hidden="true" size={15} /> <Mic aria-hidden="true" size={15} /> Montu&apos;s
         gate check
       </p>
-      {door === "operator" ? (
+      {door === "operator" && (
+        <div className="gate-check__paths" role="group" aria-label="Ways to verify at the gate">
+          <button
+            type="button"
+            className="gate-check__path"
+            aria-pressed={path === "photo"}
+            onClick={() => choosePath("photo")}
+          >
+            <Camera aria-hidden="true" size={14} /> Take my picture
+          </button>
+          <button
+            type="button"
+            className="gate-check__path"
+            aria-pressed={path === "badge"}
+            onClick={() => choosePath("badge")}
+          >
+            <ScanQrCode aria-hidden="true" size={14} /> Scan my badge
+          </button>
+          <button
+            type="button"
+            className="gate-check__path"
+            aria-pressed={path === "upload"}
+            onClick={() => choosePath("upload")}
+          >
+            <IdCard aria-hidden="true" size={14} /> Upload my ID
+          </button>
+        </div>
+      )}
+      {door === "operator" && path === "badge" ? (
+        <>
+          {badgeState === "idle" && (
+            <p>
+              Hold your badge&apos;s QR code up to the camera. The gate reads the code and writes
+              the attempt in the gate log — your email, password, and authenticator still decide
+              the entry.
+            </p>
+          )}
+          {badgeState === "scanning" && (
+            <p>Looking for your badge — hold the code steady in the light…</p>
+          )}
+          {badgeState === "read" && (
+            <p className="gate-check__named">
+              Badge read: {badgeSerial}. Your email and password carry this entry.
+            </p>
+          )}
+          {badgeState === "missed" && (
+            <p>
+              The gate didn&apos;t read a badge that time. Hold it steady, close and in the
+              light — or take another path.
+            </p>
+          )}
+          {badgeState === "unsupported" && (
+            <p>
+              This browser cannot read QR codes live, so the gate will not pretend to scan.
+              Upload a picture of the badge instead — the gate reads the code from the picture
+              where it can.
+            </p>
+          )}
+          {badgeState === "denied" && (
+            <p className="gate-check__warn" role="alert">
+              The camera was not allowed, so the gate cannot look for your badge. Allow it, then
+              scan again. No picture was taken.
+            </p>
+          )}
+          {(badgeState === "idle" || badgeState === "missed" || badgeState === "denied") && (
+            <button type="button" className="gate-check__button" onClick={() => void runBadgeScan()}>
+              {badgeState === "idle" ? "Start the badge scan" : "Scan again"}
+            </button>
+          )}
+        </>
+      ) : door === "operator" && path === "upload" ? (
+        <>
+          {uploadState === "idle" && (
+            <p>
+              Choose a picture of your ID or badge. The picture is kept with this attempt in the
+              gate log — your email, password, and authenticator still decide the entry.
+            </p>
+          )}
+          {uploadState === "done" && (
+            <p className="gate-check__named">
+              Picture received{uploadName ? ` — ${uploadName}` : ""}. Your email and password
+              carry this entry.
+            </p>
+          )}
+          {uploadState === "error" && (
+            <p className="gate-check__warn" role="alert">
+              That file was not a picture. Choose an image of your ID or badge.
+            </p>
+          )}
+          <button
+            type="button"
+            className="gate-check__button"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploadState === "done" ? "Choose a different picture" : "Choose the picture"}
+          </button>
+        </>
+      ) : door === "operator" ? (
         <>
           {state === "idle" && (
             <p>
@@ -345,31 +632,47 @@ export function GateCheckPanel({
           {state === "no-match" && <p>Your name and your birth year still open your door.</p>}
         </>
       )}
-      {(state === "idle" ||
-        state === "denied" ||
-        state === "no-camera" ||
-        state === "no-match" ||
-        state === "fallback" ||
-        state === "match") && (
-        <button type="button" className="gate-check__button" onClick={() => void runCheck()}>
-          {state === "idle"
-            ? "Run the gate check"
-            : state === "match"
-              ? "Run it again"
-              : "Run the gate check again"}
-        </button>
-      )}
+      {(door === "learner" || path === "photo") &&
+        (state === "idle" ||
+          state === "denied" ||
+          state === "no-camera" ||
+          state === "no-match" ||
+          state === "fallback" ||
+          state === "match") && (
+          <button type="button" className="gate-check__button" onClick={() => void runCheck()}>
+            {state === "idle"
+              ? "Run the gate check"
+              : state === "match"
+                ? "Run it again"
+                : "Run the gate check again"}
+          </button>
+        )}
       {/* His own camera view while the check runs — he sees what the
           gate sees. The element always exists so the stream can be
-          attached the moment it is granted; it shows only mid-check. */}
+          attached the moment it is granted; it shows only mid-check
+          and mid badge scan. */}
       <video
         ref={videoRef}
         className="gate-check__preview"
         muted
         playsInline
         aria-hidden="true"
-        hidden={!running}
+        hidden={!running && badgeState !== "scanning"}
       />
+      {door === "operator" && (
+        <input
+          ref={fileInputRef}
+          className="gate-check__file"
+          type="file"
+          accept="image/*"
+          aria-label="Upload a picture of your ID or badge"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void handleUploadFile(file);
+          }}
+        />
+      )}
     </section>
   );
 }
