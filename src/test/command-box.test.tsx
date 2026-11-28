@@ -1,14 +1,12 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { Eye, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CommandBox,
-  COMMAND_TAB_ICONS,
+  CommandsDocument,
   type CommandBoxWindowControls,
-  type CommandTab,
 } from "@/avatar/CommandBox";
 import { ReplyHistoryWindow } from "@/avatar/ReplyHistoryWindow";
 import type { ReplyHistoryEntry } from "@/avatar/replyHistory";
@@ -64,9 +62,6 @@ describe("command box grip controls", () => {
     const utils = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -78,9 +73,7 @@ describe("command box grip controls", () => {
         onWindowControls={(controls) => {
           windowControls = controls;
         }}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     // The bar is the opening form (owner order 2026-11-24
     // ~16:57 EST) — this describe exercises the open box, so
@@ -167,9 +160,6 @@ describe("command box message echo", () => {
     const utils = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -179,9 +169,7 @@ describe("command box message echo", () => {
         responseLine="Standing by."
         responseSource="test"
         userLine={userLine}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     openTheBox();
     return utils;
@@ -207,9 +195,6 @@ describe("command box message echo", () => {
     render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -220,9 +205,7 @@ describe("command box message echo", () => {
         responseSource="test"
         userLine="open the cube"
         userSource="voice"
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     openTheBox();
     expect(screen.getByText("Operator — voice:")).toBeInTheDocument();
@@ -251,9 +234,6 @@ describe("command box chat log", () => {
     const utils = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -263,9 +243,7 @@ describe("command box chat log", () => {
         responseLine="Standing by."
         responseSource="test"
         history={withHistory ? history : undefined}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     openTheBox();
     return utils;
@@ -288,9 +266,6 @@ describe("command box chat log", () => {
     rerender(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -304,9 +279,7 @@ describe("command box chat log", () => {
           { at: 3, question: "open the cube", answer: "The cube is open." },
           { at: 4, question: "now fly", answer: "Flying." },
         ]}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     const first = screen.getByText("open the cube");
     const firstReply = screen.getByText("The cube is open.");
@@ -350,9 +323,6 @@ describe("command box routed speaker label", () => {
     const utils = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -363,9 +333,7 @@ describe("command box routed speaker label", () => {
         responseSource="test"
         speakerName={speakerName}
         history={entries}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     openTheBox();
     return utils;
@@ -420,9 +388,6 @@ describe("command box resize — retired with the floating window", () => {
     const utils = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -431,9 +396,7 @@ describe("command box resize — retired with the floating window", () => {
         onToggleVoice={vi.fn()}
         responseLine="Standing by."
         responseSource="test"
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     openTheBox();
     return utils;
@@ -470,23 +433,20 @@ describe("command box resize — retired with the floating window", () => {
  * regular chat box to conversate with my AI and be able to see the
  * replies like a normal person." The DEFAULT face is a plain chat:
  * the thread open by default, the latest exchange, one typing line.
- * ALL machinery — tabs and their panels — sits behind ONE Menu button
- * in the grip. Abilities unchanged; everything that worked (tab
- * switching, the thread, the echo, submit, voice, minimize) must keep
- * working, one Menu press away.
+ *
+ * CHAT ONLY (owner order 2026-11-27 ~23:03 CST, phone fix pass 7):
+ * the tabs themselves are gone now — Scene, Motion, Tools, Commands
+ * and the box's Settings panel moved into the stage's MENU as
+ * categories, and the box carries nothing but the conversation: the
+ * stream, the input, the + options, minimize/maximize, Clear,
+ * History. The box's menu key (Osiris's three-lines key, through the
+ * registered window controls) no longer raises machinery in the
+ * box: it asks the stage to open its MENU (the onOpenMenu prop).
  */
 describe("command box plain chat face", () => {
   beforeEach(() => {
     localStorage.clear();
   });
-
-  const TABS: Array<{ id: CommandTab; label: string; icon: LucideIcon }> = [
-    { id: "scene", label: "Scene", icon: COMMAND_TAB_ICONS.Eye },
-    { id: "motion", label: "Motion", icon: COMMAND_TAB_ICONS.Activity },
-    { id: "tools", label: "Tools", icon: COMMAND_TAB_ICONS.BookOpen },
-    { id: "settings", label: "Settings", icon: COMMAND_TAB_ICONS.Settings },
-    { id: "commands", label: "Commands", icon: COMMAND_TAB_ICONS.Terminal },
-  ];
 
   const history: ReplyHistoryEntry[] = [
     { at: 1, question: "open the cube", answer: "The cube is open." },
@@ -496,11 +456,12 @@ describe("command box plain chat face", () => {
   function StatefulBox({
     onSubmit,
     onToggleVoice,
+    onOpenMenu,
   }: {
     onSubmit?: (text: string) => void;
     onToggleVoice?: () => void;
+    onOpenMenu?: () => void;
   } = {}) {
-    const [tab, setTab] = useState<CommandTab>("scene");
     const [chat, setChat] = useState("");
     // The box opens on an EMPTY record and the session's lines
     // land a beat later — the thread-opens-clean law (owner
@@ -515,9 +476,7 @@ describe("command box plain chat face", () => {
     return (
       <CommandBox
         accent="#d4af37"
-        tabs={TABS}
-        activeTab={tab}
-        onTabChange={setTab}
+        {...(onOpenMenu ? { onOpenMenu } : {})}
         chat={chat}
         onChatChange={setChat}
         onSubmit={onSubmit ?? (() => {})}
@@ -534,9 +493,7 @@ describe("command box plain chat face", () => {
         onWindowControls={(controls) => {
           windowControls = controls;
         }}
-      >
-        <p>{tab} panel body</p>
-      </CommandBox>
+      />
     );
   }
 
@@ -559,7 +516,6 @@ describe("command box plain chat face", () => {
     render(<StatefulBox />);
     openTheBox();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Conversation/ })).not.toBeInTheDocument();
 
     const echo = screen.getByText("last thing I said");
@@ -575,93 +531,37 @@ describe("command box plain chat face", () => {
     expect(zone).not.toContainElement(input);
   });
 
-  it("Osiris's menu key opens the machinery — the tab's display REPLACES the chat display", () => {
-    // SUPERSEDED PIN (owner order 2026-11-24 ~01:45 CST, Part B):
-    // this test used to pin "tabs and panel above the
-    // conversation" — the chat display followed him into every
-    // section, and his word killed it: "the display that's on
-    // the screen is the tab that's showing." Opening a section
-    // now unmounts the conversation display; the input bar stays;
-    // closing the section restores the chat whole.
-    // SUPERSEDED AGAIN (owner order 2026-11-24 ~16:57 EST): the
-    // Menu button itself left the box — the three-lines key is
-    // Osiris's, in his own menu, driving the box through the
-    // registered window controls. The machinery law stands.
-    render(<StatefulBox />);
+  it("Osiris's menu key opens the STAGE menu — the box itself stays chat-only", () => {
+    // SUPERSEDED PIN (owner order 2026-11-27 ~23:03 CST, pass 7):
+    // the key used to raise the box's own tab machinery, and the
+    // tab's display replaced the chat display (Part B). The
+    // sections live in the stage's MENU now: the key asks the
+    // stage to open it (onOpenMenu), no tablist ever stands in
+    // the box, and the chat display never leaves.
+    const onOpenMenu = vi.fn();
+    render(<StatefulBox onOpenMenu={onOpenMenu} />);
     openTheBox();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
 
     toggleTheMenu();
-    expect(screen.getByRole("tablist")).toBeInTheDocument();
-    expect(screen.getByText("scene panel body")).toBeInTheDocument();
-    // The chat display is GONE while the section shows.
-    expect(screen.queryByRole("log")).not.toBeInTheDocument();
-    expect(screen.queryByText("Latest reply.")).not.toBeInTheDocument();
-    // The bottom input bar persists across sections.
+    expect(onOpenMenu).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    // The conversation is still the box's whole face.
+    expect(screen.getByText("Latest reply.")).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Message Anubis/)).toBeInTheDocument();
-
-    toggleTheMenu();
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
-    // The chat never left the record — it is back, whole.
-    expect(screen.getByText("Latest reply.")).toBeInTheDocument();
   });
 
-  it("every tab still switches the panel — the input stays put, the chat display does not follow", () => {
-    render(<StatefulBox />);
-    openTheBox();
-    toggleTheMenu();
-    const input = screen.getByPlaceholderText(/Message Anubis/);
-
-    fireEvent.click(screen.getByRole("tab", { name: /Tools/ }));
-    expect(screen.getByText("tools panel body")).toBeInTheDocument();
-    expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("tab", { name: /Motion/ }));
-    expect(screen.getByText("motion panel body")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("tab", { name: /Settings/ }));
-    expect(screen.getByText("settings panel body")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Settings/ })).toHaveAttribute("aria-selected", "true");
-
-    fireEvent.click(screen.getByRole("tab", { name: /Scene/ }));
-    expect(screen.getByText("scene panel body")).toBeInTheDocument();
-
-    // Through every switch the chat display stayed away and the
-    // bottom input held — and the record returns whole on close.
-    expect(screen.queryByText("Latest reply.")).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Message Anubis/)).toBe(input);
-    toggleTheMenu();
-    expect(screen.getByText("Latest reply.")).toBeInTheDocument();
-    expect(before(screen.getByText("Latest reply."), input)).toBe(true);
-  });
-
-  it("the Commands tab still shows the full command document in the panel", () => {
-    render(<StatefulBox />);
-    openTheBox();
-    toggleTheMenu();
-    fireEvent.click(screen.getByRole("tab", { name: /Commands/ }));
+  it("the Commands document still carries every command — it renders in the menu now", () => {
+    // The Commands tab is gone from the box; its document is the
+    // same component, rendered by the stage inside the MENU's
+    // Commands category (and by /help's road to it).
+    render(<CommandsDocument highlighted={null} />);
     expect(screen.getByText(/Every command Anubis can pass to AUGI/)).toBeInTheDocument();
-    // The panel swapped; the chat display is the tab's now (Part
-    // B) — the input did not move, and the thread returns whole.
-    expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
-    expect(screen.queryByText("Latest reply.")).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Message Anubis/)).toBeInTheDocument();
-    toggleTheMenu();
-    expect(
-      before(screen.getByText("Latest reply."), screen.getByPlaceholderText(/Message Anubis/)),
-    ).toBe(true);
   });
 
-  it("lines that arrive while a section is open wait in the record and stand in the thread on return", () => {
-    // Part B's other half: nothing that arrives while he is in a
-    // tab is lost or forced over the tab — the record carries it,
-    // and the restored thread shows it.
+  it("lines that arrive stand in the thread — there is no section for them to wait behind", () => {
     const baseProps = {
       accent: "#d4af37",
-      tabs: TABS,
-      activeTab: "tools" as CommandTab,
-      onTabChange: vi.fn(),
       chat: "",
       onChatChange: vi.fn(),
       onSubmit: vi.fn(),
@@ -670,30 +570,17 @@ describe("command box plain chat face", () => {
       onToggleVoice: vi.fn(),
       responseLine: "Latest reply.",
       responseSource: "test",
-      onWindowControls: (controls: CommandBoxWindowControls) => {
-        windowControls = controls;
-      },
     };
-    const { rerender } = render(
-      <CommandBox {...baseProps} history={history}>
-        <p>tools panel body</p>
-      </CommandBox>,
-    );
+    const first: ReplyHistoryEntry[] = [{ at: 1, question: "open the cube", answer: "The cube is open." }];
+    const { rerender } = render(<CommandBox {...baseProps} history={first} />);
     openTheBox();
-    toggleTheMenu();
-    expect(screen.getByText("tools panel body")).toBeInTheDocument();
     rerender(
       <CommandBox
         {...baseProps}
-        history={[...history, { at: 3, question: "", answer: "Captain — a report that waited." }]}
-      >
-        <p>tools panel body</p>
-      </CommandBox>,
+        history={[...first, { at: 2, question: "", answer: "Captain — a report that arrived." }]}
+      />,
     );
-    // Still in the section: the arrived line is not forced over his tab.
-    expect(screen.queryByText(/a report that waited/)).not.toBeInTheDocument();
-    toggleTheMenu();
-    expect(screen.getByText(/a report that waited/)).toBeInTheDocument();
+    expect(screen.getByText(/a report that arrived/)).toBeInTheDocument();
     expect(screen.getByText("Latest reply.")).toBeInTheDocument();
   });
 
@@ -709,25 +596,16 @@ describe("command box plain chat face", () => {
     expect(before(reply, input)).toBe(true);
   });
 
-  it("minimizing folds the box to its bar; opening restores the section, closing it restores the chat face", () => {
-    // SUPERSEDED TAIL (Part B, 2026-11-24): expanding used to
-    // restore the chat face directly because the conversation
-    // rendered under the machinery. Now the display follows the
-    // tab — the section he left open is the display he returns
-    // to, and the chat face returns when the section closes.
-    // SUPERSEDED AGAIN (owner order 2026-11-24 ~16:57 EST): for
-    // one morning the folded box was Osiris's head alone; his
-    // window is his own again — the folded form is the BAR, the
-    // message line standing along the bottom with the field on
-    // it — and the fold itself is driven by Osiris's minus key
-    // through the registered controls, not a button in the box.
+  it("minimizing folds the box to its bar; opening restores the chat face, whole", () => {
+    // SUPERSEDED TAIL (pass 7): expanding used to restore the
+    // section he left open (Part B's display-follows-the-tab).
+    // There are no sections in the box anymore — the fold is
+    // driven by Osiris's minus key through the registered
+    // controls, and what returns on open is the chat face itself.
     const { container } = render(<StatefulBox />);
     openTheBox();
-    toggleTheMenu();
-    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(screen.getByText("Latest reply.")).toBeInTheDocument();
     foldTheBox();
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryByText("scene panel body")).not.toBeInTheDocument();
     expect(screen.queryByRole("log")).not.toBeInTheDocument();
     expect(screen.queryByText("Latest reply.")).not.toBeInTheDocument();
     // The bar is what stands in the box's place — and the field
@@ -736,11 +614,6 @@ describe("command box plain chat face", () => {
     expect(screen.getByPlaceholderText(/Message Anubis/)).toBeInTheDocument();
 
     openTheBox();
-    // The section he left is the display again (Part B)…
-    expect(screen.getByText("scene panel body")).toBeInTheDocument();
-    expect(screen.queryByText("Latest reply.")).not.toBeInTheDocument();
-    // …and closing it restores the chat face, whole.
-    toggleTheMenu();
     expect(screen.getByText("Latest reply.")).toBeInTheDocument();
     expect(
       before(screen.getByText("Latest reply."), screen.getByPlaceholderText(/Message Anubis/)),
@@ -790,9 +663,6 @@ describe("command box home form and bottom-stacked log", () => {
     const utils = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -805,9 +675,7 @@ describe("command box home form and bottom-stacked log", () => {
         onWindowControls={(controls) => {
           windowControls = controls;
         }}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     openTheBox();
     return utils;
@@ -834,9 +702,6 @@ describe("command box home form and bottom-stacked log", () => {
     const { container } = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -846,9 +711,7 @@ describe("command box home form and bottom-stacked log", () => {
         responseLine="Standing by."
         responseSource="test"
         history={history}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     // The stale record is never read: the box stands folded
     // because the BAR is the opening form by law now (owner
@@ -882,9 +745,6 @@ describe("command box home form and bottom-stacked log", () => {
     rerender(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -894,9 +754,7 @@ describe("command box home form and bottom-stacked log", () => {
         responseLine="Standing by."
         responseSource="test"
         history={[...history, { at: 3, question: "open the cube", answer: "Flying." }]}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     expect(flow!.contains(screen.getByText("open the cube"))).toBe(true);
     expect(flow!.contains(screen.getByText("Flying."))).toBe(true);
@@ -933,9 +791,6 @@ describe("command box home form and bottom-stacked log", () => {
     rerender(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -945,9 +800,7 @@ describe("command box home form and bottom-stacked log", () => {
         responseLine="Standing by."
         responseSource="test"
         history={[...history, { at: 3, question: "now fly", answer: "Flying." }]}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     expect(screen.getByText("now fly")).toBeInTheDocument();
     expect(screen.getByText("Flying.")).toBeInTheDocument();
@@ -1021,9 +874,6 @@ describe("command box viewport heal + enlarge + phone form", () => {
     return render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -1032,9 +882,7 @@ describe("command box viewport heal + enlarge + phone form", () => {
         onToggleVoice={vi.fn()}
         responseLine="Standing by."
         responseSource="test"
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
   }
 
@@ -1329,9 +1177,6 @@ describe("command box phone bar — one button (Part D)", () => {
     const utils = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -1341,9 +1186,7 @@ describe("command box phone bar — one button (Part D)", () => {
         responseLine="Standing by."
         responseSource="test"
         {...extra}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     return {
       ...utils,
@@ -1411,7 +1254,7 @@ describe("command box phone bar — one button (Part D)", () => {
     }
   });
 
-  it("the one button opens the menus — send, microphone, emoji, menus, fold", () => {
+  it("the one button opens the options — send, microphone, emoji, the menu, fold", () => {
     // Part D's one-button line lives on the folded bar AND on
     // the OPEN phone box's input row — the same line, the same
     // flow: one button, one menu, every act inside it.
@@ -1425,7 +1268,10 @@ describe("command box phone bar — one button (Part D)", () => {
       expect(screen.getByRole("menuitem", { name: /Send/ })).toBeInTheDocument();
       expect(screen.getByRole("menuitem", { name: /Microphone/ })).toBeInTheDocument();
       expect(screen.getByRole("menuitem", { name: /Emoji/ })).toBeInTheDocument();
-      expect(screen.getByRole("menuitem", { name: /Menus/ })).toBeInTheDocument();
+      // Pass 7: the old "Menus — tools & settings" row raised the
+      // box's own machinery; the sections live in the stage's MENU
+      // now, and the row opens it — "Open the menu".
+      expect(screen.getByRole("menuitem", { name: /Open the menu/ })).toBeInTheDocument();
       expect(screen.getByRole("menuitem", { name: /Fold to the bar/ })).toBeInTheDocument();
 
       // The microphone row works from inside the menu (and the
@@ -1557,9 +1403,6 @@ describe("command box bottom dock (owner order 2026-11-25)", () => {
     const { container } = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -1568,9 +1411,7 @@ describe("command box bottom dock (owner order 2026-11-25)", () => {
         onToggleVoice={vi.fn()}
         responseLine="Standing by."
         responseSource="test"
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     const box = container.querySelector(".avatar-command-box") as HTMLElement;
     // Folded: the bar on the bottom edge, no style of its own.

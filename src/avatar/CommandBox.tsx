@@ -4,15 +4,11 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type ReactNode,
 } from "react";
 import {
-  Activity,
-  BookOpen,
   ChevronDown,
   ChevronUp,
   Eraser,
-  Eye,
   GripVertical,
   History,
   Menu,
@@ -20,11 +16,8 @@ import {
   MicOff,
   Paperclip,
   Plus,
-  Settings,
   Smile,
   Sparkles,
-  Terminal,
-  type LucideIcon,
 } from "lucide-react";
 import {
   WINDOW_MARGIN,
@@ -42,8 +35,14 @@ import {
   type SlashCommand,
 } from "./command/slashCommands";
 
-export type CommandTab = "scene" | "motion" | "tools" | "settings" | "commands";
-
+/**
+ * THE TABS ARE GONE (owner order 2026-11-27 ~23:03 CST, phone fix
+ * pass 7): the box is CHAT ONLY now. The Scene / Motion / Tools /
+ * Commands sections — and the box's own Settings panel — moved
+ * into the stage's MENU (the top-right cog, AvatarStage), each as
+ * its own category, content unchanged. The CommandTab type and
+ * the tab machinery that stood here are retired with them.
+ */
 const BOX_POSITION_KEY = "augi.avatar.command-box.position.v1";
 const BOX_SIZE_KEY = "augi.avatar.command-box.size.v2";
 const BOX_ANCHOR_KEY = "augi.avatar.command-box.anchored.v1";
@@ -401,10 +400,7 @@ function snapThreadToWholeLines(thread: HTMLDivElement): void {
 
 export function CommandBox({
   accent,
-  tabs,
-  activeTab,
-  onTabChange,
-  children,
+  onOpenMenu,
   chat,
   onChatChange,
   onSubmit,
@@ -427,10 +423,16 @@ export function CommandBox({
   onAttachFile,
 }: {
   accent: string;
-  tabs: Array<{ id: CommandTab; label: string; icon: LucideIcon }>;
-  activeTab: CommandTab;
-  onTabChange: (tab: CommandTab) => void;
-  children: ReactNode;
+  /**
+   * THE MENU KEY (owner order 2026-11-27 ~23:03 CST, phone fix
+   * pass 7): everything that is not chat — Scene, Motion, Tools,
+   * Commands, Settings — lives in the stage's MENU now (the
+   * top-right cog). The box's old machinery key (Osiris's
+   * three-lines key, the phone line's menu row) calls this, and
+   * the stage opens its menu. The box itself carries no sections
+   * anymore.
+   */
+  onOpenMenu?: () => void;
   chat: string;
   onChatChange: (value: string) => void;
   onSubmit: (text: string) => void;
@@ -573,11 +575,10 @@ export function CommandBox({
   sizeRef.current = boxSize;
   const enlargedRef = useRef(enlarged);
   enlargedRef.current = enlarged;
-  // Part 28: the tab machinery (Scene / Motion / Tools / Settings /
-  // Commands panels) lives behind ONE Menu button. The default face is
-  // the chat alone; the menu opens only when he asks for it and is not
-  // persisted — every fresh load starts as a plain chat box.
-  const [machineryOpen, setMachineryOpen] = useState(false);
+  // Part 28's tab machinery stood here until pass 7 (owner order
+  // 2026-11-27 ~23:03 CST): the sections moved into the stage's
+  // MENU, and the box is the chat alone at every moment — there is
+  // no machinery state left to hold.
   /**
    * TERMINAL LAW (owner order 2026-11-22 ~19:53 EST): "chat works
    * like a terminal — Clear clears the screen." Clear hides every
@@ -666,7 +667,6 @@ export function CommandBox({
     setAnchored(true);
     saveBoxAnchored(true);
     setMinimized(false);
-    setMachineryOpen(false);
   }, []);
 
   // CLICK-TO-ENLARGE (owner order 2026-11-22): the rail's dot grip
@@ -775,13 +775,16 @@ export function CommandBox({
   // OSIRIS'S KEYS, REGISTERED (owner order 2026-11-24 ~16:57
   // EST): his anchor key toggles this window's anchor, his reset
   // key restores its home form, his three-lines key opens the
-  // window with its machinery up, and his menu reads the anchor
-  // state off this registration. The keys live on HIS medallion;
-  // the machinery stays here, where it has always lived.
+  // stage's MENU (pass 7 — the sections live there now), and his
+  // menu reads the anchor state off this registration. The keys
+  // live on HIS medallion; the machinery stays here, where it
+  // has always lived.
+  // THE MENU KEY (pass 7): Osiris's three-lines key used to raise
+  // the box's own machinery; the machinery lives in the stage's
+  // MENU now, so the key opens that — the stage's menu, one press.
   const toggleMenuNow = useCallback(() => {
-    setMinimized(false);
-    setMachineryOpen((open) => !open);
-  }, []);
+    onOpenMenu?.();
+  }, [onOpenMenu]);
   useEffect(() => {
     onWindowControls?.({
       toggleAnchored,
@@ -839,9 +842,7 @@ export function CommandBox({
     [chat, onChatChange],
   );
 
-  // Keep the newest line in view as the conversation flows — and
-  // when he comes BACK to chat from a section (Part B: the display
-  // follows the tab), the thread stands at its newest line again.
+  // Keep the newest line in view as the conversation flows.
   // PHONE FIX PASS 4 (owner eye-check 2026-11-27 ~21:56 CST): on
   // the phone the chat is an unboxed stream and his law is whole
   // lines only — after the bottom rest, the thread snaps to
@@ -855,12 +856,12 @@ export function CommandBox({
     if (!thread) return;
     if (!phoneBar) thread.style.height = "";
     if (!minimized) thread.scrollTop = thread.scrollHeight;
-    if (!phoneBar || minimized || machineryOpen) return;
+    if (!phoneBar || minimized) return;
     const frame = requestAnimationFrame(() => {
       if (threadRef.current === thread) snapThreadToWholeLines(thread);
     });
     return () => cancelAnimationFrame(frame);
-  }, [minimized, machineryOpen, history, responseLine, userLine, hiddenCount, phoneBar]);
+  }, [minimized, history, responseLine, userLine, hiddenCount, phoneBar]);
 
   /**
    * THE STRIP'S MESSAGE PREVIEWS (owner order 2026-11-22, his
@@ -1139,16 +1140,11 @@ export function CommandBox({
             role="menuitem"
             onClick={() => {
               setOptionsOpen(false);
-              if (minimized) {
-                restoreNow();
-                setMachineryOpen(true);
-              } else {
-                setMachineryOpen((open) => !open);
-              }
+              onOpenMenu?.();
             }}
           >
             <Menu aria-hidden="true" />
-            <span>{machineryOpen && !minimized ? "Back to chat" : "Menus — tools & settings"}</span>
+            <span>Open the menu</span>
           </button>
           <button
             className="avatar-command-box__option"
@@ -1300,7 +1296,7 @@ export function CommandBox({
   return (
     <section
       ref={boxRef}
-      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}${enlarged ? " avatar-command-box--enlarged" : ""}${phoneBar ? " avatar-command-box--phone-bar" : ""}${machineryOpen && !minimized ? " avatar-command-box--section-open" : ""}`}
+      className={`avatar-command-box${minimized ? " avatar-command-box--minimized" : ""}${partnerSpeaking ? " avatar-command-box--partner-speaking" : ""}${anchored ? " avatar-command-box--anchored" : ""}${enlarged ? " avatar-command-box--enlarged" : ""}${phoneBar ? " avatar-command-box--phone-bar" : ""}`}
       data-anchored={anchored ? "true" : "false"}
       data-enlarged={enlarged ? "true" : "false"}
       aria-label={`Chat with ${speakerName}`}
@@ -1355,55 +1351,15 @@ export function CommandBox({
             by command. */}
       </div>
 
-      {/* THE MAIN COLUMN (owner defect fix 2026-11-22): machinery on
-          top, the conversation filling the middle, and the input
-          form as the column's last child — pinned to the panel's
-          bottom at every size, by construction, not by luck. */}
+      {/* THE MAIN COLUMN (owner defect fix 2026-11-22): the
+          conversation filling the middle, and the input form as
+          the column's last child — pinned to the panel's bottom
+          at every size, by construction, not by luck. Pass 7
+          (owner order 2026-11-27 ~23:03 CST): the machinery that
+          stood on top of the conversation is gone — the box is
+          chat only, and the sections live in the stage's MENU. */}
       <div className="avatar-command-box__main">
-      {!minimized && machineryOpen && (
-        <div id="avatar-command-machinery" className="avatar-command-box__machinery">
-          <div className="avatar-command-box__tabs" role="tablist" aria-label="Command tabs">
-            {tabs.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                id={`avatar-cabinet-tab-${id}`}
-                className="avatar-command-box__tab"
-                type="button"
-                role="tab"
-                aria-selected={activeTab === id}
-                aria-controls="avatar-command-panel"
-                onClick={() => onTabChange(id)}
-              >
-                <Icon aria-hidden="true" />
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
-          <div
-            id="avatar-command-panel"
-            className="avatar-command-box__panel"
-            role="tabpanel"
-            aria-labelledby={`avatar-cabinet-tab-${activeTab}`}
-          >
-            {activeTab === "commands" ? <CommandsDocument highlighted={null} /> : children}
-          </div>
-        </div>
-      )}
-
-      {/* THE DISPLAY FOLLOWS THE TAB (owner order 2026-11-24
-          ~01:45 CST, Part B): "if I click off chat I'm going to
-          somewhere else — the chat window does not need to stay
-          there the whole time. The bottom part for me to type can
-          stay there, but the display that's on the screen is the
-          tab that's showing." So while a section is open, the
-          conversation display is GONE — unmounted, not hidden
-          under the panel — and the section owns the box's display
-          alone, with the input bar still pinned under it. Closing
-          the section brings the chat face back whole: the record
-          was never touched, and everything that arrived meanwhile
-          (replies by voice and pop-up, reports kept by notify) is
-          standing in the thread. */}
-      {!minimized && !machineryOpen && (
+      {!minimized && (
         <div className="avatar-command-box__conversation" role="group" aria-label="Chat">
           {/* TERMINAL TOOLS (owner order 2026-11-22): Clear wipes
               the SCREEN only — the record is never touched — and
@@ -1578,5 +1534,3 @@ export function CommandsDocument({ highlighted }: { highlighted: string | null }
     </div>
   );
 }
-
-export const COMMAND_TAB_ICONS = { Activity, BookOpen, Eye, Settings, Terminal };

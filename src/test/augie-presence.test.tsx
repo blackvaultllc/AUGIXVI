@@ -164,9 +164,6 @@ describe("CommandBox — the Captain's own window carries no god", () => {
     const { container } = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={() => {}}
         chat=""
         onChatChange={() => {}}
         onSubmit={() => {}}
@@ -175,9 +172,7 @@ describe("CommandBox — the Captain's own window carries no god", () => {
         onToggleVoice={() => {}}
         responseLine=""
         responseSource=""
-      >
-        <div />
-      </CommandBox>,
+       />,
     );
     expect(container.querySelector(".avatar-command-box__console-face")).toBeNull();
     expect(container.querySelector(".avatar-command-box__bar")).not.toBeNull();

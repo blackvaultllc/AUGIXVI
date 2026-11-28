@@ -245,9 +245,6 @@ describe("terminal chat — clear, history, emoji", () => {
   function renderChat(over: Partial<Parameters<typeof CommandBox>[0]> = {}) {
     const props = {
       accent: "#d4af37",
-      tabs: [{ id: "scene" as const, label: "Scene", icon: Eye }],
-      activeTab: "scene" as const,
-      onTabChange: vi.fn(),
       chat: "",
       onChatChange: vi.fn(),
       onSubmit: vi.fn(),
@@ -256,7 +253,6 @@ describe("terminal chat — clear, history, emoji", () => {
       onToggleVoice: vi.fn(),
       responseLine: "",
       responseSource: "",
-      children: <p>panel body</p>,
       ...over,
     };
     const utils = render(<CommandBox {...props} />);
@@ -288,9 +284,6 @@ describe("terminal chat — clear, history, emoji", () => {
     rerender(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -300,9 +293,7 @@ describe("terminal chat — clear, history, emoji", () => {
         responseLine=""
         responseSource=""
         history={[...history, entry(3, "Third question", "Third answer.")]}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     expect(container.textContent).toContain("Third answer.");
     fireEvent.click(screen.getByRole("button", { name: "Clear the chat screen" }));
@@ -314,9 +305,6 @@ describe("terminal chat — clear, history, emoji", () => {
     rerender(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -330,9 +318,7 @@ describe("terminal chat — clear, history, emoji", () => {
           entry(3, "Third question", "Third answer."),
           entry(4, "Fourth question", "Fourth answer."),
         ]}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     expect(container.textContent).not.toContain("First answer.");
     expect(container.textContent).not.toContain("Third answer.");

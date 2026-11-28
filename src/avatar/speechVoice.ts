@@ -142,12 +142,16 @@ function isEnglish(voice: VoiceLike): boolean {
 
 /**
  * Pick the standing voice for a speaker. For the gods (male): the
- * deeper British man's voice first — a British voice whose name
- * does not read female outranks an unknown-gender British voice,
- * which outranks any English man's voice; the British default
- * stands even when no name gives the gender away, because its tone
- * is the deeper one he chose. For a female speaker: a woman's
- * voice or none — never a man's.
+ * deeper British man's voice first. A voice KNOWN to be a man's
+ * (its name says so) outranks a British voice whose name gives
+ * no gender away (owner order 2026-11-27 ~23:03 CST, phone fix
+ * pass 7 — he heard "a robotic woman voice" on his phone: an
+ * unknown-gender British voice can BE a woman's, and a god is
+ * never handed a woman's voice on a guess). The unknown-gender
+ * British voice still stands above any remaining voice, and the
+ * British default stands last, because its tone is the deeper
+ * one he chose. For a female speaker: a woman's voice or none —
+ * never a man's.
  */
 export function pickSpeechVoice<T extends VoiceLike>(
   voices: readonly T[],
@@ -163,8 +167,8 @@ export function pickSpeechVoice<T extends VoiceLike>(
   }
   return (
     voices.find((v) => isBritish(v) && isMaleVoice(v)) ??
-    voices.find((v) => isBritish(v) && !isFemaleVoice(v)) ??
     voices.find((v) => isEnglish(v) && isMaleVoice(v)) ??
+    voices.find((v) => isBritish(v) && !isFemaleVoice(v)) ??
     voices.find((v) => isMaleVoice(v)) ??
     voices.find((v) => isBritish(v)) ??
     null
@@ -213,7 +217,14 @@ export function configureSpeechUtterance(
 ): void {
   const gender = options.gender ?? "male";
   utterance.rate = 0.95;
-  utterance.pitch = gender === "male" ? 0.8 : 1;
+  // DEEPER (owner order 2026-11-27 ~23:03 CST, phone fix pass 7):
+  // "Change his voice to a deep male voice. It sounds like a
+  // robotic woman voice." The male pitch steps 0.8 → 0.6 — the
+  // deep end of the band the speech engines honor — so even
+  // where the picked voice is the device's own, a god's line
+  // lands deep and male, never at the neutral 1.0 the robotic
+  // default speaks at.
+  utterance.pitch = gender === "male" ? 0.6 : 1;
   utterance.volume = clamp01(options.volume ?? loadSpeechVolume());
   const picked = pickSpeechVoice(currentSpeechVoices(), gender);
   if (picked) utterance.voice = picked;
