@@ -5857,6 +5857,81 @@
   display: none;
 }
 
+/* The in-session photo check (2026-11-28) — Anubis's occasional
+   ask, standing on the operator stage. The gate check's dress:
+   one gold-ruled card, one small preview while the camera is
+   open, nothing left running. It stands over the stage and
+   under nothing else — the ask is answered before anything it
+   interrupted carries on. */
+.photo-check {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 120;
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  border: 1px solid var(--avatar-hud-line, rgba(201, 162, 39, 0.45));
+  border-radius: 10px;
+  background: var(--avatar-hud-bg, rgba(10, 10, 12, 0.96));
+  padding: 0.8rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+}
+.photo-check__title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  margin: 0;
+}
+.photo-check p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.photo-check__cadence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+}
+.photo-check__cadence-option {
+  min-height: 2.4rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--avatar-hud-line, rgba(201, 162, 39, 0.45));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.photo-check__cadence-option[aria-pressed="true"] {
+  background: oklch(0.78 0.14 82 / 22%);
+  border-color: oklch(0.78 0.14 82 / 75%);
+}
+.photo-check__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.photo-check__button {
+  min-height: 2.6rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.photo-check__preview {
+  width: 160px;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--avatar-hud-line, rgba(201, 162, 39, 0.45));
+}
+
 /* Remote Codes window (2026-11-24) — the RF/IR knowledge load:
    code lookup + remote surface + setup numbers. Bifocal standard:
    body text at 1rem, big tap targets, nothing crowded. */
