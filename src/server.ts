@@ -39,6 +39,28 @@ async function getTrapHandler(): Promise<TrapHandler | null> {
   return trapHandlerPromise;
 }
 
+type DoorRestrictionHandler = {
+  handleDoorRestriction: (request: Request, env?: unknown) => Promise<Response | null>;
+};
+
+let doorRestrictionHandlerPromise: Promise<DoorRestrictionHandler | null> | undefined;
+
+/**
+ * DOOR RESTRICTION (owner order 2026-11-28: the cube is the
+ * security): a page request from an address the Captain has
+ * not released — three wrong god-names at the front door — is
+ * answered here with a black page, and the app is never
+ * reached. Loaded lazily; where no registry can be reached
+ * the handler reports no restriction and the request continues
+ * exactly as before.
+ */
+async function getDoorRestrictionHandler(): Promise<DoorRestrictionHandler | null> {
+  if (!doorRestrictionHandlerPromise) {
+    doorRestrictionHandlerPromise = import("./avatar/doorRestriction.server").catch(() => null);
+  }
+  return doorRestrictionHandlerPromise;
+}
+
 let connectionsBootPromise: Promise<unknown> | undefined;
 
 /**
@@ -95,6 +117,11 @@ export default {
       if (trapHandler) {
         const trapResponse = await trapHandler.handleTrapRequest(request);
         if (trapResponse) return trapResponse;
+      }
+      const doorRestrictionHandler = await getDoorRestrictionHandler();
+      if (doorRestrictionHandler) {
+        const doorResponse = await doorRestrictionHandler.handleDoorRestriction(request, env);
+        if (doorResponse) return doorResponse;
       }
       await bootConnectionsOnce();
       const handler = await getServerEntry();

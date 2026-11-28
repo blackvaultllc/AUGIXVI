@@ -15,6 +15,12 @@ import { CAPTAIN_GATE_NAME, type GateAttemptResult, type GateVoiceOutcome } from
 import { postGateAttemptRecord } from "./loginGateClient";
 import { godKeyDoorPath, resolveGodKey, type GodKeyMatch } from "./loginDoor";
 import {
+  clearDoorStrikesForSession,
+  getDoorStatus,
+  recordDoorStrike,
+} from "./doorSecurity.server";
+import { CubeStrike } from "./CubeStrike";
+import {
   browserStorage,
   clearSavedLogin,
   currentDeviceInfo,
@@ -169,6 +175,32 @@ export function OperatorGate() {
   const [boxOpen, setBoxOpen] = useState(false);
   const [godNameInput, setGodNameInput] = useState("");
   const [savedLogin, setSavedLogin] = useState<SavedLogin | null>(null);
+  // THE CUBE IS THE SECURITY (owner order 2026-11-28 ~00:50
+  // CST): wrong names at this door are counted per address on
+  // the server (doorStrikes.ts). The box does not open until
+  // this address's standing is known, and a restricted address
+  // never sees the box at all — the cube stands in its place.
+  // The count itself is never shown here: strikes one and two
+  // look exactly like the silence that has always answered a
+  // wrong name.
+  const [doorChecked, setDoorChecked] = useState(false);
+  const [doorStruck, setDoorStruck] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDoorStatus()
+      .then((status) => {
+        if (cancelled) return;
+        if (status.restricted) setDoorStruck(true);
+        setDoorChecked(true);
+      })
+      .catch(() => {
+        if (!cancelled) setDoorChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // A saved login on this device passes the name door on
   // return — straight in, unless they signed out (signing out
@@ -191,7 +223,10 @@ export function OperatorGate() {
   // that door (a full-page crossing, like the heart door — no
   // operator state rides along). A wrong name is met with
   // silence: the box closes, the rain stands, nothing is said
-  // that could teach anyone anything.
+  // that could teach anyone anything. The wrong name is still
+  // COUNTED — on the server, per address (doorStrikes.ts) —
+  // and the third one raises the cube. The counting changes
+  // nothing the visitor sees on strikes one and two.
   const submitGodName = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -199,6 +234,11 @@ export function OperatorGate() {
       setGodNameInput("");
       if (!match) {
         setBoxOpen(false);
+        void recordDoorStrike()
+          .then((status) => {
+            if (status.restricted) setDoorStruck(true);
+          })
+          .catch(() => undefined);
         return;
       }
       if (match.door === "operator") {
@@ -402,6 +442,12 @@ export function OperatorGate() {
         // confirms this device + IP for next time. Best-effort — the
         // confirmation layer never blocks entry.
         void confirmThisDevice(accessToken);
+        // The same full verification clears this address's door
+        // strikes (doorStrikes.ts): the cube guards the door
+        // against strangers, never against its verified keeper.
+        // Best-effort, like the device confirmation above.
+        void clearDoorStrikesForSession({ data: { accessToken } }).catch(() => undefined);
+        setDoorStruck(false);
         verifiedTokenRef.current = accessToken;
         setState("transitioning");
         transitionTimeoutRef.current = window.setTimeout(() => {
@@ -487,6 +533,29 @@ export function OperatorGate() {
     };
   }, [client, clientSettled, refreshBootstrapStatus, verifySession]);
 
+  // NO BUTTONS FOR THE UNVERIFIED (owner order 2026-11-28
+  // ~00:50 CST): a session that got past the name but cannot
+  // complete the verification does not keep a screen of
+  // sign-in buttons to poke at. A concluded failure shuts the
+  // door: the rain stands, nothing is presented, and the way
+  // back in is the door itself — the god-name, which is never
+  // a strike when it is right. The owner is never locked out:
+  // his name opens the door again, as it always has.
+  const returnToRain = useCallback(() => {
+    gateOutcomeRef.current = null;
+    gatePhotoRef.current = null;
+    gateArmedRef.current = false;
+    gateRecordedRef.current = false;
+    setGatePass("pending");
+    setDenied(false);
+    setMessage("");
+    setEmail("");
+    setPassword("");
+    setCode("");
+    setDoorMatch(null);
+    setBoxOpen(false);
+  }, []);
+
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!client || busy) return;
@@ -502,8 +571,9 @@ export function OperatorGate() {
       setPassword("");
       if (error || !data.session) {
         recordGateConclusion("sign-in-failed");
-        setDenied(true);
-        setMessage("Sign-in failed. Check the email and password and try again.");
+        // A failed sign-in is a concluded verification failure:
+        // the door shuts and the rain stands (see returnToRain).
+        returnToRain();
         return;
       }
       activeAccessTokenRef.current = data.session.access_token;
@@ -568,8 +638,12 @@ export function OperatorGate() {
         code,
       });
       if (error || !data.access_token) {
-        setDenied(true);
-        setMessage("Verification code was not accepted. Try again.");
+        // A rejected code is a concluded verification failure:
+        // the door shuts and the rain stands (see returnToRain).
+        // The half-session is left unverified and authorizes
+        // nothing; the next sign-in runs the full gate again.
+        returnToRain();
+        setState("signed-out");
         return;
       }
       setCode("");
@@ -619,6 +693,20 @@ export function OperatorGate() {
     return <main className="operator-auth-transition" aria-label="Opening operator interface" />;
   }
 
+  // THE CUBE STRIKE (owner order 2026-11-28 ~00:50 CST): a
+  // restricted address gets the cube and the black — never the
+  // door, never the secure screen, not even by a saved login's
+  // name tag. A session already authorized is past all this
+  // (it returned above), and one mid-MFA stands inside the
+  // door until its verification concludes, as it always has.
+  if (doorStruck && state !== "mfa") {
+    return (
+      <main className="login-door">
+        <CubeStrike />
+      </main>
+    );
+  }
+
   // THE LANDING (owner order 2026-11-27 ~23:18 CST): until the
   // god-name key passes, the screen is the Matrix Wall and
   // nothing else — black and gold rain at the landing pace, the
@@ -638,12 +726,17 @@ export function OperatorGate() {
           role="button"
           tabIndex={0}
           aria-label="At the door"
-          onClick={() => setBoxOpen(true)}
+          onClick={() => {
+            // The box opens only once this address's standing
+            // is known clear (doorStrikes.ts) — a restricted
+            // address never sees it, not even for a moment.
+            if (doorChecked && !doorStruck) setBoxOpen(true);
+          }}
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget) return;
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
-              setBoxOpen(true);
+              if (doorChecked && !doorStruck) setBoxOpen(true);
             }
           }}
         >

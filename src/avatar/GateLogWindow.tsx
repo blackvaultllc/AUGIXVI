@@ -15,6 +15,11 @@ import { getSupabaseClientConfig } from "./operatorAuth.server";
 import { getGateLog, type GateLogView } from "./gateLog.server";
 import { getGateAttemptPhoto, getGateAttempts, type GateAttemptsView } from "./loginGate.server";
 import { gateAttemptFlagged, gateAttemptResultWords } from "./loginGate";
+import {
+  getDoorRestrictions,
+  releaseDoorRestriction,
+  type DoorRestrictionsResult,
+} from "./doorSecurity.server";
 
 type GateLogState =
   | { kind: "loading" }
@@ -36,13 +41,20 @@ async function loadAuthClient(): Promise<SupabaseClient | null> {
   });
 }
 
+type DoorRestrictionsState =
+  | { kind: "loading" }
+  | { kind: "hidden" }
+  | { kind: "ready"; result: DoorRestrictionsResult };
+
 export function GateLogWindow({ onClose }: { onClose: () => void }) {
   const [state, setState] = useState<GateLogState>({ kind: "loading" });
   const [photos, setPhotos] = useState<Record<string, string>>({});
+  const [restrictions, setRestrictions] = useState<DoorRestrictionsState>({ kind: "loading" });
   const tokenRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setState({ kind: "loading" });
+    setRestrictions({ kind: "loading" });
     try {
       const client = await loadAuthClient();
       const accessToken = client
@@ -50,9 +62,23 @@ export function GateLogWindow({ onClose }: { onClose: () => void }) {
         : undefined;
       if (!accessToken) {
         setState({ kind: "denied", configured: true });
+        setRestrictions({ kind: "hidden" });
         return;
       }
       tokenRef.current = accessToken;
+      // The door restriction record rides its own verification
+      // and its own store (the registry — the Durable Object
+      // online, the local file on the core), so it loads
+      // independently of the knock log below: online, where the
+      // local gate log does not exist, the restrictions still
+      // stand here, with the Captain's release beside each one.
+      void getDoorRestrictions({ data: { accessToken } })
+        .then((result) => {
+          setRestrictions(
+            result.authorized ? { kind: "ready", result } : { kind: "hidden" },
+          );
+        })
+        .catch(() => setRestrictions({ kind: "hidden" }));
       const view = await getGateLog({ data: { accessToken } });
       if (!view.authorized) {
         setState({ kind: "denied", configured: view.configured });
@@ -83,6 +109,17 @@ export function GateLogWindow({ onClose }: { onClose: () => void }) {
       /* a photo that cannot be read simply stays unshown */
     }
   }, []);
+
+  const release = useCallback(async (ip: string) => {
+    const accessToken = tokenRef.current;
+    if (!accessToken) return;
+    try {
+      const result = await releaseDoorRestriction({ data: { accessToken, ip } });
+      if (result.released) void load();
+    } catch {
+      /* a release that cannot be written simply stays listed */
+    }
+  }, [load]);
 
   useEffect(() => {
     void load();
@@ -187,6 +224,38 @@ export function GateLogWindow({ onClose }: { onClose: () => void }) {
                   </ol>
                 )}
               </>
+            )}
+          </>
+        )}
+        {restrictions.kind === "ready" && (
+          <>
+            <h3 className="window-gate-log__section">Restricted at the door — the cube's record</h3>
+            {!restrictions.result.available ? (
+              <p className="window-gate-log__note">
+                The restriction record is not available on this server.
+              </p>
+            ) : restrictions.result.restrictions.length === 0 ? (
+              <p className="window-gate-log__count">No addresses are restricted at the door.</p>
+            ) : (
+              <ol className="window-gate-log__list">
+                {restrictions.result.restrictions.map((entry) => (
+                  <li key={entry.ip} className="window-gate-log__item">
+                    <div className="window-gate-log__meta">
+                      {entry.ip} · {entry.strikes} wrong name{entry.strikes === 1 ? "" : "s"}
+                    </div>
+                    <div className="window-gate-log__path">
+                      Restricted {new Date(entry.restrictedAt).toLocaleString()}
+                    </div>
+                    <button
+                      type="button"
+                      className="window-btn"
+                      onClick={() => void release(entry.ip)}
+                    >
+                      Release this address
+                    </button>
+                  </li>
+                ))}
+              </ol>
             )}
           </>
         )}

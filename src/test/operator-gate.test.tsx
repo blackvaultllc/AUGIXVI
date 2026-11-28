@@ -23,6 +23,9 @@ const mocks = vi.hoisted(() => ({
   bootstrapStatus: vi.fn(),
   verifySession: vi.fn(),
   clientConfig: vi.fn(),
+  doorStatus: vi.fn(),
+  doorStrike: vi.fn(),
+  clearStrikes: vi.fn(),
 }));
 
 vi.mock("@supabase/supabase-js", () => ({
@@ -33,6 +36,12 @@ vi.mock("@/avatar/operatorAuth.server", () => ({
   getOperatorBootstrapStatus: mocks.bootstrapStatus,
   verifySupabaseOperatorSession: mocks.verifySession,
   getSupabaseClientConfig: mocks.clientConfig,
+}));
+
+vi.mock("@/avatar/doorSecurity.server", () => ({
+  getDoorStatus: mocks.doorStatus,
+  recordDoorStrike: mocks.doorStrike,
+  clearDoorStrikesForSession: mocks.clearStrikes,
 }));
 
 vi.mock("@/avatar/AvatarStage", () => ({
@@ -110,6 +119,13 @@ describe("operator sign-in gate", () => {
       url: "https://project.invalid",
       publishableKey: "public-placeholder",
     });
+    mocks.doorStatus
+      .mockReset()
+      .mockResolvedValue({ available: true, strikes: 0, restricted: false });
+    mocks.doorStrike
+      .mockReset()
+      .mockResolvedValue({ available: true, strikes: 1, restricted: false });
+    mocks.clearStrikes.mockReset().mockResolvedValue({ authorized: true, cleared: false });
   });
 
   afterEach(() => {
@@ -563,5 +579,117 @@ describe("operator sign-in gate", () => {
     fireEvent.click(screen.getByRole("button", { name: "Test sign out" }));
     expect(await screen.findByTestId("login-wall")).toBeInTheDocument();
     expect(readSavedLogin(localStorage)).toBeNull();
+  });
+
+  it("counts a wrong name on the server — and still says nothing", async () => {
+    const { container } = render(<OperatorGate />);
+    const wall = await screen.findByTestId("login-wall");
+    fireEvent.click(wall);
+    const input = await screen.findByLabelText("The name of your god");
+    fireEvent.change(input, { target: { value: "Montu" } });
+    fireEvent.submit(input.closest("form")!);
+
+    // The strike is recorded server-side; the screen's answer
+    // is the same silence as ever — no counter, no warning.
+    await waitFor(() => expect(mocks.doorStrike).toHaveBeenCalledOnce());
+    expect(screen.queryByLabelText("The name of your god")).toBeNull();
+    expect(await screen.findByTestId("login-wall")).toBeInTheDocument();
+    expect(container.textContent?.trim()).toBe("");
+  });
+
+  it("the third wrong name raises the cube — the door is gone", async () => {
+    mocks.doorStrike.mockResolvedValue({ available: true, strikes: 3, restricted: true });
+    render(<OperatorGate />);
+    const wall = await screen.findByTestId("login-wall");
+    fireEvent.click(wall);
+    const input = await screen.findByLabelText("The name of your god");
+    fireEvent.change(input, { target: { value: "Zeus" } });
+    fireEvent.submit(input.closest("form")!);
+
+    expect(await screen.findByTestId("cube-strike")).toBeInTheDocument();
+    expect(screen.queryByTestId("login-wall")).toBeNull();
+    expect(screen.queryByLabelText("The name of your god")).toBeNull();
+  });
+
+  it("a restricted address gets the cube on arrival — never the door, not even by a saved login", async () => {
+    mocks.doorStatus.mockResolvedValue({ available: true, strikes: 3, restricted: true });
+    localStorage.setItem(
+      "augi.saved-login.v1",
+      JSON.stringify({
+        seat: 0,
+        godName: "Anubis",
+        personName: "Domenick Arlon Hall",
+        savedAt: "2026-11-28T05:30:00.000Z",
+        device: { userAgent: "Test Browser", platform: "TestOS", language: "en-US" },
+      }),
+    );
+    render(<OperatorGate />);
+
+    expect(await screen.findByTestId("cube-strike")).toBeInTheDocument();
+    expect(screen.queryByTestId("login-wall")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Operator sign-in" })).toBeNull();
+  });
+
+  it("a failed sign-in shuts the door — back to the rain, nothing presented", async () => {
+    auth.signInWithPassword.mockResolvedValue({
+      data: { session: null },
+      error: { message: "Invalid login credentials" },
+    });
+    render(<OperatorGate />);
+    await passDoor();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Continue with email and password" }),
+    );
+    const signInButton = await screen.findByRole("button", { name: "Sign in" });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "operator@example.invalid" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "wrong-password" },
+    });
+    fireEvent.submit(signInButton.closest("form")!);
+
+    // No persistent form for an unverified session: the rain
+    // stands, the fields and buttons are gone, and the way
+    // back is the door itself.
+    expect(await screen.findByTestId("login-wall")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
+    expect(screen.queryByLabelText("Email")).toBeNull();
+    expect(auth.signInWithPassword).toHaveBeenCalledOnce();
+  });
+
+  it("a rejected verification code shuts the door the same way", async () => {
+    auth.signInWithPassword.mockResolvedValue({
+      data: { session: { access_token: "aal1-session" } },
+      error: null,
+    });
+    auth.mfa.challengeAndVerify.mockResolvedValue({
+      data: { access_token: null },
+      error: { message: "Invalid TOTP code" },
+    });
+    mocks.verifySession.mockResolvedValue({
+      configured: true,
+      authorized: false,
+      requiresMfa: true,
+      operatorName: null,
+      operatorFullName: null,
+    });
+    render(<OperatorGate />);
+    await passDoor();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Continue with email and password" }),
+    );
+    const signInButton = await screen.findByRole("button", { name: "Sign in" });
+    fireEvent.submit(signInButton.closest("form")!);
+
+    expect(await screen.findByAltText("Authenticator setup QR code")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Verification code"), {
+      target: { value: "000000" },
+    });
+    fireEvent.submit(screen.getByRole("button", { name: "Verify" }).closest("form")!);
+
+    expect(await screen.findByTestId("login-wall")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Verify" })).toBeNull();
+    expect(screen.queryByTestId("avatar-stage")).not.toBeInTheDocument();
   });
 });
