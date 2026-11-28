@@ -144,16 +144,20 @@ export function defaultMedallionGeometry(
       stageW,
       stageH,
     ).size;
-    // A LITTLE SMALLER ON THE PHONE (owner order 2026-11-27,
-    // phone fix list item 1): on his phone the medallion filled
-    // most of the screen — 92% of the stage's short side. His
-    // words: shrink it "a little bit," not a drastic cut. On a
-    // phone-sized stage (either dimension phone-narrow) he now
-    // wears at most 80% of the short side — 312 of a 390 stage —
-    // still big, still centered, with stage showing around him.
-    // Desktop keeps the full measure he ordered kept.
+    // SMALLER ON THE PHONE (owner orders 2026-11-27): the
+    // morning's pass capped a phone-sized stage at 80% of the
+    // short side — but the presence ring stands at 122% of the
+    // face, so 80% still read as the whole screen edge to edge
+    // (his eye-check ~21:32 CST: "why is it taking up the whole
+    // screen? It doesn't look accurate"). On a phone-sized
+    // stage (either dimension phone-narrow) he now wears at
+    // most 66% of the short side — 257 of a 390 stage — so the
+    // ring lands near 80% and the stage breathes around him:
+    // controls and margins visible on every side. Still big,
+    // still centered. Desktop keeps the full measure he
+    // ordered kept.
     if (stageW <= 700 || stageH <= 500) {
-      fitted = Math.min(fitted, Math.round(Math.min(stageW, stageH) * 0.8));
+      fitted = Math.min(fitted, Math.round(Math.min(stageW, stageH) * 0.66));
     }
     return clampMedallionGeometry(
       {

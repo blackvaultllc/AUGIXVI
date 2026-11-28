@@ -294,10 +294,12 @@
   /* Item 2 — THE BUBBLE STAYS IN ITS LANE on the phone: while
      he reads the conversation, no bubble paints over it — the
      stage suppresses the bubble outright when the chat box is
-     open (AvatarStage); standing alone it is capped small and
-     high, clear of the dock. */
+     open (AvatarStage); standing alone it is bounded to a
+     reading width and kept on the screen (pass 3 below stands
+     Anubis's bubble inside the right margin — at the old
+     50% + 11vmin seat even this cap ran off the edge). */
   .avatar-stage .speech-bubble {
-    max-width: min(15rem, 54vw);
+    max-width: min(16rem, 74vw);
   }
   .avatar-stage .speech-bubble__text {
     font-size: 0.9rem;
@@ -327,4 +329,91 @@
 }
 .avatar-stage .voice-indicator {
   border-top-color: rgb(212 175 55 / 35%);
+}
+
+/* =====================================================================
+   PHONE FIX PASS 3 (owner eye-check 2026-11-27 ~21:32 CST, from
+   his screenshots of the online copy): the open Tools/Chat
+   sheets stood at a fixed height over the construct with a
+   dead void under their content; the spoken caption ran in
+   one long line across the top of the phone; the center
+   construct still filled the whole screen; and the Tools
+   grid's last row was sliced mid-tile. The top dropdown
+   (NOTIFICATIONS / SETTINGS) is finally right — nothing here
+   touches it. The medallion's smaller phone measure is its
+   own fix, in medallionAnchor.ts.
+   ===================================================================== */
+@media (max-width: 700px) {
+  /* Item 1 — THE SHEET HUGS ITS CONTENT: the open command box
+     no longer stands at a fixed 62dvh whatever it holds (the
+     dock law's height, stage-fix-round §35/§17). Its height
+     is its content's height, capped at the same measure — a
+     short Tools group or a short chat ends where it ends,
+     the input rides directly under the content with no void
+     between, and the construct above the dock stays visible:
+     nothing blocks his gods. The enlarged state keeps its
+     taller cap, still fit to content. */
+  .avatar-stage .avatar-command-box:not(.avatar-command-box--minimized) {
+    height: auto;
+    max-height: min(62dvh, 36rem);
+  }
+  .avatar-stage .avatar-command-box--enlarged:not(.avatar-command-box--minimized) {
+    height: auto;
+    max-height: min(80dvh, 44rem);
+  }
+  /* The section chain, whole: while a tab section stands
+     open, the machinery and its panel flex inside the capped
+     box with every link free to shrink, and the PANEL is the
+     one scroller — the base sheet's 14rem panel cap is gone
+     from this chain, so no nested cap is left to slice a
+     grid row and strand the rest of the box empty. */
+  .avatar-stage .avatar-command-box--section-open .avatar-command-box__machinery {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .avatar-stage .avatar-command-box--section-open .avatar-command-box__panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
+  /* The chat face hugs its messages the same way: the thread
+     stands as tall as what is in it, up to its cap — past
+     the cap it scrolls inside itself — and no empty thread
+     field stretches between the last line and the input. */
+  .avatar-stage .avatar-command-box__thread {
+    max-height: min(38dvh, 22rem);
+  }
+
+  /* Item 2 — THE SPOKEN CAPTION STAYS ON THE PHONE: Anubis's
+     bubble stood at left: 50% + 11vmin (god-presence.css) —
+     on a phone that seat starts past the middle, so even a
+     capped bubble ran off the right edge in one long line.
+     It now stands inside the screen's right margin at the
+     top, bounded to the reading width capped above, and its
+     words wrap into short lines; its tail keeps its side,
+     aimed back down-left at his head. */
+  .avatar-stage .speech-bubble--anubis {
+    left: auto;
+    right: 0.75rem;
+    top: 12%;
+  }
+
+  /* Item 4 — THE TOOLS GRID STANDS EVEN: the rows of a grid
+     share one height, so the tiles align like a professional
+     panel, and a label wraps inside its tile in whole words
+     across two lines when it needs them — never a sliced
+     line at a tile's edge. With the panel as the one
+     scroller (item 1), rows stand whole in the scroll. */
+  .avatar-stage .avatar-command-box__grid {
+    grid-auto-rows: 1fr;
+  }
+  .avatar-stage .avatar-command-box__action > span {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
