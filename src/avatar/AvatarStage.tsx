@@ -260,7 +260,7 @@ import { Sensors, type SensorStatus } from "./sensors";
 import { attachOllamaAI, type OllamaAIOptions } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
 import { ArCubeWindow } from "./ArCubeWindow";
-import { HexoWindow } from "./HexoWindow";
+import { HexoCubeView } from "./HexoWindow";
 import { EmulatorWindow } from "./EmulatorWindow";
 import { PulseWindow } from "./PulseWindow";
 import { SoundWatchWindow } from "./SoundWatchWindow";
@@ -427,7 +427,6 @@ import {
   loadPrayerDone,
   savePrayerDone,
   markPrayerHeard,
-  prayerTimeLine,
   type PrayerSlot,
 } from "./learning/prayerTime";
 import { chicagoDateISO, chicagoParts } from "./learning/time";
@@ -3417,10 +3416,14 @@ export function AvatarStage({
 
   /**
    * PRAYER TIME (owner orders 2026-11-26): four times across
-   * his day (07:00, 12:00, 17:00, 21:00 his time) a calm pill
-   * surfaces under the notifications pill — only while the
-   * program is open, at most once per slot per day. It never
-   * auto-plays: his click reads the prayer aloud.
+   * his day (07:00, 12:00, 17:00, 21:00 his time) a slot comes
+   * due — only while the program is open, at most once per
+   * slot per day. The slot machinery stands (the prayer itself
+   * lives in My Learning, untouched), but the stage PILL that
+   * surfaced here is GONE (owner order 2026-11-27, phone fix
+   * pass 6): it was blocking his screen, and his screen stays
+   * nice and clear. Nothing renders on the stage for a due
+   * slot anymore.
    */
   useEffect(() => {
     const tick = () => setPrayerDue(duePrayerSlot(new Date(), loadPrayerDone()));
@@ -5690,7 +5693,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         />
       )}
       {arCubeOpen && <ArCubeWindow onClose={() => setArCubeOpen(false)} />}
-      {hexoOpen && <HexoWindow onClose={() => setHexoOpen(false)} />}
+      {hexoOpen && <HexoCubeView onClose={() => setHexoOpen(false)} />}
       {emulatorOpen && <EmulatorWindow onClose={() => setEmulatorOpen(false)} />}
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
       {soundWatchOpen && (
@@ -5854,17 +5857,13 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {projectsOpen && <ProjectsWindow onClose={() => setProjectsOpen(false)} />}
       {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}
       {darkHoleOpen && <DarkHoleWindow onClose={() => setDarkHoleOpen(false)} />}
-      {prayerDue && (
-        <button
-          type="button"
-          className="prayer-stage-badge"
-          onClick={() => void hearPrayer()}
-          aria-label={`Prayer time — the ${prayerDue.label.toLowerCase()} prayer. Activate to hear your prayer read aloud.`}
-        >
-          <Sparkles aria-hidden="true" size={14} />
-          PRAYER TIME — {prayerTimeLine(prayerDue)}
-        </button>
-      )}
+      {/* THE PRAYER TIME PILL STOOD HERE (owner orders
+          2026-11-26) — REMOVED (owner order 2026-11-27, phone
+          fix pass 6): the "PRAYER TIME — 9:00 PM" indicator
+          blocked his screen. The stage carries no prayer
+          indicator at all now; the prayer feature itself —
+          slots, storage, the reading in My Learning — is
+          untouched. */}
       {learningOpen && <LearningWindow onClose={() => setLearningOpen(false)} onSpeak={say} />}
       {trainingOpen && <TrainingWindow onClose={() => setTrainingOpen(false)} />}
       {sightLogOpen && <SightLogWindow onClose={() => setSightLogOpen(false)} />}

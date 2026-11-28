@@ -4378,26 +4378,48 @@
   text-decoration: underline;
 }
 
-/* HEXO window (2026-11-25) — the Captain's cube, back in his area.
-   The artifact page rides in an iframe srcDoc: no public path. */
-.window-hexo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  height: 100%;
+/* HEXO — the cube alone (2026-11-25 the cube came back in a
+   window; owner order 2026-11-27, phone fix pass 6, pulled it
+   OUT of the page): a stage screen, not a window. The Matrix
+   Wall stands as the ground, the cube-only frame fills the
+   screen over it — transparent, so his gold rain surrounds
+   the spinning cube — and one Back pill returns him to the
+   stage. The artifact page rides in an iframe srcDoc: no
+   public path. */
+.hexo-cube-view {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  overflow: hidden;
+  background: #050403;
 }
-.window-hexo iframe {
-  flex: 1;
+.hexo-cube-view iframe {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   width: 100%;
-  min-height: 0;
-  border: 1px solid var(--avatar-hud-line);
-  border-radius: 0.35rem;
-  background: #05070a;
+  height: 100%;
+  border: none;
+  background: transparent;
 }
-.window-hexo__note {
-  color: var(--avatar-hud-accent, #22d3ee);
-  font-size: 0.6rem;
-  margin: 0;
+.hexo-cube-view__back {
+  position: absolute;
+  z-index: 3;
+  top: max(0.9rem, env(safe-area-inset-top));
+  left: max(0.9rem, env(safe-area-inset-left));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgb(212 175 55 / 55%);
+  border-radius: 999px;
+  background: rgb(8 12 22 / 78%);
+  color: #f3d27a;
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
 }
 
 /* Emulator panel (2026-11-25) — Battle Box inside Augie. One panel,
@@ -5194,27 +5216,12 @@
   font-weight: 700;
   text-align: center;
 }
-/* Prayer Time stage pill (2026-11-26) — surfaces under the
-   notifications pill when one of his four daily prayer
-   slots comes due; his click reads the prayer aloud. Calm
-   gold, same family as the notifications pill. */
-.prayer-stage-badge {
-  position: fixed;
-  top: 6.3rem;
-  right: 0.75rem;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.4rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid var(--avatar-hud-accent, #d4af37);
-  background: rgba(16, 14, 4, 0.88);
-  color: #f5e7bd;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-}
+/* Prayer Time stage pill (2026-11-26) — REMOVED (owner order
+   2026-11-27, phone fix pass 6): the "PRAYER TIME — 9:00 PM"
+   indicator blocked his screen, so the stage carries no
+   prayer indicator at all. The prayer feature itself — the
+   slots, the stored prayer, the reading in My Learning — is
+   untouched; only this stage rendering is gone. */
 /* The Captain's Learning windows (2026-11-26) — shelves,
    Daily Training, Sight Log. */
 .window-learning {
