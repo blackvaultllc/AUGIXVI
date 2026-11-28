@@ -4422,6 +4422,138 @@
   cursor: pointer;
 }
 
+/* CAPTAIN ZERO'S OFFICE (owner order 2026-11-27 ~22:28 CST): his
+   private room — a stage screen on the hexo view's layer, his
+   Matrix Wall as the ground, and plain quiet inside. The knock
+   card wears the alert red because a knock IS a standing alert
+   (the ring law: red only for a true alert); Khadija's line
+   wears gold — her call is not an alert, it is her line. */
+.captains-office {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  overflow: hidden;
+  background: #050403;
+}
+.captains-office__leave {
+  position: absolute;
+  z-index: 3;
+  top: max(0.9rem, env(safe-area-inset-top));
+  left: max(0.9rem, env(safe-area-inset-left));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgb(212 175 55 / 55%);
+  border-radius: 999px;
+  background: rgb(8 12 22 / 78%);
+  color: #f3d27a;
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.captains-office__content {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 4.5rem 1.25rem 2rem;
+  overflow-y: auto;
+  text-align: center;
+}
+.captains-office__plate {
+  margin: 0;
+  color: #f3d27a;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.captains-office__law {
+  margin: 0;
+  max-width: 34rem;
+  color: rgb(226 232 244 / 82%);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.captains-office__quiet {
+  margin: 0;
+  color: rgb(226 232 244 / 60%);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+}
+.captains-office__knock,
+.captains-office__call {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 30rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.6rem;
+  background: rgb(8 12 22 / 82%);
+}
+.captains-office__knock {
+  border: 1px solid rgb(224 49 49 / 65%);
+}
+.captains-office__call {
+  border: 1px solid rgb(212 175 55 / 65%);
+}
+.captains-office__knock-line,
+.captains-office__call-line {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.captains-office__knock-line {
+  color: #ff8a7a;
+}
+.captains-office__call-line {
+  color: #f3d27a;
+}
+.captains-office__knock-mark {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(255 178 164 / 85%);
+}
+.captains-office__knock-reason,
+.captains-office__call-note {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: rgb(226 232 244 / 85%);
+}
+.captains-office__knock-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+.captains-office__btn {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid rgb(212 175 55 / 40%);
+  border-radius: 999px;
+  background: rgb(8 12 22 / 60%);
+  color: rgb(226 232 244 / 90%);
+  font: inherit;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.captains-office__btn--gold {
+  border-color: rgb(212 175 55 / 70%);
+  color: #f3d27a;
+}
+
 /* Emulator panel (2026-11-25) — Battle Box inside Augie. One panel,
    two homes: his stage window and Khadija's Play cabinet (kid). */
 .emulator-panel {

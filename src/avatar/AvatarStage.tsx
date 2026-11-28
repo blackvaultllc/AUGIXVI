@@ -261,6 +261,13 @@ import { attachOllamaAI, type OllamaAIOptions } from "./ollamaAI";
 import { CubePanel } from "./CubePanel";
 import { ArCubeWindow } from "./ArCubeWindow";
 import { HexoCubeView } from "./HexoWindow";
+import { CaptainsOfficeView } from "./CaptainsOffice";
+import {
+  isCaptainsOfficeExit,
+  isCaptainsOfficeRequest,
+  officeKnocks,
+  type OfficeKnock,
+} from "./captainsOffice";
 import { EmulatorWindow } from "./EmulatorWindow";
 import { PulseWindow } from "./PulseWindow";
 import { SoundWatchWindow } from "./SoundWatchWindow";
@@ -727,6 +734,19 @@ export function AvatarStage({
   // space — click and play.
   const [hexoOpen, setHexoOpen] = useState(false);
   const [emulatorOpen, setEmulatorOpen] = useState(false);
+  // CAPTAIN ZERO'S OFFICE (owner order 2026-11-27 ~22:28 CST):
+  // his private room in his own area — while it stands, he is
+  // left alone (the god pop-ups are not rendered, reports
+  // collect silently in the record), and the only thing that
+  // pierces the quiet is the emergency KNOCK (captainsOffice.ts,
+  // derived from the alert ring's real records) and Khadija's
+  // own line. The law lives in captainsOffice.ts; the room in
+  // CaptainsOffice.tsx. NOT the world OfficeScene — that walk-in
+  // city office keeps its name and its doors, untouched.
+  const [captainsOfficeOpen, setCaptainsOfficeOpen] = useState(false);
+  // Knocks he has answered "not now" to, by signature: the same
+  // standing alert never knocks twice, a grown count does.
+  const [dismissedKnocks, setDismissedKnocks] = useState<ReadonlySet<string>>(new Set());
   // THE CONSTRUCT IN HIS OWN BOX (owner order 2026-11-22): the sand
   // construct no longer holds center stage — he stands in a floating
   // container window, and the renderer's canvas docks into that
@@ -1272,6 +1292,14 @@ export function AvatarStage({
   useEffect(() => subscribeSoundFeed(setSoundFeed), []);
   const [sectorAlertsWaiting, setSectorAlertsWaiting] = useState(0);
   const alertReading = alertRingReading({ soundFeed, daddyCallRinging, sectorAlertsWaiting });
+  // THE OFFICE KNOCK, derived (owner order 2026-11-27 ~22:28
+  // CST): the gods who may knock on his Office door, from the
+  // alert ring's own reading — the same real records, nothing
+  // invented — minus the knocks he already answered "not now"
+  // to at their standing counts (captainsOffice.ts).
+  const officeKnockList = officeKnocks(alertReading).filter(
+    (knock) => !dismissedKnocks.has(knock.signature),
+  );
   useEffect(() => {
     let stopped = false;
     const tick = async () => {
@@ -2863,6 +2891,24 @@ export function AvatarStage({
         );
         return;
       }
+      // CAPTAIN ZERO'S OFFICE (owner order 2026-11-27 ~22:28
+      // CST): his own office answers to the possessive forms —
+      // "my office", "Zero's office", "Captain Zero's office" —
+      // checked BEFORE the world walk-in below, whose phrases
+      // ("go to the office", bare "office") never claimed them
+      // and keep their meaning. Leaving by word is honored
+      // only while his Office stands; otherwise "leave the
+      // office" falls through to the world exit below, as ever.
+      if (isCaptainsOfficeRequest(commandText)) {
+        setCaptainsOfficeOpen(true);
+        say("Your office, Zero. You will be left alone there — only an emergency knocks, and a knock only asks.");
+        return;
+      }
+      if (captainsOfficeOpen && isCaptainsOfficeExit(commandText)) {
+        setCaptainsOfficeOpen(false);
+        say("Back to the stage.");
+        return;
+      }
       // HIS WORLD: the office walk-in — fade to black with sand, then in.
       if (isOfficeWalkInRequest(commandText)) {
         setOfficeOpen(true);
@@ -4228,6 +4274,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     historyOpen ||
     arCubeOpen ||
     hexoOpen ||
+    captainsOfficeOpen ||
     emulatorOpen ||
     pulseOpen ||
     soundWatchOpen ||
@@ -4579,7 +4626,13 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           from the stage render by this order — the component
           stands in the codebase, unrendered, like every
           superseded seat before it.) */}
-      {!clearScreen && worldScreen === "live" && montuPop.shown && (
+      {/* THE OFFICE QUIET (owner order 2026-11-27 ~22:28 CST):
+          while Captain Zero's Office stands, NO god pop-up is
+          rendered — the call state itself is untouched and
+          stands as it stands when he steps out, but in his
+          office he is left alone. The gate rides every pop-up
+          below: the call, the helper, and both council seats. */}
+      {!clearScreen && worldScreen === "live" && !captainsOfficeOpen && montuPop.shown && (
         <CalledGodPopUp
           god="montu"
           speaking={addressee === "montu" && state === "SPEAKING"}
@@ -4598,7 +4651,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           own chat, like every god). When he is done the
           dismissal words bow him out first, and a dismissed
           main god takes his helper with him. */}
-      {!clearScreen && worldScreen === "live" && helperPop.shown && helperGod && (
+      {!clearScreen && worldScreen === "live" && !captainsOfficeOpen && helperPop.shown && helperGod && (
         <CalledGodPopUp
           god={helperGod}
           speaking={false}
@@ -4623,6 +4676,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           rendered only while the session is open. */}
       {!clearScreen &&
         worldScreen === "live" &&
+        !captainsOfficeOpen &&
         councilMontuPop.shown &&
         frontGod !== "montu" && (
           <CalledGodPopUp
@@ -4637,7 +4691,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             }}
           />
         )}
-      {!clearScreen && worldScreen === "live" && councilOsirisPop.shown && (
+      {!clearScreen && worldScreen === "live" && !captainsOfficeOpen && councilOsirisPop.shown && (
         <CalledGodPopUp
           god="osiris"
           speaking={addressee === "osiris" && state === "SPEAKING"}
@@ -5248,6 +5302,15 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   one obvious place, same standard as the builder. */}
               <CommandGroup label="Worlds & building">
                 <div className="avatar-command-box__grid">
+                  {/* CAPTAIN ZERO'S OFFICE (owner order 2026-11-27
+                      ~22:28 CST): his own door stands first in his
+                      worlds — his private office, where he is left
+                      alone and only an emergency knocks. */}
+                  <CommandAction
+                    icon={DoorOpen}
+                    label="Captain Zero's Office"
+                    onClick={() => setCaptainsOfficeOpen(true)}
+                  />
                   <CommandAction icon={Box} label="AR Cube" onClick={() => setArCubeOpen(true)} />
                   <CommandAction
                     icon={Hexagon}
@@ -5694,6 +5757,35 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
       {arCubeOpen && <ArCubeWindow onClose={() => setArCubeOpen(false)} />}
       {hexoOpen && <HexoCubeView onClose={() => setHexoOpen(false)} />}
+      {captainsOfficeOpen && (
+        <CaptainsOfficeView
+          knocks={officeKnockList}
+          daddyRinging={daddyCallRinging}
+          onAdmit={(knock: OfficeKnock) => {
+            // Admitted: the Office closes and the god's own
+            // chat opens, addressed to him — the standing way
+            // he speaks with a god (the pop-up's own path).
+            setCaptainsOfficeOpen(false);
+            applyAddressee(knock.god);
+            openChatBox();
+          }}
+          onDismiss={(knock: OfficeKnock) =>
+            setDismissedKnocks((prev) => new Set(prev).add(knock.signature))
+          }
+          onTalkToAnubis={() => {
+            setCaptainsOfficeOpen(false);
+            applyAddressee("anubis");
+            openChatBox();
+          }}
+          onGoToCall={() => {
+            // Her Answer button stands in the Logs window's
+            // Khadija tab — the way the record itself names.
+            setCaptainsOfficeOpen(false);
+            setLogsOpen(true);
+          }}
+          onClose={() => setCaptainsOfficeOpen(false)}
+        />
+      )}
       {emulatorOpen && <EmulatorWindow onClose={() => setEmulatorOpen(false)} />}
       {pulseOpen && <PulseWindow onClose={() => setPulseOpen(false)} />}
       {soundWatchOpen && (
