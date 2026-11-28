@@ -24,9 +24,12 @@
  */
 import { useEffect, useRef } from "react";
 import {
+  LANDING_WALL_SPEED,
+  LANDING_WEAVE_MESSAGE,
   MATRIX_PLANES,
   MATRIX_ROLE_TUNING,
   MATRIX_WALL_STEP_MS,
+  createWovenGlyphSource,
   matrixPlaneColumns,
   newMatrixDrop,
   stepMatrixDrops,
@@ -69,6 +72,7 @@ function useRainCanvas(
   plane: MatrixPlaneId,
   role: MatrixWallRole,
   roomRef: React.RefObject<HTMLDivElement | null>,
+  glyphSource: ((length: number) => string) | undefined,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -84,7 +88,9 @@ function useRainCanvas(
     }
     if (!ctx) return;
     const tuning = MATRIX_ROLE_TUNING[role];
-    const stepMs = MATRIX_WALL_STEP_MS / tuning.speed;
+    // The woven landing rain runs at the landing pace — fast,
+    // like rain and water drops (owner order 2026-11-27).
+    const stepMs = MATRIX_WALL_STEP_MS / (tuning.speed * (glyphSource ? LANDING_WALL_SPEED : 1));
     let drops: ReturnType<typeof newMatrixDrop>[] = [];
     let raf = 0;
     let lastStep = 0;
@@ -103,7 +109,8 @@ function useRainCanvas(
       if (canvas.height !== height) canvas.height = height;
       const columns = matrixPlaneColumns(plane, width, role);
       const rows = Math.ceil(height / CELL_PX);
-      while (drops.length < columns) drops.push(newMatrixDrop(rows, tuning.trail));
+      while (drops.length < columns)
+        drops.push(newMatrixDrop(rows, tuning.trail, Math.random, glyphSource));
       drops = drops.slice(0, columns);
       paintPlane(ctx, width, height, drops, role);
     };
@@ -131,7 +138,7 @@ function useRainCanvas(
       if (now - lastStep < stepMs) return;
       lastStep = now;
       const rows = Math.ceil(canvas.height / CELL_PX);
-      drops = stepMatrixDrops(drops, rows, tuning.trail);
+      drops = stepMatrixDrops(drops, rows, tuning.trail, Math.random, glyphSource);
       paintPlane(ctx, canvas.width, canvas.height, drops, role);
     };
     if (!reduced) raf = requestAnimationFrame(frame);
@@ -146,7 +153,7 @@ function useRainCanvas(
       visibility?.disconnect();
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [plane, role, roomRef]);
+  }, [plane, role, roomRef, glyphSource]);
 
   return canvasRef;
 }
@@ -155,34 +162,58 @@ function MatrixPlane({
   id,
   role,
   roomRef,
+  glyphSource,
 }: {
   id: MatrixPlaneId;
   role: MatrixWallRole;
   roomRef: React.RefObject<HTMLDivElement | null>;
+  glyphSource?: ((length: number) => string) | undefined;
 }) {
-  const canvasRef = useRainCanvas(id, role, roomRef);
+  const canvasRef = useRainCanvas(id, role, roomRef, glyphSource);
   return <canvas ref={canvasRef} className={`matrix-wall__plane matrix-wall__plane--${id}`} aria-hidden="true" />;
 }
 
 export function MatrixWall({
   role = "owner",
   variant = "stage",
+  weave = false,
 }: {
   /** The seat this wall stands behind — the tuning follows the seat. */
   role?: MatrixWallRole;
   /** "stage" fills the stage; "page" stands fixed behind a whole page. */
   variant?: "stage" | "page";
+  /**
+   * THE FRONT DOOR'S COVER (owner order 2026-11-27 ~23:18 CST):
+   * the landing rain only. The drops draw their glyphs from the
+   * woven byte stream — the bytes spell the authorization
+   * message inside the rain — and the pace quickens to falling
+   * water. No surface inside the door weaves; this is the cover
+   * for trying to get in, and it belongs to the front alone.
+   */
+  weave?: boolean;
 }) {
   const roomRef = useRef<HTMLDivElement | null>(null);
+  const glyphSourceRef = useRef<((length: number) => string) | undefined>(undefined);
+  if (weave && glyphSourceRef.current === undefined) {
+    glyphSourceRef.current = createWovenGlyphSource(LANDING_WEAVE_MESSAGE);
+  }
+  if (!weave) glyphSourceRef.current = undefined;
   return (
     <div
       ref={roomRef}
       className={`matrix-wall matrix-wall--${variant}`}
       data-role={role}
+      data-weave={weave ? "true" : undefined}
       aria-hidden="true"
     >
       {MATRIX_PLANES.map((plane) => (
-        <MatrixPlane key={plane.id} id={plane.id} role={role} roomRef={roomRef} />
+        <MatrixPlane
+          key={plane.id}
+          id={plane.id}
+          role={role}
+          roomRef={roomRef}
+          glyphSource={glyphSourceRef.current}
+        />
       ))}
     </div>
   );

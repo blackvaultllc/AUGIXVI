@@ -2,6 +2,21 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OperatorGate } from "@/avatar/OperatorGate";
+import { readSavedLogin } from "@/avatar/savedLogin";
+
+/**
+ * THE FRONT DOOR (owner order 2026-11-27 ~23:18 CST): before
+ * anything else, the landing is the bare Matrix Wall — a click
+ * opens a plain box, and the name of the visitor's god is the
+ * key. This helper walks a test through the Captain's door:
+ * click the rain, type "Anubis", and the secure screen opens.
+ */
+async function passDoor(name = "Anubis") {
+  fireEvent.click(await screen.findByTestId("login-wall"));
+  const input = await screen.findByLabelText("The name of your god");
+  fireEvent.change(input, { target: { value: name } });
+  fireEvent.submit(input.closest("form")!);
+}
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -73,6 +88,7 @@ describe("operator sign-in gate", () => {
   let auth: ReturnType<typeof createAuthMock>;
 
   beforeEach(() => {
+    localStorage.clear();
     Reflect.deleteProperty(window, "__augixviOperatorAuthClient");
     vi.stubEnv("VITE_SUPABASE_URL", "https://project.invalid");
     vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "public-placeholder");
@@ -104,10 +120,51 @@ describe("operator sign-in gate", () => {
     const originalWindow = globalThis.window;
     Object.defineProperty(globalThis, "window", { configurable: true, value: undefined });
     try {
-      expect(renderToString(<OperatorGate />)).toContain("Checking operator session");
+      const html = renderToString(<OperatorGate />);
+      // The landing is the bare Matrix Wall: the wall and its
+      // tap surface render, and NO words stand on it — no
+      // heading, no status line, no medallion name.
+      expect(html).toContain("login-wall");
+      expect(html).toContain("matrix-wall");
+      expect(html).not.toContain("Operator sign-in");
+      expect(html).not.toContain("Checking operator session");
+      expect(html).not.toContain("MONTU");
     } finally {
       Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
     }
+  });
+
+  it("the landing is the bare matrix — a wrong name opens nothing, in silence", async () => {
+    const { container } = render(<OperatorGate />);
+
+    const wall = await screen.findByTestId("login-wall");
+    // The woven cover stands on the front rain, and the front
+    // carries no visible words at all.
+    expect(container.querySelector("[data-weave='true']")).not.toBeNull();
+    expect(container.textContent?.trim()).toBe("");
+    expect(screen.queryByRole("heading")).toBeNull();
+
+    fireEvent.click(wall);
+    const input = await screen.findByLabelText("The name of your god");
+    fireEvent.change(input, { target: { value: "Zeus" } });
+    fireEvent.submit(input.closest("form")!);
+
+    // Silence: the box is gone, the rain stands, nothing opened
+    // and nothing was said that could teach anyone anything.
+    expect(screen.queryByLabelText("The name of your god")).toBeNull();
+    expect(await screen.findByTestId("login-wall")).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).toBeNull();
+    expect(container.textContent?.trim()).toBe("");
+  });
+
+  it("the Captain's god-name opens the secure screen; the medallion front is retired", async () => {
+    const { container } = render(<OperatorGate />);
+    await passDoor();
+    expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
+    // Inside the door the wall is the plain rain — the weave is
+    // the front cover only — and Montu's medallion front is gone.
+    expect(container.querySelector("[data-weave='true']")).toBeNull();
+    expect(container.querySelector("[data-testid='montu-guard']")).toBeNull();
   });
 
   it("fails closed and explains when Supabase Auth is not configured", async () => {
@@ -115,8 +172,9 @@ describe("operator sign-in gate", () => {
     vi.stubEnv("VITE_SUPABASE_URL", "");
     const { container } = render(<OperatorGate />);
 
-    // The gate now waits for the server config lookup to settle before
-    // declaring itself unconfigured, so the heading arrives asynchronously.
+    // The explanation stands behind the door, like everything
+    // else: the name passes first, then the unconfigured card.
+    await passDoor();
     expect(
       await screen.findByRole("heading", { name: "Sign-in not configured" }),
     ).toBeInTheDocument();
@@ -134,6 +192,7 @@ describe("operator sign-in gate", () => {
     mocks.bootstrapStatus.mockResolvedValue({ configured: true, claimed: true });
 
     render(<OperatorGate />);
+    await passDoor();
 
     expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Sign-in not configured" })).toBeNull();
@@ -149,6 +208,7 @@ describe("operator sign-in gate", () => {
 
   it("shows only the sign-in form before authorization", async () => {
     render(<OperatorGate />);
+    await passDoor();
 
     expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
     // Hidden fields (2026-11-27): the Sign in button renders only
@@ -200,6 +260,7 @@ describe("operator sign-in gate", () => {
     });
     try {
       render(<OperatorGate />);
+      await passDoor();
 
       expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Run the gate check" })).toBeInTheDocument();
@@ -239,6 +300,7 @@ describe("operator sign-in gate", () => {
     });
     try {
       render(<OperatorGate />);
+      await passDoor();
 
       expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
       // Badge path: jsdom has no BarcodeDetector, so the gate says so
@@ -298,6 +360,7 @@ describe("operator sign-in gate", () => {
       operatorFullName: null,
     });
     render(<OperatorGate />);
+    await passDoor();
     // jsdom cannot run the gate check: the visitor continues by the
     // gate's button (which records the attempt), then signs in.
     fireEvent.click(
@@ -313,8 +376,12 @@ describe("operator sign-in gate", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Test sign out" }));
 
-    expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
+    // Signing out shuts the door behind him: the rain stands
+    // again, and the secure screen waits for the name once more.
+    expect(await screen.findByTestId("login-wall")).toBeInTheDocument();
     expect(auth.signOut).toHaveBeenCalledOnce();
+    await passDoor();
+    expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
   });
 
   it("signs out an authenticated but non-operator account and keeps the avatar hidden", async () => {
@@ -329,6 +396,7 @@ describe("operator sign-in gate", () => {
       operatorFullName: null,
     });
     render(<OperatorGate />);
+    await passDoor();
     fireEvent.click(
       await screen.findByRole("button", { name: "Continue with email and password" }),
     );
@@ -353,6 +421,7 @@ describe("operator sign-in gate", () => {
     });
 
     render(<OperatorGate />);
+    await passDoor();
 
     expect(
       await screen.findByRole("heading", { name: "Sign-in not configured" }),
@@ -364,6 +433,7 @@ describe("operator sign-in gate", () => {
     mocks.bootstrapStatus.mockResolvedValue({ configured: true, claimed: true });
 
     render(<OperatorGate />);
+    await passDoor();
 
     expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Set up first operator account" })).toBeNull();
@@ -388,6 +458,7 @@ describe("operator sign-in gate", () => {
       });
 
     render(<OperatorGate />);
+    await passDoor();
     fireEvent.click(
       await screen.findByRole("button", { name: "Continue with email and password" }),
     );
@@ -424,6 +495,7 @@ describe("operator sign-in gate", () => {
     });
 
     render(<OperatorGate />);
+    await passDoor();
     fireEvent.click(await screen.findByRole("button", { name: "Set up first operator account" }));
 
     expect(screen.getByRole("heading", { name: "Set up operator account" })).toBeInTheDocument();
@@ -435,5 +507,61 @@ describe("operator sign-in gate", () => {
 
     expect(await screen.findByAltText("Authenticator setup QR code")).toBeInTheDocument();
     expect(auth.signUp).toHaveBeenCalledWith({ email, password });
+  });
+
+  it("a saved login on this device passes the name door on return", async () => {
+    // The device record stands from a previous visit: the
+    // secure screen opens without the box ever being touched.
+    localStorage.setItem(
+      "augi.saved-login.v1",
+      JSON.stringify({
+        seat: 0,
+        godName: "Anubis",
+        personName: "Domenick Arlon Hall",
+        savedAt: "2026-11-28T05:30:00.000Z",
+        device: { userAgent: "Test Browser", platform: "TestOS", language: "en-US" },
+      }),
+    );
+    render(<OperatorGate />);
+    expect(await screen.findByRole("heading", { name: "Operator sign-in" })).toBeInTheDocument();
+    expect(screen.queryByTestId("login-wall")).toBeNull();
+    // And the screen says the device is remembered, with the
+    // way to forget it standing right there.
+    expect(screen.getByText(/Your login is saved on this device/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Forget this device" })).toBeInTheDocument();
+  });
+
+  it("saves the login on this device, and signing out forgets the device", async () => {
+    auth.signInWithPassword.mockResolvedValue({
+      data: { session: { access_token: "session" } },
+      error: null,
+    });
+    mocks.verifySession.mockResolvedValue({
+      configured: true,
+      authorized: true,
+      operatorName: null,
+      operatorFullName: null,
+    });
+    render(<OperatorGate />);
+    await passDoor();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Save my login on this device" }));
+    const saved = readSavedLogin(localStorage);
+    expect(saved?.seat).toBe(0);
+    expect(saved?.godName).toBe("Anubis");
+    expect(saved?.personName).toBe("Domenick Arlon Hall");
+    expect(saved?.device.userAgent.length).toBeGreaterThan(0);
+    expect(await screen.findByRole("button", { name: "Forget this device" })).toBeInTheDocument();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Continue with email and password" }),
+    );
+    const signInButton = await screen.findByRole("button", { name: "Sign in" });
+    fireEvent.submit(signInButton.closest("form")!);
+    expect(await screen.findByTestId("avatar-stage", {}, { timeout: 3000 })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Test sign out" }));
+    expect(await screen.findByTestId("login-wall")).toBeInTheDocument();
+    expect(readSavedLogin(localStorage)).toBeNull();
   });
 });
