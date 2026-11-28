@@ -138,6 +138,66 @@
   margin-top: 1rem;
 }
 
+/* ---- THE CUBE STRIKE (owner order 2026-11-28 ~00:50 CST):
+   the third wrong name at the door, and every return of a
+   restricted address. The cube takes the whole screen over
+   black; the frame's turn compounds the cube's own spin —
+   faster and faster under an ease-in — then the veil closes
+   and black is all that remains. No words stand here. ---- */
+.cube-strike {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: #000;
+  overflow: hidden;
+}
+.cube-strike__spin {
+  position: absolute;
+  inset: -12%;
+  animation: cube-strike-spin 4.4s cubic-bezier(0.55, 0, 1, 1) both;
+  will-change: transform;
+}
+.cube-strike__spin iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+}
+@keyframes cube-strike-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(1800deg);
+  }
+}
+.cube-strike__veil {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  animation: cube-strike-blacken 1.8s ease-in 3.6s both;
+}
+@keyframes cube-strike-blacken {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cube-strike__spin {
+    animation: none;
+  }
+  .cube-strike__veil {
+    animation-delay: 0.4s;
+    animation-duration: 0.8s;
+  }
+}
+
 /* The agents' pages: their content stands over the wall. */
 .violet-shell,
 .learner-shell {
