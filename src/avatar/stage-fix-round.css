@@ -2074,3 +2074,158 @@
     height: min(33dvh, 23rem);
   }
 }
+
+/* ================================================================
+   42) THE WORKING KEYBOARD (owner order 2026-11-28 ~07:21 CST,
+   his word "engage" given): he tested the effect in the
+   sandbox on the Living Portrait and approved it — "if you
+   can have that keyboard effect pop up for my Anubis... you
+   can already get the keyboard with the binary showing on top
+   when Anubis is working, go ahead and do that." While Anubis
+   WORKS (his `acting` read — bridge THINKING or presenting),
+   a gold-rimmed keyboard rises at the base of his medallion:
+   keys light one at a time in a typing rhythm, and a stream
+   of binary types out above it. When the work ends, the
+   keyboard settles back down and is gone.
+
+   THE PAWS ARE NOT IN (same order): the sandbox version's two
+   little paw figures stay in the sandbox until he perfects
+   them — this section dresses a keyboard and a binary stream
+   ONLY, and no rule here names a paw, a minion, or a figure.
+
+   THE SEAT: the keyboard is the halo's child, centered on the
+   medallion, standing at its base and spilling a breath below
+   it — it rides his locked seat and his recede (§38) with
+   him. It is decoration over the stage's ground only: it
+   never reaches the chat thread or the input docked at the
+   bottom of the screen, on the phone or anywhere else.
+   pointer-events: none — it takes no touch. Gold on black,
+   the stage's dress; NO blue anywhere in it.
+
+   Reduced motion: the keyboard still rises (the rise is how
+   he knows the state changed) but nothing flashes — the
+   component stands its stream still and no key lights in
+   turn; the caret holds steady.
+   ================================================================ */
+.avatar-stage .working-keyboard {
+  position: absolute;
+  left: 50%;
+  bottom: -14%;
+  transform: translateX(-50%);
+  width: 126%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.18rem;
+  pointer-events: none;
+  animation: working-keyboard-rise 420ms cubic-bezier(0.22, 0.8, 0.3, 1);
+}
+.avatar-stage .working-keyboard--leaving {
+  animation: working-keyboard-settle 330ms ease-in forwards;
+}
+@keyframes working-keyboard-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(42%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+@keyframes working-keyboard-settle {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(42%);
+  }
+}
+.avatar-stage .working-keyboard__stream {
+  max-width: 100%;
+  min-height: 1em;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  color: #ffd94d;
+  text-shadow: 0 0 8px rgb(255 217 77 / 45%);
+}
+.avatar-stage .working-keyboard__caret {
+  display: inline-block;
+  width: 0.42em;
+  height: 0.85em;
+  margin-left: 0.18em;
+  vertical-align: -0.1em;
+  background: #ffd94d;
+  animation: working-keyboard-caret 0.9s steps(1) infinite;
+}
+@keyframes working-keyboard-caret {
+  50% {
+    opacity: 0;
+  }
+}
+.avatar-stage .working-keyboard__board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  width: 100%;
+  padding: 0.3rem 0.34rem 0.36rem;
+  border: 1px solid rgb(255 217 77 / 55%);
+  border-radius: 0.55rem;
+  background: rgb(4 4 6 / 92%);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 90%),
+    0 10px 22px rgb(0 0 0 / 55%),
+    0 0 18px rgb(255 217 77 / 12%);
+}
+.avatar-stage .working-keyboard__row {
+  display: flex;
+  gap: 0.16rem;
+  justify-content: center;
+}
+.avatar-stage .working-keyboard__key {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 0.92rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 217 77 / 28%);
+  border-radius: 0.22rem;
+  background: rgb(18 15 8 / 95%);
+  color: rgb(255 217 77 / 75%);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.5rem;
+  line-height: 1;
+  transition:
+    background 90ms ease,
+    color 90ms ease,
+    box-shadow 90ms ease;
+}
+.avatar-stage .working-keyboard__key--lit {
+  background: #ffd94d;
+  border-color: #ffd94d;
+  color: #171106;
+  box-shadow: 0 0 10px rgb(255 217 77 / 65%);
+}
+.avatar-stage .working-keyboard__key--space {
+  flex: 5 1 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar-stage .working-keyboard,
+  .avatar-stage .working-keyboard--leaving {
+    animation: none;
+  }
+  .avatar-stage .working-keyboard__caret {
+    animation: none;
+  }
+  .avatar-stage .working-keyboard__key {
+    transition: none;
+  }
+}
