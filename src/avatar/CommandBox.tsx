@@ -346,6 +346,59 @@ export interface CommandBoxWindowControls {
   anchored: boolean;
 }
 
+/**
+ * WHOLE LINES AT THE TOP OF THE PHONE STREAM (owner eye-check
+ * 2026-11-27 ~21:56 CST, phone fix pass 4): a scroller resting
+ * at its bottom almost always slices the topmost visible line
+ * in half — a cream sliver of a bubble cut by the thread's top
+ * edge in his screenshot. His law is whole messages only. When
+ * the stream overflows its cap, this shrinks the thread's own
+ * height by the sliced part of the top line, so the visible
+ * window holds whole lines only: the top edge lands exactly on
+ * a line's top edge, and the newest line stays flush at the
+ * bottom, right above the input. A "line" is one child of the
+ * flow — an exchange (his line and the reply under it) is one
+ * child, so an exchange is never split either. A single line
+ * taller than the cap keeps the plain bottom rest; nothing can
+ * make it whole but itself. Phone stream only — the desktop
+ * thread carries no inline height (the scroll effect clears
+ * it on the desktop form).
+ */
+function snapThreadToWholeLines(thread: HTMLDivElement): void {
+  const flow = thread.querySelector<HTMLElement>(".avatar-command-box__thread-flow");
+  // Measure at the chain's natural height: a stale inline
+  // height from an earlier snap would understate the cap.
+  thread.style.height = "";
+  if (!flow) {
+    thread.scrollTop = thread.scrollHeight;
+    return;
+  }
+  const cap = thread.clientHeight;
+  const total = thread.scrollHeight;
+  if (total <= cap) {
+    thread.scrollTop = total;
+    return;
+  }
+  const threadTop = thread.getBoundingClientRect().top;
+  const borderTop = thread.clientTop;
+  const resting = thread.scrollTop;
+  let start: number | null = null;
+  for (const child of Array.from(flow.children)) {
+    const childTop =
+      (child as HTMLElement).getBoundingClientRect().top - threadTop - borderTop + resting;
+    if (total - childTop <= cap) {
+      start = childTop;
+      break;
+    }
+  }
+  if (start === null) {
+    thread.scrollTop = thread.scrollHeight;
+    return;
+  }
+  thread.style.height = `${total - start}px`;
+  thread.scrollTop = thread.scrollHeight;
+}
+
 export function CommandBox({
   accent,
   tabs,
@@ -789,10 +842,25 @@ export function CommandBox({
   // Keep the newest line in view as the conversation flows — and
   // when he comes BACK to chat from a section (Part B: the display
   // follows the tab), the thread stands at its newest line again.
+  // PHONE FIX PASS 4 (owner eye-check 2026-11-27 ~21:56 CST): on
+  // the phone the chat is an unboxed stream and his law is whole
+  // lines only — after the bottom rest, the thread snaps to
+  // whole lines (snapThreadToWholeLines, above) so a send moves
+  // the stream up with the newest exchange whole, right above
+  // the input, and no half-cut line at the top. The snap is the
+  // phone form's alone: on the desktop form any inline height it
+  // left behind is cleared, and the desktop rest is untouched.
   useEffect(() => {
     const thread = threadRef.current;
-    if (!minimized && thread) thread.scrollTop = thread.scrollHeight;
-  }, [minimized, machineryOpen, history, responseLine, userLine, hiddenCount]);
+    if (!thread) return;
+    if (!phoneBar) thread.style.height = "";
+    if (!minimized) thread.scrollTop = thread.scrollHeight;
+    if (!phoneBar || minimized || machineryOpen) return;
+    const frame = requestAnimationFrame(() => {
+      if (threadRef.current === thread) snapThreadToWholeLines(thread);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [minimized, machineryOpen, history, responseLine, userLine, hiddenCount, phoneBar]);
 
   /**
    * THE STRIP'S MESSAGE PREVIEWS (owner order 2026-11-22, his

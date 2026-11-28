@@ -417,3 +417,184 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* =====================================================================
+   PHONE FIX PASS 4 (owner restatement 2026-11-27 ~21:58 CST,
+   superseding the panel reading of his 21:56 eye-check): the
+   phone chat is NOT a box. The input bar stays stuck to the
+   bottom of the screen, permanently pinned by the dock; above
+   it the conversation is a FLOWING STREAM — his line pops up,
+   the construct's reply under it, the stream proceeding in
+   that one place, like a Twitch or Discord chat. No panel, no
+   bordered container, no sheet around the messages. On send
+   the stream moves up: the newest exchange stands right above
+   where he types, whole lines only (the component's whole-line
+   snap in CommandBox), and the construct stands visible above
+   the stream — nothing blocks his gods. The Clear/History
+   tools stay as the small controls they already are. Fenced
+   to the phone width and to the CHAT FACE: a section open
+   keeps pass 3's sheet, the folded bar keeps its face, the
+   enlarged measure keeps pass 3's cap, and the desktop is
+   untouched.
+   ===================================================================== */
+@media (max-width: 700px) {
+  /* THE SHEET IS GONE from the chat face: no background, no
+     border, no shadow, no blur — the section is only the dock
+     (bottom 0, full width, flush, from section 35) and its
+     stack: stream directly above the pinned input, one unit
+     growing upward from the bottom edge, no dead space
+     between the last line and the bar. Its height is its
+     content's, capped in the stage's lower reach — lower
+     than pass 3's sheet cap — so the whole unit (tools,
+     stream, input) stands below the medallion's face: the
+     construct is visible above the stream, uncovered. */
+  .avatar-stage .avatar-command-box.avatar-command-box--phone-bar:not(.avatar-command-box--minimized):not(.avatar-command-box--section-open):not(.avatar-command-box--enlarged) {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    height: auto;
+    max-height: min(40dvh, 30rem);
+  }
+  /* THE STREAM HAS NO CONTAINER: the thread's slate, border
+     and rounding are gone — the messages (their own comic
+     bubbles, section 21, untouched) stand directly on the
+     stage. The thread is the stream's scroller alone, flexing
+     inside the capped unit with the whole flex chain free to
+     shrink, so the input rides directly under the last line
+     at every content height. */
+  .avatar-stage .avatar-command-box--phone-bar:not(.avatar-command-box--section-open) .avatar-command-box__thread {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0.15rem 0.1rem;
+    max-height: none;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+  .avatar-stage .avatar-command-box--phone-bar:not(.avatar-command-box--section-open) .avatar-command-box__main,
+  .avatar-stage .avatar-command-box--phone-bar:not(.avatar-command-box--section-open) .avatar-command-box__conversation {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
+
+/* =====================================================================
+   PHONE FIX PASS 5 (owner eye-check 2026-11-27 ~22:20 CST, after
+   pass 4): "you got the chat just right" — the chat stream stands
+   as pass 4 built it, with ONE change (item 1). The remaining
+   defects are the SECTIONS and the phone menus. A section open
+   still stood tall with a dead gap under its content — "like
+   I'm waiting to see the chat from Anubis. It shouldn't be
+   there" — because pass 3 wrote the section's fit-to-content
+   height at a measure the dock law's fixed height
+   (stage-fix-round §35/§17) could still outrank in the bundle's
+   order, while pass 4's unbreakable measure fenced the
+   sections OUT. The section boxes stood oversized with air in
+   them. And the "+" options list ran off the bottom of the
+   screen, its last row ("Fold to the bar") cut and
+   unreachable. Fenced to the phone width throughout; the top
+   dropdown (NOTIFICATIONS / SETTINGS) is untouched; the
+   desktop is untouched.
+   ===================================================================== */
+@media (max-width: 700px) {
+  /* Item 1 — THE STREAM'S TYPE DROPS ONE STEP (his word: "you
+     can make the text smaller so that way it won't be so much
+     context in the box"): the thread's reading size steps down
+     on the phone chat face — 0.94rem to 0.85rem — and nothing
+     else about the stream changes: same flow, same whole-line
+     snap, same bubbles (their words inherit the thread's size;
+     the name tags keep their own measure). */
+  .avatar-stage .avatar-command-box.avatar-command-box--phone-bar:not(.avatar-command-box--minimized):not(.avatar-command-box--section-open) .avatar-command-box__thread {
+    font-size: 0.85rem;
+  }
+
+  /* Item 2 — A SECTION HUGS ITS CONTENT, under the same law
+     as the chat: tabs + section content + input, no void under
+     the tiles. Restated at the pass-4 measure of specificity,
+     which no bundle order can outrank: the section unit is its
+     content's height, capped at the sheet's standing measure —
+     past the cap the PANEL scrolls, as before. The section
+     keeps its own face (pass 3); this is geometry only. The
+     enlarged measure keeps its taller cap, still fit to
+     content. */
+  .avatar-stage .avatar-command-box.avatar-command-box--phone-bar.avatar-command-box--section-open:not(.avatar-command-box--minimized):not(.avatar-command-box--enlarged) {
+    height: auto;
+    max-height: min(62dvh, 36rem);
+  }
+  .avatar-stage .avatar-command-box.avatar-command-box--phone-bar.avatar-command-box--section-open.avatar-command-box--enlarged:not(.avatar-command-box--minimized) {
+    height: auto;
+    max-height: min(80dvh, 44rem);
+  }
+  /* The chain inside, at the same measure: the machinery
+     sizes to its content and may shrink; the panel is the one
+     scroller, free to shrink with it — no link in the chain
+     can hold the unit open over empty space. */
+  .avatar-stage .avatar-command-box.avatar-command-box--phone-bar.avatar-command-box--section-open .avatar-command-box__machinery {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .avatar-stage .avatar-command-box.avatar-command-box--phone-bar.avatar-command-box--section-open .avatar-command-box__panel {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  /* Item 3 — THE SECTION BOXES FIT THEIR WORDS (his word: "the
+     boxes for the options are really big, there's too much
+     extra space in those boxes — if you have to make the
+     boxes different for they can fit nicely, do so"): pass 3
+     stood the grid's rows at one shared 1fr height, so every
+     row stood as tall as its tallest tile and short tiles
+     floated in air. The rows now size to their own content —
+     boxes may stand at different heights to fit nicely — and
+     the tiles themselves carry less air: a smaller label,
+     tighter padding, no standing min-height to stretch them.
+     Labels still wrap whole inside their tiles (pass 3's rule
+     stands), and the grid keeps its even columns. */
+  .avatar-stage .avatar-command-box.avatar-command-box--section-open .avatar-command-box__grid {
+    grid-auto-rows: auto;
+    gap: 0.35rem;
+  }
+  .avatar-stage .avatar-command-box.avatar-command-box--section-open .avatar-command-box__grid .avatar-command-box__action {
+    min-height: 0;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.68rem;
+    gap: 0.35rem;
+  }
+  .avatar-stage .avatar-command-box.avatar-command-box--section-open .avatar-command-box__grid .avatar-command-box__action svg {
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+
+  /* Item 4 — THE "+" MENU STAYS ON THE SCREEN (his eye-check:
+     the options list ran past the bottom of the phone — "you
+     can see the bottom where it says fold to the bar, I can't
+     even reach it"): the list is bounded to a measure of the
+     screen and scrolls inside itself past it, so every row is
+     reachable, always. Its rows keep their standing bifocal
+     size (stage-fix-round §27); only the list's own height is
+     fenced. */
+  .avatar-stage .avatar-command-box.avatar-command-box--phone-bar .avatar-command-box__options {
+    max-height: min(48dvh, 30rem);
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  /* And while the menu stands open on the chat face, the unit
+     takes the room the menu needs: pass 4's lower-reach cap
+     left the opened menu taller than the box that carries it,
+     so the box's own edge cut the menu's last row. The cap
+     lifts while the menu stands — the stream beneath gives
+     its room to the menu he opened — and settles back the
+     moment it closes. */
+  .avatar-stage .avatar-command-box.avatar-command-box--phone-bar:not(.avatar-command-box--minimized):not(.avatar-command-box--section-open):not(.avatar-command-box--enlarged):has(.avatar-command-box__options) {
+    max-height: min(88dvh, 44rem);
+  }
+}
