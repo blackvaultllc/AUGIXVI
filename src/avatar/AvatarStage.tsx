@@ -418,6 +418,13 @@ import "./phone-fix-pass.css";
 import { ExchangeWindow } from "./ExchangeWindow";
 import { DeitiesWindow } from "./DeitiesWindow";
 import { PersonalVaultWindow } from "./PersonalVaultWindow";
+import { PhotoCheckPrompt } from "./PhotoCheckPrompt";
+import {
+  loadPhotoCheckCadenceDays,
+  loadPhotoCheckLastAskAt,
+  photoCheckDue,
+  type PhotoCheckTrigger,
+} from "./photoCheck";
 import { ProjectsWindow } from "./ProjectsWindow";
 import { StopSafetyWindow } from "./StopSafetyWindow";
 import { DarkHoleWindow } from "./DarkHoleWindow";
@@ -1157,6 +1164,57 @@ export function AvatarStage({
   // in the vault, and the law base + stop mode. Owner surface
   // only — these windows open from the operator's own Tools.
   const [vaultOpen, setVaultOpen] = useState(false);
+  // PERIODIC PHOTO VERIFICATION (owner law 2026-11-28 ~07:28 CST;
+  // the law lives in photoCheck.ts): while he uses the AI, Anubis
+  // may occasionally ask for one picture to verify it is still
+  // him — permission first, always, and a decline costs nothing.
+  // The ask stands here when it is due: once when the stage
+  // opens (the periodic trigger), and at the Personal Vault —
+  // the stage's sensitive surface, his own papers — when a check
+  // is due as it opens (the sensitive-action trigger). Either
+  // way the same one due rule decides, and whatever he answers,
+  // what he was doing carries on: the vault opens after a
+  // sensitive-action ask whether he said yes or no.
+  const [photoCheckAsk, setPhotoCheckAsk] = useState<{
+    trigger: PhotoCheckTrigger;
+    actionName?: string;
+    resumeVault: boolean;
+  } | null>(null);
+  const photoCheckShownRef = useRef(false);
+
+  function photoCheckIsDue(): boolean {
+    return photoCheckDue(Date.now(), loadPhotoCheckLastAskAt(), loadPhotoCheckCadenceDays());
+  }
+
+  function openVault() {
+    if (!photoCheckAsk && photoCheckIsDue()) {
+      setPhotoCheckAsk({
+        trigger: "sensitive-action",
+        actionName: "your Personal Vault",
+        resumeVault: true,
+      });
+      return;
+    }
+    setVaultOpen(true);
+  }
+
+  function resolvePhotoCheckAsk() {
+    const resumeVault = photoCheckAsk?.resumeVault ?? false;
+    setPhotoCheckAsk(null);
+    if (resumeVault) setVaultOpen(true);
+  }
+
+  // The periodic ask: once, when this signed-in stage opens, if
+  // the standing cadence says a check is due on this device.
+  useEffect(() => {
+    if (photoCheckShownRef.current) return;
+    photoCheckShownRef.current = true;
+    if (photoCheckIsDue()) {
+      setPhotoCheckAsk({ trigger: "periodic", resumeVault: false });
+    }
+    // Runs once on mount by design — the ref above is the guard.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [stopSafetyOpen, setStopSafetyOpen] = useState(false);
   // Projects pass (owner order 2026-11-26): his websites inside
   // IEM — the registry, the editor view, and the marks he saves.
@@ -4417,7 +4475,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       label: "Records & safety",
       rows: [
         { icon: Bell, label: "Notifications", open: () => setInboxOpen(true) },
-        { icon: Shield, label: "Personal Vault", open: () => setVaultOpen(true) },
+        { icon: Shield, label: "Personal Vault", open: () => openVault() },
         { icon: CircleDot, label: "Dark Hole", open: () => setDarkHoleOpen(true) },
         { icon: Sun, label: "The Eight and the Gods", open: () => setDeitiesOpen(true) },
         { icon: ArrowLeftRight, label: "Grid-Down Exchange", open: () => setExchangeOpen(true) },
@@ -4816,7 +4874,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                   <CommandAction
                     icon={Shield}
                     label="Personal Vault"
-                    onClick={() => setVaultOpen(true)}
+                    onClick={() => openVault()}
                   />
                   <CommandAction
                     icon={Scale}
@@ -6046,6 +6104,13 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {exchangeOpen && <ExchangeWindow onClose={() => setExchangeOpen(false)} />}
       {deitiesOpen && <DeitiesWindow onClose={() => setDeitiesOpen(false)} />}
       {vaultOpen && <PersonalVaultWindow onClose={() => setVaultOpen(false)} />}
+      {photoCheckAsk && (
+        <PhotoCheckPrompt
+          trigger={photoCheckAsk.trigger}
+          {...(photoCheckAsk.actionName ? { actionName: photoCheckAsk.actionName } : {})}
+          onResolved={resolvePhotoCheckAsk}
+        />
+      )}
       {projectsOpen && <ProjectsWindow onClose={() => setProjectsOpen(false)} />}
       {stopSafetyOpen && <StopSafetyWindow onClose={() => setStopSafetyOpen(false)} />}
       {darkHoleOpen && <DarkHoleWindow onClose={() => setDarkHoleOpen(false)} />}

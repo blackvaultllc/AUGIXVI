@@ -15,6 +15,8 @@ import { getSupabaseClientConfig } from "./operatorAuth.server";
 import { getGateLog, type GateLogView } from "./gateLog.server";
 import { getGateAttemptPhoto, getGateAttempts, type GateAttemptsView } from "./loginGate.server";
 import { gateAttemptFlagged, gateAttemptResultWords } from "./loginGate";
+import { getPhotoCheckPhoto, getPhotoChecks, type PhotoChecksView } from "./photoCheck.server";
+import { photoCheckOutcomeWords } from "./photoCheck";
 import {
   getDoorRestrictions,
   releaseDoorRestriction,
@@ -25,7 +27,7 @@ type GateLogState =
   | { kind: "loading" }
   | { kind: "denied"; configured: boolean }
   | { kind: "unavailable" }
-  | { kind: "ready"; view: GateLogView; attempts: GateAttemptsView | null };
+  | { kind: "ready"; view: GateLogView; attempts: GateAttemptsView | null; checks: PhotoChecksView | null };
 
 async function loadAuthClient(): Promise<SupabaseClient | null> {
   let url = import.meta.env["VITE_SUPABASE_URL"]?.trim();
@@ -91,7 +93,11 @@ export function GateLogWindow({ onClose }: { onClose: () => void }) {
       // The doorbell record rides along — same verified token, and a
       // failure here never takes the knock log down with it.
       const attempts = await getGateAttempts({ data: { accessToken } }).catch(() => null);
-      setState({ kind: "ready", view, attempts });
+      // The photo-check record rides the same way (owner law
+      // 2026-11-28): Anubis's in-session asks and their answers,
+      // kept beside the doorbell record on the core.
+      const checks = await getPhotoChecks({ data: { accessToken } }).catch(() => null);
+      setState({ kind: "ready", view, attempts, checks });
     } catch {
       setState({ kind: "unavailable" });
     }
@@ -102,6 +108,19 @@ export function GateLogWindow({ onClose }: { onClose: () => void }) {
     if (!accessToken) return;
     try {
       const photo = await getGateAttemptPhoto({ data: { accessToken, photoFile } });
+      if (photo.dataUrl) {
+        setPhotos((current) => ({ ...current, [photoFile]: photo.dataUrl as string }));
+      }
+    } catch {
+      /* a photo that cannot be read simply stays unshown */
+    }
+  }, []);
+
+  const showCheckPhoto = useCallback(async (photoFile: string) => {
+    const accessToken = tokenRef.current;
+    if (!accessToken) return;
+    try {
+      const photo = await getPhotoCheckPhoto({ data: { accessToken, photoFile } });
       if (photo.dataUrl) {
         setPhotos((current) => ({ ...current, [photoFile]: photo.dataUrl as string }));
       }
@@ -215,6 +234,52 @@ export function GateLogWindow({ onClose }: { onClose: () => void }) {
                               type="button"
                               className="window-btn"
                               onClick={() => void showPhoto(entry.photoFile as string)}
+                            >
+                              See the picture
+                            </button>
+                          ))}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </>
+            )}
+            {state.checks?.available && (
+              <>
+                <h3 className="window-gate-log__section">
+                  Photo checks — Anubis&apos;s in-session asks
+                </h3>
+                <p className="window-gate-log__count">
+                  {state.checks.total === 0
+                    ? "No photo checks recorded."
+                    : `${state.checks.total} photo check${state.checks.total === 1 ? "" : "s"} recorded.`}
+                </p>
+                {state.checks.entries.length > 0 && (
+                  <ol className="window-gate-log__list">
+                    {state.checks.entries.map((entry, index) => (
+                      <li key={`${entry.ts}-${index}`} className="window-gate-log__item">
+                        <div className="window-gate-log__meta">
+                          {new Date(entry.ts).toLocaleString()} ·{" "}
+                          {entry.trigger === "sensitive-action"
+                            ? "Before a sensitive action"
+                            : "The standing cadence"}
+                        </div>
+                        <div className="window-gate-log__path">
+                          {photoCheckOutcomeWords(entry.outcome)}
+                        </div>
+                        {entry.note && <div className="window-gate-log__agent">{entry.note}</div>}
+                        {entry.photoFile &&
+                          (photos[entry.photoFile] ? (
+                            <img
+                              className="window-gate-log__photo"
+                              src={photos[entry.photoFile]}
+                              alt="The picture taken for this photo check"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="window-btn"
+                              onClick={() => void showCheckPhoto(entry.photoFile as string)}
                             >
                               See the picture
                             </button>
