@@ -86,6 +86,7 @@ import { useState } from "react";
 import { ANUBIS_BINDING, ANUBIS_PORTRAIT_SRC } from "./medallionPortraits";
 import { ANUBIS_FEATURES, LivingPortrait } from "./LivingPortrait";
 import { PresenceRing } from "./PresenceRing";
+import { WorkingKeyboard } from "./WorkingKeyboard";
 import { ANUBIS_MOTION_PROFILE } from "./godMotion";
 import { MedallionMenu } from "./MedallionMenu";
 import {
@@ -284,6 +285,20 @@ export function AnubisPresence({
             />
           )}
         </div>
+        {/* THE WORKING KEYBOARD (owner order 2026-11-28
+            ~07:21 CST, "engage"): the sandbox effect he
+            approved — while Anubis WORKS (this presence's
+            `acting` read: bridge THINKING or presenting, the
+            stage's real working signal), a keyboard rises at
+            the base of his medallion, keys lighting as if
+            struck, binary streaming above it; it settles away
+            when the work ends. Keyboard and binary ONLY — the
+            sandbox's paw figures are excluded by his order
+            until he perfects them there. It stands as the
+            halo's child so it rides his seat and his recede,
+            seated at the medallion's base, clear of the chat
+            below (stage-fix-round.css §42). */}
+        <WorkingKeyboard active={acting} />
       </div>
       {/* FACE ONLY (owner eye-check 2026-11-22): no name plate, no
           controls row under the face — the controls live inside
