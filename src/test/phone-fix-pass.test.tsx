@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -188,5 +190,40 @@ describe("the agent's three buttons — problem, message, emergency", () => {
     expect(onEmergency).not.toHaveBeenCalled(); // the confirm stands first
     fireEvent.click(screen.getByRole("button", { name: "Yes — emergency, send it now" }));
     await waitFor(() => expect(onEmergency).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("phone fix pass 3 — the sheet hugs its content, the caption stays on the phone, the grid stands even (owner eye-check 2026-11-27 ~21:32 CST)", () => {
+  const passCss = readFileSync(resolve(process.cwd(), "src/avatar/phone-fix-pass.css"), "utf8");
+  const pass3 = passCss.slice(passCss.indexOf("PHONE FIX PASS 3"));
+
+  it("the open command box fits its content, capped — no fixed height, no void", () => {
+    expect(pass3).toContain(
+      ".avatar-stage .avatar-command-box:not(.avatar-command-box--minimized)",
+    );
+    expect(pass3).toContain("height: auto");
+    expect(pass3).toContain("max-height: min(62dvh, 36rem)");
+    expect(pass3).toContain("max-height: min(80dvh, 44rem)");
+  });
+
+  it("the section chain has one scroller — the panel — with no nested cap to slice a row", () => {
+    expect(pass3).toContain(
+      ".avatar-stage .avatar-command-box--section-open .avatar-command-box__panel",
+    );
+    expect(pass3).toContain("overflow-y: auto");
+    expect(pass3).toContain(".avatar-stage .avatar-command-box__thread");
+    expect(pass3).toContain("max-height: min(38dvh, 22rem)");
+  });
+
+  it("Anubis's spoken caption stands inside the right margin, bounded to a reading width", () => {
+    expect(pass3).toContain(".avatar-stage .speech-bubble--anubis");
+    expect(pass3).toContain("right: 0.75rem");
+    expect(passCss).toContain("max-width: min(16rem, 74vw)");
+  });
+
+  it("the tools grid's rows stand even and its labels wrap whole inside their tiles", () => {
+    expect(pass3).toContain("grid-auto-rows: 1fr");
+    expect(pass3).toContain(".avatar-stage .avatar-command-box__action > span");
+    expect(pass3).toContain("white-space: normal");
   });
 });
