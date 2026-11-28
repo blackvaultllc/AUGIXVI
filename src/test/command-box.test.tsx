@@ -1304,6 +1304,46 @@ describe("command box phone bar — one button (Part D)", () => {
     }
   });
 
+  it("pass 9: the plus button stays, and what it opens is symbols only — no visible words", () => {
+    // PASS 9 (owner order 2026-11-28 ~00:37 CST): "I just want
+    // to hit the plus button and see the symbols of what I
+    // need." The plus toggle stands as ever; the strip it opens
+    // carries every action as a symbol alone — no text node a
+    // sighted eye can read — while each name survives as the
+    // button's aria-label, so the role/name queries above (and
+    // a screen reader) still find every act.
+    const { container, restore } = renderPhoneBar();
+    try {
+      openTheBox();
+      // The plus button itself is NOT removed.
+      const toggle = screen.getByRole("button", { name: /Open the message options/ });
+      expect(toggle).toBeInTheDocument();
+      fireEvent.click(toggle);
+      const menu = container.querySelector(".avatar-command-box__options") as HTMLElement;
+      expect(menu).not.toBeNull();
+      const items = Array.from(menu.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+      // Send, microphone, emoji, the menu, the fold — five
+      // symbols (attach rides only when a handler is wired).
+      expect(items.length).toBe(5);
+      for (const item of items) {
+        // A symbol stands in the button…
+        expect(item.querySelector("svg")).not.toBeNull();
+        // …and NO visible words: the button carries no text.
+        expect(item.textContent?.trim()).toBe("");
+        // The name is the aria-label, nothing else.
+        expect(item.getAttribute("aria-label")).toBeTruthy();
+      }
+      // Every act still answers to its name.
+      expect(screen.getByRole("menuitem", { name: "Send" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Microphone" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Emoji" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Open the menu" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Fold to the bar" })).toBeInTheDocument();
+    } finally {
+      restore();
+    }
+  });
+
   it("the stylesheet gives the bar's field a real tap target and keeps the options in flow", () => {
     // jsdom has no layout: the size law is pinned at the
     // stylesheet — the field stands 3.25rem tall at 1rem type

@@ -329,3 +329,49 @@ describe("phone fix pass 5 — the chat's type steps down, sections hug their co
     expect(pass5).toContain("max-height: min(88dvh, 44rem)");
   });
 });
+
+describe("phone fix pass 9 — the plus menu as symbols: gold on the dark ground, no blue bars, no unused space (owner order 2026-11-28 ~00:37 CST)", () => {
+  const stageCss = readFileSync(resolve(process.cwd(), "src/avatar/stage-fix-round.css"), "utf8");
+  const passCss = readFileSync(resolve(process.cwd(), "src/avatar/phone-fix-pass.css"), "utf8");
+  const pass9 = passCss.slice(passCss.indexOf("PHONE FIX PASS 9"));
+
+  function ruleBody(css: string, selector: string): string {
+    const start = css.indexOf(selector);
+    expect(start, `rule for ${selector}`).toBeGreaterThan(-1);
+    return css.slice(start, css.indexOf("}", start));
+  }
+
+  it("the strip is a tight row sized to its symbols — not a full-width column", () => {
+    const optionsRule = ruleBody(stageCss, ".avatar-command-box__options {");
+    expect(optionsRule).toContain("order: -1");
+    expect(optionsRule).toContain("flex-direction: row");
+    expect(optionsRule).toContain("width: fit-content");
+    expect(optionsRule).not.toContain("flex: 1 1 100%");
+  });
+
+  it("the blue bar fill is out of the menu — symbols gold on the dark ground", () => {
+    const optionRule = ruleBody(stageCss, ".avatar-command-box__option {");
+    expect(optionRule).not.toContain("#1d2a52");
+    expect(optionRule).toContain("background: transparent");
+    expect(optionRule).toContain("color: #ffd94d");
+    // The plus button itself sheds the blue fill too.
+    const toggleRule = ruleBody(stageCss, ".avatar-command-box__options-toggle {");
+    expect(toggleRule).not.toContain("#1d2a52");
+    expect(toggleRule).toContain("color: #ffd94d");
+  });
+
+  it("one action is one square symbol — no word-bar geometry left", () => {
+    const optionRule = ruleBody(stageCss, ".avatar-command-box__option {");
+    expect(optionRule).toContain("width: 3rem");
+    expect(optionRule).toContain("height: 3rem");
+    expect(optionRule).not.toContain("width: 100%");
+    expect(optionRule).not.toContain("text-align: left");
+  });
+
+  it("pass 5's bounded scroller is retired for the strip — the symbols stand in the open", () => {
+    expect(pass9).toContain(".avatar-command-box--phone-bar .avatar-command-box__options");
+    expect(pass9).toContain("max-height: none");
+    expect(pass9).toContain("overflow: visible");
+    expect(pass9).toContain("width: fit-content");
+  });
+});
