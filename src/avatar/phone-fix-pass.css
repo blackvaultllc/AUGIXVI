@@ -756,3 +756,43 @@
 .avatar-stage .stage-quick-menu__section {
   padding: 0.35rem 0.25rem 0.55rem;
 }
+
+/* ==========================================================================
+   PHONE FIX PASS 9 (owner order 2026-11-28 ~00:37 CST) — THE PLUS MENU
+   AS SYMBOLS: "I just want to hit the plus button and see the symbols
+   of what I need. The cleaner it is the more convenient the better."
+   The plus button STAYS. What it opens is no longer a column of
+   word-bars on the dark-blue fill (#1d2a52 — the blue he pointed at
+   in his 2026-11-28 00:34 CST screenshot): every action stands as a
+   SYMBOL ONLY, gold on the dark ground, in one tight row that sizes
+   to its content — no unused space inside or around the options
+   (No Empty Gaps law). The component and its base dress live in
+   CommandBox.tsx and stage-fix-round.css §27; this section retires
+   pass 5's bounded scroller for the menu (a six-symbol strip fits
+   tight — there is no long list left to fence) and restates the
+   fit at pass-5-grade specificity so no bundle order outranks it.
+   The pass-5 rules above stay in the file as the record of that
+   pass; the rules below are the ones the stage obeys now.
+   ========================================================================== */
+.avatar-stage .avatar-command-box.avatar-command-box--phone-bar .avatar-command-box__options {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.avatar-stage .avatar-command-box.avatar-command-box--phone-bar .avatar-command-box__option {
+  width: 3rem;
+  height: 3rem;
+  background: transparent;
+}
+@media (max-width: 700px) {
+  /* Pass 5's fence is retired for this strip: no max-height, no
+     inside scroll — the symbols stand in the open, every one
+     reachable without scrolling anything. */
+  .avatar-stage .avatar-command-box.avatar-command-box--phone-bar .avatar-command-box__options {
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+}

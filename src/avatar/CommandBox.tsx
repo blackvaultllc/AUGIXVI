@@ -1067,6 +1067,15 @@ export function CommandBox({
    * the panel that button opens, each as a labeled row he can
    * hit without aiming. Same form in the folded bar and in the
    * opened box: one bar, one behavior, every tab (Part B).
+   *
+   * PASS 9 (owner order 2026-11-28 ~00:37 CST): the plus button
+   * STAYS — he hits it and sees the symbols of what he needs.
+   * What it opens changed: the word-bars are gone, every action
+   * stands as a SYMBOL ONLY (the same icons, their names kept as
+   * aria-labels for screen readers), gold on the dark ground —
+   * the blue bar fill is out — and the strip sizes to its
+   * symbols with no unused space. The dress is stage-fix-round
+   * §27 as restated by phone-fix-pass PASS 9.
    */
   const phoneForm = (
     <form className="avatar-command-box__form avatar-command-box__form--phone" onSubmit={submit}>
@@ -1093,9 +1102,10 @@ export function CommandBox({
             type="submit"
             disabled={!chat.trim()}
             role="menuitem"
+            aria-label="Send"
+            title="Send"
           >
             <Sparkles aria-hidden="true" />
-            <span>Send</span>
           </button>
           <button
             className="avatar-command-box__option"
@@ -1103,9 +1113,10 @@ export function CommandBox({
             role="menuitem"
             onClick={onToggleVoice}
             disabled={!voiceAvailable}
+            aria-label={voiceListening ? "Stop microphone" : "Microphone"}
+            title={voiceListening ? "Stop microphone" : "Microphone"}
           >
             {voiceListening ? <MicOff aria-hidden="true" /> : <Mic aria-hidden="true" />}
-            <span>{voiceListening ? "Stop microphone" : "Microphone"}</span>
           </button>
           {onAttachFile && (
             <button
@@ -1116,9 +1127,10 @@ export function CommandBox({
                 setOptionsOpen(false);
                 attachRef.current?.click();
               }}
+              aria-label="Attach a picture or file"
+              title="Attach a picture or file"
             >
               <Paperclip aria-hidden="true" />
-              <span>Attach a picture or file</span>
             </button>
           )}
           <button
@@ -1130,9 +1142,10 @@ export function CommandBox({
               setEmojiOpen((open) => !open);
             }}
             aria-expanded={emojiOpen}
+            aria-label="Emoji"
+            title="Emoji"
           >
             <Smile aria-hidden="true" />
-            <span>Emoji</span>
           </button>
           <button
             className="avatar-command-box__option"
@@ -1142,9 +1155,10 @@ export function CommandBox({
               setOptionsOpen(false);
               onOpenMenu?.();
             }}
+            aria-label="Open the menu"
+            title="Open the menu"
           >
             <Menu aria-hidden="true" />
-            <span>Open the menu</span>
           </button>
           <button
             className="avatar-command-box__option"
@@ -1154,9 +1168,10 @@ export function CommandBox({
               setOptionsOpen(false);
               toggleMinimized();
             }}
+            aria-label={minimized ? "Open the chat" : "Fold to the bar"}
+            title={minimized ? "Open the chat" : "Fold to the bar"}
           >
             {minimized ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
-            <span>{minimized ? "Open the chat" : "Fold to the bar"}</span>
           </button>
         </div>
       )}
