@@ -230,7 +230,10 @@ describe("phone fix pass 3 — the sheet hugs its content, the caption stays on 
 
 describe("phone fix pass 4 — the phone chat is a stream, not a box (owner restatement 2026-11-27 ~21:58 CST)", () => {
   const passCss = readFileSync(resolve(process.cwd(), "src/avatar/phone-fix-pass.css"), "utf8");
-  const pass4 = passCss.slice(passCss.indexOf("PHONE FIX PASS 4"));
+  const pass4 = passCss.slice(
+    passCss.indexOf("PHONE FIX PASS 4"),
+    passCss.indexOf("PHONE FIX PASS 5"),
+  );
   const boxSource = readFileSync(resolve(process.cwd(), "src/avatar/CommandBox.tsx"), "utf8");
 
   it("the chat face carries no sheet: no background, no border, no shadow, no blur", () => {
@@ -271,5 +274,58 @@ describe("phone fix pass 4 — the phone chat is a stream, not a box (owner rest
     expect(boxSource).toContain('thread.querySelector<HTMLElement>(".avatar-command-box__thread-flow")');
     // The snap is the phone form's alone; the desktop form clears its trace.
     expect(boxSource).toContain('if (!phoneBar) thread.style.height = "";');
+  });
+});
+
+describe("phone fix pass 5 — the chat's type steps down, sections hug their content, tiles fit their words, the '+' menu stays on the screen (owner eye-check 2026-11-27 ~22:20 CST)", () => {
+  const passCss = readFileSync(resolve(process.cwd(), "src/avatar/phone-fix-pass.css"), "utf8");
+  const pass5 = passCss.slice(passCss.indexOf("PHONE FIX PASS 5"));
+
+  it("the stream's reading size steps down one step on the phone — the stream itself untouched", () => {
+    expect(pass5).toContain(
+      ".avatar-command-box--phone-bar:not(.avatar-command-box--minimized):not(.avatar-command-box--section-open) .avatar-command-box__thread",
+    );
+    expect(pass5).toContain("font-size: 0.85rem");
+  });
+
+  it("a section unit is its content's height, at a measure no bundle order can outrank", () => {
+    expect(pass5).toContain(
+      ".avatar-command-box--phone-bar.avatar-command-box--section-open:not(.avatar-command-box--minimized):not(.avatar-command-box--enlarged)",
+    );
+    expect(pass5).toContain("height: auto");
+    expect(pass5).toContain("max-height: min(62dvh, 36rem)");
+    // The enlarged measure keeps its taller cap, still fit to content.
+    expect(pass5).toContain(
+      ".avatar-command-box--section-open.avatar-command-box--enlarged:not(.avatar-command-box--minimized)",
+    );
+    expect(pass5).toContain("max-height: min(80dvh, 44rem)");
+  });
+
+  it("the section chain cannot hold the unit open — machinery and panel size to content, the panel the one scroller", () => {
+    expect(pass5).toContain(
+      ".avatar-command-box--section-open .avatar-command-box__machinery",
+    );
+    expect(pass5).toContain(".avatar-command-box--section-open .avatar-command-box__panel");
+    expect(pass5).toContain("flex: 0 1 auto");
+    expect(pass5).toContain("overflow-y: auto");
+  });
+
+  it("the section tiles fit their words — rows size to content, labels smaller, padding tighter", () => {
+    expect(pass5).toContain("grid-auto-rows: auto");
+    expect(pass5).toContain(
+      ".avatar-command-box--section-open .avatar-command-box__grid .avatar-command-box__action",
+    );
+    expect(pass5).toContain("font-size: 0.68rem");
+    expect(pass5).toContain("padding: 0.35rem 0.5rem");
+    expect(pass5).toContain("min-height: 0");
+  });
+
+  it("the '+' menu is bounded to the screen and scrolls inside itself — every row reachable", () => {
+    expect(pass5).toContain(".avatar-command-box--phone-bar .avatar-command-box__options");
+    expect(pass5).toContain("max-height: min(48dvh, 30rem)");
+    expect(pass5).toContain("overflow-y: auto");
+    // While the menu stands open on the chat face, the unit takes the room it needs.
+    expect(pass5).toContain(":has(.avatar-command-box__options)");
+    expect(pass5).toContain("max-height: min(88dvh, 44rem)");
   });
 });
