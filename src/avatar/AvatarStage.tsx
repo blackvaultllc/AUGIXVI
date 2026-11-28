@@ -42,7 +42,6 @@ import {
   Hammer,
   Hexagon,
   History,
-  Home,
   Image as ImageIcon,
   LandPlot,
   Map as MapIcon,
@@ -51,8 +50,6 @@ import {
   LayoutGrid,
   LocateFixed,
   LogOut,
-  MoveLeft,
-  MoveRight,
   Plane,
   Presentation,
   Radio,
@@ -264,6 +261,7 @@ import { CaptainsOfficeView } from "./CaptainsOffice";
 import {
   isCaptainsOfficeExit,
   isCaptainsOfficeRequest,
+  officeKnockNotification,
   officeKnocks,
   type OfficeKnock,
 } from "./captainsOffice";
@@ -749,6 +747,17 @@ export function AvatarStage({
   // Knocks he has answered "not now" to, by signature: the same
   // standing alert never knocks twice, a grown count does.
   const [dismissedKnocks, setDismissedKnocks] = useState<ReadonlySet<string>>(new Set());
+  // THE GUEST (owner refinement 2026-11-27 ~23:07 CST): the god
+  // he let INTO his Office. While a guest stands, the Office
+  // stays open, the chat stands inside the room addressed to
+  // that god (the stage root carries the office-guest class so
+  // the box layers over the Office's ground), and ending the
+  // visit sends the god back — he stays in his Office.
+  const [officeGuest, setOfficeGuest] = useState<OfficeKnock | null>(null);
+  // Knocks already carried into the record as notifications,
+  // by signature: a standing knock arrives ONCE; a grown count
+  // is a new signature and arrives again.
+  const officeKnockNotifiedRef = useRef<ReadonlySet<string>>(new Set());
   // THE CONSTRUCT IN HIS OWN BOX (owner order 2026-11-22): the sand
   // construct no longer holds center stage — he stands in a floating
   // container window, and the renderer's canvas docks into that
@@ -1301,6 +1310,24 @@ export function AvatarStage({
   const officeKnockList = officeKnocks(alertReading).filter(
     (knock) => !dismissedKnocks.has(knock.signature),
   );
+  // THE KNOCK ARRIVES AS A NOTIFICATION (owner refinement
+  // 2026-11-27 ~23:07 CST): while he is in his Office, each
+  // standing knock is written into the record through
+  // notify() under its god's own name — "[God] would like to
+  // speak with you" — once per standing alert; a grown count
+  // is a new signature and arrives again. The record is the
+  // notifications' home; in the room itself the same knock
+  // stands as the card he clicks to let the god in.
+  useEffect(() => {
+    if (!captainsOfficeOpen) return;
+    for (const knock of officeKnockList) {
+      if (officeKnockNotifiedRef.current.has(knock.signature)) continue;
+      officeKnockNotifiedRef.current = new Set(officeKnockNotifiedRef.current).add(
+        knock.signature,
+      );
+      notify("office knock", officeKnockNotification(knock), knock.god);
+    }
+  }, [captainsOfficeOpen, officeKnockList, notify]);
   useEffect(() => {
     let stopped = false;
     const tick = async () => {
@@ -2910,6 +2937,8 @@ export function AvatarStage({
         return;
       }
       if (captainsOfficeOpen && isCaptainsOfficeExit(commandText)) {
+        // Leaving the room ends any visit standing in it.
+        setOfficeGuest(null);
         setCaptainsOfficeOpen(false);
         say("Back to the stage.");
         return;
@@ -4590,43 +4619,16 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
   const motionSection = (
 <>
 
-            <CommandGroup label="Construct position">
-              <div className="avatar-command-box__grid">
-                <CommandAction
-                  icon={DoorOpen}
-                  label="Bring in"
-                  onClick={() => {
-                    bringConstructIn();
-                    say("AUGI is in, Captain — on the stage, facing you.");
-                  }}
-                />
-                <CommandAction
-                  icon={MoveLeft}
-                  label="Left"
-                  onClick={() => {
-                    walkConstructAside("left");
-                    say("AUGI steps to the left, Captain — side-on and out of your way.");
-                  }}
-                />
-                <CommandAction
-                  icon={MoveRight}
-                  label="Right"
-                  onClick={() => {
-                    walkConstructAside("right");
-                    say("AUGI steps to the right, Captain — side-on and out of your way.");
-                  }}
-                />
-                <CommandAction
-                  icon={Home}
-                  label="Home"
-                  onClick={() => {
-                    bringConstructIn();
-                    say("AUGI is back at his home spot, anchored and free.");
-                  }}
-                />
-              </div>
-            </CommandGroup>
-
+            {/* THE CONSTRUCT POSITION GROUP IS GONE (owner order
+                2026-11-27 ~23:32 CST — the anchor law): the Bring
+                in / Left / Right / Home buttons that repositioned
+                the construct from this menu are removed. The
+                constructs and gods do not move and cannot be
+                repositioned by the user; they stay anchored. His
+                SPOKEN position orders ("move Augi left", "step
+                aside") keep their meaning in the command path —
+                they were never menu controls. What remains here
+                is the construct's own locomotion, below. */}
             <CommandGroup label="Locomotion modes">
               <div className="avatar-command-box__grid">
                 <CommandAction
@@ -5130,7 +5132,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
   return (
     <div
       ref={stageRootRef}
-      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}${osirisDragging ? " avatar-stage--dragging-osiris" : ""}${captainDriving ? " avatar-stage--captain-driving" : ""}${!constructAnchored ? " avatar-stage--construct-held" : ""}${framesArmed ? " avatar-stage--moving-frames" : ""}`}
+      className={`avatar-stage${clearScreen ? " avatar-stage--clear-screen" : ""}${worldScreen !== "live" ? " avatar-stage--space" : ""}${osirisDragging ? " avatar-stage--dragging-osiris" : ""}${captainDriving ? " avatar-stage--captain-driving" : ""}${!constructAnchored ? " avatar-stage--construct-held" : ""}${framesArmed ? " avatar-stage--moving-frames" : ""}${captainsOfficeOpen && officeGuest ? " avatar-stage--office-guest" : ""}`}
       data-scene-ready={ready ? "" : undefined}
       data-stage-look={stageLook}
       data-conversation-view={conversationView}
@@ -5303,8 +5305,6 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             if (frontGodRef.current === "montu") selectGod("anubis");
             else returnGodToSlot("anubis");
           }}
-          stageView={stageView}
-          onStageViewChange={changeStageView}
           onRespectAsk={() => respectAsk("anubis")}
         />
       )}
@@ -5509,13 +5509,17 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       )}
       {/* THE TOOLBAR IS GONE FROM THE STAGE (owner order 2026-11-22
           — consolidation): the standalone bottom-center bar's seats
-          and construct-position orders now live INSIDE the chat box
+          and construct-position orders moved INSIDE the chat box
           (Scene tab: Seats; Motion tab: Construct position). The
           chat box is the main box that controls everything; the
           stage carries no extra controls he does not need. The
-          position orders it fires are the WALK orders of this round
-          (walkConstructAside / bringConstructIn), passed down to the
-          CommandBox below. */}
+          position orders it fired were the WALK orders of this
+          round (walkConstructAside / bringConstructIn).
+          SUPERSEDED IN PART (owner order 2026-11-27 ~23:32 CST —
+          the anchor law): the Motion section's Construct
+          position BUTTONS are removed — no menu control
+          repositions a construct or a god. The walk orders
+          themselves stand for his SPOKEN commands only. */}
       {/* NO NOTIFICATION LANE, NO POP-UP (Captain's verdicts
           2026-11-23 and 2026-11-24): the corner card stack is gone,
           and the god pop-up that replaced it is gone too — a god's
@@ -5770,19 +5774,34 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {captainsOfficeOpen && (
         <CaptainsOfficeView
           knocks={officeKnockList}
+          guest={officeGuest}
           daddyRinging={daddyCallRinging}
           onAdmit={(knock: OfficeKnock) => {
-            // Admitted: the Office closes and the god's own
-            // chat opens, addressed to him — the standing way
-            // he speaks with a god (the pop-up's own path).
-            setCaptainsOfficeOpen(false);
+            // Admitted INTO the Office (owner refinement
+            // 2026-11-27 ~23:07 CST): the room does NOT close.
+            // The god comes in — the chat, addressed to him,
+            // stands open inside the room (the office-guest
+            // class on the stage root layers the box over the
+            // Office's ground) — and the Captain stays in his
+            // Office until he sends the god back.
+            setOfficeGuest(knock);
             applyAddressee(knock.god);
             openChatBox();
           }}
           onDismiss={(knock: OfficeKnock) =>
             setDismissedKnocks((prev) => new Set(prev).add(knock.signature))
           }
+          onGuestLeave={() => {
+            // The god goes back to his work; the Captain stays
+            // in his Office. The conversation folds back to
+            // its bar, and the address returns to Anubis, the
+            // stage's standing addressee.
+            setOfficeGuest(null);
+            chatControlsRef.current?.minimize();
+            applyAddressee("anubis");
+          }}
           onTalkToAnubis={() => {
+            setOfficeGuest(null);
             setCaptainsOfficeOpen(false);
             applyAddressee("anubis");
             openChatBox();
@@ -5790,10 +5809,14 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onGoToCall={() => {
             // Her Answer button stands in the Logs window's
             // Khadija tab — the way the record itself names.
+            setOfficeGuest(null);
             setCaptainsOfficeOpen(false);
             setLogsOpen(true);
           }}
-          onClose={() => setCaptainsOfficeOpen(false)}
+          onClose={() => {
+            setOfficeGuest(null);
+            setCaptainsOfficeOpen(false);
+          }}
         />
       )}
       {emulatorOpen && <EmulatorWindow onClose={() => setEmulatorOpen(false)} />}

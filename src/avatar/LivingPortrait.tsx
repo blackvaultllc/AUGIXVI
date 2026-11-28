@@ -15,6 +15,7 @@ import {
   gazeOffsetForStep,
   type GodMotionProfile,
 } from "./godMotion";
+import { BINARY_BLINK_FLASH_MS, blinkByte, eyeOpeningRects } from "./binaryBlink";
 
 /**
  * LIVING PORTRAITS (owner order 2026-11-22, the core-defect fix):
@@ -89,6 +90,15 @@ import {
  * clipped. The Captain's own face (the Black Hatter) runs the
  * default profile — the rig exactly as he was eye-checked
  * with, no gaze, no lower lid.
+ *
+ * ANUBIS'S BLINK, REPLACED (owner order 2026-11-27 ~23:10 CST,
+ * superseding the phased-lid rebuild above FOR ANUBIS ONLY):
+ * the lids never read right on him — thick, blinking from the
+ * eyebrows — so they are gone from his face entirely. His eyes
+ * shine gold, and his blink is binary: eight small characters
+ * inside both eyes for a second (binaryBlink.ts carries the
+ * law and the calibration). Montu and the Captain keep the
+ * lid rig above, exactly as they were eye-checked.
  */
 
 export type FaceFeatures = {
@@ -97,6 +107,15 @@ export type FaceFeatures = {
   /** Lid size, percent of the medallion — a shade larger than the eye. */
   eyeW: number;
   eyeH: number;
+  /**
+   * The eye OPENING's own size, percent of the medallion —
+   * smaller than the lid that used to sweep over it. Only
+   * Anubis's map carries the measurement: his shine and his
+   * binary blink (binaryBlink.ts) are clipped to the opening,
+   * never the lid's larger footprint.
+   */
+  eyeOpenW?: number;
+  eyeOpenH?: number;
   mouth: { x: number; y: number };
   mouthW: number;
   mouthH: number;
@@ -175,6 +194,12 @@ export const ANUBIS_FEATURES: FaceFeatures = {
   rightEye: { x: 57.7, y: 39.8 },
   eyeW: 7.4,
   eyeH: 4.8,
+  /* THE OPENINGS (the same 2026-11-22 measurement recorded
+     above: ≈6.6×4.5) — what his gold shine and his binary
+     blink are clipped to (binaryBlink.ts). The lid numbers
+     stay on the map as the record of the removed rig. */
+  eyeOpenW: 6.6,
+  eyeOpenH: 4.5,
   mouth: { x: 50.1, y: 58.2 },
   mouthW: 7.5,
   mouthH: 3.0,
@@ -387,6 +412,56 @@ function useBlinkPhase(profile: GodMotionProfile): BlinkPhase {
 }
 
 /**
+ * THE BINARY BLINK (owner order 2026-11-27 ~23:10 CST —
+ * binaryBlink.ts carries the law): Anubis has NO lids. His
+ * blink is one byte flashing inside both eyes for about a
+ * second, on his own cadence — the profile's blink interval,
+ * irregular, with the rig's occasional double blink — and
+ * between blinks his eyes shine gold (the shine layer in the
+ * component). This hook is only the timing: it hands back the
+ * byte while a flash stands, null while his eyes are open.
+ * Still under reduced motion — a face that cannot move does
+ * not flash.
+ */
+function useBinaryBlink(profile: GodMotionProfile, enabled: boolean): string | null {
+  const [byte, setByte] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled || prefersReducedMotion()) return;
+    let alive = true;
+    const timers: number[] = [];
+    const later = (fn: () => void, ms: number) => {
+      timers.push(window.setTimeout(fn, ms));
+    };
+    const flash = (again: () => void) => {
+      setByte(blinkByte(Math.random));
+      later(() => {
+        if (!alive) return;
+        setByte(null);
+        again();
+      }, BINARY_BLINK_FLASH_MS);
+    };
+    const schedule = () => {
+      later(() => {
+        if (!alive) return;
+        flash(() => {
+          if (!alive) return;
+          // An occasional double blink, like a real face.
+          if (Math.random() < PRESENCE_RIG.doubleBlinkChance) {
+            later(() => alive && flash(schedule), 260);
+          } else schedule();
+        });
+      }, blinkIntervalMs(profile, Math.random()));
+    };
+    schedule();
+    return () => {
+      alive = false;
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [profile, enabled]);
+  return enabled ? byte : null;
+}
+
+/**
  * THE GAZE (owner order 2026-11-24 — idle life: "there might be
  * looking around how Osiris is looking"): a resting face's eyes
  * TRAVEL — hold a look, move to the next, hold again — through
@@ -502,6 +577,7 @@ export function LivingPortrait({
   speaking,
   imgClassName,
   motion = DEFAULT_MOTION_PROFILE,
+  binaryBlink = false,
 }: {
   src: string;
   features: FaceFeatures;
@@ -515,8 +591,18 @@ export function LivingPortrait({
    * eye-checked, no gaze travel, no lower lid.
    */
   motion?: GodMotionProfile;
+  /**
+   * THE BINARY BLINK (owner order 2026-11-27 ~23:10 CST —
+   * binaryBlink.ts): Anubis alone runs this. His lids are GONE:
+   * his eyes shine gold at rest, and his blink is one byte
+   * flashing inside both eyes for a second, clipped to the eye
+   * openings. Every other face keeps the lid rig it was
+   * eye-checked with.
+   */
+  binaryBlink?: boolean;
 }) {
   const phase = useBlinkPhase(motion);
+  const binaryByte = useBinaryBlink(motion, binaryBlink);
   const gaze = useGaze(motion);
   const open = useMouthOpen(speaking, motion);
   const lidSamples = usePortraitSamples(src, lidSamplePoints(features));
@@ -567,6 +653,25 @@ export function LivingPortrait({
   } as CSSProperties;
   const jawMask = `radial-gradient(ellipse ${features.jawW}% ${features.jawH}% at ${features.mouth.x}% ${features.jawY}%, rgb(0 0 0 / 100%) 52%, rgb(0 0 0 / 0%) 76%)`;
   const jawDrop = features.jawDrop * motion.jawScale;
+  // THE BINARY BLINK'S GROUND (binaryBlink.ts): this portrait's
+  // eye OPENINGS — the gold shine and the flashing byte stand
+  // inside them, tilted with the eye's own slant, and nowhere
+  // else on the face. The rects are calibrated to this portrait
+  // (see binaryBlink.ts); the shine and the byte inherit the
+  // eye's fitted shape from the same map the lids used.
+  const openings = eyeOpeningRects(features);
+  const eyeOverlayStyle = (
+    rect: { left: number; top: number; width: number; height: number },
+    tilt: number | undefined,
+  ) =>
+    ({
+      left: `${rect.left}%`,
+      top: `${rect.top}%`,
+      width: `${rect.width}%`,
+      height: `${rect.height}%`,
+      borderRadius: features.lidRadius,
+      transform: `rotate(${tilt ?? 0}deg)`,
+    }) as CSSProperties;
   return (
     <span className="living-face" data-testid="living-face">
       <img
@@ -633,23 +738,31 @@ export function LivingPortrait({
           </span>
         </>
       )}
-      <span
-        aria-hidden="true"
-        data-testid="living-lid-left"
-        className={`living-face__lid${lidsShut ? " is-closed" : ""}`}
-        style={lidStyle(features.leftEye, features.lidTilt?.left)}
-      />
-      <span
-        aria-hidden="true"
-        data-testid="living-lid-right"
-        className={`living-face__lid${lidsShut ? " is-closed" : ""}`}
-        style={lidStyle(features.rightEye, features.lidTilt?.right)}
-      />
+      {/* THE LIDS — every face EXCEPT a binary-blink face
+          (Anubis, owner order 2026-11-27 ~23:10 CST): his lid
+          rig is removed entirely; his shine and his byte stand
+          below in its place. */}
+      {!binaryBlink && (
+        <>
+          <span
+            aria-hidden="true"
+            data-testid="living-lid-left"
+            className={`living-face__lid${lidsShut ? " is-closed" : ""}`}
+            style={lidStyle(features.leftEye, features.lidTilt?.left)}
+          />
+          <span
+            aria-hidden="true"
+            data-testid="living-lid-right"
+            className={`living-face__lid${lidsShut ? " is-closed" : ""}`}
+            style={lidStyle(features.rightEye, features.lidTilt?.right)}
+          />
+        </>
+      )}
       {/* THE LOWER LID (2026-11-24): rises to meet the upper lid
           as the blink closes — the half of the blink the old flat
           lid never had. Only for a face whose profile carries a
           rise; the Captain's own face keeps his measured blink. */}
-      {motion.lowerLidRise > 0 && (
+      {!binaryBlink && motion.lowerLidRise > 0 && (
         <>
           <span
             aria-hidden="true"
@@ -663,6 +776,58 @@ export function LivingPortrait({
             className={`living-face__lid living-face__lid--lower${lidsShut ? " is-closed" : ""}`}
             style={lowerLidStyle(features.rightEye, features.lidTilt?.right)}
           />
+        </>
+      )}
+      {/* THE SHINE + THE BYTE (owner order 2026-11-27 ~23:10
+          CST — binaryBlink.ts): a binary-blink face's eyes
+          SHINE GOLD at rest — a gold light clipped to each eye
+          opening — and the blink itself is one byte standing
+          inside both eyes for a second: eight small characters,
+          the same byte in each eye, on a dark ground inside
+          the opening, clipped by the opening's own shape so
+          not a pixel of it touches his skin. */}
+      {binaryBlink && (
+        <>
+          <span
+            aria-hidden="true"
+            data-testid="living-eye-shine-left"
+            className="living-face__eye-shine"
+            style={eyeOverlayStyle(openings.left, features.lidTilt?.left)}
+          />
+          <span
+            aria-hidden="true"
+            data-testid="living-eye-shine-right"
+            className="living-face__eye-shine"
+            style={eyeOverlayStyle(openings.right, features.lidTilt?.right)}
+          />
+        </>
+      )}
+      {binaryBlink && binaryByte && (
+        <>
+          <span
+            aria-hidden="true"
+            data-testid="living-binary-eye-left"
+            className="living-face__binary-eye"
+            style={eyeOverlayStyle(openings.left, features.lidTilt?.left)}
+          >
+            <svg className="living-face__binary-svg" viewBox="0 0 88 60" focusable="false">
+              <text x="44" y="39" textAnchor="middle" textLength="82" lengthAdjust="spacingAndGlyphs">
+                {binaryByte}
+              </text>
+            </svg>
+          </span>
+          <span
+            aria-hidden="true"
+            data-testid="living-binary-eye-right"
+            className="living-face__binary-eye"
+            style={eyeOverlayStyle(openings.right, features.lidTilt?.right)}
+          >
+            <svg className="living-face__binary-svg" viewBox="0 0 88 60" focusable="false">
+              <text x="44" y="39" textAnchor="middle" textLength="82" lengthAdjust="spacingAndGlyphs">
+                {binaryByte}
+              </text>
+            </svg>
+          </span>
         </>
       )}
       <span

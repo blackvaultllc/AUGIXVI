@@ -193,7 +193,16 @@ describe("the stage wiring — recede, swipe, frame, and the dock intact", () =>
     expect(fixCss).toContain(".presence-ring__seg--goldred");
     expect(fixCss).toContain(".anubis-presence__halo");
     expect(fixCss).toContain(".anubis-presence.anubis-presence--receded");
-    expect(fixCss).toContain("transform: scale(0.7)");
+    // THE ANCHOR LAW (owner order 2026-11-27 ~23:32 CST): the
+    // recede is small + LEFT at full presence — the god steps
+    // aside, out from under the screen; he is never centered
+    // under it, never dimmed, never ghosted.
+    expect(fixCss).toContain("transform: translateX(-31vw) scale(0.45)");
+    expect(fixCss).not.toContain("transform: scale(0.7)");
+    const recedeAt = fixCss.indexOf(".anubis-presence.anubis-presence--receded");
+    const recedeBlock = fixCss.slice(recedeAt, fixCss.indexOf("}", recedeAt));
+    expect(recedeBlock).not.toContain("opacity");
+    expect(recedeBlock).not.toContain("brightness");
   });
 
   it("the blue is OUT of the theme — field, frame, ring, and chrome (owner order 2026-11-26)", () => {

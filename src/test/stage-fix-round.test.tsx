@@ -248,15 +248,29 @@ describe("the re-measured blink maps", () => {
     expect(parseFloat(mouth.style.top)).toBeCloseTo(52.2, 1);
   });
 
-  it("Anubis's lids sit on his eyes and no wider than them (centers 42.3/57.7 × 39.6/39.8)", () => {
+  it("Anubis has NO lids (binary blink, owner design 2026-11-27) — his gold shine sits inside his eyes, no wider than the openings (centers 42.3/57.7 × 39.6/39.8)", () => {
     const { container } = render(
       <AnubisPresence ready speaking={false} listening={false} acting={false} />,
     );
-    // Lid box = eye center − half the lid size (7.4 × 4.8).
-    expect(lid(container, "left").left).toBeCloseTo(38.6, 1);
-    expect(lid(container, "left").top).toBeCloseTo(37.2, 1);
-    expect(lid(container, "right").left).toBeCloseTo(54.0, 1);
-    expect(lid(container, "right").top).toBeCloseTo(37.4, 1);
+    expect(container.querySelector('[data-testid="living-lid-left"]')).toBeNull();
+    expect(container.querySelector('[data-testid="living-lid-right"]')).toBeNull();
+    const shine = (side: "left" | "right") => {
+      const el = container.querySelector<HTMLElement>(`[data-testid="living-eye-shine-${side}"]`)!;
+      return {
+        left: parseFloat(el.style.left),
+        top: parseFloat(el.style.top),
+        width: parseFloat(el.style.width),
+        height: parseFloat(el.style.height),
+      };
+    };
+    // Shine box = eye center − half the OPENING (6.6 × 4.5) —
+    // strictly inside the old lid footprint (7.4 × 4.8).
+    expect(shine("left").left).toBeCloseTo(39.0, 1);
+    expect(shine("left").top).toBeCloseTo(37.35, 1);
+    expect(shine("left").width).toBeCloseTo(6.6, 1);
+    expect(shine("left").height).toBeCloseTo(4.5, 1);
+    expect(shine("right").left).toBeCloseTo(54.4, 1);
+    expect(shine("right").top).toBeCloseTo(37.55, 1);
   });
 });
 

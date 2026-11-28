@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isCaptainsOfficeExit,
   isCaptainsOfficeRequest,
+  officeKnockNotification,
   officeKnocks,
 } from "@/avatar/captainsOffice";
 import type { AlertRingReading } from "@/avatar/alertRing";
@@ -72,6 +73,23 @@ describe("the knock — derived from real standing records only", () => {
     const grown = officeKnocks(reading({ sectorAlertsWaiting: 2 }))[0]?.signature;
     expect(one).toBe(same);
     expect(grown).not.toBe(one);
+  });
+});
+
+describe("the knock arrives as a notification (owner refinement 2026-11-27)", () => {
+  it("the line names the god, the ask, and the real reason", () => {
+    const knock = officeKnocks(reading({ active: true, sectorAlertsWaiting: 1 }))[0];
+    expect(knock).toBeDefined();
+    const line = officeKnockNotification(knock!);
+    expect(line).toBe(
+      "Montu would like to speak with you — emergency: Sector Watch: one security event is waiting, not yet acknowledged.",
+    );
+  });
+
+  it("a Sound Watch knock carries its own reason, same form", () => {
+    const knock = officeKnocks(reading({ active: true, soundAlertsWaiting: 2 }))[0];
+    expect(officeKnockNotification(knock!)).toContain("Montu would like to speak with you");
+    expect(officeKnockNotification(knock!)).toContain("Sound Watch");
   });
 });
 
