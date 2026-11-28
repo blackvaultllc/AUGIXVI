@@ -227,3 +227,49 @@ describe("phone fix pass 3 — the sheet hugs its content, the caption stays on 
     expect(pass3).toContain("white-space: normal");
   });
 });
+
+describe("phone fix pass 4 — the phone chat is a stream, not a box (owner restatement 2026-11-27 ~21:58 CST)", () => {
+  const passCss = readFileSync(resolve(process.cwd(), "src/avatar/phone-fix-pass.css"), "utf8");
+  const pass4 = passCss.slice(passCss.indexOf("PHONE FIX PASS 4"));
+  const boxSource = readFileSync(resolve(process.cwd(), "src/avatar/CommandBox.tsx"), "utf8");
+
+  it("the chat face carries no sheet: no background, no border, no shadow, no blur", () => {
+    expect(pass4).toContain(
+      ".avatar-command-box--phone-bar:not(.avatar-command-box--minimized):not(.avatar-command-box--section-open):not(.avatar-command-box--enlarged)",
+    );
+    expect(pass4).toContain("background: transparent");
+    expect(pass4).toContain("border: none");
+    expect(pass4).toContain("box-shadow: none");
+    expect(pass4).toContain("backdrop-filter: none");
+  });
+
+  it("the unit is capped in the stage's lower reach, so the construct stands visible above the stream", () => {
+    expect(pass4).toContain("height: auto");
+    expect(pass4).toContain("max-height: min(40dvh, 30rem)");
+  });
+
+  it("the thread is a bare scroller — no slate, no border — flexing inside the unit", () => {
+    expect(pass4).toContain(
+      ".avatar-command-box--phone-bar:not(.avatar-command-box--section-open) .avatar-command-box__thread",
+    );
+    expect(pass4).toContain("max-height: none");
+    expect(pass4).toContain("flex: 1 1 auto");
+  });
+
+  it("a section keeps pass 3's sheet — the unboxing is fenced to the chat face", () => {
+    // Every pass-4 chat-face rule excludes the section-open state.
+    const pass4Rules = pass4.slice(pass4.indexOf("@media"));
+    for (const rule of pass4Rules.split("}")) {
+      if (rule.includes(".avatar-command-box")) {
+        expect(rule).toContain(":not(.avatar-command-box--section-open)");
+      }
+    }
+  });
+
+  it("the stream snaps to whole lines on the phone form — no half-cut line at the top", () => {
+    expect(boxSource).toContain("snapThreadToWholeLines");
+    expect(boxSource).toContain('thread.querySelector<HTMLElement>(".avatar-command-box__thread-flow")');
+    // The snap is the phone form's alone; the desktop form clears its trace.
+    expect(boxSource).toContain('if (!phoneBar) thread.style.height = "";');
+  });
+});
