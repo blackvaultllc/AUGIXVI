@@ -112,8 +112,10 @@ describe("the gods' voice — British, male, loud (owner order 2026-11-22)", () 
     expect(utterance.volume).toBe(1);
     // DEEP (owner order 2026-11-27 ~23:03 CST, pass 7): the male
     // pitch stepped 0.8 → 0.6 — "a deep male voice", not the
-    // robotic near-neutral he heard.
-    expect(utterance.pitch).toBe(0.6);
+    // robotic near-neutral he heard. DEEPER (owner order
+    // 2026-11-28 ~01:19 CST): he heard 0.6 — "almost there" —
+    // and ordered one step deeper: 0.6 → 0.5.
+    expect(utterance.pitch).toBe(0.5);
     provider.stop();
   });
 

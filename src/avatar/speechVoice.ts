@@ -219,12 +219,16 @@ export function configureSpeechUtterance(
   utterance.rate = 0.95;
   // DEEPER (owner order 2026-11-27 ~23:03 CST, phone fix pass 7):
   // "Change his voice to a deep male voice. It sounds like a
-  // robotic woman voice." The male pitch steps 0.8 → 0.6 — the
+  // robotic woman voice." The male pitch stepped 0.8 → 0.6 — the
   // deep end of the band the speech engines honor — so even
   // where the picked voice is the device's own, a god's line
   // lands deep and male, never at the neutral 1.0 the robotic
   // default speaks at.
-  utterance.pitch = gender === "male" ? 0.6 : 1;
+  // ONE STEP DEEPER (owner order 2026-11-28 ~01:19 CST): he
+  // heard the 0.6 voice — "almost there" — and ordered it one
+  // step deeper still: 0.6 → 0.5. The rate stands at 0.95,
+  // untouched, so the step is pitch alone.
+  utterance.pitch = gender === "male" ? 0.5 : 1;
   utterance.volume = clamp01(options.volume ?? loadSpeechVolume());
   const picked = pickSpeechVoice(currentSpeechVoices(), gender);
   if (picked) utterance.voice = picked;
