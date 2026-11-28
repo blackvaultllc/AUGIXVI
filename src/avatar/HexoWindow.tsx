@@ -16,8 +16,28 @@
  * HEXO → Knowledge. It was built as a standalone artifact
  * ("HEXO — AUGI Core"); its app port sat as a local commit
  * that was never pushed, which is why it vanished from his
- * area. The artifact itself is unchanged and still whole in
- * the bundle:
+ * area.
+ *
+ * STRIPPED TO THE CUBE (owner order 2026-11-28): the artifact
+ * document itself is now only the cube and one answer box.
+ * Everything else that was in it — the page, the HUD, the
+ * layer bar, the controls, the balance engine's readouts, the
+ * periodic table, the word vault, the hunts — is gone from the
+ * document, not hidden: "get rid of everything except for the
+ * cube so when that site is live and people go there they just
+ * see a cube that's spinning in space. Don't give them no
+ * hints — just give them a box where they can type in the
+ * answer. The Rubik's cube is locked." The cube is LOCKED: it
+ * spins on its own and answers no hand — no drag, no tap, no
+ * layer controls; the only input on the page is the box. The
+ * cube's renderers (the three.js engine and the 2D fallback)
+ * are the artifact's own, untouched in their drawing; only
+ * the visitor wiring around them was cut. And the box checks
+ * nothing: the document never held a typed-answer check — its
+ * answers were collected letter by letter inside the games
+ * that are now removed — so the box stands as the single
+ * input with no check wired to it. Nothing was invented to
+ * fill the silence.
  *
  * - The artifact's page is bundled INTO the app bundle
  *   (imported as text) and rendered through an iframe srcDoc —
@@ -28,22 +48,14 @@
  *   three.js build (r149, the version the artifact was written
  *   against) is bundled and inlined into the document, so the
  *   cube turns on the Parrot with no internet at all
- *   (local-first law). The Google Fonts links stay as
- *   decoration only — offline they fall back to system fonts
- *   and nothing breaks.
- * - The cube-only document is the SAME artifact document with
+ *   (local-first law).
+ * - The cube-only document is the SAME stripped document with
  *   one override sheet laid over it (buildHexoCubeDocument):
- *   every part of the page except the core stage's viewport is
- *   hidden, the page ground goes transparent, and the viewport
- *   fills the frame. The cube's own renderers already clear
- *   transparent (the WebGL renderer is built with alpha:true;
- *   the 2D fallback clears with clearRect), so the Matrix Wall
- *   behind the frame shows through around the spinning cube.
- *   Nothing inside the artifact was rewritten — the cube, the
- *   HEXO balance engine behind it, and the visual/mental hunt
- *   (letters scattered, found with eyes and mind only) all run
- *   exactly as the artifact runs them; they are simply not
- *   dressed in the page anymore.
+ *   the page ground goes transparent and the frame fills the
+ *   screen, so the Matrix Wall behind the frame shows through
+ *   around the spinning cube. The cube's own renderers already
+ *   clear transparent (the WebGL renderer is built with
+ *   alpha:true; the 2D fallback clears with clearRect).
  */
 import { useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -67,13 +79,14 @@ export function buildHexoDocument(): string {
 
 /**
  * THE CUBE-ONLY SHEET (owner order 2026-11-27, pass 6): laid
- * over the artifact's own styles, it strips the page down to
- * the cube. Everything in the wrap except the core stage is
- * hidden; inside the stage, the HUD and the layer bar go too;
- * inside the viewport, the artifact's own rain canvas and the
- * CHAOS badge go — what remains is the cube's two canvases and
- * the WebGL holder, over a transparent ground, filling the
- * whole frame.
+ * over the artifact document for the in-app view, its living
+ * work is the transparent ground and the full frame — the
+ * Matrix Wall shows through around the cube. Its hide rules
+ * name the old page's parts (the wrap, the stage, the HUD,
+ * the layer bar, the rain, the CHAOS badge); since the
+ * 2026-11-28 strip the document no longer contains any of
+ * them, so those rules stand inert — kept, not deleted, as
+ * the record of how the view was first made.
  */
 const CUBE_ONLY_STYLE = `<style>
 /* HEXO — CUBE ONLY (owner order 2026-11-27, phone fix pass 6) */
@@ -88,9 +101,9 @@ body{overflow:hidden}
 </style>`;
 
 /**
- * The cube-only document: the full artifact document (three.js
- * inlined by buildHexoDocument) with the cube-only sheet laid
- * into its head. Exported for tests.
+ * The cube-only document: the stripped artifact document
+ * (three.js inlined by buildHexoDocument) with the cube-only
+ * sheet laid into its head. Exported for tests.
  */
 export function buildHexoCubeDocument(): string {
   const doc = buildHexoDocument();
