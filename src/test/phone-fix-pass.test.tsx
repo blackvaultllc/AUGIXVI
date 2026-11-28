@@ -375,3 +375,50 @@ describe("phone fix pass 9 — the plus menu as symbols: gold on the dark ground
     expect(pass9).toContain("width: fit-content");
   });
 });
+
+describe("phone fix pass 9B — the blue is out of the rail and his question bubbles too (owner order 2026-11-28 ~00:52 CST)", () => {
+  const stageCss = readFileSync(resolve(process.cwd(), "src/avatar/stage-fix-round.css"), "utf8");
+  const bare = stageCss.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  /** Every rule whose selector list names the component exactly,
+   *  in file order — the last background it declares is the winner. */
+  function componentRules(selector: string): string[] {
+    const bodies: string[] = [];
+    for (const m of bare.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const sels = (m[1] ?? "").split(",").map((s) => s.trim());
+      if (sels.includes(selector)) bodies.push(m[2] ?? "");
+    }
+    expect(bodies.length, `rules for ${selector}`).toBeGreaterThan(0);
+    return bodies;
+  }
+
+  function winningBackground(selector: string): string {
+    const withBg = componentRules(selector).filter((b) => b.includes("background"));
+    expect(withBg.length, `background rules for ${selector}`).toBeGreaterThan(0);
+    return withBg[withBg.length - 1]!;
+  }
+
+  it("no blue fill survives anywhere in the stage sheet", () => {
+    expect(bare).not.toContain("#1d2a52");
+  });
+
+  it("his question bubbles wear pass 9's dress — near-black ground, gold text", () => {
+    const winner = winningBackground(".avatar-stage .avatar-command-box__thread-q");
+    expect(winner).not.toContain("#1d2a52");
+    expect(winner).toContain("background: #0a101e");
+    expect(winner).toContain("color: #ffd94d");
+    for (const body of componentRules(".avatar-stage .avatar-command-box__thread-q")) {
+      expect(body).not.toContain("#1d2a52");
+    }
+  });
+
+  it("the rail carries no blue in any of its rules — its winning dress is the gold gradient", () => {
+    for (const body of componentRules(".avatar-stage .avatar-command-box__rail")) {
+      expect(body).not.toContain("#1d2a52");
+    }
+    const winner = winningBackground(".avatar-stage .avatar-command-box__rail");
+    expect(winner).not.toContain("#1d2a52");
+    expect(winner).toContain("linear-gradient");
+    expect(winner).toContain("216 178 90");
+  });
+});
