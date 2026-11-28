@@ -1,5 +1,15 @@
+import {
+  applyDoorStrike,
+  doorRestrictionsList,
+  isDoorIpUsable,
+  releaseDoorIp,
+  sanitizeDoorStrikes,
+  type DoorStrikesMap,
+} from "./doorStrikes";
+
 const OWNER_KEY = "operator-user-id";
 const SETTINGS_KEY = "operator-settings";
+const DOOR_STRIKES_KEY = "door-strikes";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** The owner's stage settings as held by the registry (one operator, one record). */
@@ -62,6 +72,21 @@ async function readUserId(request: Request): Promise<string | Response> {
   return UUID_PATTERN.test(userId) ? userId : jsonResponse({ error: "Invalid user ID." }, 400);
 }
 
+async function readIp(request: Request): Promise<string | Response> {
+  let input: unknown;
+  try {
+    input = await request.json();
+  } catch (error) {
+    if (error instanceof SyntaxError) return jsonResponse({ error: "Invalid JSON." }, 400);
+    throw error;
+  }
+  const ip =
+    typeof input === "object" && input !== null && "ip" in input && typeof input.ip === "string"
+      ? input.ip
+      : "";
+  return isDoorIpUsable(ip) ? ip : jsonResponse({ error: "Invalid address." }, 400);
+}
+
 export class OperatorRegistry {
   constructor(private readonly state: RegistryState) {}
 
@@ -120,6 +145,56 @@ export class OperatorRegistry {
       }
       await this.state.storage.put(SETTINGS_KEY, input);
       return jsonResponse({ saved: true });
+    }
+
+    // DOOR STRIKES — the cube is the security (owner order
+    // 2026-11-28). Wrong god-names at the front door are counted
+    // per source address in this same registry, so the record is
+    // one record online (this object) and on the core (the local
+    // file) — never in the visitor's browser, where a strike
+    // could be wiped. The endpoints answer counts only; nothing
+    // they return is ever shown at the door. The list and the
+    // release are reached only through server functions that
+    // have already verified the operator session, exactly like
+    // the settings endpoints above.
+    if (request.method === "POST" && url.pathname === "/door-status") {
+      const ip = await readIp(request);
+      if (ip instanceof Response) return ip;
+      const map = sanitizeDoorStrikes(await this.state.storage.get<DoorStrikesMap>(DOOR_STRIKES_KEY));
+      const record = map[ip];
+      return jsonResponse({
+        strikes: record?.strikes ?? 0,
+        restricted: record?.restrictedAt != null,
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/door-strike") {
+      const ip = await readIp(request);
+      if (ip instanceof Response) return ip;
+      const outcome = await this.state.storage.transaction(async (transaction) => {
+        const map = sanitizeDoorStrikes(await transaction.get<DoorStrikesMap>(DOOR_STRIKES_KEY));
+        const result = applyDoorStrike(map, ip, new Date().toISOString());
+        await transaction.put(DOOR_STRIKES_KEY, result.map);
+        return result;
+      });
+      return jsonResponse({ strikes: outcome.strikes, restricted: outcome.restricted });
+    }
+
+    if (request.method === "GET" && url.pathname === "/door-restrictions") {
+      const map = sanitizeDoorStrikes(await this.state.storage.get<DoorStrikesMap>(DOOR_STRIKES_KEY));
+      return jsonResponse({ restrictions: doorRestrictionsList(map) });
+    }
+
+    if (request.method === "POST" && url.pathname === "/door-release") {
+      const ip = await readIp(request);
+      if (ip instanceof Response) return ip;
+      const released = await this.state.storage.transaction(async (transaction) => {
+        const map = sanitizeDoorStrikes(await transaction.get<DoorStrikesMap>(DOOR_STRIKES_KEY));
+        const result = releaseDoorIp(map, ip);
+        if (result.released) await transaction.put(DOOR_STRIKES_KEY, result.map);
+        return result.released;
+      });
+      return jsonResponse({ released });
     }
 
     return jsonResponse({ error: "Not found." }, 404);
