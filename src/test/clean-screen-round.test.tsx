@@ -63,9 +63,6 @@ function renderBox() {
   return renderToStaticMarkup(
     <CommandBox
       accent="#d4af37"
-      tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-      activeTab="scene"
-      onTabChange={() => undefined}
       chat=""
       onChatChange={() => undefined}
       onSubmit={() => undefined}
@@ -74,9 +71,7 @@ function renderBox() {
       onToggleVoice={() => undefined}
       responseLine="Standing by."
       responseSource="test"
-    >
-      <p>panel body</p>
-    </CommandBox>,
+     />,
   );
 }
 
@@ -84,7 +79,11 @@ describe("clean-screen round — the status tab", () => {
   it("the stage carries ONE status tab and ONE status panel", () => {
     expect(stageSource).toContain("avatar-status-tab");
     expect(stageSource).toContain("avatar-status-panel");
-    expect(stageSource).toContain("STATUS — ONE TAB, OFF THE MAIN SCREEN");
+    // PASS 7 (owner order 2026-11-27 ~23:03 CST): the tab is a
+    // small pulse symbol in the top bar now — the comment over
+    // its panel reads ONE PANEL; the tab and the panel are still
+    // one each, and the panel itself is unchanged.
+    expect(stageSource).toContain("STATUS — ONE PANEL, OFF THE MAIN SCREEN");
   });
 
   it("the HUD clusters no longer render as stage frames", () => {

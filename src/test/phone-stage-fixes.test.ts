@@ -103,44 +103,63 @@ describe("the starting pictures — set for him, top and bottom", () => {
   });
 });
 
-describe("the left rail — notifications moved, settings at hand (owner order 2026-11-26)", () => {
-  it("the rail stands at the top-left and carries the pill", () => {
-    expect(appCss).toContain(".stage-left-rail");
-    const rail = appCss.slice(appCss.indexOf(".stage-left-rail {"), appCss.indexOf(".stage-left-rail {") + 300);
-    expect(rail).toContain("left: 0.75rem");
-    expect(rail).toContain("flex-direction: column");
-    // The pill rides the rail now — its own rule no longer
-    // pins it to the top-right corner it came from.
-    const badge = appCss.slice(
-      appCss.indexOf(".notifications-stage-badge {"),
-      appCss.indexOf(".notifications-stage-badge {") + 500,
-    );
-    expect(badge).not.toContain("right:");
-    expect(badge).not.toContain("position: fixed");
-    // In the stage, the rail wraps the pill.
-    expect(stageSource.indexOf("stage-left-rail")).toBeLessThan(
-      stageSource.indexOf("notifications-stage-badge"),
-    );
+describe("the top bar — three symbols at the top-right (owner order 2026-11-27 ~23:03 CST, pass 7)", () => {
+  // SUPERSEDES the left rail of 2026-11-26: the NOTIFICATIONS and
+  // SETTINGS word pills and the STATUS word tab are gone. One row
+  // of three small symbols stands at the top-right — bell, status
+  // pulse, menu cog — and the drop-down he called brilliant is the
+  // MENU now, carrying the command box's sections as categories.
+  const passCss = readFileSync(resolve(process.cwd(), "src/avatar/phone-fix-pass.css"), "utf8");
+
+  it("the bar stands at the top-right and carries the three symbols", () => {
+    expect(stageSource).toContain("stage-top-bar");
+    expect(stageSource).not.toContain("stage-left-rail");
+    const bar = passCss.slice(passCss.indexOf(".stage-top-bar {"), passCss.indexOf(".stage-top-bar {") + 300);
+    expect(bar).toContain("right: 0.75rem");
+    expect(bar).toContain("flex-direction: row");
+    // The bell: the badge's class, in symbol form, with the red
+    // dot as its indication — no word, no count pill.
+    expect(stageSource).toContain("notifications-stage-badge stage-top-bar__button");
+    expect(stageSource).toContain("stage-top-bar__dot");
+    expect(stageSource).not.toContain("notifications-stage-badge__count");
+    // The status symbol keeps the tab's class and panel wiring.
+    expect(stageSource).toContain("avatar-status-tab stage-top-bar__button");
+    // The cog opens the menu.
+    expect(stageSource).toContain("stage-quick-menu__button stage-top-bar__button");
+    expect(stageSource).toContain('aria-label="Menu"');
   });
 
-  it("the settings drop-down: folding categories, one-line rows, one height", () => {
+  it("the menu: folding categories, one-line rows, one height — and the sections as categories", () => {
     expect(stageSource).toContain("stage-quick-menu__button");
     expect(stageSource).toContain("quickMenuGroups");
+    expect(stageSource).toContain("quickMenuSections");
     expect(stageSource).toContain("Change wallpaper");
     expect(appCss).toContain(".stage-quick-menu__panel");
     expect(appCss).toContain("height: 2.5rem");
     expect(appCss).toContain("text-overflow: ellipsis");
-    // The drop-down's doors are the tools' own openers.
+    // The menu's doors are the tools' own openers.
     expect(stageSource).toContain("setCamerasOpen(true)");
     expect(stageSource).toContain("setVaultOpen(true)");
+    // The sections stand in the menu with their full content —
+    // the Captain Zero's Office door among them, first in Tools.
+    expect(stageSource).toContain("quickMenuSections");
+    expect(stageSource).toContain("Captain Zero's Office");
+    expect(stageSource).toContain("CommandsDocument");
   });
 
-  it("STATUS stays at the top-right — opposite corner, untouched", () => {
+  it("STATUS is a small symbol in the bar — its panel keeps its top-right home", () => {
     const tab = fixCss.slice(fixCss.indexOf(".avatar-status-tab {"), fixCss.indexOf(".avatar-status-tab {") + 300);
     expect(tab).toContain("right: 1.5rem");
+    // Inside the bar the tab stands at the small measure (pass 7).
+    const barTab = passCss.slice(
+      passCss.indexOf(".stage-top-bar .avatar-status-tab {"),
+      passCss.indexOf(".stage-top-bar .avatar-status-tab {") + 400,
+    );
+    expect(barTab).toContain("position: static");
+    expect(barTab).toContain("width: 2.3rem");
   });
 
-  it("Osiris's called medallion docks under the rail — same corner, stacked clean", () => {
+  it("Osiris's called medallion docks at the top-left — the corner the rail vacated", () => {
     const medallion = fixCss.slice(
       fixCss.indexOf(".avatar-stage .osiris-medallion {"),
       fixCss.indexOf(".avatar-stage .osiris-medallion {") + 600,

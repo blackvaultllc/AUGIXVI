@@ -296,18 +296,25 @@ describe("the phone composition = the desktop composition", () => {
     // (2026-11-27, item 1) capped a phone-sized stage at 80% —
     // 312 here — but the presence ring stands at 122% of the
     // face, so 80% still read as the whole screen (his
-    // eye-check ~21:32 CST). The cap is 66% of the short side
-    // now — 257 here, the ring near 80% — still big, still
-    // dead center both ways, with stage showing around him.
+    // eye-check ~21:32 CST). The cap went to 66% of the short
+    // side — 257 here, the ring near 80%.
+    // PASS 7 (owner order 2026-11-27 ~23:03 CST): "make Anubis
+    // a little bit smaller and move Anubis up a little bit so
+    // that way the chat board won't even touch him at all." The
+    // cap steps to 59% of the short side — 230 here — and the
+    // phone seat's center rises from 50% to 46% of the stage
+    // height: y = 844·0.46 − 115 = 273 portrait, 390·0.46 − 115
+    // = 64 landscape. Still big, still centered across, with
+    // stage showing around him and clear air under him.
     expect(defaultMedallionGeometry("anubis", 390, 844)).toEqual({
-      x: 67,
-      y: 294,
-      size: 257,
+      x: 80,
+      y: 273,
+      size: 230,
     });
     expect(defaultMedallionGeometry("anubis", 844, 390)).toEqual({
-      x: 294,
-      y: 67,
-      size: 257,
+      x: 307,
+      y: 64,
+      size: 230,
     });
   });
 

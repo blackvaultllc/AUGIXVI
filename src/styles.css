@@ -5216,7 +5216,16 @@
    stage's top-left column — the NOTIFICATIONS pill (moved
    from the top-right on his word) and, directly under it, his
    SETTINGS quick-access button with its drop-down. STATUS
-   keeps the top-right; the corners never collide. */
+   keeps the top-right; the corners never collide.
+   RETIRED (owner order 2026-11-27 ~23:03 CST, phone fix
+   pass 7): the rail no longer renders — the bell, the status
+   symbol and the menu cog stand in the top bar at the
+   top-right (phone-fix-pass.css, PASS 7), dressed from the
+   badge / quick-menu rules below at the bar's small measure.
+   The .stage-left-rail rule and the
+   .notifications-stage-badge__count pill below are no longer
+   rendered (the bell's indication is a red dot now); they
+   stand as the record of the rail's dress. */
 .stage-left-rail {
   position: fixed;
   top: 0.75rem;

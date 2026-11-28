@@ -60,6 +60,18 @@ describe("the gods' voice — British, male, loud (owner order 2026-11-22)", () 
     expect(pickSpeechVoice(VOICES)?.name).toBe("Google UK English Male");
   });
 
+  it("a KNOWN man's voice outranks a British voice whose gender is unknown (pass 7)", () => {
+    // His phone's failure (owner order 2026-11-27 ~23:03 CST):
+    // an unknown-gender British voice can be a woman's, and it
+    // used to outrank a voice known to be a man's. The known man
+    // wins now.
+    const picked = pickSpeechVoice([
+      fakeVoice("Google UK English", "en-GB"),
+      fakeVoice("Microsoft David - English (United States)", "en-US"),
+    ]);
+    expect(picked?.name).toBe("Microsoft David - English (United States)");
+  });
+
   it("never gives a god a woman's voice — 'female' is not read as 'male'", () => {
     const picked = pickSpeechVoice([
       fakeVoice("Google UK English Female", "en-GB"),
@@ -98,7 +110,10 @@ describe("the gods' voice — British, male, loud (owner order 2026-11-22)", () 
     const utterance = speak.mock.calls[0]?.[0] as MockUtterance;
     expect(utterance.voice?.name).toBe("Google UK English Male");
     expect(utterance.volume).toBe(1);
-    expect(utterance.pitch).toBe(0.8);
+    // DEEP (owner order 2026-11-27 ~23:03 CST, pass 7): the male
+    // pitch stepped 0.8 → 0.6 — "a deep male voice", not the
+    // robotic near-neutral he heard.
+    expect(utterance.pitch).toBe(0.6);
     provider.stop();
   });
 

@@ -598,3 +598,103 @@
     max-height: min(88dvh, 44rem);
   }
 }
+
+/* ==========================================================================
+   PHONE FIX PASS 7 (owner order 2026-11-27 ~23:03 CST) — THE TOP BAR:
+   three small symbols at the top-right replace the top-left
+   NOTIFICATIONS / SETTINGS word pills and the top-right STATUS word
+   tab, at every width (the pills stood at every width). The bell
+   carries a small red dot when notifications wait; the status tab
+   keeps its class and its panel — only its form becomes the small
+   pulse symbol; the menu keeps its panel, groups and rows — only
+   its button becomes the cog and its panel falls from the
+   top-right. The sections that moved into the menu (Scene, Motion,
+   Tools, Commands, Settings) render their bodies under
+   .stage-quick-menu__section, in the panel's own scroll.
+   ========================================================================== */
+.avatar-stage .stage-top-bar {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.avatar-stage .stage-top-bar__button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  padding: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.avatar-stage .stage-top-bar__dot {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #e5484d;
+  box-shadow: 0 0 0 2px rgb(16 14 4 / 88%);
+  pointer-events: none;
+}
+/* The bell in symbol form: the badge's own dress (gold ring, dark
+   ground) at the bar's small measure, its word and count pill gone —
+   the red dot is the indication now. */
+.avatar-stage .stage-top-bar .notifications-stage-badge {
+  width: 2.3rem;
+  height: 2.3rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+/* The status tab in symbol form: same button, same panel — the
+   word is gone, the tab stands at the bar's measure, round like
+   its neighbours (the circuit theme's clipped corner gives way
+   inside the bar). */
+.avatar-stage .stage-top-bar .avatar-status-tab {
+  position: static;
+  width: 2.3rem;
+  height: 2.3rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  clip-path: none;
+  font-size: 0.8rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.avatar-stage .stage-top-bar .avatar-status-tab svg {
+  width: 1rem;
+  height: 1rem;
+}
+/* The menu's cog in symbol form: the quick-menu button's own dress
+   at the bar's measure, its word and chevron gone. */
+.avatar-stage .stage-top-bar .stage-quick-menu__button {
+  width: 2.3rem;
+  height: 2.3rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+}
+/* The panel falls from the top-right now, under the cog, and takes
+   a taller measure — the sections stand in it. */
+.avatar-stage .stage-top-bar .stage-quick-menu__panel {
+  left: auto;
+  right: 0;
+  max-height: min(78dvh, 42rem);
+}
+/* A section's body inside the panel: the moved tab content, with a
+   little air under its group head. */
+.avatar-stage .stage-quick-menu__section {
+  padding: 0.35rem 0.25rem 0.55rem;
+}

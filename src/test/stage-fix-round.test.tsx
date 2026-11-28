@@ -270,9 +270,6 @@ describe("chat two-mode behavior — the strip on other screens", () => {
   function renderChat(over: Partial<Parameters<typeof CommandBox>[0]> = {}) {
     const props = {
       accent: "#d4af37",
-      tabs: [{ id: "scene" as const, label: "Scene", icon: Eye }],
-      activeTab: "scene" as const,
-      onTabChange: vi.fn(),
       chat: "",
       onChatChange: vi.fn(),
       onSubmit: vi.fn(),
@@ -281,7 +278,6 @@ describe("chat two-mode behavior — the strip on other screens", () => {
       onToggleVoice: vi.fn(),
       responseLine: "",
       responseSource: "",
-      children: <p>panel body</p>,
       ...over,
     };
     return render(<CommandBox {...props} />);
@@ -311,9 +307,6 @@ describe("chat two-mode behavior — the strip on other screens", () => {
     rerender(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -324,9 +317,7 @@ describe("chat two-mode behavior — the strip on other screens", () => {
         responseSource=""
         history={[entry(1, "First answer."), entry(2, "The gate is quiet, Captain.")]}
         away
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     const preview = () => container.querySelector(".avatar-chat-strip__preview");
     expect(preview()).not.toBeNull();

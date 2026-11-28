@@ -30,6 +30,7 @@ import {
   ChevronDown,
   CircleDot,
   Coffee,
+  Cog,
   DoorOpen,
   Ear,
   Expand,
@@ -59,7 +60,6 @@ import {
   Scale,
   ScanSearch,
   ScrollText,
-  Settings2,
   Shield,
   Shrink,
   Smartphone,
@@ -78,8 +78,7 @@ import { DEFAULT_SYSTEM as DEFAULT_SYSTEM_PROMPT } from "./ollamaAI";
 import {
   CommandBox,
   COMMAND_BOX_PHONE_BREAKPOINT,
-  COMMAND_TAB_ICONS,
-  type CommandTab,
+  CommandsDocument,
 } from "./CommandBox";
 import "./stage-fix-round.css";
 import "./god-presence.css";
@@ -681,7 +680,10 @@ export function AvatarStage({
   const eventQueueRef = useRef(new EventQueueWatcher());
   const shaShownRef = useRef({ shown: false });
   const proactiveRef = useRef<ReturnType<typeof createProactiveEngine> | null>(null);
-  const [commandTab, setCommandTab] = useState<CommandTab>("motion");
+  // THE COMMAND TABS STOOD HERE (retired, owner order 2026-11-27
+  // ~23:03 CST, phone fix pass 7): the box's Scene / Motion /
+  // Tools / Commands sections moved into the stage's MENU as
+  // categories — the box is chat only, so no tab state remains.
   // Movable windows — the operator opens these himself, by command or tap.
   // Augie's idle life never opens them (owner order 2026-11-21).
   const [openWindows, setOpenWindows] = useState<Set<"notepad" | "chalkboard" | "player">>(
@@ -1132,14 +1134,13 @@ export function AvatarStage({
     query.addEventListener?.("change", onChange);
     return () => query.removeEventListener?.("change", onChange);
   }, []);
-  // THE LEFT RAIL (owner order 2026-11-26 ~13:48 CST): the
-  // NOTIFICATIONS pill moved from the top-right to the
-  // top-LEFT, and directly under it his SETTINGS quick-access —
-  // press the button and a drop-down of his settings and
-  // options falls open; he picks what he needs and it opens.
-  // The drop-down's categories fold (one open at a time) and
-  // every row is one line at one height — the same accordion
-  // and symmetry rules as the tools list.
+  // THE MENU (owner order 2026-11-26 ~13:48 CST; renamed and
+  // re-homed by owner order 2026-11-27 ~23:03 CST, phone fix
+  // pass 7): the drop-down he calls brilliant — press the cog in
+  // the top bar and it falls open; he picks what he needs and it
+  // opens. Its categories fold (one open at a time) and every
+  // row is one line at one height — the same accordion and
+  // symmetry rules as the tools list.
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const [quickMenuGroup, setQuickMenuGroup] = useState<string | null>(null);
   const [deitiesOpen, setDeitiesOpen] = useState(false);
@@ -2599,8 +2600,12 @@ export function AvatarStage({
       // Slash forms route through the same parsers: "/fly" == "fly".
       // "/help" is special: it opens the full command document.
       if (/^\/help\b/i.test(commandText)) {
-        setCommandTab("commands");
-        say("Every command is in the Commands tab — nothing hidden.");
+        // THE COMMANDS LIVE IN THE MENU NOW (pass 7): /help opens
+        // the stage's MENU with its Commands category unfolded —
+        // the same full document the Commands tab carried.
+        setQuickMenuOpen(true);
+        setQuickMenuGroup("Commands");
+        say("Every command is in the Menu, under Commands — nothing hidden.");
         return;
       }
       // THE BUILDER AND THE MAP, BY NAME (owner order 2026-11-22).
@@ -4339,14 +4344,17 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
     if (next !== stageViewRef.current) changeStageView(next);
   };
   const stageSurfaces = activeLayout(layoutStore).room.surfaces;
-  // THE SETTINGS DROP-DOWN'S CONTENTS (owner order 2026-11-26
-  // ~13:48 CST): the same doors the chat window's Tools tab
-  // opens, in the same groups — every row wired to the exact
-  // opener the Tools tab uses, so the drop-down can never
-  // drift from the tools themselves. "Change wallpaper" stands
-  // first, above the groups: it is the option he could not
-  // find, and it opens the Environment Builder, where the
-  // backdrop and floor pictures are set.
+  // THE MENU'S STANDING GROUPS (owner order 2026-11-26 ~13:48
+  // CST; the drop-down renamed MENU, owner order 2026-11-27
+  // ~23:03 CST): the same doors the chat window's Tools tab
+  // opened, in the same groups — every row wired to the exact
+  // opener the Tools tab used, so the menu can never drift from
+  // the tools themselves. "Change wallpaper" stands first, above
+  // the groups: it is the option he could not find, and it opens
+  // the Environment Builder, where the backdrop and floor
+  // pictures are set. The sections that stood as the box's tabs
+  // stand below these groups as their own categories
+  // (quickMenuSections, next below).
   const quickMenuGroups: { label: string; rows: { icon: LucideIcon; label: string; open: () => void }[] }[] = [
     {
       label: "Worlds & building",
@@ -4410,6 +4418,702 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         { icon: Camera, label: "Player", open: () => openWindow("player") },
       ],
     },
+  ];
+
+  // THE SECTIONS LIVE IN THE MENU NOW (owner order 2026-11-27
+  // ~23:03 CST, phone fix pass 7): the command box's Scene /
+  // Motion / Tools tabs and its Settings panel moved into the
+  // stage's MENU — the top-right cog — each as its own category,
+  // carrying their full content, tile for tile. These are the
+  // very blocks the tabs rendered, moved, not rewritten; the
+  // Commands category renders the same CommandsDocument the
+  // Commands tab carried. The box itself is chat only now.
+  const sceneSection = (
+<>
+
+            <CommandGroup label="Seats — the stage turns to who you call">
+              <div className="avatar-command-box__grid">
+                <CommandAction
+                  thumb="/owner-presence/captain-infinity.webp"
+                  label={
+                    perspective === "black-hatter" && conversationView !== "council"
+                      ? "Owner · seated"
+                      : "Owner"
+                  }
+                  onClick={selectOwner}
+                />
+                <CommandAction
+                  thumb="/anubis-presence/face.webp"
+                  label={perspective === "anubis" ? "Anubis · seated" : "Anubis"}
+                  onClick={() => selectGod("anubis")}
+                />
+                <CommandAction
+                  thumb="/montu-presence/face.webp"
+                  label={perspective === "montu" ? "Montu · seated" : "Montu"}
+                  onClick={() => selectGod("montu")}
+                />
+              </div>
+            </CommandGroup>
+
+            <CommandGroup label="Avatar scale">
+              <div className="avatar-command-box__grid">
+                <CommandAction
+                  icon={Sparkles}
+                  label={constructOpen ? "AUGI avatar · in his box" : "AUGI avatar · open his box"}
+                  onClick={() => {
+                    if (constructOpen) {
+                      closeConstruct();
+                      say("His box is closed. The stage is back to you, Captain.");
+                    } else {
+                      openConstruct();
+                      say(
+                        "AUGI is up — the sand construct in his own box, red eyes on him so you can see him.",
+                      );
+                    }
+                  }}
+                />
+                <CommandAction icon={Globe} label="Space view" onClick={returnToSpace} />
+                <CommandAction
+                  icon={Shrink}
+                  label="Compact"
+                  onClick={() => executeWorldCommand({ type: "shrink" })}
+                />
+                <CommandAction
+                  icon={Expand}
+                  label="Full size"
+                  onClick={() => executeWorldCommand({ type: "grow" })}
+                />
+                <CommandAction
+                  icon={LocateFixed}
+                  label="AUGI · home spot"
+                  onClick={() => {
+                    resetOsirisHome();
+                    say("AUGI is back at his home spot, anchored and free.");
+                  }}
+                />
+                <CommandAction
+                  icon={Anchor}
+                  label={
+                    constructAnchored
+                      ? "AUGI · anchored — lift out to fix"
+                      : "AUGI · unanchored — set back in, free"
+                  }
+                  onClick={() => {
+                    toggleAnchor();
+                    say(
+                      constructAnchored
+                        ? "AUGI is lifted out — unanchored, held for fixing. Drag him where you want him."
+                        : "AUGI is anchored — set into the stage and free to work.",
+                    );
+                  }}
+                />
+                <CommandAction
+                  icon={Gamepad2}
+                  label={captainDriving ? "Control · Captain driving" : "Control · AUGI free"}
+                  onClick={() => {
+                    toggleControl();
+                    say(
+                      captainDriving
+                        ? "AUGI has his controls back."
+                        : "You have the keys — W A S D moves AUGI, spacebar is his action.",
+                    );
+                  }}
+                />
+              </div>
+            </CommandGroup>
+
+            <div data-menu-keepopen="true">
+            <CommandGroup label="Wallpaper — the picture behind everything">
+              <div className="avatar-command-box__grid">
+                <CommandAction
+                  icon={ImageIcon}
+                  label="Change wallpaper"
+                  onClick={() => setWallpaperPickerOpen((open) => !open)}
+                />
+              </div>
+              {wallpaperPickerOpen && (
+                <WallpaperPicker
+                  picked={stageSurfaces.backdropImage}
+                  onPick={(image) => {
+                    pickWallpaper(image);
+                    setWallpaperPickerOpen(false);
+                    say(
+                      image
+                        ? "Wallpaper set, Captain — it is behind everything now."
+                        : "Wallpaper cleared, Captain — the plain stage.",
+                    );
+                  }}
+                />
+              )}
+            </CommandGroup>
+            </div>
+
+            <CommandGroup label="World scenes — grown from the living code">
+              <div className="avatar-command-box__grid">
+                {WORLD_SCENES.map((scene) => (
+                  <CommandAction
+                    key={scene.id}
+                    icon={WORLD_SCENE_ICONS[scene.id]}
+                    label={worldScene === scene.id ? `${scene.name} · here` : scene.name}
+                    onClick={() => {
+                      applyWorldScene(scene.id);
+                      say(sceneLine(scene.id));
+                    }}
+                  />
+                ))}
+              </div>
+            </CommandGroup>
+
+            <CommandGroup label="Backdrop — the stage's saved background, his to set">
+              <div className="avatar-command-box__grid">
+                {STAGE_BACKDROPS.map((option) => (
+                  <CommandAction
+                    key={option.id}
+                    icon={WORLD_SCENE_ICONS.desert}
+                    label={backdrop === option.id ? `${option.name} · set` : option.name}
+                    onClick={() => {
+                      applyBackdrop(option.id);
+                      say(
+                        option.id === "desert-photo"
+                          ? "The Desert backdrop is set — your photograph, Captain, when it lands at its place."
+                          : option.id === "matrix-wall"
+                            ? "The Matrix Wall stands — your gold binary, live and moving, as the ground of the construct."
+                            : "The living world is the backdrop again.",
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+            </CommandGroup>
+            </>
+  );
+  const motionSection = (
+<>
+
+            <CommandGroup label="Construct position">
+              <div className="avatar-command-box__grid">
+                <CommandAction
+                  icon={DoorOpen}
+                  label="Bring in"
+                  onClick={() => {
+                    bringConstructIn();
+                    say("AUGI is in, Captain — on the stage, facing you.");
+                  }}
+                />
+                <CommandAction
+                  icon={MoveLeft}
+                  label="Left"
+                  onClick={() => {
+                    walkConstructAside("left");
+                    say("AUGI steps to the left, Captain — side-on and out of your way.");
+                  }}
+                />
+                <CommandAction
+                  icon={MoveRight}
+                  label="Right"
+                  onClick={() => {
+                    walkConstructAside("right");
+                    say("AUGI steps to the right, Captain — side-on and out of your way.");
+                  }}
+                />
+                <CommandAction
+                  icon={Home}
+                  label="Home"
+                  onClick={() => {
+                    bringConstructIn();
+                    say("AUGI is back at his home spot, anchored and free.");
+                  }}
+                />
+              </div>
+            </CommandGroup>
+
+            <CommandGroup label="Locomotion modes">
+              <div className="avatar-command-box__grid">
+                <CommandAction
+                  icon={Activity}
+                  label="Walk"
+                  onClick={() => executeWorldCommand({ type: "mode", mode: "walk" })}
+                />
+                <CommandAction
+                  icon={Activity}
+                  label="Run"
+                  onClick={() => executeWorldCommand({ type: "mode", mode: "run" })}
+                />
+                <CommandAction
+                  icon={Plane}
+                  label="Fly"
+                  onClick={() => executeWorldCommand({ type: "mode", mode: "fly" })}
+                />
+                <CommandAction
+                  icon={ArrowUp}
+                  label="Jump"
+                  onClick={() => executeWorldCommand({ type: "mode", mode: "jump" })}
+                />
+                <CommandAction
+                  icon={Square}
+                  label="Stop"
+                  onClick={() => executeWorldCommand({ type: "stop" })}
+                />
+                <CommandAction
+                  icon={Undo2}
+                  label="Come back"
+                  onClick={() => executeWorldCommand({ type: "come-back" })}
+                />
+              </div>
+            </CommandGroup>
+            </>
+  );
+  const toolsSection = (
+
+            <>
+              {/* ORGANIZATION (owner order 2026-11-22): the rooms used
+                  to be one long undifferentiated grid of two dozen
+                  buttons. Now subcategories — each thing in exactly
+                  one obvious place, same standard as the builder. */}
+              <CommandGroup label="Worlds & building">
+                <div className="avatar-command-box__grid">
+                  {/* CAPTAIN ZERO'S OFFICE (owner order 2026-11-27
+                      ~22:28 CST): his own door stands first in his
+                      worlds — his private office, where he is left
+                      alone and only an emergency knocks. */}
+                  <CommandAction
+                    icon={DoorOpen}
+                    label="Captain Zero's Office"
+                    onClick={() => setCaptainsOfficeOpen(true)}
+                  />
+                  <CommandAction icon={Box} label="AR Cube" onClick={() => setArCubeOpen(true)} />
+                  <CommandAction
+                    icon={Hexagon}
+                    label="HEXO — the Core"
+                    onClick={() => setHexoOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Gamepad2}
+                    label="Emulators — Battle Box"
+                    onClick={() => setEmulatorOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Gamepad2}
+                    label="Legend of Logic"
+                    onClick={() => void navigate({ to: "/avatar/game" })}
+                  />
+                  <CommandAction
+                    icon={Swords}
+                    label="World of Logic"
+                    onClick={() => void navigate({ to: "/avatar/world" })}
+                  />
+                  <CommandAction
+                    icon={Hammer}
+                    label={builderOpen ? "Environment Builder · open" : "Environment Builder"}
+                    onClick={() => setBuilderOpen((open) => !open)}
+                  />
+                  <CommandAction
+                    icon={MapIcon}
+                    label={mapOpen ? "World Map · open" : "World Map"}
+                    onClick={() => setMapOpen((open) => !open)}
+                  />
+                  <CommandAction
+                    icon={LandPlot}
+                    label={builtWorldMapOpen ? "Built World · open" : "Built World"}
+                    onClick={() => setBuiltWorldMapOpen((open) => !open)}
+                  />
+                  <CommandAction
+                    icon={Building2}
+                    label="Departments"
+                    onClick={() => setDepartmentsOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Smartphone}
+                    label="Phone Bridge — Ghost Protocol One"
+                    onClick={() => void navigate({ to: "/phone-bridge" })}
+                  />
+                  <CommandAction
+                    icon={BookOpen}
+                    label="Master Manual"
+                    onClick={() => void navigate({ to: "/manual" })}
+                  />
+                  <CommandAction
+                    icon={Globe}
+                    label="Projects — my websites"
+                    onClick={() => setProjectsOpen(true)}
+                  />
+                </div>
+              </CommandGroup>
+              <CommandGroup label="Senses & analysis">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={ScanSearch}
+                    label="Picture Analysis"
+                    onClick={() => setAnalyzeOpen(true)}
+                  />
+                  <CommandAction icon={Activity} label="Pulse" onClick={() => setPulseOpen(true)} />
+                  <CommandAction
+                    icon={AudioLines}
+                    label="Sound Watch"
+                    onClick={() => setSoundWatchOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Waves}
+                    label="Signal Map"
+                    onClick={() => setSignalMapOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Ear}
+                    label="Listening Mode"
+                    onClick={() => setListeningOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Bluetooth}
+                    label="Devices"
+                    onClick={() => setDevicesOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Radio}
+                    label="Remote Codes"
+                    onClick={() => setRemoteCodesOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Camera}
+                    label="Cameras"
+                    onClick={() => setCamerasOpen(true)}
+                  />
+                  <CommandAction
+                    icon={ScanSearch}
+                    label="Identify"
+                    onClick={() => setIdentifyOpen(true)}
+                  />
+                </div>
+              </CommandGroup>
+              <CommandGroup label="Records & safety">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={History}
+                    label="Reply history"
+                    onClick={() => setHistoryOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Shield}
+                    label="Gate Log"
+                    onClick={() => setGateLogOpen(true)}
+                  />
+                  <CommandAction
+                    icon={ScrollText}
+                    label="Logs"
+                    onClick={() => setLogsOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Bell}
+                    label={inboxUnread > 0 ? `Notifications (${inboxUnread} unread)` : "Notifications"}
+                    onClick={() => setInboxOpen(true)}
+                  />
+                  <CommandAction
+                    icon={ArrowLeftRight}
+                    label="Grid-Down Exchange"
+                    onClick={() => setExchangeOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Shield}
+                    label="Personal Vault"
+                    onClick={() => setVaultOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Scale}
+                    label="Stop Safety"
+                    onClick={() => setStopSafetyOpen(true)}
+                  />
+                  <CommandAction
+                    icon={CircleDot}
+                    label="Dark Hole"
+                    onClick={() => setDarkHoleOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Clapperboard}
+                    label="Captain's Log"
+                    onClick={() => setCaptainsLogOpen(true)}
+                  />
+                  <CommandAction
+                    icon={BookOpen}
+                    label="Library"
+                    onClick={() => setLibraryOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Sun}
+                    label="The Eight and the Gods"
+                    onClick={() => setDeitiesOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Scale}
+                    label="Law Desk"
+                    onClick={() => setLawOpen(true)}
+                  />
+                  <CommandAction
+                    icon={BarChart3}
+                    label="Office Analytics"
+                    onClick={() => setAnalyticsOpen(true)}
+                  />
+                </div>
+              </CommandGroup>
+              <CommandGroup label="Workshop & study">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={GraduationCap}
+                    label="My Learning"
+                    onClick={() => setLearningOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Sparkles}
+                    label="Training Hall"
+                    onClick={() => setTrainingOpen(true)}
+                  />
+                  <CommandAction icon={Eye} label="Sight Log" onClick={() => setSightLogOpen(true)} />
+                  <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
+                  <CommandAction
+                    icon={FlaskConical}
+                    label="Test Area"
+                    onClick={() => setTestAreaOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Network}
+                    label="Anatomy"
+                    onClick={() => setAnatomyOpen(true)}
+                  />
+                  <CommandAction icon={Binary} label="Binary" onClick={() => setBinaryOpen(true)} />
+                </div>
+              </CommandGroup>
+              <CommandGroup label="Windows — I can open them too, I still decide">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={BookOpen}
+                    label="Notepad"
+                    onClick={() => openWindow("notepad")}
+                  />
+                  <CommandAction
+                    icon={Presentation}
+                    label="Chalkboard"
+                    onClick={() => openWindow("chalkboard")}
+                  />
+                  <CommandAction
+                    icon={Camera}
+                    label="Player"
+                    onClick={() => openWindow("player")}
+                  />
+                </div>
+              </CommandGroup>
+              <CommandGroup label="Knowledge and sensors">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={BookOpen}
+                    label="Knowledge"
+                    onClick={() => setKnowledgeOpen((open) => !open)}
+                  />
+                  <CommandAction
+                    icon={Camera}
+                    label={sensor ? "Camera on" : "Camera + mic"}
+                    onClick={() => void enableSensors()}
+                    disabled={Boolean(sensor)}
+                  />
+                </div>
+              </CommandGroup>
+              <CommandGroup label="Presence">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={Sparkles}
+                    label="Summon"
+                    onClick={() => {
+                      rendRef.current?.faceOperator();
+                      void sendCommand("Osiris");
+                    }}
+                  />
+                  <CommandAction
+                    icon={Presentation}
+                    label={presenting ? "Put away" : "Present"}
+                    onClick={togglePresent}
+                  />
+                </div>
+              </CommandGroup>
+            </>
+  );
+  const settingsSection = (
+
+            <div className="avatar-command-box__settings" data-menu-keepopen="true">
+              <CommandGroup label="Interface and access">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={Eye}
+                    label={clearScreen ? "Show screen" : "Clear screen (C)"}
+                    onClick={() => {
+                      const next = !clearScreen;
+                      setClearScreen(next);
+                      saveClearScreenPreference(next);
+                    }}
+                  />
+                  <CommandAction icon={LogOut} label="Sign out" onClick={() => void onSignOut()} />
+                </div>
+                {signOutError && (
+                  <p className="operator-auth__error" role="alert">
+                    {signOutError}
+                  </p>
+                )}
+              </CommandGroup>
+              <CommandGroup label="Rendering and theme">
+                <Slider
+                  label="Particles"
+                  min={20000}
+                  max={120000}
+                  step={5000}
+                  value={settings.maxParticles}
+                  onChange={(v) => update("maxParticles", v)}
+                  fmt={(v) => `${v / 1000}K`}
+                />
+                <Slider
+                  label="Bloom"
+                  min={0}
+                  max={2.5}
+                  step={0.05}
+                  value={settings.bloom}
+                  onChange={(v) => update("bloom", v)}
+                />
+                <Slider
+                  label="Glitch"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.glitch}
+                  onChange={(v) => update("glitch", v)}
+                />
+                <Slider
+                  label="Snap sensitivity"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.sensitivity}
+                  onChange={(v) => update("sensitivity", v)}
+                />
+                <Slider
+                  label="Cooldown"
+                  min={200}
+                  max={3000}
+                  step={50}
+                  value={settings.cooldownMs}
+                  onChange={(v) => update("cooldownMs", v)}
+                  fmt={(v) => `${v}ms`}
+                />
+                <label className="avatar-hud__row">
+                  Theme
+                  <select
+                    className="avatar-hud__select"
+                    value={settings.theme}
+                    onChange={(e) => update("theme", e.target.value as ThemeChoice)}
+                  >
+                    {Object.keys(THEMES).map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                    <option value="custom">Custom</option>
+                  </select>
+                </label>
+                <label className="avatar-hud__row">
+                  Custom glow / particles / core
+                  <input
+                    className="avatar-hud__color"
+                    type="color"
+                    value={settings.customColor}
+                    onChange={(e) => chooseCustomColor(e.target.value)}
+                  />
+                </label>
+                <p role="status">{settingsSyncLabel(syncStatus)}</p>
+              </CommandGroup>
+              <CommandGroup label="Brain — where Augie lives">
+                <label className="avatar-hud__row">
+                  Brain address (Ollama)
+                  <input
+                    className="avatar-hud__input"
+                    value={brainDraft}
+                    onChange={(e) => setBrainDraft(e.target.value)}
+                    placeholder="192.168.1.50"
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    aria-label="Brain address (Ollama)"
+                  />
+                </label>
+                <CommandAction
+                  icon={Save}
+                  label="Save brain address"
+                  onClick={() => applyBrain(brainDraft)}
+                />
+                <CommandAction
+                  icon={Laptop}
+                  label="Use this device"
+                  onClick={() => applyBrain("")}
+                />
+                <p>
+                  On the computer itself, use “Use this device”. On a phone, type the computer’s
+                  address — home Wi-Fi or Tailscale — and Augie answers from the computer.
+                </p>
+                {brainMsg && <p role="status">{brainMsg}</p>}
+              </CommandGroup>
+              <CommandGroup label="Connections — APIs & data">
+                <div className="avatar-command-box__grid">
+                  <CommandAction
+                    icon={Globe}
+                    label="Connections — the universal slots"
+                    onClick={() => setConnectionsOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Network}
+                    label="Cloud keys — the lights"
+                    onClick={() => setCloudKeysOpen(true)}
+                  />
+                  <CommandAction
+                    icon={Network}
+                    label="The Formation — every surface of the one core"
+                    onClick={() => setFormationOpen(true)}
+                  />
+                </div>
+                <p>
+                  Open slots for APIs and data from other websites — fill one and the system can
+                  use it; an empty slot waits, honestly labeled. Values live on the server, never
+                  shown.
+                </p>
+              </CommandGroup>
+              <CommandGroup label="On-phone brain — the emergency brain">
+                <PhoneBrainPanel onStatusChange={setPhoneBrainState} />
+              </CommandGroup>
+              <CommandGroup label="Voice — the gods' speech">
+                <Slider
+                  label="Voice volume"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={speechVolume}
+                  onChange={changeSpeechVolume}
+                  fmt={(v) => `${Math.round(v * 100)}%`}
+                />
+                <p>
+                  The gods speak in a deeper British man's voice — a woman's voice only when the
+                  speaker is a woman. The level is yours; full is the standing default.
+                </p>
+                <VoiceLabPanel />
+              </CommandGroup>
+              <CommandGroup label="Voice calibration — only my operator's voice">
+                <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
+              </CommandGroup>
+              <CommandGroup label="Trusted devices — confirmed by full sign-in">
+                <TrustedDevicesPanel />
+              </CommandGroup>
+              <CommandGroup label="Other voices — kept separate, never merged (Part 13)">
+                <SpeakerStoresPanel />
+              </CommandGroup>
+            </div>
+  );
+  const quickMenuSections: { label: string; content: ReactNode }[] = [
+    { label: "Scene", content: sceneSection },
+    { label: "Motion", content: motionSection },
+    { label: "Tools", content: toolsSection },
+    { label: "Commands", content: <CommandsDocument highlighted={null} /> },
+    { label: "Settings", content: settingsSection },
   ];
 
   const stageLook =
@@ -4859,7 +5563,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onImport={(file) => void importKnowledgeFile(file)}
         />
       )}
-      {/* STATUS — ONE TAB, OFF THE MAIN SCREEN (clean-screen
+      {/* STATUS — ONE PANEL, OFF THE MAIN SCREEN (clean-screen
           round, owner order 2026-11-24 ~10:40 EST): "where it
           says core connected all that stuff and then the status
           and everything else — put that in one tab which will
@@ -4868,21 +5572,11 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           gone from the stage's resting face; every line they
           carried — core, phone brain, voice cal, FPS, sensors,
           activity, status, intensity, and the hearing truth with
-          its wording unchanged — lives in the ONE panel this tab
-          opens, at the bifocal measure the panels themselves set.
-          The tab is the only trace on the stage, top-right where
-          the status panel used to sit. */}
-      <button
-        type="button"
-        className="avatar-status-tab"
-        aria-expanded={statusOpen}
-        aria-controls="avatar-status-panel"
-        onClick={() => setStatusOpen((open) => !open)}
-        title="Status — core, phone brain, voice, sensors, activity, hearing"
-      >
-        <Activity aria-hidden="true" />
-        <span>Status</span>
-      </button>
+          its wording unchanged — lives in the ONE panel below.
+          The button that opens it stood here as a word tab until
+          pass 7 (owner order 2026-11-27 ~23:03 CST): it is a
+          small pulse symbol in the top bar now, beside the bell
+          and the menu cog — the panel itself is unchanged. */}
       {statusOpen && (
       <div
         id="avatar-status-panel"
@@ -4996,15 +5690,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
       {!clearScreen && (
         <CommandBox
           accent={themeAccent}
-          tabs={[
-            { id: "scene", label: "Scene", icon: COMMAND_TAB_ICONS.Eye },
-            { id: "motion", label: "Motion", icon: COMMAND_TAB_ICONS.Activity },
-            { id: "tools", label: "Tools", icon: COMMAND_TAB_ICONS.BookOpen },
-            { id: "settings", label: "Settings", icon: COMMAND_TAB_ICONS.Settings },
-            { id: "commands", label: "Commands", icon: COMMAND_TAB_ICONS.Terminal },
-          ]}
-          activeTab={commandTab}
-          onTabChange={setCommandTab}
+          onOpenMenu={() => setQuickMenuOpen(true)}
           chat={chat}
           onChatChange={setChat}
           onSubmit={(text) => void sendCommand(text)}
@@ -5061,683 +5747,7 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
             chatWindowControlsRef.current = controls;
             setChatWindowAnchored(controls.anchored);
           }}
-        >
-          {commandTab === "scene" && (
-            <CommandGroup label="Seats — the stage turns to who you call">
-              <div className="avatar-command-box__grid">
-                <CommandAction
-                  thumb="/owner-presence/captain-infinity.webp"
-                  label={
-                    perspective === "black-hatter" && conversationView !== "council"
-                      ? "Owner · seated"
-                      : "Owner"
-                  }
-                  onClick={selectOwner}
-                />
-                <CommandAction
-                  thumb="/anubis-presence/face.webp"
-                  label={perspective === "anubis" ? "Anubis · seated" : "Anubis"}
-                  onClick={() => selectGod("anubis")}
-                />
-                <CommandAction
-                  thumb="/montu-presence/face.webp"
-                  label={perspective === "montu" ? "Montu · seated" : "Montu"}
-                  onClick={() => selectGod("montu")}
-                />
-              </div>
-            </CommandGroup>
-          )}
-          {commandTab === "scene" && (
-            <CommandGroup label="Avatar scale">
-              <div className="avatar-command-box__grid">
-                <CommandAction
-                  icon={Sparkles}
-                  label={constructOpen ? "AUGI avatar · in his box" : "AUGI avatar · open his box"}
-                  onClick={() => {
-                    if (constructOpen) {
-                      closeConstruct();
-                      say("His box is closed. The stage is back to you, Captain.");
-                    } else {
-                      openConstruct();
-                      say(
-                        "AUGI is up — the sand construct in his own box, red eyes on him so you can see him.",
-                      );
-                    }
-                  }}
-                />
-                <CommandAction icon={Globe} label="Space view" onClick={returnToSpace} />
-                <CommandAction
-                  icon={Shrink}
-                  label="Compact"
-                  onClick={() => executeWorldCommand({ type: "shrink" })}
-                />
-                <CommandAction
-                  icon={Expand}
-                  label="Full size"
-                  onClick={() => executeWorldCommand({ type: "grow" })}
-                />
-                <CommandAction
-                  icon={LocateFixed}
-                  label="AUGI · home spot"
-                  onClick={() => {
-                    resetOsirisHome();
-                    say("AUGI is back at his home spot, anchored and free.");
-                  }}
-                />
-                <CommandAction
-                  icon={Anchor}
-                  label={
-                    constructAnchored
-                      ? "AUGI · anchored — lift out to fix"
-                      : "AUGI · unanchored — set back in, free"
-                  }
-                  onClick={() => {
-                    toggleAnchor();
-                    say(
-                      constructAnchored
-                        ? "AUGI is lifted out — unanchored, held for fixing. Drag him where you want him."
-                        : "AUGI is anchored — set into the stage and free to work.",
-                    );
-                  }}
-                />
-                <CommandAction
-                  icon={Gamepad2}
-                  label={captainDriving ? "Control · Captain driving" : "Control · AUGI free"}
-                  onClick={() => {
-                    toggleControl();
-                    say(
-                      captainDriving
-                        ? "AUGI has his controls back."
-                        : "You have the keys — W A S D moves AUGI, spacebar is his action.",
-                    );
-                  }}
-                />
-              </div>
-            </CommandGroup>
-          )}
-          {commandTab === "scene" && (
-            <CommandGroup label="Wallpaper — the picture behind everything">
-              <div className="avatar-command-box__grid">
-                <CommandAction
-                  icon={ImageIcon}
-                  label="Change wallpaper"
-                  onClick={() => setWallpaperPickerOpen((open) => !open)}
-                />
-              </div>
-              {wallpaperPickerOpen && (
-                <WallpaperPicker
-                  picked={stageSurfaces.backdropImage}
-                  onPick={(image) => {
-                    pickWallpaper(image);
-                    setWallpaperPickerOpen(false);
-                    say(
-                      image
-                        ? "Wallpaper set, Captain — it is behind everything now."
-                        : "Wallpaper cleared, Captain — the plain stage.",
-                    );
-                  }}
-                />
-              )}
-            </CommandGroup>
-          )}
-          {commandTab === "scene" && (
-            <CommandGroup label="World scenes — grown from the living code">
-              <div className="avatar-command-box__grid">
-                {WORLD_SCENES.map((scene) => (
-                  <CommandAction
-                    key={scene.id}
-                    icon={WORLD_SCENE_ICONS[scene.id]}
-                    label={worldScene === scene.id ? `${scene.name} · here` : scene.name}
-                    onClick={() => {
-                      applyWorldScene(scene.id);
-                      say(sceneLine(scene.id));
-                    }}
-                  />
-                ))}
-              </div>
-            </CommandGroup>
-          )}
-          {commandTab === "scene" && (
-            <CommandGroup label="Backdrop — the stage's saved background, his to set">
-              <div className="avatar-command-box__grid">
-                {STAGE_BACKDROPS.map((option) => (
-                  <CommandAction
-                    key={option.id}
-                    icon={WORLD_SCENE_ICONS.desert}
-                    label={backdrop === option.id ? `${option.name} · set` : option.name}
-                    onClick={() => {
-                      applyBackdrop(option.id);
-                      say(
-                        option.id === "desert-photo"
-                          ? "The Desert backdrop is set — your photograph, Captain, when it lands at its place."
-                          : option.id === "matrix-wall"
-                            ? "The Matrix Wall stands — your gold binary, live and moving, as the ground of the construct."
-                            : "The living world is the backdrop again.",
-                      );
-                    }}
-                  />
-                ))}
-              </div>
-            </CommandGroup>
-          )}
-          {commandTab === "motion" && (
-            <CommandGroup label="Construct position">
-              <div className="avatar-command-box__grid">
-                <CommandAction
-                  icon={DoorOpen}
-                  label="Bring in"
-                  onClick={() => {
-                    bringConstructIn();
-                    say("AUGI is in, Captain — on the stage, facing you.");
-                  }}
-                />
-                <CommandAction
-                  icon={MoveLeft}
-                  label="Left"
-                  onClick={() => {
-                    walkConstructAside("left");
-                    say("AUGI steps to the left, Captain — side-on and out of your way.");
-                  }}
-                />
-                <CommandAction
-                  icon={MoveRight}
-                  label="Right"
-                  onClick={() => {
-                    walkConstructAside("right");
-                    say("AUGI steps to the right, Captain — side-on and out of your way.");
-                  }}
-                />
-                <CommandAction
-                  icon={Home}
-                  label="Home"
-                  onClick={() => {
-                    bringConstructIn();
-                    say("AUGI is back at his home spot, anchored and free.");
-                  }}
-                />
-              </div>
-            </CommandGroup>
-          )}
-          {commandTab === "motion" && (
-            <CommandGroup label="Locomotion modes">
-              <div className="avatar-command-box__grid">
-                <CommandAction
-                  icon={Activity}
-                  label="Walk"
-                  onClick={() => executeWorldCommand({ type: "mode", mode: "walk" })}
-                />
-                <CommandAction
-                  icon={Activity}
-                  label="Run"
-                  onClick={() => executeWorldCommand({ type: "mode", mode: "run" })}
-                />
-                <CommandAction
-                  icon={Plane}
-                  label="Fly"
-                  onClick={() => executeWorldCommand({ type: "mode", mode: "fly" })}
-                />
-                <CommandAction
-                  icon={ArrowUp}
-                  label="Jump"
-                  onClick={() => executeWorldCommand({ type: "mode", mode: "jump" })}
-                />
-                <CommandAction
-                  icon={Square}
-                  label="Stop"
-                  onClick={() => executeWorldCommand({ type: "stop" })}
-                />
-                <CommandAction
-                  icon={Undo2}
-                  label="Come back"
-                  onClick={() => executeWorldCommand({ type: "come-back" })}
-                />
-              </div>
-            </CommandGroup>
-          )}
-          {commandTab === "tools" && (
-            <>
-              {/* ORGANIZATION (owner order 2026-11-22): the rooms used
-                  to be one long undifferentiated grid of two dozen
-                  buttons. Now subcategories — each thing in exactly
-                  one obvious place, same standard as the builder. */}
-              <CommandGroup label="Worlds & building">
-                <div className="avatar-command-box__grid">
-                  {/* CAPTAIN ZERO'S OFFICE (owner order 2026-11-27
-                      ~22:28 CST): his own door stands first in his
-                      worlds — his private office, where he is left
-                      alone and only an emergency knocks. */}
-                  <CommandAction
-                    icon={DoorOpen}
-                    label="Captain Zero's Office"
-                    onClick={() => setCaptainsOfficeOpen(true)}
-                  />
-                  <CommandAction icon={Box} label="AR Cube" onClick={() => setArCubeOpen(true)} />
-                  <CommandAction
-                    icon={Hexagon}
-                    label="HEXO — the Core"
-                    onClick={() => setHexoOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Gamepad2}
-                    label="Emulators — Battle Box"
-                    onClick={() => setEmulatorOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Gamepad2}
-                    label="Legend of Logic"
-                    onClick={() => void navigate({ to: "/avatar/game" })}
-                  />
-                  <CommandAction
-                    icon={Swords}
-                    label="World of Logic"
-                    onClick={() => void navigate({ to: "/avatar/world" })}
-                  />
-                  <CommandAction
-                    icon={Hammer}
-                    label={builderOpen ? "Environment Builder · open" : "Environment Builder"}
-                    onClick={() => setBuilderOpen((open) => !open)}
-                  />
-                  <CommandAction
-                    icon={MapIcon}
-                    label={mapOpen ? "World Map · open" : "World Map"}
-                    onClick={() => setMapOpen((open) => !open)}
-                  />
-                  <CommandAction
-                    icon={LandPlot}
-                    label={builtWorldMapOpen ? "Built World · open" : "Built World"}
-                    onClick={() => setBuiltWorldMapOpen((open) => !open)}
-                  />
-                  <CommandAction
-                    icon={Building2}
-                    label="Departments"
-                    onClick={() => setDepartmentsOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Smartphone}
-                    label="Phone Bridge — Ghost Protocol One"
-                    onClick={() => void navigate({ to: "/phone-bridge" })}
-                  />
-                  <CommandAction
-                    icon={BookOpen}
-                    label="Master Manual"
-                    onClick={() => void navigate({ to: "/manual" })}
-                  />
-                  <CommandAction
-                    icon={Globe}
-                    label="Projects — my websites"
-                    onClick={() => setProjectsOpen(true)}
-                  />
-                </div>
-              </CommandGroup>
-              <CommandGroup label="Senses & analysis">
-                <div className="avatar-command-box__grid">
-                  <CommandAction
-                    icon={ScanSearch}
-                    label="Picture Analysis"
-                    onClick={() => setAnalyzeOpen(true)}
-                  />
-                  <CommandAction icon={Activity} label="Pulse" onClick={() => setPulseOpen(true)} />
-                  <CommandAction
-                    icon={AudioLines}
-                    label="Sound Watch"
-                    onClick={() => setSoundWatchOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Waves}
-                    label="Signal Map"
-                    onClick={() => setSignalMapOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Ear}
-                    label="Listening Mode"
-                    onClick={() => setListeningOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Bluetooth}
-                    label="Devices"
-                    onClick={() => setDevicesOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Radio}
-                    label="Remote Codes"
-                    onClick={() => setRemoteCodesOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Camera}
-                    label="Cameras"
-                    onClick={() => setCamerasOpen(true)}
-                  />
-                  <CommandAction
-                    icon={ScanSearch}
-                    label="Identify"
-                    onClick={() => setIdentifyOpen(true)}
-                  />
-                </div>
-              </CommandGroup>
-              <CommandGroup label="Records & safety">
-                <div className="avatar-command-box__grid">
-                  <CommandAction
-                    icon={History}
-                    label="Reply history"
-                    onClick={() => setHistoryOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Shield}
-                    label="Gate Log"
-                    onClick={() => setGateLogOpen(true)}
-                  />
-                  <CommandAction
-                    icon={ScrollText}
-                    label="Logs"
-                    onClick={() => setLogsOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Bell}
-                    label={inboxUnread > 0 ? `Notifications (${inboxUnread} unread)` : "Notifications"}
-                    onClick={() => setInboxOpen(true)}
-                  />
-                  <CommandAction
-                    icon={ArrowLeftRight}
-                    label="Grid-Down Exchange"
-                    onClick={() => setExchangeOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Shield}
-                    label="Personal Vault"
-                    onClick={() => setVaultOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Scale}
-                    label="Stop Safety"
-                    onClick={() => setStopSafetyOpen(true)}
-                  />
-                  <CommandAction
-                    icon={CircleDot}
-                    label="Dark Hole"
-                    onClick={() => setDarkHoleOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Clapperboard}
-                    label="Captain's Log"
-                    onClick={() => setCaptainsLogOpen(true)}
-                  />
-                  <CommandAction
-                    icon={BookOpen}
-                    label="Library"
-                    onClick={() => setLibraryOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Sun}
-                    label="The Eight and the Gods"
-                    onClick={() => setDeitiesOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Scale}
-                    label="Law Desk"
-                    onClick={() => setLawOpen(true)}
-                  />
-                  <CommandAction
-                    icon={BarChart3}
-                    label="Office Analytics"
-                    onClick={() => setAnalyticsOpen(true)}
-                  />
-                </div>
-              </CommandGroup>
-              <CommandGroup label="Workshop & study">
-                <div className="avatar-command-box__grid">
-                  <CommandAction
-                    icon={GraduationCap}
-                    label="My Learning"
-                    onClick={() => setLearningOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Sparkles}
-                    label="Training Hall"
-                    onClick={() => setTrainingOpen(true)}
-                  />
-                  <CommandAction icon={Eye} label="Sight Log" onClick={() => setSightLogOpen(true)} />
-                  <CommandAction icon={Bug} label="Sandbox" onClick={() => setSandboxOpen(true)} />
-                  <CommandAction
-                    icon={FlaskConical}
-                    label="Test Area"
-                    onClick={() => setTestAreaOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Network}
-                    label="Anatomy"
-                    onClick={() => setAnatomyOpen(true)}
-                  />
-                  <CommandAction icon={Binary} label="Binary" onClick={() => setBinaryOpen(true)} />
-                </div>
-              </CommandGroup>
-              <CommandGroup label="Windows — I can open them too, I still decide">
-                <div className="avatar-command-box__grid">
-                  <CommandAction
-                    icon={BookOpen}
-                    label="Notepad"
-                    onClick={() => openWindow("notepad")}
-                  />
-                  <CommandAction
-                    icon={Presentation}
-                    label="Chalkboard"
-                    onClick={() => openWindow("chalkboard")}
-                  />
-                  <CommandAction
-                    icon={Camera}
-                    label="Player"
-                    onClick={() => openWindow("player")}
-                  />
-                </div>
-              </CommandGroup>
-              <CommandGroup label="Knowledge and sensors">
-                <div className="avatar-command-box__grid">
-                  <CommandAction
-                    icon={BookOpen}
-                    label="Knowledge"
-                    onClick={() => setKnowledgeOpen((open) => !open)}
-                  />
-                  <CommandAction
-                    icon={Camera}
-                    label={sensor ? "Camera on" : "Camera + mic"}
-                    onClick={() => void enableSensors()}
-                    disabled={Boolean(sensor)}
-                  />
-                </div>
-              </CommandGroup>
-              <CommandGroup label="Presence">
-                <div className="avatar-command-box__grid">
-                  <CommandAction
-                    icon={Sparkles}
-                    label="Summon"
-                    onClick={() => {
-                      rendRef.current?.faceOperator();
-                      void sendCommand("Osiris");
-                    }}
-                  />
-                  <CommandAction
-                    icon={Presentation}
-                    label={presenting ? "Put away" : "Present"}
-                    onClick={togglePresent}
-                  />
-                </div>
-              </CommandGroup>
-            </>
-          )}
-          {commandTab === "settings" && (
-            <div className="avatar-command-box__settings">
-              <CommandGroup label="Interface and access">
-                <div className="avatar-command-box__grid">
-                  <CommandAction
-                    icon={Eye}
-                    label={clearScreen ? "Show screen" : "Clear screen (C)"}
-                    onClick={() => {
-                      const next = !clearScreen;
-                      setClearScreen(next);
-                      saveClearScreenPreference(next);
-                    }}
-                  />
-                  <CommandAction icon={LogOut} label="Sign out" onClick={() => void onSignOut()} />
-                </div>
-                {signOutError && (
-                  <p className="operator-auth__error" role="alert">
-                    {signOutError}
-                  </p>
-                )}
-              </CommandGroup>
-              <CommandGroup label="Rendering and theme">
-                <Slider
-                  label="Particles"
-                  min={20000}
-                  max={120000}
-                  step={5000}
-                  value={settings.maxParticles}
-                  onChange={(v) => update("maxParticles", v)}
-                  fmt={(v) => `${v / 1000}K`}
-                />
-                <Slider
-                  label="Bloom"
-                  min={0}
-                  max={2.5}
-                  step={0.05}
-                  value={settings.bloom}
-                  onChange={(v) => update("bloom", v)}
-                />
-                <Slider
-                  label="Glitch"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={settings.glitch}
-                  onChange={(v) => update("glitch", v)}
-                />
-                <Slider
-                  label="Snap sensitivity"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={settings.sensitivity}
-                  onChange={(v) => update("sensitivity", v)}
-                />
-                <Slider
-                  label="Cooldown"
-                  min={200}
-                  max={3000}
-                  step={50}
-                  value={settings.cooldownMs}
-                  onChange={(v) => update("cooldownMs", v)}
-                  fmt={(v) => `${v}ms`}
-                />
-                <label className="avatar-hud__row">
-                  Theme
-                  <select
-                    className="avatar-hud__select"
-                    value={settings.theme}
-                    onChange={(e) => update("theme", e.target.value as ThemeChoice)}
-                  >
-                    {Object.keys(THEMES).map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                    <option value="custom">Custom</option>
-                  </select>
-                </label>
-                <label className="avatar-hud__row">
-                  Custom glow / particles / core
-                  <input
-                    className="avatar-hud__color"
-                    type="color"
-                    value={settings.customColor}
-                    onChange={(e) => chooseCustomColor(e.target.value)}
-                  />
-                </label>
-                <p role="status">{settingsSyncLabel(syncStatus)}</p>
-              </CommandGroup>
-              <CommandGroup label="Brain — where Augie lives">
-                <label className="avatar-hud__row">
-                  Brain address (Ollama)
-                  <input
-                    className="avatar-hud__input"
-                    value={brainDraft}
-                    onChange={(e) => setBrainDraft(e.target.value)}
-                    placeholder="192.168.1.50"
-                    autoComplete="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    aria-label="Brain address (Ollama)"
-                  />
-                </label>
-                <CommandAction
-                  icon={Save}
-                  label="Save brain address"
-                  onClick={() => applyBrain(brainDraft)}
-                />
-                <CommandAction
-                  icon={Laptop}
-                  label="Use this device"
-                  onClick={() => applyBrain("")}
-                />
-                <p>
-                  On the computer itself, use “Use this device”. On a phone, type the computer’s
-                  address — home Wi-Fi or Tailscale — and Augie answers from the computer.
-                </p>
-                {brainMsg && <p role="status">{brainMsg}</p>}
-              </CommandGroup>
-              <CommandGroup label="Connections — APIs & data">
-                <div className="avatar-command-box__grid">
-                  <CommandAction
-                    icon={Globe}
-                    label="Connections — the universal slots"
-                    onClick={() => setConnectionsOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Network}
-                    label="Cloud keys — the lights"
-                    onClick={() => setCloudKeysOpen(true)}
-                  />
-                  <CommandAction
-                    icon={Network}
-                    label="The Formation — every surface of the one core"
-                    onClick={() => setFormationOpen(true)}
-                  />
-                </div>
-                <p>
-                  Open slots for APIs and data from other websites — fill one and the system can
-                  use it; an empty slot waits, honestly labeled. Values live on the server, never
-                  shown.
-                </p>
-              </CommandGroup>
-              <CommandGroup label="On-phone brain — the emergency brain">
-                <PhoneBrainPanel onStatusChange={setPhoneBrainState} />
-              </CommandGroup>
-              <CommandGroup label="Voice — the gods' speech">
-                <Slider
-                  label="Voice volume"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={speechVolume}
-                  onChange={changeSpeechVolume}
-                  fmt={(v) => `${Math.round(v * 100)}%`}
-                />
-                <p>
-                  The gods speak in a deeper British man's voice — a woman's voice only when the
-                  speaker is a woman. The level is yours; full is the standing default.
-                </p>
-                <VoiceLabPanel />
-              </CommandGroup>
-              <CommandGroup label="Voice calibration — only my operator's voice">
-                <VoiceCalibrationPanel prefs={voiceCalPrefs} onPrefsChange={changeVoiceCalPrefs} />
-              </CommandGroup>
-              <CommandGroup label="Trusted devices — confirmed by full sign-in">
-                <TrustedDevicesPanel />
-              </CommandGroup>
-              <CommandGroup label="Other voices — kept separate, never merged (Part 13)">
-                <SpeakerStoresPanel />
-              </CommandGroup>
-            </div>
-          )}
-        </CommandBox>
+        />
       )}
       <OfficeScene active={officeOpen} onExit={() => setOfficeOpen(false)} />
       <BattleBox
@@ -5831,16 +5841,30 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
         />
       )}
       {camerasOpen && <CamerasWindow onClose={() => setCamerasOpen(false)} />}
-      {/* THE LEFT RAIL (owner order 2026-11-26 ~13:48 CST):
-          the NOTIFICATIONS pill stands at the TOP-LEFT now —
-          moved from the top-right on his word — and directly
-          under it, his SETTINGS quick-access: press it and the
-          drop-down of his settings and options falls open; he
-          picks what he needs and it opens. STATUS keeps its
-          own tab at the top-right, untouched — opposite corner,
-          no collision. While Osiris holds a call his medallion
-          docks under this rail (its dress carries the offset),
-          so the corner never stacks two things in one place. */}
+      {/* THE TOP BAR — THREE SYMBOLS (owner order 2026-11-27
+          ~23:03 CST, phone fix pass 7 — superseding the left rail
+          of 2026-11-26): "move the notification button make it
+          into a bell i just want it to be a bell and when there's
+          an indication i can click it when i see a little red
+          indicator put that bell in the top right hand corner and
+          then move the status bottom make it small too just make
+          a little symbol just similar to the bell... and then put
+          a settings button make that into a cogswell whatever
+          egyptian symbol something small and align those three
+          next to each other and i can click one two or three it'll
+          open up that menu." So: the word pills are gone — one row
+          of three small symbols at the TOP-RIGHT: the BELL
+          (notifications; a small red dot stands on it when
+          notifications wait — the same unread state the inbox
+          tracks), the STATUS pulse (the same panel it always
+          opened), and the MENU cog, opening the drop-down he
+          called brilliant — the old SETTINGS menu, renamed MENU,
+          its groups untouched, with the command box's sections
+          (Scene, Motion, Tools, Commands, Settings) standing in
+          it as categories below. The rail's old companion note —
+          Osiris's medallion docking under it at the top-left —
+          stands down with the rail: that corner is clear stage
+          now, and his dock spot itself is untouched. */}
       {quickMenuOpen && (
         <button
           type="button"
@@ -5850,43 +5874,48 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
           onClick={() => setQuickMenuOpen(false)}
         />
       )}
-      <div className="stage-left-rail">
+      <div className="stage-top-bar">
         {!inboxOpen && (
           <button
             type="button"
-            className="notifications-stage-badge"
+            className="notifications-stage-badge stage-top-bar__button"
             onClick={() => setInboxOpen(true)}
             aria-label={
               inboxUnread > 0
                 ? `Notifications — ${inboxUnread} unread in Anubis's inbox`
                 : "Notifications — open Anubis's inbox"
             }
+            title="Notifications"
           >
-            <Bell aria-hidden="true" size={14} />
-            NOTIFICATIONS
-            {inboxUnread > 0 && (
-              <span className="notifications-stage-badge__count">{inboxUnread}</span>
-            )}
+            <Bell aria-hidden="true" size={16} />
+            {inboxUnread > 0 && <span className="stage-top-bar__dot" aria-hidden="true" />}
           </button>
         )}
+        <button
+          type="button"
+          className="avatar-status-tab stage-top-bar__button"
+          aria-expanded={statusOpen}
+          aria-controls="avatar-status-panel"
+          aria-label="Status"
+          onClick={() => setStatusOpen((open) => !open)}
+          title="Status — core, phone brain, voice, sensors, activity, hearing"
+        >
+          <Activity aria-hidden="true" size={16} />
+        </button>
         <div className="stage-quick-menu">
           <button
             type="button"
-            className="stage-quick-menu__button"
+            className="stage-quick-menu__button stage-top-bar__button"
             aria-expanded={quickMenuOpen}
             aria-haspopup="true"
+            aria-label="Menu"
+            title="Menu"
             onClick={() => setQuickMenuOpen((open) => !open)}
           >
-            <Settings2 aria-hidden="true" size={14} />
-            SETTINGS
-            <ChevronDown
-              aria-hidden="true"
-              size={14}
-              className={quickMenuOpen ? "stage-quick-menu__chevron is-open" : "stage-quick-menu__chevron"}
-            />
+            <Cog aria-hidden="true" size={16} />
           </button>
           {quickMenuOpen && (
-            <div className="stage-quick-menu__panel" role="menu" aria-label="Settings — quick access">
+            <div className="stage-quick-menu__panel" role="menu" aria-label="Menu">
               <button
                 type="button"
                 className="stage-quick-menu__row stage-quick-menu__row--lead"
@@ -5936,6 +5965,54 @@ ${commandKnowledgeSection}${commandToolsPrompt}${operatorMemory.asPrompt()}`,
                         <span className="stage-quick-menu__label">{row.label}</span>
                       </button>
                     ))}
+                </div>
+              ))}
+              {/* THE SECTIONS AS CATEGORIES (pass 7): the command
+                  box's Scene / Motion / Tools / Commands and its
+                  Settings panel, standing in the menu below the
+                  standing groups — every tile and control they
+                  carried, at the same address in his hand. */}
+              {quickMenuSections.map((section) => (
+                <div key={section.label} className="stage-quick-menu__group">
+                  <button
+                    type="button"
+                    className="stage-quick-menu__group-head"
+                    aria-expanded={quickMenuGroup === section.label}
+                    onClick={() =>
+                      setQuickMenuGroup((current) => (current === section.label ? null : section.label))
+                    }
+                  >
+                    <span className="stage-quick-menu__label">{section.label}</span>
+                    <ChevronDown
+                      aria-hidden="true"
+                      size={14}
+                      className={
+                        quickMenuGroup === section.label
+                          ? "stage-quick-menu__chevron is-open"
+                          : "stage-quick-menu__chevron"
+                      }
+                    />
+                  </button>
+                  {quickMenuGroup === section.label && (
+                    <div
+                      className="stage-quick-menu__section"
+                      onClickCapture={(event) => {
+                        // A picked tile opens its door and folds the
+                        // menu away — the menu rows' own law. Inline
+                        // controls (the wallpaper picker, the
+                        // Settings panel's own fields) carry
+                        // data-menu-keepopen: the menu stands while
+                        // he works them.
+                        const target = event.target as HTMLElement;
+                        if (target.closest?.("[data-menu-keepopen]")) return;
+                        if (target.closest?.(".avatar-command-box__action")) {
+                          setQuickMenuOpen(false);
+                        }
+                      }}
+                    >
+                      {section.content}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

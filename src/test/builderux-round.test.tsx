@@ -28,9 +28,6 @@ describe("Section A — the stage can fold the chat box (builder needs the stage
     const { container } = render(
       <CommandBox
         accent="#d4af37"
-        tabs={[{ id: "scene", label: "Scene", icon: Eye }]}
-        activeTab="scene"
-        onTabChange={vi.fn()}
         chat=""
         onChatChange={vi.fn()}
         onSubmit={vi.fn()}
@@ -42,9 +39,7 @@ describe("Section A — the stage can fold the chat box (builder needs the stage
         onMinimizeShortcut={(handed) => {
           controls = handed;
         }}
-      >
-        <p>panel body</p>
-      </CommandBox>,
+       />,
     );
     expect(controls).not.toBeNull();
     const box = container.querySelector(".avatar-command-box");

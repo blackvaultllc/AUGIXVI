@@ -156,13 +156,23 @@ export function defaultMedallionGeometry(
     // controls and margins visible on every side. Still big,
     // still centered. Desktop keeps the full measure he
     // ordered kept.
-    if (stageW <= 700 || stageH <= 500) {
-      fitted = Math.min(fitted, Math.round(Math.min(stageW, stageH) * 0.66));
+    // SMALLER AND HIGHER STILL (owner order 2026-11-27 ~23:03
+    // CST, phone fix pass 7): "make Anubis a little bit smaller
+    // and move Anubis up a little bit so that way the chat
+    // board won't even touch him at all." The phone cap steps
+    // down 66% → 59% of the short side (230 of a 390 stage),
+    // and the phone seat's center rises from the stage's
+    // middle (50%) to 46% of its height. Phone-sized stages
+    // only: the desktop seat keeps the full measure and the
+    // dead-center seat he ordered kept.
+    const phoneStage = stageW <= 700 || stageH <= 500;
+    if (phoneStage) {
+      fitted = Math.min(fitted, Math.round(Math.min(stageW, stageH) * 0.59));
     }
     return clampMedallionGeometry(
       {
         x: (stageW - fitted) / 2,
-        y: stageH * 0.5 - (fitted + MEDALLION_UNDER_FACE_HEIGHT) / 2,
+        y: stageH * (phoneStage ? 0.46 : 0.5) - (fitted + MEDALLION_UNDER_FACE_HEIGHT) / 2,
         size: fitted,
       },
       stageW,
