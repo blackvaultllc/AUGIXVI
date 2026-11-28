@@ -778,8 +778,11 @@
   border: 3px solid #0b0e14;
   box-shadow: 7px 7px 0 rgb(0 0 0 / 55%);
 }
+/* PASS 9B (owner order 2026-11-28 ~00:52 CST): the blue fill is out
+   of the rail and his question bubbles too — pass 9's dress stands:
+   the near-black ground, gold text. Color only; nothing moved. */
 .avatar-stage .avatar-command-box__rail {
-  background: #1d2a52;
+  background: #0a101e;
   border-right: 3px solid #0b0e14;
 }
 .avatar-stage .avatar-command-box__title {
@@ -799,8 +802,8 @@
   margin: 0.3rem 0;
 }
 .avatar-stage .avatar-command-box__thread-q {
-  background: #1d2a52;
-  color: #eef2ff;
+  background: #0a101e;
+  color: #ffd94d;
 }
 .avatar-stage .avatar-command-box__thread-a {
   background: #fff6da;
