@@ -30,8 +30,10 @@ import {
 import {
   getVioletView,
   violetChangePasswordFn,
+  violetFileLockRequestFn,
   violetSaveNotepad,
   violetSendMail,
+  violetSetAccountLockFn,
   violetSignInFn,
   violetSignOutFn,
   violetSubmitRequest,
@@ -190,6 +192,11 @@ export function VioletHome() {
         }}
       />
 
+      {/* HER ACCOUNT LOCK (owner order 2026-11-27 ~23:18 CST):
+          her lock setup stands here, and the lock/unlock asks
+          route to the Captain — his lock, his review. */}
+      <AccountLockPanel token={token} view={view} onChanged={() => void refresh(token)} />
+
       {/* THE THREE BUTTONS (phone fix pass 2026-11-27, items
           11–12): problem, message, emergency — the same doors
           every agent carries, run through her own session door.
@@ -326,6 +333,150 @@ function VioletSignIn({ onSignedIn }: { onSignedIn: (token: string) => void }) {
 }
 
 /* ------------------------------ notepad ------------------------------ */
+
+/**
+ * HER ACCOUNT LOCK — the setup and the asks (owner order
+ * 2026-11-27 ~23:18 CST). She may set a lock on her account: a
+ * username and password of her choosing, and an email lock on
+ * top if she wants it. Locking and unlocking are the
+ * Captain's to finish: the buttons below file the request to
+ * him — it stands in his notifications, he reviews it, and he
+ * contacts her himself to make sure she is okay. The words on
+ * this panel say exactly that, and nothing here pretends the
+ * lock already gates her door: her sign-in still runs on her
+ * account password, as it always has, until the Captain wires
+ * the lock in.
+ */
+function AccountLockPanel({
+  token,
+  view,
+  onChanged,
+}: {
+  token: string;
+  view: VioletView;
+  onChanged: () => void;
+}) {
+  const lock = view.accountLock;
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [emailLock, setEmailLock] = useState(false);
+  const [note, setNote] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function saveSetup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await violetSetAccountLockFn({
+        data: { token, username, password, emailLock },
+      });
+      setMessage(result.note);
+      if (result.ok) {
+        setPassword("");
+        onChanged();
+      }
+    } catch {
+      setMessage("That could not be saved from here. Try again in a moment.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function fileRequest(kind: "lock" | "unlock") {
+    if (busy) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await violetFileLockRequestFn({ data: { token, kind, note } });
+      setMessage(result.note);
+      if (result.ok) setNote("");
+    } catch {
+      setMessage("That could not be sent from here. Your request is not lost — try again in a moment.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="violet-card violet-account-lock" aria-label="Your account lock">
+      <h2>Your account lock</h2>
+      <p className="violet-note">
+        You can set a lock of your own on this account — a username and password you choose, and an
+        email lock on top of it if you want one. Locking and unlocking are finished by the Captain:
+        ask here, and the request stands in his notifications. He reviews it and contacts you
+        himself to make sure you are okay.
+      </p>
+      {lock.set ? (
+        <p className="violet-note" role="status">
+          Your lock is set — username {lock.username}, email lock {lock.emailLock ? "on" : "off"}.
+          You can set it again below any time to change it.
+        </p>
+      ) : (
+        <p className="violet-note">No lock is set on your account yet.</p>
+      )}
+      <form className="violet-form" onSubmit={(event) => void saveSetup(event)}>
+        <label>
+          Lock username
+          <input
+            autoComplete="username"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            maxLength={80}
+            required
+          />
+        </label>
+        <label>
+          Lock password
+          <input
+            autoComplete="new-password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            minLength={10}
+            required
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={emailLock}
+            onChange={(event) => setEmailLock(event.target.checked)}
+          />{" "}
+          Add the email lock on top
+        </label>
+        <div className="violet-row">
+          <button type="submit" disabled={busy}>
+            {busy ? "Saving…" : lock.set ? "Set my lock again" : "Set my lock"}
+          </button>
+        </div>
+      </form>
+      <label>
+        A note for the Captain (if you want one)
+        <input
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          maxLength={500}
+        />
+      </label>
+      <div className="violet-row">
+        <button type="button" disabled={busy} onClick={() => void fileRequest("lock")}>
+          Ask the Captain to lock my account
+        </button>
+        <button type="button" disabled={busy} onClick={() => void fileRequest("unlock")}>
+          Ask the Captain to unlock my account
+        </button>
+      </div>
+      {message && (
+        <p className="violet-note" role="status">
+          {message}
+        </p>
+      )}
+    </section>
+  );
+}
 
 function NotepadPanel({ token, initial }: { token: string; initial: string }) {
   const [text, setText] = useState(initial);

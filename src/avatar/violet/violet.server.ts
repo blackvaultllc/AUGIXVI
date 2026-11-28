@@ -20,10 +20,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { verifySupabaseOperatorSession } from "../operatorAuth.server";
 import { fileSectionRequest } from "../sectionRequestsStore.server";
+import { fileLockRequest } from "../accountLockStore.server";
+import { accountLockView, type AccountLockView, type LockRequestKind } from "../accountLock";
 import {
   getVioletStore,
   violetChangePassword,
   violetNewId,
+  violetSaveAccountLock,
   violetSessionValid,
   violetSignIn,
   violetSignOut,
@@ -64,6 +67,8 @@ export interface VioletView {
   mailbox: VioletMailbox | null;
   outbox: VioletMail[];
   loginLog: { at: number; ok: boolean }[];
+  /** Her account-lock setup, as much as may cross the wire: set or not, the username, the email lock. */
+  accountLock: AccountLockView;
 }
 
 const SIGNED_OUT: VioletView = {
@@ -77,6 +82,7 @@ const SIGNED_OUT: VioletView = {
   mailbox: null,
   outbox: [],
   loginLog: [],
+  accountLock: { set: false, username: "", emailLock: false },
 };
 
 async function viewFor(token: string): Promise<VioletView> {
@@ -95,6 +101,7 @@ async function viewFor(token: string): Promise<VioletView> {
     mailbox: file.mailbox,
     outbox: file.outbox,
     loginLog: file.loginLog.slice(0, 10),
+    accountLock: accountLockView(file.accountLock),
   };
 }
 
@@ -200,6 +207,71 @@ export const violetSubmitRequest = createServerFn({ method: "POST" })
     return stored
       ? { ok: true, note: "Sent to the Captain — it stands in his notifications now." }
       : { ok: false, note: "The record could not be reached from here. Your words are not lost — try again in a moment." };
+  });
+
+/* --------------------------- her account lock --------------------------- */
+
+type LockSetupInput = { token: string; username: string; password: string; emailLock: boolean };
+
+/** Her lock setup door — her session only, hash kept on the core, word never stored. */
+export const violetSetAccountLockFn = createServerFn({ method: "POST" })
+  .validator((input: unknown): LockSetupInput => {
+    if (!isRecord(input)) throw new Error("Invalid lock request.");
+    const token = cleanToken(input["token"]);
+    const username = cleanText(input["username"], 80).trim();
+    const password = cleanText(input["password"], 200);
+    if (!token || !username || !password) throw new Error("Invalid lock request.");
+    return { token, username, password, emailLock: input["emailLock"] === true };
+  })
+  .handler(async ({ data }): Promise<{ ok: boolean; note: string }> => {
+    const lockWord: string = data.password;
+    const result = await violetSaveAccountLock(data.token, {
+      username: data.username,
+      password: lockWord,
+      emailLock: data.emailLock,
+    });
+    return { ok: result.ok, note: result.reason };
+  });
+
+type LockFileInput = { token: string; kind: LockRequestKind; note: string };
+
+/**
+ * Her lock/unlock request door — the Captain's lock, his
+ * review (owner order 2026-11-27 ~23:18 CST). The request
+ * files into the account-lock requests record on the core and
+ * mirrors into his notifications, where Anubis lets him know;
+ * he reviews it and contacts her himself. Filing changes
+ * nothing on her side by itself.
+ */
+export const violetFileLockRequestFn = createServerFn({ method: "POST" })
+  .validator((input: unknown): LockFileInput => {
+    if (!isRecord(input)) throw new Error("Invalid lock request.");
+    const token = cleanToken(input["token"]);
+    const kind = input["kind"];
+    if (!token || (kind !== "lock" && kind !== "unlock")) {
+      throw new Error("Invalid lock request.");
+    }
+    return { token, kind, note: cleanText(input["note"], 500) };
+  })
+  .handler(async ({ data }): Promise<{ ok: boolean; note: string }> => {
+    if (!(await violetSessionValid(data.token))) {
+      return { ok: false, note: "Your session has ended — sign in again, then send it." };
+    }
+    const stored = await fileLockRequest({
+      seat: 11, // Violet's seat — Agent 011, the company's own record.
+      fromName: VIOLET_PROFILE.fullName,
+      kind: data.kind,
+      note: data.note,
+    });
+    return stored
+      ? {
+          ok: true,
+          note: "Sent to the Captain — the request stands in his notifications now. He reviews it and contacts you himself.",
+        }
+      : {
+          ok: false,
+          note: "The record could not be reached from here. Your request is not lost — try again in a moment.",
+        };
   });
 
 /* ------------------------------ her email ------------------------------ */

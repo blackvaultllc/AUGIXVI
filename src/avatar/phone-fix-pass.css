@@ -80,6 +80,64 @@
   transform: rotateY(-57deg);
   transform-origin: right center;
 }
+/* ---- THE FRONT DOOR (login redesign, owner order 2026-11-27
+   ~23:18 CST): the landing is the wall itself — the whole
+   screen is the hit surface; a click raises ONE plain box; the
+   secure screen the god-name key opens stands over the same
+   rain in the same centered overlay the old landing used. ---- */
+.login-door {
+  position: relative;
+  min-height: 100dvh;
+}
+.login-door__overlay {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(7rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  pointer-events: none;
+}
+.login-door__overlay > * {
+  pointer-events: auto;
+}
+/* The bare wall's tap surface: invisible, total, patient. */
+.login-door__hit {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  outline: none;
+}
+/* THE PLAIN BOX: no label, no words — a dark box with a gold
+   hairline and one empty field. It says nothing, to anyone. */
+.login-door__box {
+  width: min(20rem, 82vw);
+  padding: 0.9rem 1rem;
+  border: 1px solid oklch(0.78 0.14 82 / 55%);
+  border-radius: 0.5rem;
+  background: oklch(0.1 0.02 60 / 94%);
+  box-shadow: 0 1rem 4rem oklch(0.03 0.01 60 / 60%);
+  cursor: text;
+}
+.login-door__box input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #ffe98a;
+  font: 600 1.05rem ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+  text-align: center;
+  outline: none;
+  caret-color: #ffe98a;
+}
+/* The saved-login button's home on the secure screen. */
+.operator-auth__saved-login {
+  margin-top: 1rem;
+}
+
 /* The agents' pages: their content stands over the wall. */
 .violet-shell,
 .learner-shell {

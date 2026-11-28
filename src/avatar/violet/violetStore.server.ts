@@ -44,6 +44,7 @@ import {
   type VioletMail,
   type VioletMailbox,
 } from "./violetSide";
+import { sanitizeAccountLockSetup, type AccountLockSetup } from "../accountLock";
 
 type VioletFs = typeof import("node:fs/promises");
 
@@ -92,6 +93,8 @@ export interface VioletStoreFile {
   outbox: VioletMail[];
   welcomeDraft: string;
   loginLog: VioletLoginLogEntry[];
+  /** Her account-lock setup (owner order 2026-11-27) — hash only, never the word. */
+  accountLock: AccountLockSetup | null;
 }
 
 /* ------------------------- password machinery ------------------------ */
@@ -146,6 +149,7 @@ function seedFile(now: number): VioletStoreFile {
     outbox: [],
     welcomeDraft: buildVioletWelcomeDraft(defaultPassword),
     loginLog: [],
+    accountLock: null,
   };
 }
 
@@ -232,6 +236,7 @@ function sanitizeStoreFile(v: unknown): VioletStoreFile | null {
           return [{ at: e["at"], ok: e["ok"] === true }];
         }).slice(0, 200)
       : [],
+    accountLock: sanitizeAccountLockSetup(v["accountLock"]),
   };
 }
 
@@ -382,6 +387,43 @@ export async function violetChangePassword(
     };
   });
   return result;
+}
+
+/**
+ * Save her account-lock setup (owner order 2026-11-27 ~23:18
+ * CST): a username and password of her choosing, and the
+ * optional email lock on top. Only the salted scrypt hash is
+ * kept — the word itself is never stored, here or anywhere.
+ * The setup is a record today; her door still opens on her
+ * account credential until the Captain wires the lock into
+ * the doors on his word (accountLock.ts states the bound).
+ */
+export async function violetSaveAccountLock(
+  token: string,
+  input: { username: string; password: string; emailLock: boolean },
+): Promise<{ ok: boolean; reason: string }> {
+  if (!(await violetSessionValid(token))) {
+    return { ok: false, reason: "Your session has ended — sign in again." };
+  }
+  const username = input.username.trim().slice(0, 80);
+  if (!username) return { ok: false, reason: "The lock needs a username." };
+  if (input.password.length < 10) {
+    return { ok: false, reason: "The lock password needs at least 10 characters." };
+  }
+  const store = await getVioletStore();
+  if (!store) return { ok: false, reason: "Your side lives on the core machine — it is not here." };
+  const salt = randomBytes(16).toString("hex");
+  await store.update((file) => ({
+    ...file,
+    accountLock: {
+      username,
+      salt,
+      hash: hashPassword(input.password, salt),
+      emailLock: input.emailLock === true,
+      updatedAt: Date.now(),
+    },
+  }));
+  return { ok: true, reason: "Your lock is set. The Captain holds the key to it." };
 }
 
 /** A fresh id for her records and mail. */

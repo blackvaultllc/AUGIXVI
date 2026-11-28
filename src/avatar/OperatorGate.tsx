@@ -8,11 +8,20 @@ import {
 import { AvatarStage } from "./AvatarStage";
 import { LOGIN_DISCLAIMER } from "./loginDisclaimer";
 import { GateCheckPanel } from "./GateCheckPanel";
+import { MatrixWall } from "./MatrixWall";
 import { MummyGuardianDeterrent } from "./MummyGuardian";
-import { SpaceView } from "./SpaceView";
 import { LearnerHeartDoor } from "./learner/LearnerHeartDoor";
 import { CAPTAIN_GATE_NAME, type GateAttemptResult, type GateVoiceOutcome } from "./loginGate";
 import { postGateAttemptRecord } from "./loginGateClient";
+import { godKeyDoorPath, resolveGodKey, type GodKeyMatch } from "./loginDoor";
+import {
+  browserStorage,
+  clearSavedLogin,
+  currentDeviceInfo,
+  readSavedLogin,
+  writeSavedLogin,
+  type SavedLogin,
+} from "./savedLogin";
 import { confirmThisDevice, fetchDeviceStatus } from "./trustedDevice";
 
 type GateState =
@@ -69,17 +78,29 @@ async function loadAuthClientFromServer(): Promise<SupabaseClient | null> {
   return client;
 }
 
-function OperatorLanding({ children }: { children: ReactNode }) {
+/**
+ * THE DOOR FRAME (owner order 2026-11-27 ~23:18 CST): every
+ * surface before authorization stands on the Matrix Wall —
+ * the landing is the wall itself, and the secure screen the
+ * god-name key opens stands over the same rain. Montu's
+ * medallion front has retired by this order; the verification
+ * machinery behind the door is unchanged. `weave` is the front
+ * cover only: the landing rain carries the authorization
+ * message in its bytes and runs at the landing pace; inside
+ * the door the wall is the plain gold rain.
+ */
+function DoorFrame({ weave = false, children }: { weave?: boolean; children?: ReactNode }) {
   return (
-    <>
-      <SpaceView isLanding isEnteringLiveMode={false} isReturningToSpace={false}>
-        {children}
-      </SpaceView>
+    <main className="login-door">
+      <MatrixWall role="owner" variant="page" weave={weave} />
+      <div className="login-door__overlay">{children}</div>
       {/* Khadija's heart door lives on the app footer (her order/his
           order 2026-11-21): reachable with no sign-in, leads only to
-          her education side, and grants nothing operator-side. */}
+          her education side, and grants nothing operator-side. The
+          heart is a glyph, not words — it stands on the landing
+          without breaking the landing's law. */}
       <LearnerHeartDoor />
-    </>
+    </main>
   );
 }
 
@@ -139,6 +160,79 @@ export function OperatorGate() {
   // the landing surface.
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [registerNotice, setRegisterNotice] = useState(false);
+  // THE FRONT DOOR (owner order 2026-11-27 ~23:18 CST): the
+  // landing is the bare Matrix Wall; a click opens a plain box;
+  // the name of the visitor's god is the key. doorMatch is the
+  // passed door — null, nothing but rain stands. A saved login
+  // on this device passes the door on return (see below).
+  const [doorMatch, setDoorMatch] = useState<GodKeyMatch | null>(null);
+  const [boxOpen, setBoxOpen] = useState(false);
+  const [godNameInput, setGodNameInput] = useState("");
+  const [savedLogin, setSavedLogin] = useState<SavedLogin | null>(null);
+
+  // A saved login on this device passes the name door on
+  // return — straight in, unless they signed out (signing out
+  // clears the record; see signOut and the SIGNED_OUT branch).
+  // The record passes the NAME door only: the session and the
+  // credentials still decide the entry, as they always have.
+  useEffect(() => {
+    const storage = browserStorage();
+    if (!storage) return;
+    const saved = readSavedLogin(storage);
+    if (!saved) return;
+    setSavedLogin(saved);
+    const match = resolveGodKey(saved.godName);
+    if (match && match.door === "operator" && match.seat === saved.seat) {
+      setDoorMatch(match);
+    }
+  }, []);
+
+  // The box's answer. A right name for another door crosses to
+  // that door (a full-page crossing, like the heart door — no
+  // operator state rides along). A wrong name is met with
+  // silence: the box closes, the rain stands, nothing is said
+  // that could teach anyone anything.
+  const submitGodName = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const match = resolveGodKey(godNameInput);
+      setGodNameInput("");
+      if (!match) {
+        setBoxOpen(false);
+        return;
+      }
+      if (match.door === "operator") {
+        setDoorMatch(match);
+        setBoxOpen(false);
+        return;
+      }
+      const path = godKeyDoorPath(match.door);
+      if (path) window.location.assign(path);
+    },
+    [godNameInput],
+  );
+
+  const saveLoginOnThisDevice = useCallback(() => {
+    if (!doorMatch) return;
+    const storage = browserStorage();
+    if (!storage) return;
+    const record: SavedLogin = {
+      seat: doorMatch.seat,
+      godName: doorMatch.godName,
+      personName: doorMatch.personName,
+      savedAt: new Date().toISOString(),
+      device: currentDeviceInfo(),
+    };
+    writeSavedLogin(storage, record);
+    setSavedLogin(record);
+  }, [doorMatch]);
+
+  const forgetThisDevice = useCallback(() => {
+    const storage = browserStorage();
+    if (storage) clearSavedLogin(storage);
+    setSavedLogin(null);
+  }, []);
+
   const gateOutcomeRef = useRef<GateVoiceOutcome | null>(null);
   const gatePhotoRef = useRef<Blob | null>(null);
   const gateArmedRef = useRef(false);
@@ -343,6 +437,16 @@ export function OperatorGate() {
         activeAccessTokenRef.current = "";
         verifiedTokenRef.current = "";
         verifyingTokenRef.current = "";
+        // A real sign-out ends the saved login on this device —
+        // "unless they sign out" (owner order 2026-11-27). A
+        // mere empty session at load is not a sign-out and
+        // clears nothing.
+        if (event === "SIGNED_OUT") {
+          const storage = browserStorage();
+          if (storage) clearSavedLogin(storage);
+          setSavedLogin(null);
+          setDoorMatch(null);
+        }
         gateOutcomeRef.current = null;
         gatePhotoRef.current = null;
         gateArmedRef.current = false;
@@ -489,6 +593,11 @@ export function OperatorGate() {
       verifyingTokenRef.current = "";
       setOperatorName(null);
       setOperatorFullName(null);
+      // Signing out ends the saved login on this device and
+      // shuts the name door behind him — the next visit starts
+      // at the rain, like any other.
+      forgetThisDevice();
+      setDoorMatch(null);
       setState("signed-out");
     } catch {
       setSignOutError("Sign-out failed. The current session is still active.");
@@ -510,21 +619,75 @@ export function OperatorGate() {
     return <main className="operator-auth-transition" aria-label="Opening operator interface" />;
   }
 
+  // THE LANDING (owner order 2026-11-27 ~23:18 CST): until the
+  // god-name key passes, the screen is the Matrix Wall and
+  // nothing else — black and gold rain at the landing pace, the
+  // authorization message woven into its bytes, no words, no
+  // names, no company information anywhere on it. A session
+  // still resolving behind the door changes nothing the
+  // visitor sees; a session that verifies never sees the box
+  // at all. An MFA challenge already in flight means a live
+  // session is mid-verification — that stands inside the door,
+  // not at the rain.
+  if (!doorMatch && state !== "mfa") {
+    return (
+      <DoorFrame weave>
+        <div
+          className="login-door__hit"
+          data-testid="login-wall"
+          role="button"
+          tabIndex={0}
+          aria-label="At the door"
+          onClick={() => setBoxOpen(true)}
+          onKeyDown={(event) => {
+            if (event.target !== event.currentTarget) return;
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setBoxOpen(true);
+            }
+          }}
+        >
+          {boxOpen && (
+            <form
+              className="login-door__box"
+              onSubmit={submitGodName}
+              onClick={(event) => event.stopPropagation()}
+            >
+              {/* A PLAIN BOX — no label text, no placeholder, no
+                  hint. The accessible name is for screen readers
+                  only; nothing is printed on the door. */}
+              <input
+                aria-label="The name of your god"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                autoFocus
+                value={godNameInput}
+                onChange={(event) => setGodNameInput(event.target.value)}
+              />
+            </form>
+          )}
+        </div>
+      </DoorFrame>
+    );
+  }
+
   if (state === "checking" || state === "verifying") {
     return (
-      <OperatorLanding>
+      <DoorFrame>
         <section className="operator-auth__card" aria-live="polite">
           <p>
             {state === "checking" ? "Checking operator session…" : "Verifying operator access…"}
           </p>
         </section>
-      </OperatorLanding>
+      </DoorFrame>
     );
   }
 
   if (state === "unconfigured") {
     return (
-      <OperatorLanding>
+      <DoorFrame>
         <section className="operator-auth__card" aria-labelledby="operator-auth-title">
           <h1 id="operator-auth-title">Sign-in not configured</h1>
           <p>
@@ -537,13 +700,13 @@ export function OperatorGate() {
             </p>
           )}
         </section>
-      </OperatorLanding>
+      </DoorFrame>
     );
   }
 
   if (state === "mfa") {
     return (
-      <OperatorLanding>
+      <DoorFrame>
         <section className="operator-auth__card" aria-labelledby="operator-auth-title">
           <h1 id="operator-auth-title">Two-step verification</h1>
           {mfaEnrollment ? (
@@ -584,18 +747,19 @@ export function OperatorGate() {
             </button>
           </form>
         </section>
-      </OperatorLanding>
+      </DoorFrame>
     );
   }
 
-  // HIDDEN FIELDS (owner order 2026-11-27): on the sign-in landing
-  // the credential fields do not exist until Montu's gate check
-  // passes. Registration (the one-time first-account setup) keeps
-  // its own form, as before — the owner is never locked out.
+  // HIDDEN FIELDS (owner order 2026-11-27): on the secure screen
+  // behind the god-name door, the credential fields do not exist
+  // until Montu's gate check passes. Registration (the one-time
+  // first-account setup) keeps its own form, as before — the
+  // owner is never locked out.
   const showCredentials = registrationMode || gatePass === "passed";
 
   return (
-    <OperatorLanding>
+    <DoorFrame>
       <section className="operator-auth__card" aria-labelledby="operator-auth-title">
         <h1 id="operator-auth-title">
           {registrationMode ? "Set up operator account" : "Operator sign-in"}
@@ -744,7 +908,33 @@ export function OperatorGate() {
         <p className="operator-auth__violet-door">
           <a href="/violet">Financial Advisor sign-in — Violet's door</a>
         </p>
+        {/* SAVE MY LOGIN ON THIS DEVICE (owner order 2026-11-27
+            ~23:18 CST): the button that makes a return visit
+            straight. It records this device and its information
+            beside the person whose god-name opened the door;
+            the record passes the NAME door on return — the
+            session and credentials still decide the entry —
+            and signing out forgets the device. */}
+        {!registrationMode && doorMatch && (
+          <div className="operator-auth__saved-login">
+            {savedLogin && savedLogin.seat === doorMatch.seat ? (
+              <>
+                <p className="operator-auth__device">
+                  Your login is saved on this device — next time, the door stands open for you
+                  here. Signing out forgets this device.
+                </p>
+                <button className="operator-auth__mode" type="button" onClick={forgetThisDevice}>
+                  Forget this device
+                </button>
+              </>
+            ) : (
+              <button className="operator-auth__mode" type="button" onClick={saveLoginOnThisDevice}>
+                Save my login on this device
+              </button>
+            )}
+          </div>
+        )}
       </section>
-    </OperatorLanding>
+    </DoorFrame>
   );
 }

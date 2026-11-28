@@ -110,11 +110,98 @@ function randomGlyphs(length: number, rng: () => number): string {
   return out;
 }
 
-/** A fresh drop entering above the plane. */
-export function newMatrixDrop(rows: number, trail: number, rng: () => number = Math.random): MatrixDrop {
+/* ------------------------------------------------------------------ */
+/* THE WOVEN COVER — the front door's rain carries a message in its    */
+/* bytes (owner order 2026-11-27 ~23:18 CST)                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The landing page is the Matrix and nothing else: no words on
+ * it, no personal or company information anywhere in it. The
+ * one message the front rain carries is woven INTO the binary
+ * itself — the bytes spell it, for anyone who reads bytes: the
+ * cover for trying to get in. It is never rendered as text.
+ */
+export const LANDING_WEAVE_MESSAGE = "NO AUTHORIZATION";
+
+/** The landing rain runs faster than the working wall — rain, water drops. */
+export const LANDING_WALL_SPEED = 1.6;
+
+/** One character as one byte of bits, MSB first. ASCII only — the cover's alphabet. */
+export function byteBits(char: string): string {
+  const code = char.charCodeAt(0) & 0x7f;
+  let out = "";
+  for (let bit = 7; bit >= 0; bit--) out += (code >> bit) & 1 ? "1" : "0";
+  return out;
+}
+
+function randomByteBits(rng: () => number): string {
+  let out = "";
+  for (let i = 0; i < 8; i++) out += rng() < 0.5 ? "0" : "1";
+  return out;
+}
+
+/**
+ * The woven byte stream: message byte, random byte, message
+ * byte, random byte — the message threaded through noise, in
+ * order, repeating forever. Read the even-indexed bytes as
+ * ASCII and the message stands there, again and again; read
+ * the whole stream and it is rain. One full pass of the stream
+ * is `2 × message length` bytes.
+ */
+export function wovenByteStream(message: string, rng: () => number = Math.random): string[] {
+  const bytes: string[] = [];
+  for (const char of message) {
+    bytes.push(byteBits(char));
+    bytes.push(randomByteBits(rng));
+  }
+  return bytes;
+}
+
+/** Decode a byte stream (8-bit strings) as ASCII text. */
+export function decodeBytes(bytes: readonly string[]): string {
+  return bytes.map((bits) => String.fromCharCode(parseInt(bits, 2) & 0x7f)).join("");
+}
+
+/** Read the message back out of a woven stream: the even-indexed bytes, decoded. */
+export function extractWovenMessage(bytes: readonly string[]): string {
+  return decodeBytes(bytes.filter((_, index) => index % 2 === 0));
+}
+
+/**
+ * A glyph source that draws from the woven stream, endlessly:
+ * each call returns the next `length` bits, wrapping at the
+ * stream's end so the message repeats through the rain forever.
+ * Drops fed by this source carry the cover in their trails.
+ */
+export function createWovenGlyphSource(
+  message: string,
+  rng: () => number = Math.random,
+): (length: number) => string {
+  const stream = wovenByteStream(message, rng).join("");
+  let cursor = Math.floor(rng() * stream.length);
+  return (length: number) => {
+    let out = "";
+    for (let i = 0; i < length; i++) {
+      out += stream[cursor % stream.length];
+      cursor++;
+    }
+    return out;
+  };
+}
+
+/** A fresh drop entering above the plane. When a glyph source is
+ *  given (the woven landing rain), the drop's trail is drawn from
+ *  it instead of from chance. */
+export function newMatrixDrop(
+  rows: number,
+  trail: number,
+  rng: () => number = Math.random,
+  glyphSource?: (length: number) => string,
+): MatrixDrop {
   return {
     head: -Math.floor(rng() * Math.max(2, rows / 2)),
-    glyphs: randomGlyphs(trail, rng),
+    glyphs: glyphSource ? glyphSource(trail) : randomGlyphs(trail, rng),
     speed: rng() < 0.18 ? 2 : 1,
   };
 }
@@ -130,12 +217,16 @@ export function stepMatrixDrops(
   rows: number,
   trail: number,
   rng: () => number = Math.random,
+  glyphSource?: (length: number) => string,
 ): MatrixDrop[] {
   return drops.map((drop) => {
     const head = drop.head + drop.speed;
-    if (head - drop.glyphs.length > rows) return newMatrixDrop(rows, trail, rng);
+    if (head - drop.glyphs.length > rows) return newMatrixDrop(rows, trail, rng, glyphSource);
     let glyphs = drop.glyphs;
-    if (rng() < 0.12) {
+    // A woven drop is never flipped — a flipped bit would tear
+    // the message the rain is carrying. Chance governs the
+    // plain rain only.
+    if (!glyphSource && rng() < 0.12) {
       const at = Math.floor(rng() * glyphs.length);
       const flipped = glyphs[at] === "1" ? "0" : "1";
       glyphs = glyphs.slice(0, at) + flipped + glyphs.slice(at + 1);
