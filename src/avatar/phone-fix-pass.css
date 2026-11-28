@@ -417,3 +417,65 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* =====================================================================
+   PHONE FIX PASS 4 (owner restatement 2026-11-27 ~21:58 CST,
+   superseding the panel reading of his 21:56 eye-check): the
+   phone chat is NOT a box. The input bar stays stuck to the
+   bottom of the screen, permanently pinned by the dock; above
+   it the conversation is a FLOWING STREAM — his line pops up,
+   the construct's reply under it, the stream proceeding in
+   that one place, like a Twitch or Discord chat. No panel, no
+   bordered container, no sheet around the messages. On send
+   the stream moves up: the newest exchange stands right above
+   where he types, whole lines only (the component's whole-line
+   snap in CommandBox), and the construct stands visible above
+   the stream — nothing blocks his gods. The Clear/History
+   tools stay as the small controls they already are. Fenced
+   to the phone width and to the CHAT FACE: a section open
+   keeps pass 3's sheet, the folded bar keeps its face, the
+   enlarged measure keeps pass 3's cap, and the desktop is
+   untouched.
+   ===================================================================== */
+@media (max-width: 700px) {
+  /* THE SHEET IS GONE from the chat face: no background, no
+     border, no shadow, no blur — the section is only the dock
+     (bottom 0, full width, flush, from section 35) and its
+     stack: stream directly above the pinned input, one unit
+     growing upward from the bottom edge, no dead space
+     between the last line and the bar. Its height is its
+     content's, capped in the stage's lower reach — lower
+     than pass 3's sheet cap — so the whole unit (tools,
+     stream, input) stands below the medallion's face: the
+     construct is visible above the stream, uncovered. */
+  .avatar-stage .avatar-command-box.avatar-command-box--phone-bar:not(.avatar-command-box--minimized):not(.avatar-command-box--section-open):not(.avatar-command-box--enlarged) {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    height: auto;
+    max-height: min(40dvh, 30rem);
+  }
+  /* THE STREAM HAS NO CONTAINER: the thread's slate, border
+     and rounding are gone — the messages (their own comic
+     bubbles, section 21, untouched) stand directly on the
+     stage. The thread is the stream's scroller alone, flexing
+     inside the capped unit with the whole flex chain free to
+     shrink, so the input rides directly under the last line
+     at every content height. */
+  .avatar-stage .avatar-command-box--phone-bar:not(.avatar-command-box--section-open) .avatar-command-box__thread {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0.15rem 0.1rem;
+    max-height: none;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+  .avatar-stage .avatar-command-box--phone-bar:not(.avatar-command-box--section-open) .avatar-command-box__main,
+  .avatar-stage .avatar-command-box--phone-bar:not(.avatar-command-box--section-open) .avatar-command-box__conversation {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
