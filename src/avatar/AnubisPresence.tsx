@@ -45,9 +45,20 @@
  * default, no drag, no Move/Center in his everyday menu. Placement
  * lives only behind the EMERGENCY EDIT unlock in his menu, and
  * closing the edit re-seats him centered (useMedallionAnchor's
- * lockedSeat). What he gets instead of movement is the PERSPECTIVE
+ * lockedSeat). What he got instead of movement was the PERSPECTIVE
  * BY BUTTON (same order): Left / Front / Right stage-view buttons
  * in his menu — the view moves around him; he never does.
+ *
+ * THE ANCHOR LAW (owner order 2026-11-27 ~23:32 CST, superseding
+ * the perspective-by-button sentence above): the Perspective
+ * buttons are REMOVED from his menu — "get rid of the
+ * perspectives too inside the menu of the constructs because
+ * they don't need to move. I want them to stay anchored." The
+ * gods do not move and cannot be repositioned by the user. The
+ * one movement that stands: when a screen opens on the stage,
+ * the god shrinks small and moves to the LEFT side — never
+ * covered, no work over a god's face — and returns to his
+ * anchor when it closes (the recede, §38 of the fix sheet).
  *
  * REPLACEABLE ASSET: the medallion reads exactly one file,
  * public/anubis-presence/face.webp. Replacing that file changes the
@@ -84,7 +95,6 @@ import {
   savePresenceView,
   type PresenceView,
 } from "./presenceView";
-import type { StageView } from "./stageView";
 import { useMedallionAnchor } from "./useMedallionAnchor";
 
 export const ANUBIS_FACE_SRC = ANUBIS_PORTRAIT_SRC;
@@ -102,8 +112,6 @@ export function AnubisPresence({
   atAttention = false,
   onSelect,
   onReturn,
-  stageView,
-  onStageViewChange,
   onRespectAsk,
 }: {
   /** False until the renderer's first frame — the stage is loading. */
@@ -123,13 +131,16 @@ export function AnubisPresence({
    */
   alert?: boolean;
   /**
-   * RECEDED (owner order 2026-11-26, the circuit-ring theme):
-   * while a screen the Captain asked for stands open on the
-   * stage, Anubis yields the foreground — smaller, dimmer,
-   * behind it — and returns to full center presence when it
-   * closes. He is never hidden and never gone; the stage drives
-   * this from its real window state, and the motion is the CSS
-   * transition on his root (stage-fix-round.css §38).
+   * RECEDED — THE ANCHOR LAW'S ONE MOVEMENT (owner order
+   * 2026-11-27 ~23:32 CST, formalizing the circuit-ring recede
+   * of 2026-11-26): while a screen the Captain asked for stands
+   * open on the stage, Anubis is never covered by it — he
+   * shrinks small and moves to the LEFT side of the screen,
+   * still present, still himself, and returns to his anchor at
+   * the center when it closes. No work is ever done over his
+   * face. The stage drives this from its real window state,
+   * and the motion is the CSS transition on his root
+   * (stage-fix-round.css §38).
    */
   receded?: boolean;
   /** The stage's focus is on Anubis's station right now. */
@@ -154,15 +165,6 @@ export function AnubisPresence({
    * the front returns to, never a god sent back from it.
    */
   onReturn?: () => void;
-  /**
-   * THE STAGE VIEW (owner eye-check 2026-11-23): the perspective
-   * the stage is viewed from — switched by the buttons in his
-   * menu, never by moving him. Supplied by AvatarStage; without
-   * it the menu simply carries no perspective row.
-   */
-  stageView?: StageView;
-  /** Switch the stage view (Left / Front / Right perspective). */
-  onStageViewChange?: (view: StageView) => void;
   /**
    * THE RESPECT ASK (owner order 2026-11-23 ~07:22 EST): fired
    * once per session when his face is handled past the threshold
@@ -263,20 +265,22 @@ export function AnubisPresence({
             />
           ) : (
           /* LIVING FACE (owner order 2026-11-22): the portrait itself,
-             plus blinking eyelids and a mouth that moves while Anubis
-             speaks — a face, not a frozen picture (LivingPortrait).
+             alive — a face, not a frozen picture (LivingPortrait).
              The body view carries no feature map, so it stays a plain
              portrait; the head is the living face. HIS OWN MOTION
              (2026-11-24): the shared rig bent to the commander —
-             the stage's slowest, weightiest blink (rebuilt in
-             phases, lower lid rising, lids fitted to the jackal
-             eye's slant), a deliberate gaze, a measured speech. */
+             a deliberate gaze, a measured speech. HIS BLINK IS
+             BINARY (owner order 2026-11-27 ~23:10 CST, superseding
+             the phased lids of 2026-11-24): no lids at all — his
+             eyes shine gold, and one byte flashes inside both
+             eyes for a second when he blinks (binaryBlink.ts). */
             <LivingPortrait
               src={ANUBIS_FACE_SRC}
               features={ANUBIS_FEATURES}
               speaking={speaking}
               imgClassName="anubis-presence__img"
               motion={ANUBIS_MOTION_PROFILE}
+              binaryBlink
             />
           )}
         </div>
@@ -286,8 +290,9 @@ export function AnubisPresence({
           his box menu (MedallionMenu), opened from the small
           button at the face's corner. THE LOCK-DOWN (2026-11-23):
           his menu carries no Move/Center/size while he is locked —
-          only the seat's state, the emergency-edit unlock, the
-          perspective buttons, and the head/body switch. */}
+          only the seat's state, the emergency-edit unlock, and
+          the head/body switch. (The perspective buttons that
+          rode here are gone — the anchor law, 2026-11-27.) */}
       <MedallionMenu
         name={ANUBIS_BINDING.name}
         lifted={anchor.lifted}
@@ -319,44 +324,16 @@ export function AnubisPresence({
             <span>Return to his place</span>
           </button>
         )}
-        {/* PERSPECTIVE BY BUTTON (owner eye-check 2026-11-23):
-            "have a button I can do left perspective, right
-            perspective" — the stage's view steps left or right
-            around him, and Front brings it back to center. He
-            never moves; the view does. */}
-        {stageView && onStageViewChange && (
-          <div
-            className="medallion-menu__perspective"
-            role="group"
-            aria-label="Stage perspective"
-          >
-            <span className="medallion-menu__perspective-label">Perspective</span>
-            <div className="medallion-menu__perspective-buttons">
-              {(
-                [
-                  ["left", "Left"],
-                  ["front", "Front"],
-                  ["right", "Right"],
-                ] as const
-              ).map(([view, label]) => (
-                <button
-                  key={view}
-                  type="button"
-                  className="medallion-menu__perspective-button"
-                  aria-pressed={stageView === view}
-                  aria-label={`${label} perspective`}
-                  title={`${label} perspective — the view moves, Anubis stays centered`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onStageViewChange(view);
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* THE PERSPECTIVE ROW IS GONE (owner order 2026-11-27
+            ~23:32 CST — the anchor law): "get rid of the
+            perspectives too inside the menu of the constructs
+            because they don't need to move. I want them to stay
+            anchored." The Left / Front / Right stage-view
+            buttons that rode here since 2026-11-23 are removed;
+            no control in his menu turns the view around him or
+            moves him — he stands anchored at the center, and
+            when a screen opens he steps small to the left
+            (the recede, stage-fix-round.css §38). */}
         {views.length > 1 && (
           <button
             type="button"

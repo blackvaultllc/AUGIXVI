@@ -276,55 +276,16 @@
   height: 0.85rem;
 }
 
-/* ---- 13) PERSPECTIVE BY BUTTON (lock-down round, owner
-   2026-11-23: "have a button I can do left perspective, right
-   perspective") -----------------------------------------------------
-   The perspective row rides in Anubis's menu — the stage's one
-   obvious spot for stage-view control. Pressing a button turns
-   the CAMERA (stageView.ts / AvatarRenderer.setStageView);
-   Anubis's geometry is never touched. */
-.medallion-menu__perspective {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  pointer-events: auto;
-}
-.medallion-menu__perspective-label {
-  color: #9fb2c8;
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-.medallion-menu__perspective-buttons {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.medallion-menu__perspective-button {
-  padding: 0.3rem 0.65rem;
-  border-radius: 9999px;
-  border: 1px solid rgb(212 175 55 / 65%);
-  background: rgb(8 12 22 / 85%);
-  color: #f3d27a;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.medallion-menu__perspective-button:hover,
-.medallion-menu__perspective-button:focus-visible {
-  background: rgb(24 32 52 / 92%);
-  border-color: rgb(212 175 55 / 95%);
-  outline: none;
-}
-.medallion-menu__perspective-button[aria-pressed="true"] {
-  background: rgb(212 175 55 / 92%);
-  color: #101623;
-  border-color: rgb(212 175 55 / 95%);
-}
+/* ---- 13) PERSPECTIVE BY BUTTON — REMOVED (owner order
+   2026-11-27 ~23:32 CST, the anchor law, superseding the
+   lock-down round's section below it in history): "get rid
+   of the perspectives too inside the menu of the constructs
+   because they don't need to move. I want them to stay
+   anchored." The Left / Front / Right row and its dress are
+   gone from Anubis's menu; no control in a construct's menu
+   turns the view around a god or moves him. The gods stay
+   anchored; the one movement that stands is the recede
+   (§38): small, to the left, never covered. */
 
 /* ---- 14) THE EMERGENCY-EDIT RING (lock-down round) ----------------
    While Anubis's placement is unlocked, his face wears a dashed
@@ -1890,20 +1851,27 @@
 }
 
 /* ================================================================
-   38) ANUBIS RECEDES AND RETURNS (same order): while a screen
-   the Captain asked for stands open, Anubis yields the
-   foreground — smaller, dimmer, and behind it (the windows
-   stand at z 60; he stands at z 6, as ever). When the last
-   screen closes he pulls himself back up to full center
-   presence. The motion is this transition — smooth both
-   ways, at the gods' animation standard — and it is the ONLY
-   transform the recede ever applies: his seat, his size on
-   record, and his face are untouched, and he is never hidden
-   (opacity holds at half, never zero). The council's
-   transform:none law (§10) yields to the recede while a
-   screen stands open — the recede is the newer, deliberate
-   order, and it ends the moment the screen closes. Reduced
-   motion: the change is instant, no glide.
+   38) ANUBIS RECEDES AND RETURNS — FORMALIZED TO THE ANCHOR
+   LAW (owner order 2026-11-27 ~23:32 CST, superseding the
+   circuit-ring wording this section opened with): "if I pull
+   up something... instead of the screen blocking the god the
+   god will turn small and move to the left side of the screen
+   out of respect of not doing work over the god's face no
+   matter what." While a screen the Captain asked for stands
+   open, Anubis is NEVER under it: he shrinks small (0.45) and
+   steps to the LEFT side of the screen (his center lands a
+   third of the stage's width left of his seat), at full
+   presence — no dimming, no ghosting; he is aside, not
+   behind. When the last screen closes he returns to his
+   anchor at the center, full size. The motion is this
+   transition — smooth both ways, at the gods' animation
+   standard — and it is the ONLY transform the recede ever
+   applies: his seat, his size on record, and his face are
+   untouched, and he is never hidden (opacity never drops).
+   The council's transform:none law (§10) yields to the
+   recede while a screen stands open — the recede is the
+   newer, deliberate order, and it ends the moment the screen
+   closes. Reduced motion: the change is instant, no glide.
    ================================================================ */
 .avatar-stage .anubis-presence {
   transition:
@@ -1912,9 +1880,7 @@
     filter 650ms ease;
 }
 .avatar-stage .anubis-presence.anubis-presence--receded {
-  transform: scale(0.7);
-  opacity: 0.5;
-  filter: brightness(0.72) saturate(0.8);
+  transform: translateX(-31vw) scale(0.45);
 }
 @media (prefers-reduced-motion: reduce) {
   .avatar-stage .anubis-presence {
@@ -1967,8 +1933,7 @@
 .avatar-stage .medallion-menu__button,
 .avatar-stage .medallion-controls__button,
 .avatar-stage .medallion-menu__size-button,
-.avatar-stage .medallion-menu__lock-button,
-.avatar-stage .medallion-menu__perspective-button {
+.avatar-stage .medallion-menu__lock-button {
   box-shadow: 0 0 10px rgb(255 217 77 / 12%);
 }
 .avatar-stage .osiris-medallion .augie-presence {

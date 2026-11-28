@@ -4,6 +4,7 @@ import { AnubisPresence } from "@/avatar/AnubisPresence";
 import { BlackHatterPresence } from "@/avatar/BlackHatterPresence";
 import { MontuPresence } from "@/avatar/MontuPresence";
 import { ANUBIS_FEATURES, MONTU_FEATURES, speakingMsForText } from "@/avatar/LivingPortrait";
+import { eyeOpeningRects } from "@/avatar/binaryBlink";
 
 /**
  * LIVING FACES (owner order 2026-11-22, the core defect): the
@@ -12,6 +13,11 @@ import { ANUBIS_FEATURES, MONTU_FEATURES, speakingMsForText } from "@/avatar/Liv
  * Anubis when Anubis answers, the Black Hatter when he speaks the
  * Captain's typed words. These tests pin the overlays to the
  * portraits and the mouth to the speaking signal.
+ *
+ * SUPERSEDED FOR ANUBIS ONLY (owner design 2026-11-27 ~23:10
+ * CST): his lids are REMOVED — his eyes shine gold and his blink
+ * is one byte flashing inside both eyes (binaryBlink.ts). Montu
+ * and the Black Hatter keep the lid rig these tests still pin.
  */
 describe("living medallion faces", () => {
   beforeEach(() => {
@@ -21,46 +27,78 @@ describe("living medallion faces", () => {
     vi.useRealTimers();
   });
 
-  it("Anubis's face carries two eyelids and a mouth over the portrait", () => {
+  it("Anubis's binary blink (owner design 2026-11-27): NO lids on his face — his eyes shine gold, and a mouth stands over the portrait", () => {
     const { container } = render(
       <AnubisPresence ready speaking={false} listening={false} acting={false} />,
     );
-    expect(container.querySelector('[data-testid="living-lid-left"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="living-lid-right"]')).not.toBeNull();
+    // The lid rig is GONE for Anubis — upper and lower lids alike.
+    expect(container.querySelector('[data-testid="living-lid-left"]')).toBeNull();
+    expect(container.querySelector('[data-testid="living-lid-right"]')).toBeNull();
+    expect(container.querySelector('[data-testid="living-lid-bottom-left"]')).toBeNull();
+    expect(container.querySelector('[data-testid="living-lid-bottom-right"]')).toBeNull();
+    // At rest his eyes SHINE GOLD — one shine clipped to each eye
+    // opening — and no byte stands in them yet.
+    const shine = container.querySelector<HTMLElement>('[data-testid="living-eye-shine-left"]');
+    expect(shine).not.toBeNull();
+    expect(container.querySelector('[data-testid="living-eye-shine-right"]')).not.toBeNull();
+    const openings = eyeOpeningRects(ANUBIS_FEATURES);
+    expect(shine!.style.left).toBe(`${openings.left.left}%`);
+    expect(shine!.style.top).toBe(`${openings.left.top}%`);
+    expect(shine!.style.width).toBe(`${openings.left.width}%`);
+    expect(shine!.style.height).toBe(`${openings.left.height}%`);
+    expect(container.querySelector('[data-testid="living-binary-eye-left"]')).toBeNull();
     const mouth = container.querySelector<HTMLElement>('[data-testid="living-mouth"]');
     expect(mouth).not.toBeNull();
     // At rest the mouth is shut — the portrait's own mouth shows.
     expect(mouth!.style.opacity).toBe("0");
   });
 
-  it("the eyelids blink on their cadence — the face is never frozen", () => {
+  it("the byte flashes inside BOTH eyes on his cadence — the same byte in each, clipped to the openings — then is gone", () => {
     const { container } = render(
       <AnubisPresence ready speaking={false} listening={false} acting={false} />,
     );
-    const lid = () => container.querySelector('[data-testid="living-lid-left"]')!;
-    expect(lid().classList.contains("is-closed")).toBe(false);
-    // Within twelve seconds of stage time, a blink must have closed
-    // the lids at least once (cadence 2.3–5.6s, checked in slices so
-    // the 150ms closed window is caught).
-    let sawClosed = false;
-    for (let i = 0; i < 240 && !sawClosed; i += 1) {
+    const flash = () => container.querySelector<HTMLElement>('[data-testid="living-binary-eye-left"]');
+    expect(flash()).toBeNull();
+    // Within twelve seconds of stage time a blink must have
+    // flashed (cadence 2.3–5.6s, checked in slices so the
+    // one-second flash is caught standing).
+    let sawFlash = false;
+    for (let i = 0; i < 240 && !sawFlash; i += 1) {
       act(() => {
         vi.advanceTimersByTime(50);
       });
-      sawClosed = lid().classList.contains("is-closed");
+      const left = flash();
+      if (left) {
+        sawFlash = true;
+        const right = container.querySelector<HTMLElement>(
+          '[data-testid="living-binary-eye-right"]',
+        )!;
+        // The SAME byte in both eyes — one blink, one byte.
+        expect(left.textContent).toMatch(/^[01]{8}$/);
+        expect(right.textContent).toBe(left.textContent);
+        // Clipped inside the eye OPENINGS — the overlay geometry
+        // is the calibrated opening rect, strictly inside the
+        // old lid footprint, never over his skin.
+        const openings = eyeOpeningRects(ANUBIS_FEATURES);
+        expect(left.style.left).toBe(`${openings.left.left}%`);
+        expect(left.style.top).toBe(`${openings.left.top}%`);
+        expect(left.style.width).toBe(`${openings.left.width}%`);
+        expect(left.style.height).toBe(`${openings.left.height}%`);
+        expect(right.style.left).toBe(`${openings.right.left}%`);
+      }
     }
-    expect(sawClosed).toBe(true);
-    // And they open again — a blink, not a stuck lid. (Checked in
-    // slices: an occasional double blink may close them once more
-    // first — what must never happen is a lid that stays shut.)
-    let sawOpenAgain = false;
-    for (let i = 0; i < 40 && !sawOpenAgain; i += 1) {
+    expect(sawFlash).toBe(true);
+    // And it clears — a flash, not a stuck byte. (Checked in
+    // slices: an occasional double blink may flash once more
+    // first — what must never happen is a byte that stays.)
+    let sawClear = false;
+    for (let i = 0; i < 80 && !sawClear; i += 1) {
       act(() => {
         vi.advanceTimersByTime(50);
       });
-      sawOpenAgain = !lid().classList.contains("is-closed");
+      sawClear = flash() === null;
     }
-    expect(sawOpenAgain).toBe(true);
+    expect(sawClear).toBe(true);
   });
 
   it("Anubis's mouth moves while he speaks and stills when he stops", () => {

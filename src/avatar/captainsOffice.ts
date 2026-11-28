@@ -32,9 +32,19 @@
  *   (daddyRinging) and the Office shows it as its own line —
  *   the view's business, not this module's.
  *
- * A knock is an ASK, never an entry. The Captain admits the
- * god — the god's own chat opens, the standing way he speaks
- * with a god — or dismisses him: "not now." A dismissal is
+ * A knock is an ASK, never an entry. It reaches him AS A
+ * NOTIFICATION (owner refinement 2026-11-27 ~23:07 CST):
+ * while he is in the Office, a standing knock is written
+ * into the record through notify() under the god's own name
+ * — "[God] would like to speak with you" — once per standing
+ * alert, and in the room it stands as the notification card
+ * he clicks. Clicking it admits the god INTO THE OFFICE:
+ * the god comes in, the conversation opens inside the room
+ * (the chat, addressed to that god, standing over the
+ * Office's own ground), and the Captain does not step out.
+ * When the conversation is done he ends it — the god leaves
+ * and goes back to his work, and the Captain stays in his
+ * Office. Or he dismisses the knock: "not now." A dismissal is
  * remembered against the knock's SIGNATURE (the standing
  * counts it answers to): the same standing alert does not
  * knock twice, but if the count GROWS the signature changes
@@ -114,6 +124,16 @@ export function officeKnocks(reading: AlertRingReading): OfficeKnock[] {
     reason: entry.reasons.join(" "),
     signature: `${god}|${entry.parts.join("|")}`,
   }));
+}
+
+/**
+ * The notification line a knock arrives by (owner refinement
+ * 2026-11-27 ~23:07 CST): the god's name, the ask in plain
+ * words, and the real reason — the same words the record
+ * carries (notify) and the room's card shows.
+ */
+export function officeKnockNotification(knock: OfficeKnock): string {
+  return `${knock.godName} would like to speak with you — emergency: ${knock.reason}`;
 }
 
 /**

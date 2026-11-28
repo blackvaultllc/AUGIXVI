@@ -32,7 +32,11 @@ import { godForReportTopic } from "@/avatar/godPopUp";
  *    re-seats him CENTERED at the big default (560). A saved
  *    off-center Anubis record is never honored again.
  * 2) PERSPECTIVE BY BUTTON — Left / Front / Right in his menu;
- *    the camera turns, his geometry never does.
+ *    the camera turns, his geometry never does. SUPERSEDED
+ *    (owner order 2026-11-27 ~23:32 CST — the anchor law): the
+ *    perspective row is REMOVED from his menu; the gods stay
+ *    anchored and no menu control repositions them. The
+ *    stage-view module itself stands for the stage's swipe.
  * 3) The top clusters SIZE TO THEIR CONTENT (No Empty Gaps law)
  *    with BIFOCAL TYPE — 1rem primary lines.
  * 4) The PC chat default is smaller (420×360 — pinned in
@@ -157,46 +161,29 @@ describe("the locked seat — Anubis does not move", () => {
   });
 });
 
-describe("perspective by button", () => {
+describe("perspective by button — REMOVED (the anchor law, owner order 2026-11-27 ~23:32 CST)", () => {
   beforeEach(() => {
     localStorage.clear();
     Element.prototype.setPointerCapture = vi.fn();
     Element.prototype.releasePointerCapture = vi.fn();
   });
 
-  it("the buttons ride in Anubis's menu and report the pick — his seat never changes", () => {
-    const onStageViewChange = vi.fn();
+  it("Anubis's menu carries NO perspective row — the gods stay anchored and cannot be repositioned", () => {
     const { container } = render(
-      <AnubisPresence
-        ready
-        speaking={false}
-        listening={false}
-        acting={false}
-        onSelect={vi.fn()}
-        stageView="front"
-        onStageViewChange={onStageViewChange}
-      />,
+      <AnubisPresence ready speaking={false} listening={false} acting={false} onSelect={vi.fn()} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Open Anubis's menu" }));
-    expect(screen.getByRole("button", { name: "Left perspective" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
-    expect(screen.getByRole("button", { name: "Front perspective" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Right perspective" }));
-    expect(onStageViewChange).toHaveBeenCalledWith("right");
-    fireEvent.click(screen.getByRole("button", { name: "Left perspective" }));
-    expect(onStageViewChange).toHaveBeenCalledWith("left");
-    // The seat through all of it: centered, big, untouched.
+    expect(screen.queryByRole("button", { name: "Left perspective" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Front perspective" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Right perspective" })).toBeNull();
+    expect(container.querySelector(".medallion-menu__perspective")).toBeNull();
+    // His seat through all of it: centered, big, untouched.
     const root = container.querySelector(".anubis-presence") as HTMLElement;
     expect(root.style.left).toBe("232px");
     expect(root.style.top).toBe("104px");
   });
 
-  it("the view persists, defaults to front, and turns the camera — left negative, right positive", () => {
+  it("the stage-view module still stands for the stage's own swipe — persistence, default, camera signs", () => {
     expect(loadStageView()).toBe("front");
     saveStageView("left");
     expect(loadStageView()).toBe("left");
@@ -235,11 +222,10 @@ describe("content-sized clusters, bifocal type", () => {
     expect(phone).toContain(".avatar-stage .voice-indicator");
   });
 
-  it("the lock, the perspective row, and the emergency ring are styled", () => {
+  it("the lock and the emergency ring are styled — and the perspective row's dress is GONE (anchor law)", () => {
     expect(stageCss).toContain(".medallion-menu__lock-state");
     expect(stageCss).toContain(".medallion-menu__lock-button");
-    expect(stageCss).toContain(".medallion-menu__perspective-button");
-    expect(stageCss).toContain('.medallion-menu__perspective-button[aria-pressed="true"]');
+    expect(stageCss).not.toContain(".medallion-menu__perspective");
     expect(stageCss).toContain("medallion-anchor--emergency-edit");
   });
 });
